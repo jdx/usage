@@ -1311,6 +1311,119 @@ fn parse_partial_with_env(
     )
 }
 
+/// Locate the first default-only flag, while preserving an explicit sibling selector.
+/// This only reads declarations: it neither binds values nor executes mount commands.
+fn default_flag_route(spec: &Spec, root: &SpecCommand, input: &VecDeque<Token>) -> Option<usize> {
+    let default = root.find_subcommand(spec.default_subcommand.as_deref()?)?;
+    let parent = gather_flags(root);
+    let child = gather_flags(default);
+    let path = std::slice::from_ref(root);
+    let mut at = None;
+    let mut i = 0;
+    while let Some(token) = input.get(i).map(|t| t.word.as_str()) {
+        if token == "--" || token == "-" {
+            return at;
+        }
+        if !is_flag_like(token) {
+            return if root.find_subcommand(token).is_some()
+                || (token == "help"
+                    && spec.disable_help != Some(true)
+                    && !root.disable_help_subcommand)
+            {
+                None
+            } else {
+                at
+            };
+        }
+        let mut value_flag = None;
+        let mut attached = None;
+        if token.starts_with("--") {
+            let (name, value) = token
+                .split_once('=')
+                .map_or((token, None), |(n, v)| (n, Some(v)));
+            if !parent.contains_key(name)
+                && (is_help_arg(spec, root, name) || is_version_arg(spec, path, name))
+            {
+                i += 1;
+                continue;
+            }
+            let flag = parent.get(name).or_else(|| child.get(name));
+            let Some(flag) = flag else {
+                return at;
+            };
+            if !parent.contains_key(name) {
+                at.get_or_insert(i);
+            }
+            if flag.arg.is_some() && flag.negate.as_deref() != Some(name) {
+                value_flag = Some(flag);
+                attached = value;
+            }
+        } else {
+            for (offset, letter) in token.char_indices().skip(1) {
+                let key = format!("-{letter}");
+                if !parent.contains_key(&key) && supplied_short(spec, path, letter).is_some() {
+                    continue;
+                }
+                let flag = parent.get(&key).or_else(|| child.get(&key));
+                let Some(flag) = flag else {
+                    return at;
+                };
+                if !parent.contains_key(&key) {
+                    at.get_or_insert(i);
+                }
+                if flag.arg.is_some() {
+                    value_flag = Some(flag);
+                    let rest = &token[offset + letter.len_utf8()..];
+                    attached = (!rest.is_empty()).then_some(rest.strip_prefix('=').unwrap_or(rest));
+                    break;
+                }
+            }
+        }
+        i += 1;
+        if let Some(flag) = value_flag {
+            let first = if attached.is_some() {
+                attached
+            } else {
+                input
+                    .get(i)
+                    .map(|t| t.word.as_str())
+                    .filter(|next| accepts_detached_flag_value(flag, next))
+                    .inspect(|_| i += 1)
+            };
+            if first.is_none() && !flag.value_optional && flag.default_missing.is_none() {
+                return at;
+            }
+            let arg = flag.arg.as_ref().expect("value flag");
+            if arg.var {
+                let count_values = |v: &str| arg.delimiter.map_or(1, |d| v.split(d).count());
+                let mut count = first.map_or(0, count_values);
+                while !arg.var_max.is_some_and(|max| count >= max) {
+                    let Some(next) = input.get(i).map(|t| t.word.as_str()) else {
+                        break;
+                    };
+                    if next == "--" || arg.value_terminator.as_deref() == Some(next) {
+                        if next != "--" {
+                            i += 1;
+                        }
+                        break;
+                    }
+                    if is_flag_like(next)
+                        && !(arg.allow_negative_numbers && is_negative_number(next))
+                    {
+                        break;
+                    }
+                    if root.subcommand_precedence_over_arg && root.find_subcommand(next).is_some() {
+                        return None;
+                    }
+                    count += count_values(next);
+                    i += 1;
+                }
+            }
+        }
+    }
+    at
+}
+
 /// The binding phase, with the trace left somewhere the caller can still read it.
 ///
 /// A failure this phase cannot continue past — a word no declaration can take, a flag a
@@ -1440,6 +1553,11 @@ fn parse_partial_traced(
         out.cmd = mounted;
     }
 
+    let default_flag_at = spec
+        .default_subcommand_flags
+        .then(|| default_flag_route(spec, &out.cmd, &input))
+        .flatten();
+
     while idx < input.len() {
         // Only for a word that could name a command, and only when it matches
         // nothing already declared. A CLI that declares its commands and mounts more
@@ -1476,7 +1594,14 @@ fn parse_partial_traced(
         {
             break;
         }
-        if let Some(subcommand) = out.cmd.find_subcommand(&input[idx].word) {
+        let implicit_default = !used_default_subcommand && default_flag_at == Some(idx);
+        let selected_command = if implicit_default {
+            out.cmd
+                .find_subcommand(spec.default_subcommand.as_deref().expect("default route"))
+        } else {
+            out.cmd.find_subcommand(&input[idx].word)
+        };
+        if let Some(subcommand) = selected_command {
             if out.cmd.args_conflicts_with_subcommands && command_arg_found {
                 bail!(
                     "subcommand '{}' cannot be used with arguments on its parent command",
@@ -1495,7 +1620,12 @@ fn parse_partial_traced(
                 crossing_mount,
             );
             // Remove subcommand from input
-            let selected = input.remove(idx);
+            let selected = if implicit_default {
+                used_default_subcommand = true;
+                None
+            } else {
+                input.remove(idx)
+            };
             if let Some(selected) = selected {
                 trace.record(
                     selected.argv,
@@ -1686,6 +1816,36 @@ fn parse_partial_traced(
         // following word; `-i9229` and `-i=9229` still bind. `default_missing` binds
         // only when the value is actually missing, so `-cnever` is still `never`.
         let attached_continuation = grouped_flag;
+        // The opt-in lookahead uses declared value arity, so binding must consume
+        // the same attached value even after the default changed flag scope.
+        // Other specs retain the reference parser's legacy short-bundle rules.
+        if spec.default_subcommand_flags
+            && attached_continuation
+            && !out.flag_awaiting_value.is_empty()
+        {
+            grouped_flag = false;
+            w.remove(0);
+            if w.starts_with('=') {
+                w.remove(0);
+            }
+            if bind_pending_flag_value(
+                spec,
+                &out.cmd,
+                &mut out.errors,
+                &mut out.flags,
+                &mut out.flag_awaiting_value,
+                &mut w,
+                &mut input,
+                custom_env,
+                trace,
+                argv,
+                true,
+            )? {
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                return Ok((out, overridden_flags));
+            }
+            continue;
+        }
 
         // A clause boundary is syntax even after an automatic trailing argument disabled
         // flags. Only an explicit `--` protects a literal separator.

@@ -217,6 +217,9 @@ pub struct Command<'a> {
     /// Resolve it with [`find_subcommand`], which turns a name that no subcommand answers to
     /// into a compile error.
     pub default_subcommand: ::core::option::Option<&'a Command<'a>>,
+    /// Look ahead past parent/default flags before implicitly selecting the default.
+    /// Explicit siblings win; parent-only flags retain their ordinary meaning.
+    pub default_subcommand_flags: bool,
     /// Whether an unmatched word is forwarded as an external command plus the rest of argv.
     ///
     /// clap's `allow_external_subcommands`. Known subcommands still win; a
@@ -290,6 +293,7 @@ impl Command<'_> {
         clause: ::core::option::Option::None,
         subcommands: &[],
         default_subcommand: ::core::option::Option::None,
+        default_subcommand_flags: false,
         external_subcommand: false,
         arg_required_else_help: false,
         subcommand_negates_reqs: false,
@@ -1622,7 +1626,10 @@ fn os_values_given<'t, 'v, T: From<OsString>>(
     Ok(out)
 }
 
-/// A single-pass parse over `argv`.
+/// A single binding pass over `argv`.
+///
+/// [`Command::default_subcommand_flags`] adds a read-only lookahead before binding
+/// to choose an implicit command boundary.
 ///
 /// Created with [`Parser::new`] and driven with [`Parser::next_event`].
 pub struct Parser<'t, 'a, 'v> {
@@ -1689,6 +1696,8 @@ pub struct Parser<'t, 'a, 'v> {
     /// Once, per parse: a default subcommand that itself declares one would otherwise
     /// descend on every word until the tree ran out.
     default_taken: bool,
+    /// First default-only flag, when lookahead found no explicit sibling.
+    default_flag_at: Option<usize>,
     /// Set once a fatal error has been reported, so iteration stops.
     done: bool,
     /// Whether declared built-in actions stop parsing with their action error.
@@ -1727,7 +1736,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         argv: &'a [&'v OsStr],
         action_errors: bool,
     ) -> Self {
-        Parser {
+        let mut parser = Parser {
             argv,
             pos: 0,
             cmd: root,
@@ -1756,11 +1765,142 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             flags_stopped: false,
             separator_seen: false,
             default_taken: false,
+            default_flag_at: None,
             done: false,
             action_errors,
             help_span: (0, 0),
             pending_clause_boundary: ::core::option::Option::None,
+        };
+        if root.default_subcommand_flags {
+            parser.default_flag_at = parser.default_flag_route();
         }
+        parser
+    }
+
+    /// Find the implicit boundary without binding anything. Parent spellings win while
+    /// scanning the prefix; after the boundary the ordinary child/global scope applies.
+    /// Unknown flags stop lookahead because their value arity cannot be guessed.
+    fn default_flag_route(&self) -> Option<usize> {
+        let default = self.cmd.default_subcommand?;
+        let mut at = None;
+        let mut i = 0;
+        while let Some(token) = self.argv.get(i).map(bytes) {
+            if token == b"--" || token == b"-" {
+                return at;
+            }
+            if !is_flag_like(token) {
+                return if self.find_subcommand(token).is_some()
+                    || (token == b"help" && !self.cmd.disable_help_subcommand)
+                {
+                    None
+                } else {
+                    at
+                };
+            }
+            let mut value_flag = None;
+            let mut attached = None;
+            if let Some(body) = token.strip_prefix(b"--") {
+                let end = body.iter().position(|b| *b == b'=').unwrap_or(body.len());
+                let name = &body[..end];
+                let parent = self.find_long(name).or_else(|| self.find_negation(name));
+                if parent.is_none()
+                    && ((name == b"help" && !self.cmd.disable_help_flag)
+                        || (name == b"version"
+                            && self.cmd.version
+                            && !self.cmd.disable_version_flag))
+                {
+                    i += 1;
+                    continue;
+                }
+                let flag = parent.or_else(|| {
+                    default.flags.iter().copied().find(|f| {
+                        f.longs.iter().any(|l| l.as_bytes() == name)
+                            || f.negate.is_some_and(|n| n.as_bytes() == name)
+                    })
+                });
+                let Some(flag) = flag else {
+                    return at;
+                };
+                if parent.is_none() {
+                    at.get_or_insert(i);
+                }
+                if flag.takes_value && !flag.negate.is_some_and(|n| n.as_bytes() == name) {
+                    value_flag = Some(flag);
+                    attached = (end < body.len()).then(|| &body[end + 1..]);
+                }
+            } else {
+                for (offset, byte) in token[1..].iter().enumerate() {
+                    let parent = self.find_short(*byte);
+                    let Some(flag) = parent.or_else(|| {
+                        default
+                            .flags
+                            .iter()
+                            .copied()
+                            .find(|f| f.shorts.contains(byte))
+                    }) else {
+                        return at;
+                    };
+                    if parent.is_none() {
+                        at.get_or_insert(i);
+                    }
+                    if flag.takes_value {
+                        value_flag = Some(flag);
+                        let rest = &token[offset + 2..];
+                        attached =
+                            (!rest.is_empty()).then_some(rest.strip_prefix(b"=").unwrap_or(rest));
+                        break;
+                    }
+                }
+            }
+            i += 1;
+            if let Some(flag) = value_flag {
+                let first = if let Some(value) = attached {
+                    Some(value)
+                } else if !flag.require_equals {
+                    self.argv
+                        .get(i)
+                        .map(bytes)
+                        .filter(|next| {
+                            flag.allow_hyphen_values
+                                || !is_flag_like(next)
+                                || (flag.allow_negative_numbers && is_negative_number(next))
+                        })
+                        .inspect(|_| i += 1)
+                } else {
+                    None
+                };
+                if first.is_none() && !flag.value_optional && flag.default_missing.is_none() {
+                    return at;
+                }
+                if flag.variadic {
+                    let mut count = first.map_or(0, |v| values_in(v, flag.delimiter));
+                    while !flag.var_max.is_some_and(|max| count >= max) {
+                        let Some(next) = self.argv.get(i).map(bytes) else {
+                            break;
+                        };
+                        if next == b"--" || flag.value_terminator.is_some_and(|end| end == next) {
+                            if next != b"--" {
+                                i += 1;
+                            }
+                            break;
+                        }
+                        if is_flag_like(next)
+                            && !(flag.allow_negative_numbers && is_negative_number(next))
+                        {
+                            break;
+                        }
+                        if self.cmd.subcommand_precedence_over_arg
+                            && self.find_subcommand(next).is_some()
+                        {
+                            return None;
+                        }
+                        count += values_in(next, flag.delimiter);
+                        i += 1;
+                    }
+                }
+            }
+        }
+        at
     }
 
     /// Restrict inherited root globals to those carried by an executable view.
@@ -1881,6 +2021,18 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn step(&mut self) -> Option<Result<Event<'t, 'a, 'v>, Error<'t, 'v>>> {
+        if self.default_flag_at == Some(self.pos) && self.bundle.is_empty() {
+            self.default_flag_at = None;
+            if let Some(default) = self.cmd.default_subcommand {
+                if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
+                    return Some(Err(Error::SubcommandConflict {
+                        subcommand: default,
+                    }));
+                }
+                self.default_taken = true;
+                return Some(self.descend(default).map(|()| Event::Command(default)));
+            }
+        }
         if let Some(clause) = self.pending_clause_boundary.take() {
             self.arg_pos = 0;
             self.arg_taken = 0;

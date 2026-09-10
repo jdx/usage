@@ -308,6 +308,11 @@ func flagsInScope(chain []*Command) []inScope {
 	for _, f := range chain[len(chain)-1].Flags {
 		offer(f)
 	}
+	if len(chain) == 1 && chain[0].DefaultSubcommandFlags && chain[0].DefaultSubcommand != nil {
+		for _, f := range chain[0].DefaultSubcommand.Flags {
+			offer(f)
+		}
+	}
 	for i := len(chain) - 2; i >= 0; i-- {
 		for _, f := range chain[i].Flags {
 			if f.Global {

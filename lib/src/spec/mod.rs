@@ -136,6 +136,11 @@ pub struct Spec {
     /// This enables "naked" command syntax like `mise foo` instead of `mise run foo`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_subcommand: Option<String>,
+    /// Opt in to routing flags of the default command before its first positional.
+    #[serde(skip_serializing_if = "is_false")]
+    pub default_subcommand_flags: bool,
+    #[serde(skip)]
+    pub default_subcommand_flags_set: bool,
     /// Whether argv[0]'s basename selects a subcommand (busybox-style applets).
     ///
     /// clap's `multicall`. The dispatcher names ([`Self::name`] and [`Self::bin`])
@@ -448,6 +453,8 @@ impl Spec {
         spec.complete = complete;
         spec.cmd = promoted;
         spec.default_subcommand = None;
+        spec.default_subcommand_flags = false;
+        spec.default_subcommand_flags_set = false;
         spec.multicall = false;
         spec.multicall_set = false;
         spec.views.clear();
@@ -620,6 +627,10 @@ impl Spec {
                 }
                 "default_subcommand" => {
                     schema.default_subcommand = Some(node.arg(0)?.ensure_string()?)
+                }
+                "default_subcommand_flags" => {
+                    schema.default_subcommand_flags = node.arg(0)?.ensure_bool()?;
+                    schema.default_subcommand_flags_set = true;
                 }
                 "multicall" => {
                     schema.multicall = node.arg(0)?.ensure_bool()?;
@@ -876,6 +887,10 @@ impl Spec {
         merge_opt!(disable_help);
         merge_opt!(min_usage_version);
         merge_opt!(default_subcommand);
+        if other.default_subcommand_flags_set {
+            self.default_subcommand_flags = other.default_subcommand_flags;
+            self.default_subcommand_flags_set = true;
+        }
         if other.multicall_set {
             self.multicall = other.multicall;
             self.multicall_set = true;
@@ -1165,6 +1180,11 @@ impl Display for Spec {
         if let Some(default_subcommand) = &self.default_subcommand {
             let mut node = KdlNode::new("default_subcommand");
             node.push(string_entry(None, default_subcommand));
+            nodes.push(node);
+        }
+        if self.default_subcommand_flags_set || self.default_subcommand_flags {
+            let mut node = KdlNode::new("default_subcommand_flags");
+            node.push(KdlEntry::new(self.default_subcommand_flags));
             nodes.push(node);
         }
         if self.multicall_set {

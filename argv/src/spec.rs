@@ -1593,6 +1593,9 @@ impl Spec<'_> {
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;
         }
+        if self.root.cmd.default_subcommand_flags {
+            writeln!(out, "default_subcommand_flags #true")?;
+        }
         if self.multicall {
             writeln!(out, "multicall #true")?;
         }

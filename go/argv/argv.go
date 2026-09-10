@@ -62,6 +62,8 @@ type Command struct {
 	// Applied at most once per parse, so a CLI cannot loop through it, and only
 	// where a subcommand could still be selected.
 	DefaultSubcommand *Command
+	// DefaultSubcommandFlags opts in to flag-prefix default routing.
+	DefaultSubcommandFlags bool
 	// ExternalSubcommand is whether an unmatched word is forwarded as an external
 	// command plus the rest of argv.
 	//

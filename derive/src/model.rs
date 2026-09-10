@@ -163,6 +163,7 @@ pub struct Cli {
     ///
     /// Only the root has one, and it is what mise sets by hand on the emitted spec today.
     pub default_subcommand: Option<String>,
+    pub default_subcommand_flags: bool,
     /// Whether argv[0]'s basename selects a subcommand (busybox-style applets).
     ///
     /// clap's `multicall`. Only the root has one: a spec declares it once, for the
@@ -830,6 +831,7 @@ impl Cli {
             source_code_link_template: None,
             unknown_flags: None,
             default_subcommand: None,
+            default_subcommand_flags: false,
             multicall: false,
             no_binary_name: false,
             arg_required_else_help: false,
@@ -1071,6 +1073,7 @@ impl Cli {
                     "default_subcommand" => {
                         cli.default_subcommand = Some(strip_dashes(&string_value(&meta)?))
                     }
+                    "default_subcommand_flags" => cli.default_subcommand_flags = flag_value(&meta)?,
                     "multicall" => cli.multicall = flag_value(&meta)?,
                     "no_binary_name" => cli.no_binary_name = flag_value(&meta)?,
                     "arg_required_else_help" => cli.arg_required_else_help = flag_value(&meta)?,
@@ -1181,7 +1184,7 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `surface`, `available_if`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
+                                 `default_subcommand`, `default_subcommand_flags`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount`, `example`, `heading`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
                                  `group`, `view`, `validate_with`, and `try_into` here, and the description comes from the doc comment"
@@ -1456,7 +1459,7 @@ impl Cli {
                 ));
             }
             // A spec declares one `default_subcommand`, at the top.
-            if self.default_subcommand.is_some() {
+            if self.default_subcommand.is_some() || self.default_subcommand_flags {
                 return Err(self.misplaced(
                     ident,
                     "`default_subcommand` belongs on the root, where `#[derive(Cli)]` is: a \
@@ -1543,6 +1546,12 @@ impl Cli {
             }
         }
 
+        if self.default_subcommand_flags && self.default_subcommand.is_none() {
+            return Err(self.misplaced(
+                ident,
+                "`default_subcommand_flags` requires `default_subcommand`",
+            ));
+        }
         if self.default_subcommand.is_some()
             && !self
                 .fields
@@ -9402,6 +9411,18 @@ mod tests {
         "#,
         );
         assert!(err.contains("not supported"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn flag_routing_requires_a_default_subcommand() {
+        let err = position_error(
+            r#"
+            #[usage(bin = "ex", default_subcommand_flags)]
+            struct Ex {}
+        "#,
+            true,
+        );
+        assert!(err.contains("requires `default_subcommand`"), "{err}");
     }
 
     #[test]

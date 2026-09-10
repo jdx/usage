@@ -189,6 +189,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let unknown_flags = unknown_flags_tokens(cli);
 
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
+    let default_subcommand_flags = cli.default_subcommand_flags;
     let multicall = cli.multicall;
     let no_binary_name = cli.no_binary_name;
     let arg_required_else_help = cli.arg_required_else_help;
@@ -1105,6 +1106,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 clause: #clause_table,
                 #sub_commands
                 #sub_default
+                default_subcommand_flags: #default_subcommand_flags,
                 #sub_external
                 ..usage_argv::Command::EMPTY
             };

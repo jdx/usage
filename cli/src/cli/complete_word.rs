@@ -194,7 +194,27 @@ impl CompleteWord {
         let mut has_explicit_choices = false;
         // Not `available_flags`: inside a mounted command, the mounting CLI's flags stay
         // recognized for parsing but are not accepted there, so they must not be offered.
-        let flags = parsed.completion_flags();
+        let mut flags = parsed.completion_flags();
+        if spec.default_subcommand_flags && parsed.cmds.len() == 1 {
+            if let Some(default) = spec
+                .default_subcommand
+                .as_deref()
+                .and_then(|name| spec.cmd.find_subcommand(name))
+            {
+                for flag in &default.flags {
+                    let flag = Arc::new(flag.clone());
+                    for key in flag
+                        .long
+                        .iter()
+                        .map(|name| format!("--{name}"))
+                        .chain(flag.short.iter().map(|name| format!("-{name}")))
+                        .chain(flag.negate.iter().cloned())
+                    {
+                        flags.entry(key).or_insert_with(|| Arc::clone(&flag));
+                    }
+                }
+            }
+        }
         // An explicit `--` stops the parser reading flags, so past one there is no such thing
         // as a flag to complete — a dash-prefixed word is a positional value.
         let restart_seen = parsed.tokens.iter().any(|token| {

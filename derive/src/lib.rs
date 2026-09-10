@@ -251,7 +251,7 @@
 //! `visible_alias(es)`, hidden `alias(es)`, and `hide` may be declared on an
 //! `Args` struct and are inherited by every subcommand variant that mounts it —
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
-//! `default_subcommand`, `multicall` — argv[0]'s basename selects a subcommand —
+//! `default_subcommand`, `default_subcommand_flags`, `multicall` — argv[0]'s basename selects a subcommand —
 //! `arg_required_else_help` — a selected command with no argv of its own shows short help —
 //! `disable_help_flag`, `disable_help_subcommand`, and `disable_version_flag` — remove the
 //! corresponding synthesized entry point so a field with `action = usage::ArgAction::Help`,

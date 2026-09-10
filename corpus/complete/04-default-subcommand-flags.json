@@ -1,0 +1,42 @@
+{
+  "section": "default-subcommand-flags",
+  "about": "Completion follows the same opt-in default route as invocation parsing.",
+  "vectors": [
+    {
+      "id": "default-flags-complete-argument",
+      "doc": "Completion follows implicit default routing for argument candidates.",
+      "spec": "name \"em\"\nbin \"em\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\ncmd \"install\" {\n flag \"-u --update\"\n flag \"--output <mode>\" { choices \"local\" \"remote\"; }\n arg \"[package]\" { choices \"firefox\" \"fish\"; }\n}\ncmd \"query\" {}\n",
+      "line": "em -u fi",
+      "expect": {
+        "candidates": ["firefox", "fish"]
+      }
+    },
+    {
+      "id": "default-flags-complete-value",
+      "doc": "Completion follows implicit default routing for value candidates.",
+      "spec": "name \"em\"\nbin \"em\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\ncmd \"install\" {\n flag \"-u --update\"\n flag \"--output <mode>\" { choices \"local\" \"remote\"; }\n arg \"[package]\" { choices \"firefox\" \"fish\"; }\n}\ncmd \"query\" {}\n",
+      "line": "em --output lo",
+      "expect": {
+        "candidates": ["local"]
+      }
+    },
+    {
+      "id": "default-flags-complete-flag",
+      "doc": "Completion follows implicit default routing for flag candidates.",
+      "spec": "name \"em\"\nbin \"em\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\ncmd \"install\" {\n flag \"-u --update\"\n flag \"--output <mode>\" { choices \"local\" \"remote\"; }\n arg \"[package]\" { choices \"firefox\" \"fish\"; }\n}\ncmd \"query\" {}\n",
+      "line": "em -u --out",
+      "expect": {
+        "candidates": ["--output"]
+      }
+    },
+    {
+      "id": "default-flags-complete-prefix",
+      "doc": "The default flags are offered before a command has been selected.",
+      "spec": "name \"em\"\nbin \"em\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\ncmd \"install\" {\n flag \"-u --update\"\n flag \"--output <mode>\" { choices \"local\" \"remote\"; }\n arg \"[package]\" { choices \"firefox\" \"fish\"; }\n}\ncmd \"query\" {}\n",
+      "line": "em --up",
+      "expect": {
+        "candidates": ["--update"]
+      }
+    }
+  ]
+}
