@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M2645HAETT5B3HQ5EFSMPR75",
+  "strategy": "manual-commit",
+  "branch": "codex/default-subcommand-flags",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "argv/src/complete.rs",
+    "argv/src/lib.rs",
+    "argv/src/spec.rs",
+    "cli/src/cli/complete_word.rs",
+    "cli/src/cli/lint.rs",
+    "conformance/src/argv.rs",
+    "conformance/src/tables.rs",
+    "conformance/tests/default_subcommand_flags.rs",
+    "corpus/16-default-subcommand-flags.json",
+    "corpus/complete/04-default-subcommand-flags.json",
+    "derive/src/codegen.rs",
+    "derive/src/lib.rs",
+    "derive/src/model.rs",
+    "docs/spec/argv.md",
+    "docs/spec/reference/index.md",
+    "go/argv/argv.go",
+    "go/argv/complete.go",
+    "go/argv/complete_test.go",
+    "go/argv/parser.go",
+    "go/internal/spec/spec.go",
+    "lib/src/go/mod.rs",
+    "lib/src/parse.rs",
+    "lib/src/spec/mod.rs",
+    "xtask/src/shadow.rs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 192036,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 10061440,
+    "output_tokens": 37662,
+    "api_call_count": 93
+  }
+}
