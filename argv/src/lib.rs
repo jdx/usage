@@ -1831,7 +1831,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 if parent.is_none() {
                     at.get_or_insert(i);
                 }
-                if flag.takes_value && !flag.negate.is_some_and(|n| n.as_bytes() == name) {
+                if flag.takes_value && flag.negate.is_none_or(|n| n.as_bytes() != name) {
                     value_flag = Some(flag);
                     attached = (end < body.len()).then(|| &body[end + 1..]);
                 }
