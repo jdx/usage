@@ -104,7 +104,14 @@ fn implicit_conflicts_name_the_default_command() {
     let kdl = Em::to_kdl();
     let mut spec: usage::Spec = kdl.parse().unwrap();
     spec.cmd.args_conflicts_with_subcommands = true;
-    for words in [vec!["em", "-p", "-u"], vec!["em", "-pu"], vec!["em", "-up"]] {
+    spec.version = Some("1.2.3".into());
+    for words in [
+        vec!["em", "-p", "-u"],
+        vec!["em", "-pu"],
+        vec!["em", "-up"],
+        vec!["em", "-uhp"],
+        vec!["em", "-uVp"],
+    ] {
         let error = usage::Parser::new(&spec)
             .parse(&words.into_iter().map(String::from).collect::<Vec<_>>())
             .unwrap_err();
@@ -122,7 +129,8 @@ fn mixed_bundles_honor_parent_conflicts_in_the_runtime() {
     #[usage(
         default_subcommand = "install",
         default_subcommand_flags,
-        args_conflicts_with_subcommands
+        args_conflicts_with_subcommands,
+        version = "1.2.3"
     )]
     struct Conflicts {
         #[usage(short = 'p')]
@@ -130,7 +138,7 @@ fn mixed_bundles_honor_parent_conflicts_in_the_runtime() {
         #[usage(subcommand)]
         command: Option<Commands>,
     }
-    for bundle in ["-pu", "-up"] {
+    for bundle in ["-pu", "-up", "-uhp", "-uVp"] {
         assert!(matches!(
             Conflicts::parse_from(&[OsStr::new(bundle)]),
             Err(usage_argv::Error::SubcommandConflict { .. })

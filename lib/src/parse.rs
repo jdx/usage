@@ -1648,7 +1648,9 @@ fn parse_partial_traced(
                     let mut found = false;
                     for short in input[idx].word[1..].chars() {
                         let key = format!("-{short}");
-                        if out.available_flags.contains_key(&key) {
+                        if out.available_flags.contains_key(&key)
+                            || supplied_short(spec, &out.cmds, short).is_some()
+                        {
                             found = true;
                             break;
                         }
