@@ -469,3 +469,26 @@ func count(list []string, want string) int {
 	}
 	return n
 }
+
+func TestCompletionFollowsDefaultFlagRouting(t *testing.T) {
+	root, help, meta := completionFixture()
+	root.DefaultSubcommand = root.Subcommands[0]
+	root.DefaultSubcommandFlags = true
+	for _, tc := range []struct {
+		words         []string
+		partial, want string
+	}{
+		{nil, "--she", "--shell"},
+		{[]string{"--shell"}, "ba", "bash"},
+		{[]string{"--shell", "bash"}, "fa", "fast"},
+	} {
+		got := values(Candidates(Walk(root, tc.words), tc.partial, help, meta))
+		if !offered(got, tc.want) {
+			t.Errorf("%v %s: want %s, got %v", tc.words, tc.partial, tc.want, got)
+		}
+	}
+	root.DefaultSubcommandFlags = false
+	if got := values(Candidates(Walk(root, nil), "--she", help, meta)); offered(got, "--shell") {
+		t.Errorf("default flags require the opt-in: %v", got)
+	}
+}

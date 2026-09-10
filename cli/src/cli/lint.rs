@@ -157,6 +157,15 @@ impl usage_rs::Run for Lint {
 pub fn lint_spec(spec: &Spec, opts: LintOptions) -> Vec<LintIssue> {
     let mut issues = Vec::new();
 
+    if spec.default_subcommand_flags && spec.default_subcommand.is_none() {
+        issues.push(LintIssue {
+            severity: Severity::Error,
+            code: "invalid-default-subcommand-flags".to_string(),
+            message: "default_subcommand_flags requires default_subcommand".to_string(),
+            location: None,
+        });
+    }
+
     // Check default_subcommand reference
     if let Some(default_subcmd) = &spec.default_subcommand {
         // Resolved the way a typed word is, rather than by canonical key alone: the name may

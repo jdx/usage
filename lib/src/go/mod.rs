@@ -491,6 +491,9 @@ impl<'a> Emitter<'a> {
                 ));
             }
             if e.root {
+                if self.spec.default_subcommand_flags {
+                    lines.push(Line::Field("DefaultSubcommandFlags".into(), "true".into()));
+                }
                 if let Some(var) = &default_subcommand {
                     lines.push(Line::Field("DefaultSubcommand".into(), var.clone()));
                 }
@@ -1857,6 +1860,14 @@ cmd "macos" {
 }
 "#);
         insta::assert_snapshot!(out);
+    }
+
+    #[test]
+    fn default_flag_routing_reaches_generated_go_tables() {
+        let out = go(
+            "name ex\nbin ex\ndefault_subcommand run\ndefault_subcommand_flags #true\ncmd run {}\n",
+        );
+        assert!(out.contains("DefaultSubcommandFlags: true"), "{out}");
     }
 
     #[test]

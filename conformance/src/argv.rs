@@ -89,6 +89,7 @@ pub fn run(vector: &Vector) -> Outcome {
                 .or_else(|| subcommands().find(|sub| sub.aliases.contains(&name)));
             Box::leak(Box::new(Command {
                 default_subcommand: default,
+                default_subcommand_flags: spec.default_subcommand_flags,
                 ..*root
             }))
         }

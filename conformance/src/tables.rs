@@ -133,6 +133,7 @@ pub fn build(
         // Both filled in by the caller for the root, which is the only place a spec declares
         // either.
         default_subcommand: None,
+        default_subcommand_flags: false,
         version: false,
         disable_help_flag: cmd.disable_help_flag,
         disable_help_subcommand: cmd.disable_help_subcommand,
@@ -268,6 +269,11 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
     // describing a flag that never binds.
     let root_cmd: &'static Command<'static> = Box::leak(Box::new(Command {
         version: spec.version.is_some(),
+        default_subcommand_flags: spec.default_subcommand_flags,
+        default_subcommand: spec
+            .default_subcommand
+            .as_deref()
+            .map(|name| usage_argv::find_subcommand(root.cmd.subcommands, name)),
         ..*root.cmd
     }));
     let mut root_examples = root.meta.examples.to_vec();

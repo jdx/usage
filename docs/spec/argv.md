@@ -98,8 +98,9 @@ and so name flags that do not exist.
 
 ## Reading a command line
 
-Tokens are read once, left to right. There is no backtracking, no reordering, and
-no second pass: what a token binds to is decided when it is read, from the
+With `default_subcommand_flags #true`, a read-only lookahead first chooses the
+implicit default-command boundary (see [default-command flags](./reference/index.md#default-command-flags)).
+Binding then reads tokens once, left to right, with no backtracking or reordering: what a token binds to is decided when it is read, from the
 command in scope at that moment. This is what makes the grammar implementable as
 a single loop, and it is also why a `--` or a subcommand word changes the meaning
 of everything after it but nothing before it.

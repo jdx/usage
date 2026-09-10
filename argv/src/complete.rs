@@ -183,6 +183,12 @@ fn walk_inner<'t>(
     }
 
     let next_arg = parser.pending_arg();
+    let mut flags: Vec<_> = parser.flags_in_scope().collect();
+    if parser.command().default_subcommand_flags {
+        if let Some(default) = parser.command().default_subcommand {
+            flags.extend_from_slice(default.flags);
+        }
+    }
     Position {
         path: parser.command_path(),
         cmd: parser.command(),
@@ -197,7 +203,7 @@ fn walk_inner<'t>(
         separator_seen: parser.double_dash_seen(),
         command_start: parser.command_start(),
         help_topic: false,
-        flags: parser.flags_in_scope().collect(),
+        flags,
         external,
     }
 }

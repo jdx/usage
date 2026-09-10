@@ -1,8 +1,14 @@
 package argv
 
+import (
+	"slices"
+	"strings"
+)
+
 // Parser reads a command line once, left to right, against static tables.
 //
-// There is no backtracking, no reordering, and no second pass: what a token binds
+// With DefaultSubcommandFlags enabled, a read-only lookahead chooses the implicit
+// command boundary first. Binding itself has no backtracking or reordering: what a token binds
 // to is decided when it is read, from the command in scope at that moment. That
 // is what makes the grammar a single loop, and also why a -- or a subcommand word
 // changes the meaning of everything after it and nothing before it.
@@ -82,7 +88,10 @@ type Parser struct {
 	// defaultTaken records whether the default subcommand has been used, which may
 	// happen at most once: a default that itself declares one would otherwise
 	// descend on every word until the tree ran out.
-	defaultTaken bool
+	defaultTaken  bool
+	defaultFlagAt int
+	// Cursor after the boundary bundle, whose letters retain parent ownership.
+	defaultBundleEnd int
 	// done stops iteration, set when argv runs out or an error is reported.
 	done bool
 
@@ -95,11 +104,146 @@ type Parser struct {
 
 // New begins parsing argv against root. argv excludes the program name.
 func New(root *Command, argv []string) Parser {
-	return Parser{
+	p := Parser{
+		defaultFlagAt:             -1,
 		argv:                      argv,
 		cmd:                       root,
 		dontDelimitTrailingValues: root.DontDelimitTrailingValues,
 	}
+	if root.DefaultSubcommandFlags {
+		p.defaultFlagAt = p.defaultFlagRoute()
+	}
+	return p
+}
+
+// defaultFlagRoute chooses an implicit boundary without binding any flags. A
+// sibling selector wins, and a flag's values are never mistaken for selectors.
+func (p *Parser) defaultFlagRoute() int {
+	d := p.cmd.DefaultSubcommand
+	if d == nil {
+		return -1
+	}
+	at := -1
+	for i := 0; i < len(p.argv); {
+		token := p.argv[i]
+		scope := p.cmd
+		if at >= 0 {
+			scope = d
+		}
+		if token == "--" || token == "-" || (scope.Clause != nil && scope.Clause.Separator != "" && scope.Clause.Separator == token) {
+			return at
+		}
+		if !isFlagLike(token) {
+			if p.findSubcommand(token) != nil || (token == "help" && !p.cmd.DisableHelpSubcommand) {
+				return -1
+			}
+			return at
+		}
+		var valueFlag *Flag
+		var attached string
+		hasAttached := false
+		if strings.HasPrefix(token, "--") {
+			name, value, has := strings.Cut(token[2:], "=")
+			parent := p.findLong(name)
+			if parent == nil {
+				parent = p.findNegation(name)
+			}
+			if parent == nil && ((name == "help" && !p.cmd.DisableHelpFlag) || (name == "version" && p.cmd.Version && !p.cmd.DisableVersionFlag)) {
+				i++
+				continue
+			}
+			flag := parent
+			if flag == nil {
+				for _, f := range d.Flags {
+					if slices.Contains(f.Longs, name) || (f.Negate != "" && f.Negate == name) {
+						flag = f
+						break
+					}
+				}
+			}
+			if flag == nil {
+				return at
+			}
+			if parent == nil && at < 0 {
+				at = i
+			}
+			if flag.TakesValue && flag.Negate != name {
+				valueFlag, attached, hasAttached = flag, value, has
+			}
+		} else {
+			for j := 1; j < len(token); j++ {
+				parent := p.findShort(token[j])
+				flag := parent
+				if flag == nil {
+					for _, f := range d.Flags {
+						if slices.Contains(f.Shorts, token[j]) {
+							flag = f
+							break
+						}
+					}
+				}
+				if flag == nil {
+					return at
+				}
+				if parent == nil && at < 0 {
+					at = i
+				}
+				if flag.TakesValue {
+					valueFlag = flag
+					attached = strings.TrimPrefix(token[j+1:], "=")
+					hasAttached = j+1 < len(token)
+					break
+				}
+			}
+		}
+		i++
+		if f := valueFlag; f != nil {
+			scope := p.cmd
+			if at >= 0 {
+				scope = d
+			}
+			isSeparator := func(next string) bool {
+				return scope.Clause != nil && scope.Clause.Separator != "" && scope.Clause.Separator == next
+			}
+			if !hasAttached && !f.RequireEquals && i < len(p.argv) {
+				next := p.argv[i]
+				if !isSeparator(next) && (f.AllowHyphenValues || !isFlagLike(next) || (f.AllowNegativeNumbers && isNegativeNumber(next))) {
+					attached, hasAttached = next, true
+					i++
+				}
+			}
+			if !hasAttached && !f.ValueOptional && f.DefaultMissing == "" {
+				return at
+			}
+			if f.Variadic {
+				var count uint32
+				if hasAttached {
+					count = valuesIn(attached, f.Delimiter)
+				}
+				for i < len(p.argv) && (f.VarMax == 0 || count < f.VarMax) {
+					next := p.argv[i]
+					if isSeparator(next) {
+						break
+					}
+					if next == "--" || (f.ValueTerminator != "" && next == f.ValueTerminator) {
+						if next != "--" {
+							i++
+						}
+						break
+					}
+					if isFlagLike(next) && !(f.AllowNegativeNumbers && isNegativeNumber(next)) {
+						break
+					}
+					if p.cmd.SubcommandPrecedenceOverArg && p.findSubcommand(next) != nil {
+						return -1
+					}
+					count += valuesIn(next, f.Delimiter)
+					i++
+				}
+			}
+		}
+	}
+	return at
 }
 
 // Next reads the next event, reporting false when argv is exhausted or the parse
@@ -199,7 +343,50 @@ func (p *Parser) emit(e Event) bool {
 	return true
 }
 
+// defaultBundleHasParentFlag counts parent flags before entering the child.
+func (p *Parser) defaultBundleHasParentFlag(d *Command) bool {
+	if p.pos >= len(p.argv) {
+		return false
+	}
+	token := p.argv[p.pos]
+	if !strings.HasPrefix(token, "-") || strings.HasPrefix(token, "--") {
+		return false
+	}
+	for i := 1; i < len(token); i++ {
+		if p.findShort(token[i]) != nil {
+			return true
+		}
+		var flag *Flag
+		for _, f := range d.Flags {
+			if slices.Contains(f.Shorts, token[i]) {
+				flag = f
+				break
+			}
+		}
+		if flag == nil || flag.TakesValue {
+			break
+		}
+	}
+	return false
+}
+
 func (p *Parser) step() bool {
+	if p.defaultFlagAt == p.pos && len(p.bundle) == 0 {
+		p.defaultFlagAt = -1
+		if d := p.cmd.DefaultSubcommand; d != nil {
+			if p.cmd.ArgsConflictWithSubcommands && (p.commandArgFound || p.defaultBundleHasParentFlag(d)) {
+				return p.fail(Error{Code: CodeSubcommandConflict, Cmd: p.cmd})
+			}
+			if p.pos < len(p.argv) && strings.HasPrefix(p.argv[p.pos], "-") && !strings.HasPrefix(p.argv[p.pos], "--") {
+				p.defaultBundleEnd = p.pos + 1
+			}
+			p.defaultTaken = true
+			if !p.descend(d) {
+				return false
+			}
+			return p.emit(Event{Kind: KindCommand, Command: d})
+		}
+	}
 	for {
 		if p.clauseBoundaryPending {
 			p.clauseBoundaryPending = false
@@ -886,6 +1073,13 @@ func (p *Parser) findNegation(name string) *Flag {
 }
 
 func (p *Parser) findShort(b byte) *Flag {
+	if p.defaultTaken && p.pos == p.defaultBundleEnd && p.ancestors[0] != nil {
+		for _, f := range p.ancestors[0].Flags {
+			if slices.Contains(f.Shorts, b) {
+				return f
+			}
+		}
+	}
 	f := p.eachInScope(func(f *Flag) bool {
 		for _, s := range f.Shorts {
 			if s == b {

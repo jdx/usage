@@ -1,0 +1,560 @@
+{
+  "section": "default-subcommand-flags",
+  "about": "Opt-in lookahead for default-command flag prefixes. Parent flags before the first default-only flag retain their bindings; the implicit boundary otherwise has normal subcommand scope.",
+  "vectors": [
+    {
+      "id": "default-flags-bundle",
+      "doc": "Default-only bundled flags select the default before binding.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-ua", "@world"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true,
+            "ask": true
+          },
+          "args": {
+            "package": "@world"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-single",
+      "doc": "A default-only flag needs no selector word.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-r"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "remove": true
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-long",
+      "doc": "Long flags can select the default.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--update", "firefox"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true
+          },
+          "args": {
+            "package": "firefox"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-parent",
+      "doc": "Parent-only flags do not select a default.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-p"],
+      "expect": {
+        "ok": {
+          "cmd": [],
+          "flags": {
+            "pretend": true
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-bare",
+      "doc": "An empty invocation stays on the parent.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": [],
+      "expect": {
+        "ok": {
+          "cmd": []
+        }
+      }
+    },
+    {
+      "id": "default-flags-parent-prefix",
+      "doc": "Local parent flags before the implicit boundary keep their owner.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-p", "-u", "firefox"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "pretend": true,
+            "update": true
+          },
+          "args": {
+            "package": "firefox"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-parent-word",
+      "doc": "Ordinary word fallback retains the existing parent prefix.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-p", "firefox"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "pretend": true
+          },
+          "args": {
+            "package": "firefox"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-global-bundle",
+      "doc": "A bundle may mix inherited globals with default flags.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-vu", "firefox"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "verbose": true,
+            "update": true
+          },
+          "args": {
+            "package": "firefox"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-sibling",
+      "doc": "An explicit sibling keeps ordinary parsing.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-p", "query"],
+      "expect": {
+        "ok": {
+          "cmd": ["query"],
+          "flags": {
+            "pretend": true
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-sibling-wins",
+      "doc": "A sibling prevents default routing; its prefix still rejects a default-only flag.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-u", "query"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-alias-wins",
+      "doc": "Sibling aliases have the same precedence as canonical names.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-u", "q"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-explicit",
+      "doc": "Explicit default selection still works.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["install", "-ua", "@world"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true,
+            "ask": true
+          },
+          "args": {
+            "package": "@world"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-explicit-prefix",
+      "doc": "Opting in does not legalize child-only flags before an explicit command.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-u", "install"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-parent-value",
+      "doc": "A parent flag value spelling a sibling is skipped.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--config", "query", "-r"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "config": "query",
+            "remove": true
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-parent-attached-value",
+      "doc": "Attached parent values do not become selectors.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-cquery", "-r"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "config": "query",
+            "remove": true
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-child-value",
+      "doc": "A default flag value spelling a sibling is skipped.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--output", "query"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "output": "query"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-child-attached-value",
+      "doc": "Attached default values do not become selectors.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--output=query"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "output": "query"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-value-then-sibling",
+      "doc": "A real selector after a default flag value still wins.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--output", "query", "search"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-separator",
+      "doc": "A separator ends selector lookahead after a default flag.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-u", "--", "query"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true
+          },
+          "args": {
+            "package": "query"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-separator-first",
+      "doc": "A leading separator does not select the default.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--", "-u"],
+      "expect": {
+        "error": "unexpected_arg"
+      }
+    },
+    {
+      "id": "default-flags-unknown",
+      "doc": "An unknown flag does not gain permission to select a command.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--wat"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-off",
+      "doc": "The new behavior is opt-in.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #false\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-ua", "@world"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-alias-default",
+      "doc": "The configured default may use an alias.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"i\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-r"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "remove": true
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-negation",
+      "doc": "Negated default flags also select the default.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--color\" negate=\"--no-color\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--no-color"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "color": false
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-optional-equals",
+      "doc": "An optional equals-only value leaves a sibling selector visible.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--color <when>\" require_equals=#true default_missing=\"auto\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--color", "query"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-optional-bare",
+      "doc": "An optional flag can select the default without a value.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--color <when>\" require_equals=#true default_missing=\"auto\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--color"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "color": "auto"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-missing-value",
+      "doc": "A missing default flag value is diagnosed in the selected command.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n \n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--output"],
+      "expect": {
+        "error": "missing_flag_value"
+      }
+    },
+    {
+      "id": "default-flags-variadic",
+      "doc": "All variadic values are skipped when looking for a selector.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--include <item>...\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--include", "one", "query"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "include": ["one", "query"]
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-variadic-limit",
+      "doc": "A sibling after a bounded variadic value remains a selector.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--include <item>...\" { arg \"<item>...\" var_max=1; }\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--include", "one", "query"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-variadic-terminator",
+      "doc": "A value terminator exposes the following sibling selector.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--include <item>...\" { arg \"<item>...\" value_terminator=\"END\"; }\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--include", "one", "END", "query"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-negative-value",
+      "doc": "An opted-in negative value is skipped before a sibling selector.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--offset <n>\" { arg \"<n>\" allow_negative_numbers=#true; }\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--offset", "-2", "query"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-mixed-pua",
+      "doc": "The boundary bundle preserves parent-local shorts in either order.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-pua", "@world"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "pretend": true,
+            "update": true,
+            "ask": true
+          },
+          "args": {
+            "package": "@world"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-mixed-upa",
+      "doc": "The boundary bundle preserves parent-local shorts in either order.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-upa", "@world"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "pretend": true,
+            "update": true,
+            "ask": true
+          },
+          "args": {
+            "package": "@world"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-mixed-uap",
+      "doc": "The boundary bundle preserves parent-local shorts in either order.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-uap", "@world"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "pretend": true,
+            "update": true,
+            "ask": true
+          },
+          "args": {
+            "package": "@world"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-mixed-parent-value",
+      "doc": "A value-taking parent short keeps its attached value in a mixed bundle.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-ucquery"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true,
+            "config": "query"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-mixed-parent-detached-value",
+      "doc": "A value-taking parent short keeps its detached value in a mixed bundle.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-uc", "query"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true,
+            "config": "query"
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-mixed-parent-shadow",
+      "doc": "Shared spellings in the boundary bundle retain the parent declaration.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-p --child-pretend\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-up"],
+      "expect": {
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true,
+            "pretend": true
+          }
+        }
+      }
+    },
+    {
+      "id": "default-flags-mixed-scope-ends",
+      "doc": "Parent-local shorts do not leak into following tokens.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-up", "-c", "local"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-mixed-unknown",
+      "doc": "The whole mixed bundle is rejected if it contains an unknown short.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-upz"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-mixed-sibling",
+      "doc": "Explicit sibling precedence also applies to mixed bundles.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["-pu", "query"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-root-clause-value",
+      "doc": "A root clause separator is not an optional detached flag value.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\" default_missing=\"auto\"\nclause \"tasks\" separator=\":::\" { arg \"[task]\"; }\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--config", ":::", "-u"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "default-flags-root-clause-required-value",
+      "doc": "A root clause separator cannot satisfy a required flag value.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nclause \"tasks\" separator=\":::\" { arg \"[task]\"; }\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--config", ":::", "-u"],
+      "expect": {
+        "error": "missing_flag_value"
+      }
+    },
+    {
+      "id": "default-flags-default-clause-value",
+      "doc": "A default clause separator ends lookahead before a following sibling name.",
+      "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n clause \"tasks\" separator=\":::\" { arg \"[task]\"; }\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
+      "argv": ["--output", ":::", "query"],
+      "expect": {
+        "error": "missing_flag_value"
+      }
+    }
+  ]
+}

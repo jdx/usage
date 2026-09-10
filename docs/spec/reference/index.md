@@ -145,6 +145,38 @@ recognition of `-h`, `--help`, `-?`, and `help`; use the narrower
 `disable_help_flag` or `disable_help_subcommand` command policies when only one
 entry point should be removed.
 
+### Default-command flags
+
+Opt in with `default_subcommand_flags #true` to allow the default command's
+flags before its first argument:
+
+```kdl
+default_subcommand "install"
+default_subcommand_flags #true
+cmd "install" {
+    flag "-u --update"
+    flag "-a --ask"
+    arg "[package]"
+}
+cmd "query" {}
+```
+
+`em -ua @world` then means `em install -ua @world`. The parser looks past
+recognized parent/default flags and their values for an explicit command name
+or alias. An explicit sibling keeps ordinary parsing: `em -u query` still
+rejects `-u` on the parent. Parent-only flags, including `--help`, and an empty
+invocation stay on the parent.
+
+The implicit command boundary is immediately before the first default-only
+flag token. Parent flags before it and within the same short bundle retain
+their bindings in either order (`-pu` or `-up`). Subsequent tokens use the
+normal child/global scope. A shared flag spelling is interpreted using the
+parent declaration during lookahead. `--` ends lookahead, and an unknown flag
+stops it because its value arity is unknown. Without this opt-in, default
+routing continues to happen only at an unmatched word.
+
+Rust derives use `#[usage(default_subcommand = "install", default_subcommand_flags)]`.
+
 ## Multicall
 
 `multicall #true` is clap's busybox-style applets: argv[0]'s basename selects a

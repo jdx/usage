@@ -1235,6 +1235,25 @@ struct Token {
     binding: Option<(Arc<SpecFlag>, usize)>,
 }
 
+/// Flag scope for the one token straddling an implicit default-command boundary.
+struct DefaultBundle {
+    argv: usize,
+    flags: BTreeMap<String, Arc<SpecFlag>>,
+    parent_keys: HashSet<String>,
+}
+
+impl DefaultBundle {
+    /// Preserve the declaration and command level when a short tail is requeued.
+    fn binding(&self, key: &str) -> Option<(Arc<SpecFlag>, usize)> {
+        self.flags.get(key).map(|flag| {
+            (
+                Arc::clone(flag),
+                usize::from(!self.parent_keys.contains(key)),
+            )
+        })
+    }
+}
+
 impl Token {
     fn new(word: String, argv: usize) -> Self {
         Self {
@@ -1309,6 +1328,136 @@ fn parse_partial_with_env(
         validate_clauses,
         &mut trace,
     )
+}
+
+/// Locate the first default-only flag, while preserving an explicit sibling selector.
+/// This only reads declarations: it neither binds values nor executes mount commands.
+fn default_flag_route(spec: &Spec, root: &SpecCommand, input: &VecDeque<Token>) -> Option<usize> {
+    let default = root.find_subcommand(spec.default_subcommand.as_deref()?)?;
+    let parent = gather_flags(root);
+    let child = gather_flags(default);
+    let path = std::slice::from_ref(root);
+    let mut at = None;
+    let mut i = 0;
+    while let Some(token) = input.get(i).map(|t| t.word.as_str()) {
+        let scope = if at.is_some() { default } else { root };
+        if token == "--"
+            || token == "-"
+            || scope
+                .clause
+                .as_ref()
+                .is_some_and(|c| c.separator.as_deref() == Some(token))
+        {
+            return at;
+        }
+        if !is_flag_like(token) {
+            return if root.find_subcommand(token).is_some()
+                || (token == "help"
+                    && spec.disable_help != Some(true)
+                    && !root.disable_help_subcommand)
+            {
+                None
+            } else {
+                at
+            };
+        }
+        let mut value_flag = None;
+        let mut attached = None;
+        if token.starts_with("--") {
+            let (name, value) = token
+                .split_once('=')
+                .map_or((token, None), |(n, v)| (n, Some(v)));
+            if !parent.contains_key(name)
+                && (is_help_arg(spec, root, name) || is_version_arg(spec, path, name))
+            {
+                i += 1;
+                continue;
+            }
+            let flag = parent.get(name).or_else(|| child.get(name));
+            let Some(flag) = flag else {
+                return at;
+            };
+            if !parent.contains_key(name) {
+                at.get_or_insert(i);
+            }
+            if flag.arg.is_some() && flag.negate.as_deref() != Some(name) {
+                value_flag = Some(flag);
+                attached = value;
+            }
+        } else {
+            for (offset, letter) in token.char_indices().skip(1) {
+                let key = format!("-{letter}");
+                if !parent.contains_key(&key) && supplied_short(spec, path, letter).is_some() {
+                    continue;
+                }
+                let flag = parent.get(&key).or_else(|| child.get(&key));
+                let Some(flag) = flag else {
+                    return at;
+                };
+                if !parent.contains_key(&key) {
+                    at.get_or_insert(i);
+                }
+                if flag.arg.is_some() {
+                    value_flag = Some(flag);
+                    let rest = &token[offset + letter.len_utf8()..];
+                    attached = (!rest.is_empty()).then_some(rest.strip_prefix('=').unwrap_or(rest));
+                    break;
+                }
+            }
+        }
+        i += 1;
+        if let Some(flag) = value_flag {
+            let scope = if at.is_some() { default } else { root };
+            let is_separator = |next: &str| {
+                scope
+                    .clause
+                    .as_ref()
+                    .is_some_and(|c| c.separator.as_deref() == Some(next))
+            };
+            let first = if attached.is_some() {
+                attached
+            } else {
+                input
+                    .get(i)
+                    .map(|t| t.word.as_str())
+                    .filter(|next| !is_separator(next) && accepts_detached_flag_value(flag, next))
+                    .inspect(|_| i += 1)
+            };
+            if first.is_none() && !flag.value_optional && flag.default_missing.is_none() {
+                return at;
+            }
+            let arg = flag.arg.as_ref().expect("value flag");
+            if arg.var {
+                let count_values = |v: &str| arg.delimiter.map_or(1, |d| v.split(d).count());
+                let mut count = first.map_or(0, count_values);
+                while arg.var_max.is_none_or(|max| count < max) {
+                    let Some(next) = input.get(i).map(|t| t.word.as_str()) else {
+                        break;
+                    };
+                    if is_separator(next) {
+                        break;
+                    }
+                    if next == "--" || arg.value_terminator.as_deref() == Some(next) {
+                        if next != "--" {
+                            i += 1;
+                        }
+                        break;
+                    }
+                    if is_flag_like(next)
+                        && !(arg.allow_negative_numbers && is_negative_number(next))
+                    {
+                        break;
+                    }
+                    if root.subcommand_precedence_over_arg && root.find_subcommand(next).is_some() {
+                        return None;
+                    }
+                    count += count_values(next);
+                    i += 1;
+                }
+            }
+        }
+    }
+    at
 }
 
 /// The binding phase, with the trace left somewhere the caller can still read it.
@@ -1413,6 +1562,7 @@ fn parse_partial_traced(
     // Track whether we've already applied the default_subcommand to prevent
     // multiple switches (e.g., if default is "run" and there's a task named "run")
     let mut used_default_subcommand = false;
+    let mut default_bundle: Option<DefaultBundle> = None;
     // Whether the command in scope has had its own mounts run. A mount on the root
     // is the case that needs this: a subcommand's mounts are run when the parser
     // descends into it, but nothing descends into the root.
@@ -1439,6 +1589,11 @@ fn parse_partial_traced(
         }
         out.cmd = mounted;
     }
+
+    let default_flag_at = spec
+        .default_subcommand_flags
+        .then(|| default_flag_route(spec, &out.cmd, &input))
+        .flatten();
 
     while idx < input.len() {
         // Only for a word that could name a command, and only when it matches
@@ -1476,13 +1631,47 @@ fn parse_partial_traced(
         {
             break;
         }
-        if let Some(subcommand) = out.cmd.find_subcommand(&input[idx].word) {
-            if out.cmd.args_conflicts_with_subcommands && command_arg_found {
+        let implicit_default = !used_default_subcommand && default_flag_at == Some(idx);
+        let selected_command = if implicit_default {
+            out.cmd
+                .find_subcommand(spec.default_subcommand.as_deref().expect("default route"))
+        } else {
+            out.cmd.find_subcommand(&input[idx].word)
+        };
+        if let Some(subcommand) = selected_command {
+            let boundary_has_parent = out.cmd.args_conflicts_with_subcommands
+                && implicit_default
+                && input[idx].word.starts_with('-')
+                && !input[idx].word.starts_with("--")
+                && {
+                    let child_flags = gather_flags(subcommand);
+                    let mut found = false;
+                    for short in input[idx].word[1..].chars() {
+                        let key = format!("-{short}");
+                        if out.available_flags.contains_key(&key)
+                            || supplied_short(spec, &out.cmds, short).is_some()
+                        {
+                            found = true;
+                            break;
+                        }
+                        match child_flags.get(&key) {
+                            Some(flag) if flag.arg.is_none() => {}
+                            _ => break,
+                        }
+                    }
+                    found
+                };
+            if out.cmd.args_conflicts_with_subcommands && (command_arg_found || boundary_has_parent)
+            {
                 bail!(
                     "subcommand '{}' cannot be used with arguments on its parent command",
-                    input[idx].word
+                    subcommand.name
                 );
             }
+            let boundary_parent = (implicit_default
+                && input[idx].word.starts_with('-')
+                && !input[idx].word.starts_with("--"))
+            .then(|| out.available_flags.clone());
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
             subcommand.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
@@ -1494,8 +1683,23 @@ fn parse_partial_traced(
                 gather_flags(&subcommand),
                 crossing_mount,
             );
+            if let Some(parent) = boundary_parent {
+                let parent_keys = parent.keys().cloned().collect();
+                let mut flags = out.available_flags.clone();
+                flags.extend(parent);
+                default_bundle = Some(DefaultBundle {
+                    argv: input[idx].argv,
+                    flags,
+                    parent_keys,
+                });
+            }
             // Remove subcommand from input
-            let selected = input.remove(idx);
+            let selected = if implicit_default {
+                used_default_subcommand = true;
+                None
+            } else {
+                input.remove(idx)
+            };
             if let Some(selected) = selected {
                 trace.record(
                     selected.argv,
@@ -1526,14 +1730,13 @@ fn parse_partial_traced(
             // first read: a token containing an unrecognized letter is not a bundle,
             // and recording it as one is what let `-a` be applied from a token that
             // never named it.
-            let is_bundle = word.starts_with("--")
-                || short_bundle_is_known(spec, &out.cmds, &out.available_flags, &word);
-            if let Some(f) = out
-                .available_flags
-                .get(flag_key)
-                .cloned()
-                .filter(|_| is_bundle)
-            {
+            let boundary = default_bundle
+                .as_ref()
+                .filter(|bundle| bundle.argv == input[idx].argv);
+            let flags = boundary.map_or(&out.available_flags, |bundle| &bundle.flags);
+            let is_bundle =
+                word.starts_with("--") || short_bundle_is_known(spec, &out.cmds, flags, &word);
+            if let Some(f) = flags.get(flag_key).cloned().filter(|_| is_bundle) {
                 command_arg_found = true;
                 variadic_flag_active = f.arg.as_ref().is_some_and(|arg| arg.var);
                 // Skip the flag and keep scanning. Both global and non-global flags may precede
@@ -1543,7 +1746,9 @@ fn parse_partial_traced(
                 //
                 // Only globals are forwarded to mounts: a non-global flag belongs to the
                 // command that declared it, not to what is mounted below it.
-                input[idx].binding = Some((Arc::clone(&f), out.cmds.len() - 1));
+                input[idx].binding = boundary
+                    .and_then(|bundle| bundle.binding(flag_key))
+                    .or_else(|| Some((Arc::clone(&f), out.cmds.len() - 1)));
                 let mut forwarded = f.global.then(|| vec![word.clone()]);
                 idx += 1;
 
@@ -1686,6 +1891,36 @@ fn parse_partial_traced(
         // following word; `-i9229` and `-i=9229` still bind. `default_missing` binds
         // only when the value is actually missing, so `-cnever` is still `never`.
         let attached_continuation = grouped_flag;
+        // The opt-in lookahead uses declared value arity, so binding must consume
+        // the same attached value even after the default changed flag scope.
+        // Other specs retain the reference parser's legacy short-bundle rules.
+        if spec.default_subcommand_flags
+            && attached_continuation
+            && !out.flag_awaiting_value.is_empty()
+        {
+            grouped_flag = false;
+            w.remove(0);
+            if w.starts_with('=') {
+                w.remove(0);
+            }
+            if bind_pending_flag_value(
+                spec,
+                &out.cmd,
+                &mut out.errors,
+                &mut out.flags,
+                &mut out.flag_awaiting_value,
+                &mut w,
+                &mut input,
+                custom_env,
+                trace,
+                argv,
+                true,
+            )? {
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                return Ok((out, overridden_flags));
+            }
+            continue;
+        }
 
         // A clause boundary is syntax even after an automatic trailing argument disabled
         // flags. Only an explicit `--` protects a literal separator.
@@ -2101,7 +2336,14 @@ fn parse_partial_traced(
                 if !rest.is_empty() {
                     // `-abc` is one token that names three flags, so the tail is read at the
                     // bundle's own position rather than at one of its own.
-                    input.push_front(Token::new(format!("-{rest}"), argv));
+                    let mut tail = Token::new(format!("-{rest}"), argv);
+                    if f.arg.is_none() {
+                        tail.binding = default_bundle
+                            .as_ref()
+                            .filter(|bundle| bundle.argv == argv)
+                            .and_then(|bundle| bundle.binding(get_flag_key(&tail.word)));
+                    }
+                    input.push_front(tail);
                 }
                 // A fully consumed short is no longer a grouped continuation.
                 // Leaving this set after `-ai` made `-i` skip `require_equals`
