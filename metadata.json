@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M265NN41MW8HS2KZFHQV0QPR",
+  "strategy": "manual-commit",
+  "branch": "codex/default-subcommand-flags",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "argv/src/lib.rs",
+    "conformance/tests/default_subcommand_flags.rs",
+    "corpus/16-default-subcommand-flags.json",
+    "docs/spec/reference/index.md",
+    "go/argv/parser.go",
+    "go/argv/parser_test.go",
+    "lib/src/parse.rs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 86598,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2231680,
+    "output_tokens": 16085,
+    "api_call_count": 23
+  }
+}
