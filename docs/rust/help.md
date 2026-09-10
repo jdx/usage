@@ -80,6 +80,21 @@ a CLI declaring [`try_into`](/rust/validation#cross-field-validation-and-typed-f
 rendered as the same failure response a parse error produces. A host that finalizes some other way
 can convert a parsed value in place with `Outcome::map`.
 
+`embedded_outcome_paletted` / `embedded_outcome_into_paletted` remap the four semantic
+roles with a `Palette` — still the `{$…}` tag vocabulary, still SGR. Colour follows each
+destination stream the way `embedded_outcome` already does:
+
+```rust
+let palette = usage::help::Palette::DEFAULT.metavar("cyan+bold");
+match Ex::embedded_outcome_paletted(&argv, palette) {
+    usage::embedded::Outcome::Parsed(cli) => run(cli),
+    usage::embedded::Outcome::Exit(exit) => host.respond(exit),
+}
+```
+
+Role names in a palette spec expand once, so mapping `metavar` to `"heading"` uses the built-in
+heading colour rather than a remapped heading. `parse()` is unchanged.
+
 ### Deprecation warnings
 
 A `deprecated` flag or command, or a value that arrived through a `deprecated_env` alias, is
@@ -217,7 +232,9 @@ Template-authored text and whole sections may be styled with runtime, bunt-like 
 An opening `{$…}` tag applies until its matching `{/$}` and tags may nest. Join styles with `+`,
 as in `{$bold+bright-blue}`. `heading`, `option`, `metavar`, and `command` use usage's semantic
 palette. Headings are bold yellow by default, options and commands are bold green, and
-metavariables are bold magenta. The physical vocabulary contains `black`, `red`, `green`, `yellow`,
+metavariables are bold magenta. A host that owns the exit path can remap those four roles with
+a `Palette`; see [Embedding without exiting](#embedding-without-exiting).
+The physical vocabulary contains `black`, `red`, `green`, `yellow`,
 `blue`, `magenta`, `cyan`, and `white`; each `bright-` variant; and `bold`, `dim`, `italic`, and
 `underline`. Terminal output renders the ANSI styles. Plain output and generated Go pages remove
 the tags while retaining their contents. Double the dollar sign to write either delimiter

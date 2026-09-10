@@ -1002,6 +1002,25 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     Self::parse_into_from,
                 )
             }
+
+            /// [`Self::embedded_outcome_into`] with a remapped semantic colour map.
+            pub fn embedded_outcome_into_paletted(
+                argv: &[::std::ffi::OsString],
+                palette: usage_argv::help::Palette,
+            ) -> usage_argv::embedded::Outcome<#target> {
+                let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
+                    argv.iter().map(|arg| arg.as_os_str()).collect();
+                #embedded_spec_request
+                #embedded_completion_request
+                #effective_spec
+                usage_argv::embedded::outcome_paletted(
+                    __usage_spec,
+                    Self::command(),
+                    &__usage_refs,
+                    Self::parse_into_from,
+                    palette,
+                )
+            }
         }
     });
 
@@ -1467,6 +1486,25 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         Self::command(),
                         &__usage_refs,
                         Self::parse_from,
+                    )
+                }
+
+                /// [`Self::embedded_outcome`] with a remapped semantic colour map.
+                pub fn embedded_outcome_paletted(
+                    argv: &[::std::ffi::OsString],
+                    palette: usage_argv::help::Palette,
+                ) -> usage_argv::embedded::Outcome<Self> {
+                    let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
+                        argv.iter().map(|arg| arg.as_os_str()).collect();
+                    #embedded_spec_request
+                    #embedded_completion_request
+                    #effective_spec
+                    usage_argv::embedded::outcome_paletted(
+                        __usage_spec,
+                        Self::command(),
+                        &__usage_refs,
+                        Self::parse_from,
+                        palette,
                     )
                 }
 
