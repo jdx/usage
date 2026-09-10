@@ -589,3 +589,15 @@ func BenchmarkParse(b *testing.B) {
 		}
 	}
 }
+
+func TestMixedDefaultBundleHonorsParentConflicts(t *testing.T) {
+	child := &Command{Name: "install", Flags: []*Flag{{Name: "update", Shorts: []byte{'u'}}}}
+	root := &Command{Name: "em", Flags: []*Flag{{Name: "pretend", Shorts: []byte{'p'}}},
+		Subcommands: []*Command{child}, DefaultSubcommand: child,
+		DefaultSubcommandFlags: true, ArgsConflictWithSubcommands: true}
+	for _, bundle := range []string{"-pu", "-up"} {
+		if got := collect(root, bundle); got != "err:subcommand_conflict" {
+			t.Errorf("%s: got %s", bundle, got)
+		}
+	}
+}

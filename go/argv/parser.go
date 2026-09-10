@@ -90,6 +90,8 @@ type Parser struct {
 	// descend on every word until the tree ran out.
 	defaultTaken  bool
 	defaultFlagAt int
+	// Cursor after the boundary bundle, whose letters retain parent ownership.
+	defaultBundleEnd int
 	// done stops iteration, set when argv runs out or an error is reported.
 	done bool
 
@@ -124,7 +126,11 @@ func (p *Parser) defaultFlagRoute() int {
 	at := -1
 	for i := 0; i < len(p.argv); {
 		token := p.argv[i]
-		if token == "--" || token == "-" {
+		scope := p.cmd
+		if at >= 0 {
+			scope = d
+		}
+		if token == "--" || token == "-" || (scope.Clause != nil && scope.Clause.Separator != "" && scope.Clause.Separator == token) {
 			return at
 		}
 		if !isFlagLike(token) {
@@ -192,9 +198,16 @@ func (p *Parser) defaultFlagRoute() int {
 		}
 		i++
 		if f := valueFlag; f != nil {
+			scope := p.cmd
+			if at >= 0 {
+				scope = d
+			}
+			isSeparator := func(next string) bool {
+				return scope.Clause != nil && scope.Clause.Separator != "" && scope.Clause.Separator == next
+			}
 			if !hasAttached && !f.RequireEquals && i < len(p.argv) {
 				next := p.argv[i]
-				if f.AllowHyphenValues || !isFlagLike(next) || (f.AllowNegativeNumbers && isNegativeNumber(next)) {
+				if !isSeparator(next) && (f.AllowHyphenValues || !isFlagLike(next) || (f.AllowNegativeNumbers && isNegativeNumber(next))) {
 					attached, hasAttached = next, true
 					i++
 				}
@@ -209,6 +222,9 @@ func (p *Parser) defaultFlagRoute() int {
 				}
 				for i < len(p.argv) && (f.VarMax == 0 || count < f.VarMax) {
 					next := p.argv[i]
+					if isSeparator(next) {
+						break
+					}
 					if next == "--" || (f.ValueTerminator != "" && next == f.ValueTerminator) {
 						if next != "--" {
 							i++
@@ -327,12 +343,42 @@ func (p *Parser) emit(e Event) bool {
 	return true
 }
 
+// defaultBundleHasParentFlag counts parent flags before entering the child.
+func (p *Parser) defaultBundleHasParentFlag(d *Command) bool {
+	if p.pos >= len(p.argv) {
+		return false
+	}
+	token := p.argv[p.pos]
+	if !strings.HasPrefix(token, "-") || strings.HasPrefix(token, "--") {
+		return false
+	}
+	for i := 1; i < len(token); i++ {
+		if p.findShort(token[i]) != nil {
+			return true
+		}
+		var flag *Flag
+		for _, f := range d.Flags {
+			if slices.Contains(f.Shorts, token[i]) {
+				flag = f
+				break
+			}
+		}
+		if flag == nil || flag.TakesValue {
+			break
+		}
+	}
+	return false
+}
+
 func (p *Parser) step() bool {
 	if p.defaultFlagAt == p.pos && len(p.bundle) == 0 {
 		p.defaultFlagAt = -1
 		if d := p.cmd.DefaultSubcommand; d != nil {
-			if p.cmd.ArgsConflictWithSubcommands && p.commandArgFound {
+			if p.cmd.ArgsConflictWithSubcommands && (p.commandArgFound || p.defaultBundleHasParentFlag(d)) {
 				return p.fail(Error{Code: CodeSubcommandConflict, Cmd: p.cmd})
+			}
+			if p.pos < len(p.argv) && strings.HasPrefix(p.argv[p.pos], "-") && !strings.HasPrefix(p.argv[p.pos], "--") {
+				p.defaultBundleEnd = p.pos + 1
 			}
 			p.defaultTaken = true
 			if !p.descend(d) {
@@ -1027,6 +1073,13 @@ func (p *Parser) findNegation(name string) *Flag {
 }
 
 func (p *Parser) findShort(b byte) *Flag {
+	if p.defaultTaken && p.pos == p.defaultBundleEnd && p.ancestors[0] != nil {
+		for _, f := range p.ancestors[0].Flags {
+			if slices.Contains(f.Shorts, b) {
+				return f
+			}
+		}
+	}
 	f := p.eachInScope(func(f *Flag) bool {
 		for _, s := range f.Shorts {
 			if s == b {

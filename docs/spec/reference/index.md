@@ -168,7 +168,8 @@ rejects `-u` on the parent. Parent-only flags, including `--help`, and an empty
 invocation stay on the parent.
 
 The implicit command boundary is immediately before the first default-only
-flag. Parent flags before it retain their bindings; flags after it use the
+flag token. Parent flags before it and within the same short bundle retain
+their bindings in either order (`-pu` or `-up`). Subsequent tokens use the
 normal child/global scope. A shared flag spelling is interpreted using the
 parent declaration during lookahead. `--` ends lookahead, and an unknown flag
 stops it because its value arity is unknown. Without this opt-in, default

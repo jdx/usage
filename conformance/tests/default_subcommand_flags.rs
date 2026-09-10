@@ -83,3 +83,57 @@ fn an_explicit_false_overrides_an_enabled_spec() {
     let roundtrip: usage::Spec = spec.to_string().parse().unwrap();
     assert!(!roundtrip.default_subcommand_flags);
 }
+
+/// Mixed clusters route each field to its declaring derived struct.
+#[test]
+fn mixed_short_bundles_keep_parent_fields_in_both_orders() {
+    for bundle in ["-pua", "-upa", "-uap"] {
+        let parsed = Em::parse_from(&[bundle, "@world"].map(OsStr::new)).unwrap();
+        assert!(parsed.pretend);
+        let Some(Commands::Install(install)) = parsed.command else {
+            panic!("expected install")
+        };
+        assert!(install.update && install.ask);
+        assert_eq!(install.package.as_deref(), Some("@world"));
+    }
+}
+
+/// Conflict diagnostics name the selected command, not the token that implied it.
+#[test]
+fn implicit_conflicts_name_the_default_command() {
+    let kdl = Em::to_kdl();
+    let mut spec: usage::Spec = kdl.parse().unwrap();
+    spec.cmd.args_conflicts_with_subcommands = true;
+    for words in [vec!["em", "-p", "-u"], vec!["em", "-pu"], vec!["em", "-up"]] {
+        let error = usage::Parser::new(&spec)
+            .parse(&words.into_iter().map(String::from).collect::<Vec<_>>())
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("subcommand 'install'"),
+            "{error}"
+        );
+        assert!(!error.to_string().contains("subcommand '-u'"), "{error}");
+    }
+}
+
+#[test]
+fn mixed_bundles_honor_parent_conflicts_in_the_runtime() {
+    #[derive(Cli)]
+    #[usage(
+        default_subcommand = "install",
+        default_subcommand_flags,
+        args_conflicts_with_subcommands
+    )]
+    struct Conflicts {
+        #[usage(short = 'p')]
+        pretend: bool,
+        #[usage(subcommand)]
+        command: Option<Commands>,
+    }
+    for bundle in ["-pu", "-up"] {
+        assert!(matches!(
+            Conflicts::parse_from(&[OsStr::new(bundle)]),
+            Err(usage_argv::Error::SubcommandConflict { .. })
+        ));
+    }
+}

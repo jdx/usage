@@ -1698,6 +1698,8 @@ pub struct Parser<'t, 'a, 'v> {
     default_taken: bool,
     /// First default-only flag, when lookahead found no explicit sibling.
     default_flag_at: Option<usize>,
+    /// Cursor just after the implicit boundary bundle, whose shorts keep parent ownership.
+    default_bundle_end: usize,
     /// Set once a fatal error has been reported, so iteration stops.
     done: bool,
     /// Whether declared built-in actions stop parsing with their action error.
@@ -1766,6 +1768,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             separator_seen: false,
             default_taken: false,
             default_flag_at: None,
+            default_bundle_end: 0,
             done: false,
             action_errors,
             help_span: (0, 0),
@@ -1785,7 +1788,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         let mut at = None;
         let mut i = 0;
         while let Some(token) = self.argv.get(i).map(bytes) {
-            if token == b"--" || token == b"-" {
+            let scope = if at.is_some() { default } else { self.cmd };
+            if token == b"--"
+                || token == b"-"
+                || scope.clause.is_some_and(|c| c.separator == Some(token))
+            {
                 return at;
             }
             if !is_flag_like(token) {
@@ -1854,6 +1861,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
             i += 1;
             if let Some(flag) = value_flag {
+                let scope = if at.is_some() { default } else { self.cmd };
+                let is_separator =
+                    |next: &[u8]| scope.clause.is_some_and(|c| c.separator == Some(next));
                 let first = if let Some(value) = attached {
                     Some(value)
                 } else if !flag.require_equals {
@@ -1861,9 +1871,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                         .get(i)
                         .map(bytes)
                         .filter(|next| {
-                            flag.allow_hyphen_values
-                                || !is_flag_like(next)
-                                || (flag.allow_negative_numbers && is_negative_number(next))
+                            !is_separator(next)
+                                && (flag.allow_hyphen_values
+                                    || !is_flag_like(next)
+                                    || (flag.allow_negative_numbers && is_negative_number(next)))
                         })
                         .inspect(|_| i += 1)
                 } else {
@@ -1874,10 +1885,13 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 }
                 if flag.variadic {
                     let mut count = first.map_or(0, |v| values_in(v, flag.delimiter));
-                    while !flag.var_max.is_some_and(|max| count >= max) {
+                    while flag.var_max.is_none_or(|max| count < max) {
                         let Some(next) = self.argv.get(i).map(bytes) else {
                             break;
                         };
+                        if is_separator(next) {
+                            break;
+                        }
                         if next == b"--" || flag.value_terminator.is_some_and(|end| end == next) {
                             if next != b"--" {
                                 i += 1;
@@ -2020,14 +2034,42 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         event
     }
 
+    /// Count parent flags in the shared boundary token before entering the child.
+    fn default_bundle_has_parent_flag(&self, default: &Command<'_>) -> bool {
+        let Some(token) = self.argv.get(self.pos).map(bytes) else {
+            return false;
+        };
+        if !token.starts_with(b"-") || token.starts_with(b"--") {
+            return false;
+        }
+        for byte in &token[1..] {
+            if self.find_short(*byte).is_some() {
+                return true;
+            }
+            match default.flags.iter().find(|f| f.shorts.contains(byte)) {
+                Some(flag) if !flag.takes_value => {}
+                _ => break,
+            }
+        }
+        false
+    }
+
     fn step(&mut self) -> Option<Result<Event<'t, 'a, 'v>, Error<'t, 'v>>> {
         if self.default_flag_at == Some(self.pos) && self.bundle.is_empty() {
             self.default_flag_at = None;
             if let Some(default) = self.cmd.default_subcommand {
-                if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
+                if self.cmd.args_conflicts_with_subcommands
+                    && (self.command_arg_found || self.default_bundle_has_parent_flag(default))
+                {
                     return Some(Err(Error::SubcommandConflict {
                         subcommand: default,
                     }));
+                }
+                if self.argv.get(self.pos).is_some_and(|word| {
+                    let token = bytes(word);
+                    token.starts_with(b"-") && !token.starts_with(b"--")
+                }) {
+                    self.default_bundle_end = self.pos + 1;
                 }
                 self.default_taken = true;
                 return Some(self.descend(default).map(|()| Event::Command(default)));
@@ -2836,6 +2878,18 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
+        // Only the boundary token is shared. Later tokens use ordinary child/global scope.
+        if self.default_taken && self.pos == self.default_bundle_end {
+            if let Some(flag) = self.ancestors[0].and_then(|parent| {
+                parent
+                    .flags
+                    .iter()
+                    .copied()
+                    .find(|f| f.shorts.contains(&byte))
+            }) {
+                return Some(flag);
+            }
+        }
         self.in_scope()
             .find(|f| f.shorts.contains(&byte))
             // As for `--help`: supplied by the parser, and only where the command has not
