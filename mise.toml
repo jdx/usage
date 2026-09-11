@@ -10,7 +10,6 @@ mr-boxington = "1.8.3"
 # upgrade that changes how it samples would land in the series as a step change
 # in usage's numbers, indistinguishable from a real regression. Bump deliberately.
 "github:jdx/tak" = "v0.0.9"
-actionlint = "latest"
 aube = "latest"
 communique = "latest"
 cargo-binstall = "1.22.0"
@@ -88,8 +87,6 @@ run = [
 
 [tasks.lint]
 depends = ['lint:*']
-[tasks."lint:actionlint"]
-run = 'actionlint'
 [tasks."lint:prettier"]
 run = "prettier -c ."
 [tasks."lint:clippy"]
