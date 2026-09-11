@@ -8,7 +8,7 @@ set -euo pipefail
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 # Trust the repo's mise config and install every pinned tool from mise.toml
-# (go, node, python, prettier, actionlint, insta, shellcheck, ...). Idempotent:
+# (go, node, python, prettier, insta, shellcheck, ...). Idempotent:
 # already-present tools are a fast no-op.
 mise trust --yes
 mise install
