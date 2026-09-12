@@ -69,7 +69,13 @@
 //!
 //! ```
 //! use usage_rs as usage;
+//! # #[cfg(feature = "spec")]
 //! use usage::Args;
+//! #
+//! # #[cfg(not(feature = "spec"))]
+//! # fn main() {}
+//! # #[cfg(feature = "spec")]
+//! # fn main() {
 //!
 //! #[derive(Debug, Args)]
 //! struct Install {
@@ -82,6 +88,7 @@
 //! let install = usage::parse_args_from::<Install>(&argv).unwrap();
 //! assert!(install.force);
 //! assert_eq!(install.tools, ["node@24"]);
+//! # }
 //! ```
 
 #![forbid(unsafe_code)]

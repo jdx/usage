@@ -629,6 +629,24 @@ struct StandaloneInstall {
     tools: Vec<String>,
 }
 
+#[derive(Debug, Args, PartialEq, Eq)]
+struct StandaloneNested {
+    #[usage(subcommand)]
+    command: StandaloneNestedCommand,
+}
+
+#[derive(Debug, Subcommands, PartialEq, Eq)]
+enum StandaloneNestedCommand {
+    Run(StandaloneRun),
+}
+
+#[derive(Debug, Args, PartialEq, Eq)]
+struct StandaloneRun {
+    #[usage(long)]
+    profile: String,
+    task: String,
+}
+
 #[test]
 fn args_parse_without_an_enclosing_cli() {
     let words = ["--force", "--jobs", "2", "node@24", "python@3.14"].map(OsStr::new);
@@ -666,6 +684,26 @@ fn standalone_args_return_their_normal_parse_errors() {
         panic!("expected a help request, got {help:?}");
     };
     assert_eq!(cmd.name, "standalone-install");
+}
+
+#[test]
+fn standalone_args_route_and_validate_subcommands() {
+    let words = ["run", "--profile", "release", "build"].map(OsStr::new);
+    assert_eq!(
+        usage::parse_args_from::<StandaloneNested>(&words).unwrap(),
+        StandaloneNested {
+            command: StandaloneNestedCommand::Run(StandaloneRun {
+                profile: "release".to_string(),
+                task: "build".to_string(),
+            }),
+        }
+    );
+
+    let missing_profile = ["run", "build"].map(OsStr::new);
+    assert!(matches!(
+        usage::parse_args_from::<StandaloneNested>(&missing_profile),
+        Err(usage::Error::MissingRequired { name: "profile" })
+    ));
 }
 
 #[derive(Cli)]
