@@ -62,6 +62,27 @@
 //! assert_eq!(ex.file.as_deref(), Some(std::path::Path::new("input.txt")));
 //! # }
 //! ```
+//!
+//! A derived [`Args`] type can also be parsed on its own. This lets an adapter
+//! reuse one command's exact argument contract without constructing or parsing
+//! the application's root CLI:
+//!
+//! ```
+//! use usage_rs as usage;
+//! use usage::Args;
+//!
+//! #[derive(Debug, Args)]
+//! struct Install {
+//!     #[usage(short, long)]
+//!     force: bool,
+//!     tools: Vec<String>,
+//! }
+//!
+//! let argv = ["--force", "node@24"].map(std::ffi::OsStr::new);
+//! let install = usage::parse_args_from::<Install>(&argv).unwrap();
+//! assert!(install.force);
+//! assert_eq!(install.tools, ["node@24"]);
+//! ```
 
 #![forbid(unsafe_code)]
 

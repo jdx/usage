@@ -618,6 +618,56 @@ enum RepeatedGlobalCommand {
     Run(RepeatedGlobalChild),
 }
 
+#[derive(Debug, Args, PartialEq, Eq)]
+struct StandaloneInstall {
+    #[usage(short, long)]
+    force: bool,
+    #[usage(long, default = "4")]
+    jobs: usize,
+    #[usage(long, default = "fast", choices("fast", "slow"))]
+    mode: String,
+    tools: Vec<String>,
+}
+
+#[test]
+fn args_parse_without_an_enclosing_cli() {
+    let words = ["--force", "--jobs", "2", "node@24", "python@3.14"].map(OsStr::new);
+    assert_eq!(
+        usage::parse_args_from::<StandaloneInstall>(&words).unwrap(),
+        StandaloneInstall {
+            force: true,
+            jobs: 2,
+            mode: "fast".to_string(),
+            tools: vec!["node@24".to_string(), "python@3.14".to_string()],
+        }
+    );
+
+    let argv = ["install", "--mode", "slow", "ruby@4"].map(OsStr::new);
+    assert_eq!(
+        usage::parse_args_from_argv::<StandaloneInstall>(&argv).unwrap(),
+        StandaloneInstall {
+            force: false,
+            jobs: 4,
+            mode: "slow".to_string(),
+            tools: vec!["ruby@4".to_string()],
+        }
+    );
+}
+
+#[test]
+fn standalone_args_return_their_normal_parse_errors() {
+    let invalid = ["--mode", "turbo"].map(OsStr::new);
+    let invalid = usage::parse_args_from::<StandaloneInstall>(&invalid).unwrap_err();
+    assert!(matches!(invalid, usage::Error::InvalidChoice { .. }));
+
+    let help = ["--help"].map(OsStr::new);
+    let help = usage::parse_args_from::<StandaloneInstall>(&help).unwrap_err();
+    let usage::Error::Help { cmd, .. } = help else {
+        panic!("expected a help request, got {help:?}");
+    };
+    assert_eq!(cmd.name, "standalone-install");
+}
+
 #[derive(Cli)]
 #[usage(bin = "repeated-global")]
 struct RepeatedGlobal {

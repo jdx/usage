@@ -22,6 +22,7 @@
 //! `help_heading` went in that way.
 //!
 use core::fmt::Write as _;
+use std::ffi::OsStr;
 
 use crate::UnknownFlags;
 use crate::{Arg, Command, DoubleDash, Flag};
@@ -3788,6 +3789,70 @@ pub struct ArgumentState {
     pub given: bool,
     /// Whether the argument is satisfied, including an unconditional default.
     pub satisfied: bool,
+}
+
+/// Parse arguments directly into a derived [`CommandArgs`] type.
+///
+/// Unlike a root CLI's `parse_from`, this needs no enclosing CLI declaration: it
+/// starts at the command represented by `T` and treats `argv` as that command's
+/// arguments. This is useful for adapters and embedded command surfaces that
+/// need one command's exact parser without parsing and dispatching the complete
+/// application again.
+pub fn parse_args_from<'v, T>(argv: &[&'v OsStr]) -> Result<T, crate::Error<'static, 'v>>
+where
+    T: CommandArgs,
+{
+    let mut partial = T::start();
+    let mut parser = crate::Parser::new(T::COMMAND, argv);
+    while let Some(event) = parser.next_event() {
+        let event = event?;
+        if let crate::Event::Flag { flag, .. } = &event {
+            if crate::is_help_flag(flag) {
+                if flag.action == crate::ArgAction::HelpAll {
+                    return Err(crate::Error::HelpAll {
+                        cmd: parser.command(),
+                    });
+                }
+                let long = match flag.action {
+                    crate::ArgAction::HelpShort => false,
+                    crate::ArgAction::HelpLong => true,
+                    crate::ArgAction::Help => !flag.longs.is_empty(),
+                    _ => false,
+                };
+                return Err(crate::Error::Help {
+                    cmd: parser.command(),
+                    long,
+                });
+            }
+            if crate::is_version_flag(flag) {
+                return Err(crate::Error::Version {
+                    long: !flag.longs.is_empty(),
+                });
+            }
+        }
+        T::apply(&mut partial, &event);
+    }
+
+    if parser.command().arg_required_else_help && parser.command_start() == argv.len() {
+        return Err(crate::Error::MissingArgsHelp {
+            cmd: parser.command(),
+        });
+    }
+
+    T::check(&mut partial)?;
+    T::build(partial)
+}
+
+/// Parse a full argv into a derived [`CommandArgs`] type, stripping argv0.
+///
+/// This is the full-argv counterpart to [`parse_args_from`]. The first element
+/// identifies the embedding command and is not parsed as one of its arguments.
+pub fn parse_args_from_argv<'v, T>(argv: &[&'v OsStr]) -> Result<T, crate::Error<'static, 'v>>
+where
+    T: CommandArgs,
+{
+    let words = argv.split_first().map_or(argv, |(_, words)| words);
+    parse_args_from(words)
 }
 
 pub trait CommandArgs: Sized {
