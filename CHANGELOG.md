@@ -1,5 +1,45 @@
 # Changelog
 
+## [6.9.0](https://github.com/jdx/usage/compare/v6.8.0..v6.9.0) - 2026-09-12
+
+### 🚀 Features
+
+- **(help)** allow remapping semantic colours on Style by [@lu-zero](https://github.com/lu-zero) in [#1414](https://github.com/jdx/usage/pull/1414)
+- **(parse)** add opt-in default-subcommand flag routing by [@jdx](https://github.com/jdx) in [#1413](https://github.com/jdx/usage/pull/1413)
+- **(parse)** parse Args without an enclosing CLI by [@jdx](https://github.com/jdx) in [#1419](https://github.com/jdx/usage/pull/1419)
+
+### 🐛 Bug Fixes
+
+- **(bash)** preserve colon-prefixed completion words by [@jdx](https://github.com/jdx) in [#1405](https://github.com/jdx/usage/pull/1405)
+
+### 📚 Documentation
+
+- write PR titles and descriptions for release notes by [@jdx](https://github.com/jdx) in [#1415](https://github.com/jdx/usage/pull/1415)
+
+### ⚡ Performance
+
+- **(cli)** shrink help sorting without allocating cached keys by [@jdx](https://github.com/jdx) in [#1396](https://github.com/jdx/usage/pull/1396)
+- **(cli)** make advanced help and runtime spec serialization optional by [@jdx](https://github.com/jdx) in [#1399](https://github.com/jdx/usage/pull/1399)
+- **(cli)** share help sorting and skip unused rendering work by [@jdx](https://github.com/jdx) in [#1400](https://github.com/jdx/usage/pull/1400)
+- **(cli)** avoid color analysis for plain help by [@jdx](https://github.com/jdx) in [#1401](https://github.com/jdx/usage/pull/1401)
+
+### 🔍 Other Changes
+
+- **(ci)** use self-repository workflow references by [@jdx](https://github.com/jdx) in [#1409](https://github.com/jdx/usage/pull/1409)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1398](https://github.com/jdx/usage/pull/1398)
+- update jdx/renovate-config digest to 8cabc2e by [@renovate[bot]](https://github.com/renovate[bot]) in [#1406](https://github.com/jdx/usage/pull/1406)
+- update zizmorcore/zizmor-action action to v0.6.3 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1403](https://github.com/jdx/usage/pull/1403)
+- update dependency go to v1.27.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1407](https://github.com/jdx/usage/pull/1407)
+- update actions/deploy-pages action to v5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1404](https://github.com/jdx/usage/pull/1404)
+- update communique to v1.4.0 by [@jdx](https://github.com/jdx) in [#1416](https://github.com/jdx/usage/pull/1416)
+
+### New Contributors
+
+- @lu-zero made their first contribution in [#1414](https://github.com/jdx/usage/pull/1414)
+
 ## [6.8.0](https://github.com/jdx/usage/compare/v6.7.1..v6.8.0) - 2026-09-06
 
 ### 🚀 Features
