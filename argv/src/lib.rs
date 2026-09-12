@@ -177,6 +177,8 @@ pub mod run;
 #[cfg(feature = "spec")]
 pub mod spec;
 #[cfg(feature = "spec")]
+pub use spec::{parse_args_from, parse_args_from_argv};
+#[cfg(feature = "spec")]
 pub mod warn;
 
 pub use run::{Run, RunAsync, RunAsyncWith, RunWith};
