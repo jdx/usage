@@ -163,8 +163,10 @@ cmd "query" {}
 
 `em -ua @world` then means `em install -ua @world`. The parser looks past
 recognized parent/default flags and their values for an explicit command name
-or alias. An explicit sibling keeps ordinary parsing: `em -u query` still
-rejects `-u` on the parent. Parent-only flags, including `--help`, and an empty
+or alias. A sibling name _before_ any default-only flag keeps ordinary parsing
+(`em query`, `em -p query`). After a default-only flag, later words are the
+default command's args: `em -u query` is `em install -u query`, even when
+`query` is also a command. Parent-only flags, including `--help`, and an empty
 invocation stay on the parent.
 
 The implicit command boundary is immediately before the first default-only

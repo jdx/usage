@@ -27,6 +27,8 @@ struct Install {
     update: bool,
     #[usage(short = 'a')]
     ask: bool,
+    #[usage(short = 'X', long)]
+    exclude: Option<String>,
     package: Option<String>,
 }
 
@@ -48,7 +50,21 @@ fn parent_help_and_explicit_siblings_keep_their_meaning() {
     assert!(parsed.command.is_none());
     let parsed = Em::parse_from(&[OsStr::new("query")]).unwrap();
     assert!(matches!(parsed.command, Some(Commands::Query)));
-    assert!(Em::parse_from(&["-u", "query"].map(OsStr::new)).is_err());
+    let parsed = Em::parse_from(&["-p", "query"].map(OsStr::new)).unwrap();
+    assert!(parsed.pretend);
+    assert!(matches!(parsed.command, Some(Commands::Query)));
+    let parsed = Em::parse_from(&["-u", "query"].map(OsStr::new)).unwrap();
+    let Some(Commands::Install(install)) = parsed.command else {
+        panic!("expected install: a default-only flag already committed the line")
+    };
+    assert!(install.update);
+    assert_eq!(install.package.as_deref(), Some("query"));
+    let parsed = Em::parse_from(&["-X", "foo", "query"].map(OsStr::new)).unwrap();
+    let Some(Commands::Install(install)) = parsed.command else {
+        panic!("expected install")
+    };
+    assert_eq!(install.exclude.as_deref(), Some("foo"));
+    assert_eq!(install.package.as_deref(), Some("query"));
     let Err(usage_argv::Error::Help { cmd, .. }) = Em::parse_from(&[OsStr::new("--help")]) else {
         panic!("expected parent help")
     };

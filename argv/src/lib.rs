@@ -220,7 +220,8 @@ pub struct Command<'a> {
     /// into a compile error.
     pub default_subcommand: ::core::option::Option<&'a Command<'a>>,
     /// Look ahead past parent/default flags before implicitly selecting the default.
-    /// Explicit siblings win; parent-only flags retain their ordinary meaning.
+    /// A sibling name before any default-only flag stays on the parent; after one,
+    /// later words are the default command's args.
     pub default_subcommand_flags: bool,
     /// Whether an unmatched word is forwarded as an external command plus the rest of argv.
     ///
@@ -1798,13 +1799,16 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 return at;
             }
             if !is_flag_like(token) {
-                return if self.find_subcommand(token).is_some()
-                    || (token == b"help" && !self.cmd.disable_help_subcommand)
+                // A sibling name before any default-only flag stays on the parent.
+                // After one, later words are the default command's args (`-u pkg`
+                // when `pkg` is also a command).
+                if at.is_none()
+                    && (self.find_subcommand(token).is_some()
+                        || (token == b"help" && !self.cmd.disable_help_subcommand))
                 {
-                    None
-                } else {
-                    at
-                };
+                    return None;
+                }
+                return at;
             }
             let mut value_flag = None;
             let mut attached = None;
@@ -1908,7 +1912,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                         if self.cmd.subcommand_precedence_over_arg
                             && self.find_subcommand(next).is_some()
                         {
-                            return None;
+                            break;
                         }
                         count += values_in(next, flag.delimiter);
                         i += 1;

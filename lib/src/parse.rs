@@ -1351,15 +1351,15 @@ fn default_flag_route(spec: &Spec, root: &SpecCommand, input: &VecDeque<Token>) 
             return at;
         }
         if !is_flag_like(token) {
-            return if root.find_subcommand(token).is_some()
-                || (token == "help"
-                    && spec.disable_help != Some(true)
-                    && !root.disable_help_subcommand)
+            if at.is_none()
+                && (root.find_subcommand(token).is_some()
+                    || (token == "help"
+                        && spec.disable_help != Some(true)
+                        && !root.disable_help_subcommand))
             {
-                None
-            } else {
-                at
-            };
+                return None;
+            }
+            return at;
         }
         let mut value_flag = None;
         let mut attached = None;
@@ -1449,7 +1449,7 @@ fn default_flag_route(spec: &Spec, root: &SpecCommand, input: &VecDeque<Token>) 
                         break;
                     }
                     if root.subcommand_precedence_over_arg && root.find_subcommand(next).is_some() {
-                        return None;
+                        break;
                     }
                     count += count_values(next);
                     i += 1;
