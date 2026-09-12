@@ -116,8 +116,9 @@ func New(root *Command, argv []string) Parser {
 	return p
 }
 
-// defaultFlagRoute chooses an implicit boundary without binding any flags. A
-// sibling selector wins, and a flag's values are never mistaken for selectors.
+// defaultFlagRoute chooses an implicit boundary without binding any flags.
+// A sibling name before any default-only flag stays on the parent; after one,
+// later words are the default command's args.
 func (p *Parser) defaultFlagRoute() int {
 	d := p.cmd.DefaultSubcommand
 	if d == nil {
@@ -134,7 +135,7 @@ func (p *Parser) defaultFlagRoute() int {
 			return at
 		}
 		if !isFlagLike(token) {
-			if p.findSubcommand(token) != nil || (token == "help" && !p.cmd.DisableHelpSubcommand) {
+			if at < 0 && (p.findSubcommand(token) != nil || (token == "help" && !p.cmd.DisableHelpSubcommand)) {
 				return -1
 			}
 			return at
@@ -235,7 +236,7 @@ func (p *Parser) defaultFlagRoute() int {
 						break
 					}
 					if p.cmd.SubcommandPrecedenceOverArg && p.findSubcommand(next) != nil {
-						return -1
+						break
 					}
 					count += valuesIn(next, f.Delimiter)
 					i++

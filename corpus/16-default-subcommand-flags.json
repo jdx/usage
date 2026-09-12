@@ -145,20 +145,36 @@
     },
     {
       "id": "default-flags-sibling-wins",
-      "doc": "A sibling prevents default routing; its prefix still rejects a default-only flag.",
+      "doc": "After a default-only flag, a sibling name is the default command's arg.",
       "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
       "argv": ["-u", "query"],
       "expect": {
-        "error": "unknown_flag"
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true
+          },
+          "args": {
+            "package": "query"
+          }
+        }
       }
     },
     {
       "id": "default-flags-alias-wins",
-      "doc": "Sibling aliases have the same precedence as canonical names.",
+      "doc": "A sibling alias after a default-only flag is also a default-command arg.",
       "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
       "argv": ["-u", "q"],
       "expect": {
-        "error": "unknown_flag"
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true
+          },
+          "args": {
+            "package": "q"
+          }
+        }
       }
     },
     {
@@ -181,11 +197,19 @@
     },
     {
       "id": "default-flags-explicit-prefix",
-      "doc": "Opting in does not legalize child-only flags before an explicit command.",
+      "doc": "The default command's own name after a default-only flag is an arg, not a selector.",
       "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
       "argv": ["-u", "install"],
       "expect": {
-        "error": "unknown_flag"
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "update": true
+          },
+          "args": {
+            "package": "install"
+          }
+        }
       }
     },
     {
@@ -248,11 +272,19 @@
     },
     {
       "id": "default-flags-value-then-sibling",
-      "doc": "A real selector after a default flag value still wins.",
+      "doc": "A sibling name after a default flag value is the default command's arg.",
       "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
       "argv": ["--output", "query", "search"],
       "expect": {
-        "error": "unknown_flag"
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "output": "query"
+          },
+          "args": {
+            "package": "search"
+          }
+        }
       }
     },
     {
@@ -329,11 +361,19 @@
     },
     {
       "id": "default-flags-optional-equals",
-      "doc": "An optional equals-only value leaves a sibling selector visible.",
+      "doc": "An optional equals-only value still commits to the default; the next word is an arg.",
       "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--color <when>\" require_equals=#true default_missing=\"auto\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
       "argv": ["--color", "query"],
       "expect": {
-        "error": "unknown_flag"
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "color": "auto"
+          },
+          "args": {
+            "package": "query"
+          }
+        }
       }
     },
     {
@@ -375,29 +415,53 @@
     },
     {
       "id": "default-flags-variadic-limit",
-      "doc": "A sibling after a bounded variadic value remains a selector.",
+      "doc": "A sibling after a bounded variadic value is the default command's arg.",
       "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--include <item>...\" { arg \"<item>...\" var_max=1; }\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
       "argv": ["--include", "one", "query"],
       "expect": {
-        "error": "unknown_flag"
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "include": ["one"]
+          },
+          "args": {
+            "package": "query"
+          }
+        }
       }
     },
     {
       "id": "default-flags-variadic-terminator",
-      "doc": "A value terminator exposes the following sibling selector.",
+      "doc": "A value terminator still leaves later words as the default command's args.",
       "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--include <item>...\" { arg \"<item>...\" value_terminator=\"END\"; }\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
       "argv": ["--include", "one", "END", "query"],
       "expect": {
-        "error": "unknown_flag"
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "include": ["one"]
+          },
+          "args": {
+            "package": "query"
+          }
+        }
       }
     },
     {
       "id": "default-flags-negative-value",
-      "doc": "An opted-in negative value is skipped before a sibling selector.",
+      "doc": "An opted-in negative value is skipped; the following sibling name is an arg.",
       "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n flag \"--offset <n>\" { arg \"<n>\" allow_negative_numbers=#true; }\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
       "argv": ["--offset", "-2", "query"],
       "expect": {
-        "error": "unknown_flag"
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "offset": "-2"
+          },
+          "args": {
+            "package": "query"
+          }
+        }
       }
     },
     {
@@ -522,11 +586,20 @@
     },
     {
       "id": "default-flags-mixed-sibling",
-      "doc": "Explicit sibling precedence also applies to mixed bundles.",
+      "doc": "A mixed bundle that includes a default-only short commits later words as args.",
       "spec": "name \"em\"\nbin \"em\"\nunknown_flags \"error\"\ndefault_subcommand \"install\"\ndefault_subcommand_flags #true\nflag \"-p --pretend\"\nflag \"-c --config <path>\"\nflag \"-v --verbose\" global=#true\ncmd \"install\" {\n alias \"i\"\n flag \"-u --update\"\n flag \"-a --ask\"\n flag \"-r --remove\"\n flag \"--output <path>\"\n arg \"[package]\"\n}\ncmd \"query\" { alias \"q\"; }\ncmd \"search\" {}\n",
       "argv": ["-pu", "query"],
       "expect": {
-        "error": "unknown_flag"
+        "ok": {
+          "cmd": ["install"],
+          "flags": {
+            "pretend": true,
+            "update": true
+          },
+          "args": {
+            "package": "query"
+          }
+        }
       }
     },
     {
