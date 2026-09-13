@@ -384,12 +384,13 @@
   padding: 0;
 }
 
-.usage-bench-sub {
+.usage-bench .usage-bench-sub {
   font-size: 0.95rem;
   color: rgba(245, 240, 255, 0.65);
   max-width: 620px;
   margin: 0 auto 2.25rem;
   line-height: 1.6;
+  text-align: center;
 }
 
 .usage-bench-sub code {
@@ -433,6 +434,7 @@
   margin-left: 0;
   margin-right: 0;
   max-width: none;
+  text-align: left;
 }
 
 .vp-doc .usage-bench.embedded .usage-bench-title {
@@ -481,6 +483,12 @@
   font-weight: 400;
   color: rgba(245, 240, 255, 0.5);
   margin-left: 0.5rem;
+}
+
+/* The Go comparison has a fourth framework. Reserve the same four-row chart
+   area on both side-by-side cards so their dividers and explanations align. */
+.usage-bench-cards:not(.usage-bench-cards-single) .usage-bench-rows {
+  height: 7.72rem;
 }
 
 .usage-bench-row {
@@ -646,6 +654,10 @@
 @media (max-width: 860px) {
   .usage-bench-cards {
     grid-template-columns: 1fr;
+  }
+
+  .usage-bench-cards:not(.usage-bench-cards-single) .usage-bench-rows {
+    height: auto;
   }
 }
 
