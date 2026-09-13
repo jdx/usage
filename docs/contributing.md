@@ -73,11 +73,12 @@ Run the checks relevant to your change:
 | Rust code                 | `mise run test`                                  |
 | One Rust test             | `mise exec -- cargo test -p usage-lib test_name` |
 | Go runtime or integration | `mise run test:go`                               |
-| Markdown and formatting   | `mise run lint:prettier`                         |
-| Rust lint and formatting  | `mise run lint:clippy` and `mise run lint:fmt`   |
+| Lint and formatting       | `mise run lint`                                  |
 | Documentation website     | `mise exec -- aube run docs:build`               |
 | Full CI checks            | `mise run ci`                                    |
 
+Linters are defined in `hk.pkl`; run one on its own with
+`mise exec -- hk check --all --step cargo-clippy`.
 `mise run lint-fix` applies formatters and automatic lint fixes across the project.
 Review every change it produces. Snapshot tests use `cargo-insta`; when behavior
 intentionally changes, use `mise exec -- cargo insta review` to inspect updates.
