@@ -1,5 +1,5 @@
 module github.com/jdx/usage/go
 
-go 1.21
+go 1.26.0
 
-require github.com/expr-lang/expr v1.17.8 // indirect
+require github.com/expr-lang/expr v1.17.8

@@ -1,6 +1,6 @@
 module github.com/jdx/usage/integrations/cobra
 
-go 1.21
+go 1.26.0
 
 require (
 	github.com/spf13/cobra v1.10.2
