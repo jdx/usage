@@ -13,12 +13,28 @@ For website changes, run `mise run docs:dev` for a live preview and
 `mise exec -- aube run docs:build` for the production build. Guides live in
 `docs/`; `docs/cli/reference/` is generated from command help in the Rust source.
 
+## Git hooks
+
+Linting runs through [hk](https://hk.jdx.dev), configured in `hk.pkl`.
+`mise install` provides the binary; installing the hooks themselves is per-clone:
+
+```sh
+hk install --mise
+```
+
+`--mise` runs the hooks through `mise x`, so the project's pinned tools are on
+`PATH` even when Git is invoked from an editor rather than an activated shell.
+The `pre-commit` hook fixes what it can, stages the result, and stashes
+unstaged work while it runs. The same steps are available on demand as
+`mise run lint` and `mise run lint-fix`, which wrap `hk check --all` and
+`hk fix --all`.
+
 ## mbx build cache
 
 `mise install` installs [mbx](https://mr-boxington.jdx.dev) 1.8. The normal
-`mise run build`, `mise run test`, and `mise run lint:clippy` workflows activate
-its transparent Cargo wrapper and therefore use the cache while invoking Cargo
-normally. Standalone Cargo commands require an activated mise shell. To bypass
+`mise run build`, `mise run test`, and `mise run lint` workflows activate its
+transparent Cargo wrapper and therefore use the cache while invoking Cargo
+normally, including the Cargo steps hk runs. Standalone Cargo commands require an activated mise shell. To bypass
 mbx without skipping or weakening a check, prefix the
 equivalent Cargo command with `MBX_DISABLE=1` and keep the mise tool environment:
 

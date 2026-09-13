@@ -14,6 +14,7 @@ aube = "latest"
 communique = "latest"
 cargo-binstall = "1.22.0"
 gh = "latest"
+hk = "latest"
 "cargo:cargo-edit" = "latest"
 "aqua:mitsuhiko/insta" = "latest"
 "github:crate-ci/cargo-release" = "latest"
@@ -85,14 +86,18 @@ run = [
     'cd benches/go && if go mod download >/dev/null 2>&1; then go test ./...; else echo "skipped: the benchmark frameworks could not be fetched"; fi',
 ]
 
+# hk decides what the linters are and which files reach them; these tasks are
+# wrappers so `mise run lint` stays the entry point CONTRIBUTING.md documents.
+# `hk.pkl` is the file to edit when adding or changing a check.
 [tasks.lint]
-depends = ['lint:*']
-[tasks."lint:prettier"]
-run = "prettier -c ."
+run = "hk check --all"
+
+# Clippy on its own, for the Windows job in `test-impl.yml`: `#[cfg]` decides
+# whether code exists, so a warning can be real on one platform and absent on
+# the other.
 [tasks."lint:clippy"]
-run = 'cargo clippy --all --all-features --all-targets -- -D warnings'
-[tasks."lint:fmt"]
-run = 'cargo fmt --all -- --check'
+run = "hk check --all --step cargo-clippy"
+
 [tasks."lint:semver"]
 run = "cargo semver-checks check-release -p usage-lib"
 [tasks."lint:rust-docs-version"]
@@ -148,13 +153,14 @@ run = [
     'cd benches/go && if go mod download >/dev/null 2>&1; then go vet ./...; else echo "skipped: the benchmark frameworks could not be fetched"; fi',
 ]
 
+# The fix half of `lint:go`, kept next to it rather than in `hk.pkl` so the two
+# stay in step.
+[tasks."lint-fix:go"]
+dir = "{{config_root}}"
+run = 'gofmt -w go benches/go'
+
 [tasks.lint-fix]
-run = [
-    'cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings',
-    'cargo fmt --all',
-    'gofmt -w go benches/go',
-    'prettier -w .',
-]
+run = "hk fix --all"
 
 [tasks.ci]
 depends = ['test', 'test:go', 'lint']
@@ -177,7 +183,10 @@ run = [
     'usage --completions fish > cli/assets/completions/usage.fish',
     'usage --completions zsh > cli/assets/completions/_usage',
     'usage --completions powershell > cli/assets/completions/usage.ps1',
-    'mise run lint-fix',
+    # The formatters only. Everything rendered above is Markdown, JSON, KDL or a
+    # man page, so prettier is the one that has anything to say about it, and a
+    # full `mise run lint-fix` would make `render` fail on an unrelated check.
+    'hk fix --all --step prettier --step cargo-fmt',
 ]
 
 [tasks."render:example-md"]
