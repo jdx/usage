@@ -1,0 +1,40 @@
+amends "package://github.com/jdx/hk/releases/download/v2.0.0/hk@2.0.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.0.0/hk@2.0.0#/Builtins.pkl"
+
+steps {
+    ["prettier"] = Builtins.prettier
+
+    ["cargo-fmt"] = Builtins.cargo_fmt
+
+    // Per-manifest, `--all-features` resolves differently than it does across the
+    // workspace and trips `-D warnings` on usage-argv, so lint the workspace once.
+    ["cargo-clippy"] = (Builtins.cargo_clippy) {
+        workspace_indicator = null
+        check = new CommandSpec {
+            command = "cargo clippy --all --all-features --all-targets -- -D warnings"
+            effect = "write"
+        }
+        fix = new CommandSpec {
+            command = "cargo clippy --all --all-features --fix --allow-dirty --allow-staged -- -D warnings"
+            effect = "write"
+        }
+    }
+
+    // Not Builtins.go_fmt/go_vet: this keeps the gofmt parse-failure check and
+    // skips the benchmark module when its frameworks cannot be fetched.
+    ["go"] {
+        glob = List("go/**/*.go", "benches/go/**/*.go")
+        check = "mise run lint:go"
+        fix = "mise run lint-fix:go"
+    }
+
+    ["rust-docs-version"] {
+        glob = List("docs/rust/*.md", "usage-rs/src/lib.rs", "test/src/lib.rs", "lib/Cargo.toml")
+        check = "mise run lint:rust-docs-version"
+    }
+
+    ["cargo-semver-checks"] {
+        glob = List("lib/**/*.rs", "lib/Cargo.toml")
+        check = "mise run lint:semver"
+    }
+}

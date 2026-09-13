@@ -3,7 +3,8 @@
 ## mbx build cache
 
 `mise install` installs mbx 1.4. `mise run` activates the project's transparent
-Cargo wrapper, so compilation-heavy mise tasks use ordinary `cargo` commands.
+Cargo wrapper, so compilation-heavy mise tasks and hk checks use ordinary
+`cargo` commands.
 Standalone Cargo commands require an activated mise shell. If the wrapper fails
 or creates a development papercut, rerun the exact equivalent command from
 `CONTRIBUTING.md` with `MBX_DISABLE=1`; this unblocks work without weakening the
@@ -79,10 +80,9 @@ cargo test -p usage-cli test_name
 # Update snapshots (uses cargo-insta)
 cargo insta test --accept
 
-# Lint and format
-cargo clippy --all --all-features -- -D warnings
-cargo fmt --all
-prettier -w .
+# Lint and format (hk drives both; see hk.pkl)
+mise run lint
+mise run lint-fix
 
 # Full CI check
 mise run ci
