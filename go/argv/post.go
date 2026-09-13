@@ -3,6 +3,7 @@ package argv
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/expr-lang/expr"
@@ -293,12 +294,7 @@ func defaultIfMatches(cond *DefaultIf, filled map[uint64][]string, sources map[u
 		return true
 	}
 	values := explicitRelationshipValues(meta.Lookup(cond.Key), filled[cond.Key], src, negated[cond.Key])
-	for _, value := range values {
-		if value == cond.When {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, cond.When)
 }
 
 func explicitRelationshipValues(m *Meta, values []string, source Source, negated bool) []string {

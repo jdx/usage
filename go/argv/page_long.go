@@ -288,10 +288,7 @@ func entry(out *strings.Builder, usage, help string, col int, nextLine bool) int
 	// The column layout only works for text that has not been broken already, and
 	// only when there is room left for it to say anything.
 	indent := 2 + col + 2
-	room := helpWidth - indent
-	if room < 0 {
-		room = 0
-	}
+	room := max(helpWidth-indent, 0)
 	// A long outlier leaves the shared column to ordinary entries, but keeps its own help on
 	// the row when at least a useful line of prose remains.
 	overflow := width(usage) > col
@@ -431,7 +428,7 @@ func writeWrapped(out *strings.Builder, text string, by int) {
 // wrap breaks text to a width, preserving the breaks the author already made.
 func wrap(text string, width int) []string {
 	var lines []string
-	for _, paragraph := range strings.Split(text, "\n") {
+	for paragraph := range strings.SplitSeq(text, "\n") {
 		if paragraph == "" {
 			lines = append(lines, "")
 			continue
@@ -447,13 +444,10 @@ func wrap(text string, width int) []string {
 		} else {
 			body = trimmed
 		}
-		bodyWidth := width - runeLen(prefix)
-		if bodyWidth < 0 {
-			bodyWidth = 0
-		}
+		bodyWidth := max(width-runeLen(prefix), 0)
 		linePrefix := prefix
 		line := ""
-		for _, word := range strings.Fields(body) {
+		for word := range strings.FieldsSeq(body) {
 			if line != "" && runeLen(line)+1+runeLen(word) > bodyWidth {
 				lines = append(lines, linePrefix+line)
 				line = ""
@@ -476,8 +470,8 @@ func wrap(text string, width int) []string {
 
 func listPrefix(line string) (string, string) {
 	for _, marker := range []string{"* ", "- ", "+ "} {
-		if strings.HasPrefix(line, marker) {
-			return marker, strings.TrimPrefix(line, marker)
+		if after, ok := strings.CutPrefix(line, marker); ok {
+			return marker, after
 		}
 	}
 	for i, r := range line {

@@ -629,7 +629,7 @@ func assertNotContains(t *testing.T, got, unwanted string) {
 
 // findLine returns the first line of output containing prefix, or "" if none does.
 func findLine(output, prefix string) string {
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		if strings.Contains(line, prefix) {
 			return line
 		}

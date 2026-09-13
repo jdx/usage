@@ -9,7 +9,7 @@
 // does the same for the Rust four.
 module github.com/jdx/usage/benches/go
 
-go 1.24
+go 1.26.0
 
 require (
 	github.com/alecthomas/kong v1.16.1

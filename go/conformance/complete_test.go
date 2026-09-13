@@ -46,7 +46,7 @@ func completeWord(t *testing.T, usageBin, kdl string, words []string, cword int)
 		t.Fatalf("the reference should answer %v: %v", words, err)
 	}
 	var lines []string
-	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(string(out), "\n"), "\n") {
 		if line != "" {
 			lines = append(lines, line)
 		}

@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jdx/usage/go/argv"
@@ -832,8 +833,8 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 				}
 			}
 		}
-		for i := len(b.scope) - 1; i >= 0; i-- {
-			if key, ok := b.matchFlag(b.scope[i].Flags, name, true); ok {
+		for _, v := range slices.Backward(b.scope) {
+			if key, ok := b.matchFlag(v.Flags, name, true); ok {
 				return key, true
 			}
 		}
@@ -961,17 +962,13 @@ func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (
 			return f.Key, true
 		}
 		if long != "" {
-			for _, l := range f.Longs {
-				if l == long {
-					return f.Key, true
-				}
+			if slices.Contains(f.Longs, long) {
+				return f.Key, true
 			}
 		}
 		if short != 0 {
-			for _, s := range f.Shorts {
-				if s == short {
-					return f.Key, true
-				}
+			if slices.Contains(f.Shorts, short) {
+				return f.Key, true
 			}
 		}
 	}
@@ -1235,10 +1232,5 @@ func doubleDash(s string) argv.DoubleDash {
 }
 
 func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, s)
 }

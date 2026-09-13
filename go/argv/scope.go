@@ -1,6 +1,7 @@
 package argv
 
 import (
+	"slices"
 	"sort"
 	"strings"
 )
@@ -79,12 +80,7 @@ func visibleFormsOf(f *Flag) []string {
 }
 
 func hasByte(list []byte, value byte) bool {
-	for _, candidate := range list {
-		if candidate == value {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, value)
 }
 
 func formsOf(f *Flag) []string {
@@ -106,12 +102,7 @@ func negationOf(f *Flag) string {
 }
 
 func has(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, s)
 }
 
 // everyFormInScope is every long and short anything in scope answers to, near or
@@ -196,8 +187,8 @@ func ownAndGlobal(chain []*Command, help HelpTable) (own, inherited []shownFlag)
 	}
 
 	keep := map[*Flag]shown{}
-	for i := len(ancestors) - 1; i >= 0; i-- {
-		for _, f := range ancestors[i].Flags {
+	for _, ancestor := range slices.Backward(ancestors) {
+		for _, f := range ancestor.Flags {
 			if !f.Global {
 				continue
 			}

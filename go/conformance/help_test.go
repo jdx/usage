@@ -40,7 +40,6 @@ func TestEveryUsageLineMatchesTheReference(t *testing.T) {
 	collect = func(c *spec.Cmd, path []string) {
 		want[strings.Join(path, " ")] = c.Usage
 		for _, sub := range c.Subcommands {
-			sub := sub
 			collect(&sub.Cmd, append(append([]string{}, path...), sub.Name))
 		}
 	}
