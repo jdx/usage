@@ -86,15 +86,11 @@ run = [
     'cd benches/go && if go mod download >/dev/null 2>&1; then go test ./...; else echo "skipped: the benchmark frameworks could not be fetched"; fi',
 ]
 
-# hk decides what the linters are and which files reach them; these tasks are
-# wrappers so `mise run lint` stays the entry point CONTRIBUTING.md documents.
-# `hk.pkl` is the file to edit when adding or changing a check.
+# Linters are defined in `hk.pkl`.
 [tasks.lint]
 run = "hk check --all"
 
-# Clippy on its own, for the Windows job in `test-impl.yml`: `#[cfg]` decides
-# whether code exists, so a warning can be real on one platform and absent on
-# the other.
+# Clippy alone, for the Windows job in `test-impl.yml`.
 [tasks."lint:clippy"]
 run = "hk check --all --step cargo-clippy"
 
@@ -153,8 +149,6 @@ run = [
     'cd benches/go && if go mod download >/dev/null 2>&1; then go vet ./...; else echo "skipped: the benchmark frameworks could not be fetched"; fi',
 ]
 
-# The fix half of `lint:go`, kept next to it rather than in `hk.pkl` so the two
-# stay in step.
 [tasks."lint-fix:go"]
 dir = "{{config_root}}"
 run = 'gofmt -w go benches/go'
@@ -183,9 +177,7 @@ run = [
     'usage --completions fish > cli/assets/completions/usage.fish',
     'usage --completions zsh > cli/assets/completions/_usage',
     'usage --completions powershell > cli/assets/completions/usage.ps1',
-    # The formatters only. Everything rendered above is Markdown, JSON, KDL or a
-    # man page, so prettier is the one that has anything to say about it, and a
-    # full `mise run lint-fix` would make `render` fail on an unrelated check.
+    # Formatters only: a full `lint-fix` would fail `render` on an unrelated check.
     'hk fix --all --step prettier --step cargo-fmt',
 ]
 

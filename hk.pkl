@@ -1,21 +1,11 @@
 amends "package://github.com/jdx/hk/releases/download/v2.0.0/hk@2.0.0#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v2.0.0/hk@2.0.0#/Builtins.pkl"
 
-// Steps declared here drive the `check`, `fix` and `pre-commit` hooks alike, so
-// the git hook, `mise run lint` and CI all run one set of definitions.
-//
-// Checks without a builtin stay `mise run lint:*` tasks. Their bodies are shell
-// scripts with repo-specific handling worth keeping in one place -- see the
-// comments on those tasks in `mise.toml`.
 steps {
     ["prettier"] = Builtins.prettier
 
-    // `--all` at the workspace root, rather than the builtins' per-crate
-    // `--manifest-path {{workspace_indicator}}`. `usage-rs/tests/fixtures/*`
-    // each carry a `Cargo.toml` and are deliberately not workspace members, so
-    // letting hk discover manifests would lint four fixtures that
-    // `cargo clippy --all` never sees -- and would then run the workspace-wide
-    // command once per member that happened to change.
+    // `usage-rs/tests/fixtures/*` have a Cargo.toml but are not workspace
+    // members, so run `--all` at the root instead of per-manifest.
     ["cargo-fmt"] = (Builtins.cargo_fmt) {
         workspace_indicator = null
         check = new CommandSpec {
@@ -44,17 +34,12 @@ steps {
         }
     }
 
-    // `gofmt` over both modules, and `go vet` over the one whose dependencies
-    // are vendored. The benchmark module is skipped when its frameworks cannot
-    // be fetched, which is why this is not `Builtins.go_fmt` + `Builtins.go_vet`.
     ["go"] {
         glob = List("go/**/*.go", "benches/go/**/*.go")
         check = "mise run lint:go"
         fix = "mise run lint-fix:go"
     }
 
-    // The `rust-version` promise in `lib/Cargo.toml` against the dependency
-    // examples the docs tell people to copy.
     ["rust-docs-version"] {
         glob = List("docs/rust/*.md", "usage-rs/src/lib.rs", "test/src/lib.rs", "lib/Cargo.toml")
         check = "mise run lint:rust-docs-version"

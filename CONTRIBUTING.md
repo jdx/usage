@@ -23,11 +23,9 @@ hk install --mise
 ```
 
 `--mise` runs the hooks through `mise x`, so the project's pinned tools are on
-`PATH` even when Git is invoked from an editor rather than an activated shell.
-The `pre-commit` hook fixes what it can, stages the result, and stashes
-unstaged work while it runs. The same steps are available on demand as
-`mise run lint` and `mise run lint-fix`, which wrap `hk check --all` and
-`hk fix --all`.
+`PATH` even when Git is invoked from an editor. The `pre-commit` hook fixes what
+it can and stages the result. The same steps run on demand as `mise run lint`
+and `mise run lint-fix`.
 
 ## mbx build cache
 
