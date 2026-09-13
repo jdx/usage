@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M2DB7B5ZH0AAV9J8TQAX2Z6R",
+  "session_id": "01a09aaf-0b59-7100-a21e-c5edda3639ec",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-13T12:17:42.384468Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/.vitepress/theme/custom.css"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.6-sol",
+  "turn_id": "a8c29760dc6c",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 85979,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2666112,
+    "output_tokens": 10597,
+    "api_call_count": 35
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-13T12:17:42.305146Z",
+    "agent_lines": 3,
+    "agent_removed": 1,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 3,
+    "total_lines_changed": 4,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 3603,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "docs/.vitepress/theme/custom.css": 10,
+        "pnpm-lock.yaml": 3591,
+        "pnpm-workspace.yaml": 2
+      }
+    }
+  ]
+}
