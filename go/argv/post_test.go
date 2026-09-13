@@ -323,7 +323,7 @@ func TestApplyDefaultIf(t *testing.T) {
 		t.Errorf("unconditional default when no match: %q from %v", filled[bin], sources[bin])
 	}
 
-	filled = map[uint64][]string{json: {}, bin: []string{"already"}}
+	filled = map[uint64][]string{json: {}, bin: {"already"}}
 	sources = map[uint64]Source{json: FromArgv, bin: FromEnv}
 	ApplyDefaultIf(meta, []uint64{json, bin}, filled, sources, nil)
 	if sources[bin] != FromEnv || !reflect.DeepEqual(filled[bin], []string{"already"}) {
