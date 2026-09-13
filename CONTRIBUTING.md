@@ -19,7 +19,7 @@ Linting runs through [hk](https://hk.jdx.dev), configured in `hk.pkl`.
 `mise install` provides the binary; installing the hooks themselves is per-clone:
 
 ```sh
-hk install --mise
+mise exec -- hk install --mise
 ```
 
 `--mise` runs the hooks through `mise x`, so the project's pinned tools are on
