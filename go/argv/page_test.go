@@ -87,6 +87,89 @@ func TestLongHelpEndsWithAuthorshipAndLicense(t *testing.T) {
 	}
 }
 
+func defaultInstallFixture() (HelpSpec, *Command, *Command, *Command, HelpTable) {
+	update := &Flag{Name: "update", Key: 4, Shorts: []byte{'u'}, Longs: []string{"update"}}
+	pkg := &Arg{Name: "package", Key: 5}
+	install := &Command{Name: "install", Key: 2, Flags: []*Flag{update}, Args: []*Arg{pkg}}
+	query := &Command{Name: "query", Key: 3}
+	root := &Command{
+		Name: "ex", Key: 1,
+		Subcommands:       []*Command{install, query},
+		DefaultSubcommand: install,
+	}
+	help := HelpTable{
+		{Key: 1, Short: "An example"},
+		{Key: 2, Short: "Put a package on the system"},
+		{Key: 3, Short: "Look something up"},
+		{Key: 4, Short: "Update installed packages"},
+		{Key: 5, Short: "What to install"},
+	}
+	return HelpSpec{Name: "ex", Bin: "ex", About: "An example"}, root, install, query, help
+}
+
+func TestDefaultSubcommandIsMarked(t *testing.T) {
+	spec, root, _, _, help := defaultInstallFixture()
+	page := ShortHelp(spec, []string{"ex"}, []*Command{root}, help)
+	if !strings.Contains(page, "install  Put a package on the system (default)") {
+		t.Fatalf("default child should be marked:\n%s", page)
+	}
+	if strings.Contains(page, "Default command:") {
+		t.Fatalf("append is opt-in:\n%s", page)
+	}
+}
+
+func TestDefaultSubcommandHelpAppendsTheChildPage(t *testing.T) {
+	spec, root, _, _, help := defaultInstallFixture()
+	root.DefaultSubcommandHelp = true
+	page := ShortHelp(spec, []string{"ex"}, []*Command{root}, help)
+	for _, want := range []string{
+		"install  Put a package on the system (default)",
+		"Default command: install",
+		"Unmatched words select this command.",
+		"Usage: ex install",
+		"-u, --update",
+	} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("missing %q in:\n%s", want, page)
+		}
+	}
+}
+
+func TestHiddenDefaultIsNotMarkedOrAppended(t *testing.T) {
+	spec, root, _, _, help := defaultInstallFixture()
+	root.DefaultSubcommandHelp = true
+	help[1].Hide = true
+	page := ShortHelp(spec, []string{"ex"}, []*Command{root}, help)
+	if strings.Contains(page, "(default)") || strings.Contains(page, "Default command:") {
+		t.Fatalf("hidden default leaked:\n%s", page)
+	}
+	if !strings.Contains(page, "query  Look something up") {
+		t.Fatalf("query should still be listed:\n%s", page)
+	}
+}
+
+func TestFlattenHelpSkipsDefaultAppend(t *testing.T) {
+	spec, root, _, _, help := defaultInstallFixture()
+	root.DefaultSubcommandHelp = true
+	help[0].FlattenHelp = true
+	page := ShortHelp(spec, []string{"ex"}, []*Command{root}, help)
+	if strings.Contains(page, "Default command:") {
+		t.Fatalf("flatten_help should skip the append:\n%s", page)
+	}
+}
+
+func TestAllHelpDoesNotDuplicateTheDefaultPage(t *testing.T) {
+	spec, root, _, _, help := defaultInstallFixture()
+	root.DefaultSubcommandHelp = true
+	page := AllHelp(spec, []string{"ex"}, []*Command{root}, help)
+	if n := strings.Count(page, "Default command: install"); n != 0 {
+		t.Fatalf("AllHelp should not append then recurse: %d copies\n%s", n, page)
+	}
+	if strings.Count(page, "Put a package on the system") < 1 {
+		t.Fatalf("install should still have its own page:\n%s", page)
+	}
+}
+
 func TestHiddenFlagAliasesStayOutOfHelp(t *testing.T) {
 	flag := &Flag{
 		Key: 2, Name: "output",

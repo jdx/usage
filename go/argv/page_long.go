@@ -28,6 +28,10 @@ const (
 
 // LongHelp renders what `--help` prints for the command at the end of `chain`.
 func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
+	return withDefaultCommandHelp(spec, path, chain, help, true, longHelpPage(spec, path, chain, help))
+}
+
+func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
 	if len(chain) == 0 {
 		return ""
 	}
@@ -200,7 +204,7 @@ func AllHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) str
 		if out.Len() > 0 {
 			out.WriteByte('\n')
 		}
-		out.WriteString(LongHelp(spec, currentPath, currentChain, help))
+		out.WriteString(longHelpPage(spec, currentPath, currentChain, help))
 		current := currentChain[len(currentChain)-1]
 		children := append([]*Command(nil), current.Subcommands...)
 		sort.SliceStable(children, func(i, j int) bool {
