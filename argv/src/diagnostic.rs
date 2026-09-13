@@ -849,6 +849,7 @@ fn render_inner<'a>(
             long_about: promoted.long_about,
             usage: None,
             default_subcommand: None,
+            default_subcommand_help: false,
             multicall: false,
             root,
             ..*spec

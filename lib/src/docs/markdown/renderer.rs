@@ -155,6 +155,11 @@ impl MarkdownRenderer {
         }
     }
 
+    /// The unrendered spec this renderer was built from.
+    pub(crate) fn raw(&self) -> &crate::Spec {
+        &self.raw
+    }
+
     /// The rendered docs model, built on first use from the options set by then.
     pub(crate) fn spec(&self) -> &Spec {
         self.spec.get_or_init(|| {

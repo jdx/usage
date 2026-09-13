@@ -68,6 +68,9 @@ struct Ex { /* … */ }
 When argv selects no command, `run` is assumed. Naming a command that doesn't exist fails the
 **build**, not the run.
 
+The command list marks that child `(default)`. `#[usage(default_subcommand_help)]` appends
+its help page after the root page, so `ex --help` also shows `ex run --help`.
+
 ## Multicall
 
 `#[usage(multicall)]` supports BusyBox-style applets: argv[0]'s basename

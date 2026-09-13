@@ -179,6 +179,30 @@ routing continues to happen only at an unmatched word.
 
 Rust derives use `#[usage(default_subcommand = "install", default_subcommand_flags)]`.
 
+### Default-command help
+
+The command list always marks a visible default with `(default)`. Opt in with
+`default_subcommand_help #true` to append that command's own help page after
+the parent page:
+
+```kdl
+default_subcommand "install"
+default_subcommand_help #true
+cmd "install" {
+    flag "-u --update"
+    arg "[package]"
+}
+cmd "query" {}
+```
+
+`ex --help` then lists `install (default)` and `query`, says `Default command:
+install`, and prints the same page as `ex install --help`. Parent-only flags
+and an empty invocation stay on the parent. A hidden default is neither marked
+nor appended. `flatten_help` already inlines every child, so the append is
+skipped there.
+
+Rust derives use `#[usage(default_subcommand = "install", default_subcommand_help)]`.
+
 ## Multicall
 
 `multicall #true` is clap's busybox-style applets: argv[0]'s basename selects a

@@ -307,6 +307,7 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         about: opt(&spec.about),
         long_about: opt(&spec.about_long),
         default_subcommand: opt(&spec.default_subcommand),
+        default_subcommand_help: spec.default_subcommand_help,
         multicall: spec.multicall,
         views: &[],
         // An exact synopsis the spec declares, which replaces the generated line on the root's

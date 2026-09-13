@@ -13,6 +13,8 @@ That preference is about the page's own subject. A command's _list_ of children 
 both pages — each child's name in one column, then its summary — because a parent says what each
 child is for, and what a child does at length belongs on the child's own page rather than
 repeated in every ancestor's list. A child with only a `long_help` contributes its first line.
+A `default_subcommand` is marked `(default)` in that list. `default_subcommand_help` appends
+that child's page after the parent so the default command's flags are on the mount `--help`.
 
 With `parse()`, help is handled for you — printed to stdout, exit `0`. With `parse_from`, a help
 request comes back as an _error_, because a parse that stopped to print help has not produced a

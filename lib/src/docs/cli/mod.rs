@@ -132,8 +132,26 @@ pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Sty
                 .chain(show_help_row.then_some(HELP_SUBCOMMAND)),
             width,
         );
+        let default_name = docs_cmd
+            .full_cmd
+            .is_empty()
+            .then(|| {
+                spec.default_subcommand.as_deref().and_then(|name| {
+                    spec.cmd
+                        .find_subcommand(name)
+                        .filter(|child| !child.hide)
+                        .map(|child| child.name.as_str())
+                })
+            })
+            .flatten();
         for group in &mut docs_cmd.subcommand_groups {
-            lay_out_commands(&mut group.items, width, cmd_col, cmd.next_line_help);
+            lay_out_commands(
+                &mut group.items,
+                width,
+                cmd_col,
+                cmd.next_line_help,
+                default_name,
+            );
         }
         // Rendered here rather than in the template because it is a row like any other: it
         // sits in the same column and wraps by the same rule, and neither is something a
@@ -213,7 +231,41 @@ pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Sty
     } else {
         crate::docs::strip_ansi(&page)
     };
-    page.trim().to_string() + "\n"
+    let mut page = page.trim().to_string();
+    page.push('\n');
+    append_default_command_help(spec, cmd, long, style, page)
+}
+
+fn append_default_command_help(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    long: bool,
+    style: Style,
+    parent: String,
+) -> String {
+    if !cmd.full_cmd.is_empty() || !spec.default_subcommand_help || cmd.flatten_help {
+        return parent;
+    }
+    let Some(child) = spec
+        .default_subcommand
+        .as_deref()
+        .and_then(|name| spec.cmd.find_subcommand(name))
+        .filter(|child| !child.hide)
+    else {
+        return parent;
+    };
+    let child_page = render_help_styled(spec, child, long, style);
+    let mut out = parent.trim_end().to_string();
+    out.push_str("\n\nDefault command: ");
+    out.push_str(&crate::help_template::semantic(
+        "command",
+        &child.name,
+        style.coloured,
+    ));
+    out.push_str("\n  Unmatched words select this command.\n\n");
+    out.push_str(child_page.trim_end());
+    out.push('\n');
+    out
 }
 
 /// Where each section of a rendered page starts, as the templates write it.
@@ -772,6 +824,7 @@ fn lay_out_commands(
     terminal_width: usize,
     col: usize,
     next_line: bool,
+    default_name: Option<&str>,
 ) {
     let column = Column {
         width: terminal_width,
@@ -781,7 +834,7 @@ fn lay_out_commands(
     };
     for command in commands {
         command.usage_col_width = col;
-        command.row = command_row(command);
+        command.row = command_row(command, default_name == Some(command.name.as_str()));
         command.help_rendered = None;
         command.help_is_multiline = false;
         let usage_width = crate::docs::layout::visible_width(&command.name);
@@ -814,7 +867,7 @@ fn lay_out_commands(
 /// command takes belongs to that command's own page. What qualifies the command rather than
 /// describing it — the names it also answers to, that it is going away — trails the summary,
 /// where it wraps with the text instead of pushing it out of the column.
-fn command_row(cmd: &crate::docs::models::HelpCommand) -> Option<String> {
+fn command_row(cmd: &crate::docs::models::HelpCommand, is_default: bool) -> Option<String> {
     let mut parts = Vec::new();
     // A command that wrote only `help_long` still has a summary: its first line. Both pages
     // read the same one, so `-h` never says less about a command than `--help` does.
@@ -837,6 +890,9 @@ fn command_row(cmd: &crate::docs::models::HelpCommand) -> Option<String> {
         cmd.deprecated_remove_at.as_deref(),
     ) {
         parts.push(label);
+    }
+    if is_default {
+        parts.push("(default)".to_string());
     }
     (!parts.is_empty()).then(|| parts.join(" "))
 }

@@ -1,13 +1,23 @@
 use crate::docs::markdown::renderer::MarkdownRenderer;
 use crate::error::UsageErr;
 
+fn default_command_name(spec: &crate::Spec) -> Option<String> {
+    spec.default_subcommand
+        .as_deref()
+        .and_then(|name| spec.cmd.find_subcommand(name))
+        .filter(|cmd| !cmd.hide)
+        .map(|cmd| cmd.name.clone())
+}
+
 impl MarkdownRenderer {
     pub fn render_spec(&self) -> Result<String, UsageErr> {
         let all_commands = self.spec().cmd.all_subcommands();
         let config = &self.spec().config;
+        let default_command = default_command_name(self.raw());
         self.render_with("spec_template.md.tera", |ctx| {
             ctx.insert("all_commands", &all_commands);
             ctx.insert("config", config);
+            ctx.insert("default_command", &default_command);
         })
     }
 
@@ -17,6 +27,7 @@ impl MarkdownRenderer {
         // written and nothing pointed at it, which for a reader who starts at the index is
         // the same as not writing it.
         let config = &self.spec().config;
+        let default_command = default_command_name(self.raw());
         // The name the page will actually be written under, so the link cannot point somewhere
         // else than the file — including when a `settings` command has taken `settings.md`.
         self.render_with("index_template.md.tera", |ctx| {
@@ -25,6 +36,7 @@ impl MarkdownRenderer {
             ctx.insert("all_commands", &all_commands);
             ctx.insert("config", config);
             ctx.insert("config_page", &self.config_page());
+            ctx.insert("default_command", &default_command);
         })
     }
 }

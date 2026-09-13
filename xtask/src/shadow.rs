@@ -163,6 +163,7 @@ fn render(spec: &Spec, spec_path: &Path, dialect: Dialect) -> (String, Skipped) 
             unknown_flags: spec.unknown_flags.as_ref().map(|mode| mode.as_str()),
             default_subcommand: spec.default_subcommand.as_deref(),
             default_subcommand_flags: spec.default_subcommand_flags,
+            default_subcommand_help: spec.default_subcommand_help,
             multicall: spec.multicall,
             about: spec.about.as_deref(),
             about_long: spec.about_long.as_deref(),
@@ -294,6 +295,7 @@ struct Run<'a> {
     /// Only the root has one, and only it declares it.
     default_subcommand: Option<&'a str>,
     default_subcommand_flags: bool,
+    default_subcommand_help: bool,
     /// Busybox-style applets: argv[0]'s basename selects a subcommand.
     multicall: bool,
     /// The spec's own description, which belongs to the root.
@@ -502,6 +504,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             is_root && run.default_subcommand_flags,
             Some("default_subcommand_flags".to_string()),
             "`default_subcommand_flags` on a command",
+        ),
+        (
+            is_root && run.default_subcommand_help,
+            Some("default_subcommand_help".to_string()),
+            "`default_subcommand_help` on a command",
         ),
         (
             is_root && run.default_subcommand.is_some(),
