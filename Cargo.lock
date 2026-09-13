@@ -200,9 +200,9 @@ checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
 
 [[package]]
 name = "cc"
-version = "1.4.5"
+version = "1.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "005ec2760ca554fae18df7a11195552ec576cd665632a881bc011d5bb2fd4d80"
+checksum = "a3eb0f42d6c360dc3f8a821f6bf2fdea7f72bfd36b3076eb0e6d1e9e0752fff4"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -880,9 +880,9 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jiff"
-version = "0.2.35"
+version = "0.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "668b7183bd07af9a4885f5c35b0cc5c83c4607a913c16b7e17291832910d2dcc"
+checksum = "0ab1baf72f08796de0260609515130699b890ac25f30e610ad894bc5856cafdb"
 dependencies = [
  "defmt",
  "jiff-core",
@@ -897,18 +897,19 @@ dependencies = [
 
 [[package]]
 name = "jiff-core"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7feca88439efe53da3754500c1851dedf3cb36c524dd5cf8225cc0794de95d09"
+checksum = "5e52fe76043ccecc9005d2305ebaadf7d7fc0cc89ca6baa10a94d6bc68c7128c"
 dependencies = [
  "defmt",
+ "log",
 ]
 
 [[package]]
 name = "jiff-static"
-version = "0.2.35"
+version = "0.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a69dcb3a21cfb32ce1cd056169337ca284af0766dd766e7878819b251a49204"
+checksum = "378268a1116ad67ae6228701118ac9f491d78fda38a40a1f1a9e1348de6f7212"
 dependencies = [
  "jiff-core",
  "proc-macro2",
@@ -1989,11 +1990,11 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "usage-argv"
-version = "6.9.0"
+version = "6.9.1"
 
 [[package]]
 name = "usage-cli"
-version = "6.9.0"
+version = "6.9.1"
 dependencies = [
  "assert_cmd",
  "ctor",
@@ -2020,7 +2021,7 @@ dependencies = [
 
 [[package]]
 name = "usage-config"
-version = "6.9.0"
+version = "6.9.1"
 dependencies = [
  "serde_json",
  "toml",
@@ -2046,7 +2047,7 @@ dependencies = [
 
 [[package]]
 name = "usage-derive"
-version = "6.9.0"
+version = "6.9.1"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2056,7 +2057,7 @@ dependencies = [
 
 [[package]]
 name = "usage-dynamic"
-version = "6.9.0"
+version = "6.9.1"
 dependencies = [
  "futures",
  "usage-argv",
@@ -2066,7 +2067,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "6.9.0"
+version = "6.9.1"
 dependencies = [
  "clap",
  "criterion",
@@ -2094,7 +2095,7 @@ dependencies = [
 
 [[package]]
 name = "usage-rs"
-version = "6.9.0"
+version = "6.9.1"
 dependencies = [
  "serde",
  "shell-words",
@@ -2109,14 +2110,14 @@ dependencies = [
 
 [[package]]
 name = "usage-test"
-version = "6.9.0"
+version = "6.9.1"
 dependencies = [
  "usage-argv",
 ]
 
 [[package]]
 name = "usage-validation"
-version = "6.9.0"
+version = "6.9.1"
 dependencies = [
  "expr-lang",
 ]

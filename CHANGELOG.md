@@ -1,5 +1,19 @@
 # Changelog
 
+## [6.9.1](https://github.com/jdx/usage/compare/v6.9.0..v6.9.1) - 2026-09-13
+
+### 🐛 Bug Fixes
+
+- **(parse)** keep implicit default after a default-only flag by [@lu-zero](https://github.com/lu-zero) in [#1418](https://github.com/jdx/usage/pull/1418)
+
+### 🔍 Other Changes
+
+- **(go)** tidy the Go modules, require Go 1.26, and run go fix by [@sahidvelji](https://github.com/sahidvelji) in [#1421](https://github.com/jdx/usage/pull/1421)
+
+### New Contributors
+
+- @sahidvelji made their first contribution in [#1421](https://github.com/jdx/usage/pull/1421)
+
 ## [6.9.0](https://github.com/jdx/usage/compare/v6.8.0..v6.9.0) - 2026-09-12
 
 ### 🚀 Features
