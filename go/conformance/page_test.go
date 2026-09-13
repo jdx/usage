@@ -139,12 +139,6 @@ func at(lines []string, i int) string {
 
 func quote(s string) string { b, _ := json.Marshal(s); return string(b) }
 func itoa(n int) string     { b, _ := json.Marshal(n); return string(b) }
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 var _ = spec.Spec{}
 

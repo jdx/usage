@@ -1,5 +1,7 @@
 package argv
 
+import "slices"
+
 // RelationshipValues canonicalizes the values used by value-conditional
 // relationships. It leaves value-taking entries alone and turns every boolean
 // source into the same "true" or "false" spelling.
@@ -223,10 +225,8 @@ func CheckRelationshipsWithValuesAndRequirements(meta Metadata, entries []uint64
 			matches := func(condition ValueCondition) bool {
 				return given(condition.Key) && containsValue(valuesOf(condition.Key), condition.Value)
 			}
-			for _, condition := range m.RequiredIfEq {
-				if matches(condition) {
-					return missingRequired(m)
-				}
+			if slices.ContainsFunc(m.RequiredIfEq, matches) {
+				return missingRequired(m)
 			}
 			if len(m.RequiredIfEqAll) > 0 {
 				all := true
@@ -243,12 +243,7 @@ func CheckRelationshipsWithValuesAndRequirements(meta Metadata, entries []uint64
 }
 
 func containsValue(values []string, expected string) bool {
-	for _, value := range values {
-		if value == expected {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, expected)
 }
 
 func missingRequired(m *Meta) *Error {
@@ -260,12 +255,7 @@ func missingRequired(m *Meta) *Error {
 }
 
 func anySet(keys []uint64, isSet func(uint64) bool) bool {
-	for _, k := range keys {
-		if isSet(k) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(keys, isSet)
 }
 
 func allSet(keys []uint64, isSet func(uint64) bool) bool {

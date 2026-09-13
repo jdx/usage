@@ -198,7 +198,6 @@ func TestParseAllocatesNothingAtScale(t *testing.T) {
 		{"tasks", "run", "build", "extra", "--dry-run", "--", "--verbose"},
 		{"config", "ls", "--cd", "/tmp"},
 	} {
-		args := args
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			n := testing.AllocsPerRun(100, func() {
 				p := argv.New(Root, args)

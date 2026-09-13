@@ -1058,12 +1058,7 @@ func (p *Parser) FlagsInScope(fn func(*Flag) bool) {
 
 func (p *Parser) findLong(name string) *Flag {
 	return p.eachInScope(func(f *Flag) bool {
-		for _, l := range f.Longs {
-			if l == name {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(f.Longs, name)
 	})
 }
 
@@ -1082,12 +1077,7 @@ func (p *Parser) findShort(b byte) *Flag {
 		}
 	}
 	f := p.eachInScope(func(f *Flag) bool {
-		for _, s := range f.Shorts {
-			if s == b {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(f.Shorts, b)
 	})
 	if f != nil {
 		return f
@@ -1119,10 +1109,8 @@ func findNamed(cmd *Command, name string) *Command {
 		}
 	}
 	for _, sub := range cmd.Subcommands {
-		for _, a := range sub.Aliases {
-			if a == name {
-				return sub
-			}
+		if slices.Contains(sub.Aliases, name) {
+			return sub
 		}
 	}
 	return nil

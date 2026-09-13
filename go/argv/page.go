@@ -458,7 +458,7 @@ func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string
 	}
 	var headings []string
 	seen := map[string]bool{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		h := headingOf(i)
 		if !seen[h] {
 			seen[h] = true
@@ -483,7 +483,7 @@ func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string
 				section.WriteString("\n")
 			}
 		}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			if headingOf(i) == heading {
 				writeItem(&section, i)
 			}
@@ -719,11 +719,4 @@ func trimEnd(s string) string { return strings.TrimRightFunc(s, unicode.IsSpace)
 // with sorting by name, and where it differs this is what a reader sees.
 func sortLines[T any](lines []T, key func(int) string) {
 	sort.SliceStable(lines, func(i, j int) bool { return key(i) < key(j) })
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

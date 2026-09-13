@@ -115,11 +115,10 @@ func fill(script, bin string) string {
 // so the header cannot disagree with the call below it.
 func shellFlag(script string) string {
 	const marker = "--shell "
-	i := strings.Index(script, marker)
-	if i < 0 {
+	_, rest, ok := strings.Cut(script, marker)
+	if !ok {
 		return ""
 	}
-	rest := script[i+len(marker):]
 	if j := strings.IndexAny(rest, " \\\n\t"); j >= 0 {
 		return rest[:j]
 	}

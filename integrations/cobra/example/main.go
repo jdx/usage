@@ -10,6 +10,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 
 	cobra_usage "github.com/jdx/usage/integrations/cobra"
 	"github.com/spf13/cobra"
@@ -95,11 +96,9 @@ func main() {
 
 	// Handle --usage-spec: check for the flag in os.Args before Execute.
 	// This is the recommended integration pattern.
-	for _, arg := range os.Args[1:] {
-		if arg == "--usage-spec" {
-			fmt.Print(cobra_usage.Generate(root))
-			return
-		}
+	if slices.Contains(os.Args[1:], "--usage-spec") {
+		fmt.Print(cobra_usage.Generate(root))
+		return
 	}
 
 	if err := root.Execute(); err != nil {

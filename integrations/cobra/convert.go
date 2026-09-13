@@ -156,10 +156,7 @@ func dedent(s string) string {
 
 // commonPrefix returns the longest common leading run of a and b.
 func commonPrefix(a, b string) string {
-	n := len(a)
-	if len(b) < n {
-		n = len(b)
-	}
+	n := min(len(b), len(a))
 	i := 0
 	for i < n && a[i] == b[i] {
 		i++

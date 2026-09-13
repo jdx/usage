@@ -1,6 +1,7 @@
 package argv
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -47,12 +48,7 @@ func values(cs []Candidate) []string {
 }
 
 func offered(list []string, want string) bool {
-	for _, s := range list {
-		if s == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, want)
 }
 
 func complete(words []string, partial string) []string {

@@ -76,22 +76,19 @@ func sweep(rounds, iters int, f func() bool) stats {
 	// Warm the allocator, the caches, the branch predictors and — for the frameworks
 	// that build a model per call — the heap they will keep reusing. Whatever the first
 	// call pays for is not what a parse costs on the millionth.
-	warm := iters
-	if warm < 200 {
-		warm = 200
-	}
+	warm := max(iters, 200)
 	for i := 0; i < warm; i++ {
 		sink = f()
 	}
 
 	perCall := make([]float64, 0, rounds)
-	for r := 0; r < rounds; r++ {
+	for range rounds {
 		// Between rounds, never inside one: with the collector off, whatever the last
 		// round allocated is still on the heap, and a round that has to grow it is
 		// measuring the allocator's bad day rather than the parser.
 		runtime.GC()
 		start := time.Now()
-		for i := 0; i < iters; i++ {
+		for range iters {
 			sink = f()
 		}
 		perCall = append(perCall, float64(time.Since(start).Nanoseconds())/float64(iters))

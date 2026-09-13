@@ -65,11 +65,11 @@ type Expect struct {
 // the spec gives each flag or argument, never by the token that set it, so -j,
 // --jobs and an env var all land under `jobs`.
 type Parsed struct {
-	Cmd      []string                            `json:"cmd"`
-	Flags    map[string]interface{}              `json:"flags"`
-	Args     map[string]interface{}              `json:"args"`
-	Clauses  map[string][]map[string]interface{} `json:"clauses,omitempty"`
-	External []string                            `json:"external,omitempty"`
+	Cmd      []string                    `json:"cmd"`
+	Flags    map[string]any              `json:"flags"`
+	Args     map[string]any              `json:"args"`
+	Clauses  map[string][]map[string]any `json:"clauses,omitempty"`
+	External []string                    `json:"external,omitempty"`
 }
 
 type file struct {
@@ -88,7 +88,6 @@ func TestCorpus(t *testing.T) {
 
 	var ran, skipped int
 	for _, v := range vectors {
-		v := v
 		t.Run(v.ID, func(t *testing.T) {
 			if reason, unsupported := notYet[v.ID]; unsupported {
 				skipped++
@@ -350,9 +349,9 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 
 	out := &Parsed{
 		Cmd:      []string{},
-		Flags:    map[string]interface{}{},
-		Args:     map[string]interface{}{},
-		Clauses:  map[string][]map[string]interface{}{},
+		Flags:    map[string]any{},
+		Args:     map[string]any{},
+		Clauses:  map[string][]map[string]any{},
 		External: external,
 	}
 	for _, cmd := range path {
@@ -360,7 +359,7 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 			continue
 		}
 		for _, instance := range clauseInstances[cmd.Clause.Name] {
-			values := map[string]interface{}{}
+			values := map[string]any{}
 			for _, arg := range cmd.Clause.Args {
 				b := instance[arg.Key]
 				if b == nil {
@@ -550,7 +549,7 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 // renderFlag turns what a flag ended up with into the shape the corpus records,
 // which depends on what the flag is rather than on where the value came from.
 func renderFlag(f *argv.Flag, multi map[string]spec.Multi,
-	values []string, source argv.Source, negated bool, occurrences int) (interface{}, bool) {
+	values []string, source argv.Source, negated bool, occurrences int) (any, bool) {
 
 	if !f.TakesValue {
 		// A count flag records one entry per occurrence, so it is asked before
@@ -559,7 +558,7 @@ func renderFlag(f *argv.Flag, multi map[string]spec.Multi,
 			if occurrences == 0 {
 				return nil, false
 			}
-			list := make([]interface{}, occurrences)
+			list := make([]any, occurrences)
 			for i := range list {
 				list[i] = true
 			}
@@ -588,22 +587,22 @@ func renderFlag(f *argv.Flag, multi map[string]spec.Multi,
 	return values[len(values)-1], true
 }
 
-func toList(values []string) []interface{} {
-	out := make([]interface{}, len(values))
+func toList(values []string) []any {
+	out := make([]any, len(values))
 	for i, v := range values {
 		out[i] = v
 	}
 	return out
 }
 
-func strs(v interface{}) []interface{} {
+func strs(v any) []any {
 	if v == nil {
 		return nil
 	}
-	return v.([]interface{})
+	return v.([]any)
 }
 
-func bools(v interface{}) []interface{} { return strs(v) }
+func bools(v any) []any { return strs(v) }
 
 // normalizeExpected puts the JSON expectation into the shape run produces, so the
 // two can be compared directly.
@@ -618,18 +617,18 @@ func normalizeExpected(p *Parsed) *Parsed {
 		out.Cmd = []string{}
 	}
 	if out.Flags == nil {
-		out.Flags = map[string]interface{}{}
+		out.Flags = map[string]any{}
 	}
 	if out.Args == nil {
-		out.Args = map[string]interface{}{}
+		out.Args = map[string]any{}
 	}
 	if out.Clauses == nil {
-		out.Clauses = map[string][]map[string]interface{}{}
+		out.Clauses = map[string][]map[string]any{}
 	}
 	for _, instances := range out.Clauses {
 		for _, instance := range instances {
 			for name, value := range instance {
-				if raw, ok := value.([]interface{}); ok {
+				if raw, ok := value.([]any); ok {
 					strings := make([]string, len(raw))
 					for i, item := range raw {
 						strings[i] = item.(string)

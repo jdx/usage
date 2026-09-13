@@ -265,7 +265,7 @@ func validStyleMarkup(template string) bool {
 			if end < 0 || end == 2 {
 				return false
 			}
-			for _, style := range strings.Split(tag[2:end], "+") {
+			for style := range strings.SplitSeq(tag[2:end], "+") {
 				known := false
 				for _, candidate := range HelpStyles {
 					if style == candidate {
@@ -343,7 +343,7 @@ func nextTemplateToken(template string) (int, string) {
 func collapseBlankRuns(page string) string {
 	var out strings.Builder
 	blank := false
-	for _, line := range strings.Split(page, "\n") {
+	for line := range strings.SplitSeq(page, "\n") {
 		if strings.TrimSpace(line) == "" {
 			blank = out.Len() > 0
 			continue
