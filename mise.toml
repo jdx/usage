@@ -14,8 +14,6 @@ aube = "latest"
 communique = "latest"
 cargo-binstall = "1.22.0"
 gh = "latest"
-# `0s` because jdx-owned CLI releases are exempt from the release-age delay
-# (see jdx/renovate-config), and hk.pkl amends the matching hk release.
 hk = { version = "latest", minimum_release_age = "0s" }
 "cargo:cargo-edit" = "latest"
 "aqua:mitsuhiko/insta" = "latest"
