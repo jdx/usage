@@ -549,8 +549,8 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 // renderFlag turns what a flag ended up with into the shape the corpus records,
 // which depends on what the flag is rather than on where the value came from.
 func renderFlag(f *argv.Flag, multi map[string]spec.Multi,
-	values []string, source argv.Source, negated bool, occurrences int) (any, bool) {
-
+	values []string, source argv.Source, negated bool, occurrences int,
+) (any, bool) {
 	if !f.TakesValue {
 		// A count flag records one entry per occurrence, so it is asked before
 		// anything that collapses the flag to a single answer.
@@ -594,15 +594,6 @@ func toList(values []string) []any {
 	}
 	return out
 }
-
-func strs(v any) []any {
-	if v == nil {
-		return nil
-	}
-	return v.([]any)
-}
-
-func bools(v any) []any { return strs(v) }
 
 // normalizeExpected puts the JSON expectation into the shape run produces, so the
 // two can be compared directly.

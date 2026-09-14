@@ -77,7 +77,7 @@ func sweep(rounds, iters int, f func() bool) stats {
 	// that build a model per call — the heap they will keep reusing. Whatever the first
 	// call pays for is not what a parse costs on the millionth.
 	warm := max(iters, 200)
-	for i := 0; i < warm; i++ {
+	for range warm {
 		sink = f()
 	}
 

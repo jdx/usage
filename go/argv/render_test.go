@@ -97,15 +97,25 @@ func TestMessagesQuoteWhatTheUserWouldType(t *testing.T) {
 		err  *Error
 		want string
 	}{
-		{&Error{Code: CodeInvalidChoice, Name: "shell", Choices: []string{"bash", "zsh"}},
-			"expected one of: bash, zsh"},
-		{&Error{Code: CodeConflictingFlags, Name: "file", Spelling: "--file",
-			Other: "stdin", OtherSpelling: "--stdin"},
-			"`--file` and `--stdin` cannot be given together"},
-		{&Error{Code: CodeVarTooFew, Name: "files", Bound: 2, Got: 1},
-			"at least 2 values, got 1"},
-		{&Error{Code: CodeVarTooMany, Name: "tag", Bound: 1, Got: 3},
-			"at most 1 time, given 3"},
+		{
+			&Error{Code: CodeInvalidChoice, Name: "shell", Choices: []string{"bash", "zsh"}},
+			"expected one of: bash, zsh",
+		},
+		{
+			&Error{
+				Code: CodeConflictingFlags, Name: "file", Spelling: "--file",
+				Other: "stdin", OtherSpelling: "--stdin",
+			},
+			"`--file` and `--stdin` cannot be given together",
+		},
+		{
+			&Error{Code: CodeVarTooFew, Name: "files", Bound: 2, Got: 1},
+			"at least 2 values, got 1",
+		},
+		{
+			&Error{Code: CodeVarTooMany, Name: "tag", Bound: 1, Got: 3},
+			"at most 1 time, given 3",
+		},
 	} {
 		if got := explain(c.err, nil); !strings.Contains(got, c.want) {
 			t.Errorf("want %q in %q", c.want, got)
@@ -174,14 +184,22 @@ func TestEveryPostBindingFailureNamesTheFlagAsTyped(t *testing.T) {
 		what string
 		err  *Error
 	}{
-		{"a choice", Check(&Meta{Name: short.Name, Flag: true, Spelling: short.Spelling,
-			Choices: []string{"a"}}, []string{"b"}, 1)},
-		{"too few", Check(&Meta{Name: short.Name, Flag: true, Spelling: short.Spelling,
-			VarMin: 2}, []string{"a"}, 1)},
-		{"too many", Check(&Meta{Name: short.Name, Flag: true, Spelling: short.Spelling,
-			VarMax: 1}, []string{"a", "b"}, 2)},
-		{"required", Check(&Meta{Name: short.Name, Flag: true, Spelling: short.Spelling,
-			Required: true}, nil, 0)},
+		{"a choice", Check(&Meta{
+			Name: short.Name, Flag: true, Spelling: short.Spelling,
+			Choices: []string{"a"},
+		}, []string{"b"}, 1)},
+		{"too few", Check(&Meta{
+			Name: short.Name, Flag: true, Spelling: short.Spelling,
+			VarMin: 2,
+		}, []string{"a"}, 1)},
+		{"too many", Check(&Meta{
+			Name: short.Name, Flag: true, Spelling: short.Spelling,
+			VarMax: 1,
+		}, []string{"a", "b"}, 2)},
+		{"required", Check(&Meta{
+			Name: short.Name, Flag: true, Spelling: short.Spelling,
+			Required: true,
+		}, nil, 0)},
 	} {
 		if c.err == nil {
 			t.Fatalf("%s should fail", c.what)
@@ -229,8 +247,10 @@ func TestAnErrorValueIsSafeToPrintToo(t *testing.T) {
 // has taken still binds through `--workers`, and advising `--jobs=-x` there sends
 // them to a different flag entirely.
 func TestTheAttachedFormIsSpelledTheWayItWasTyped(t *testing.T) {
-	global := &Flag{Key: 2, Name: "jobs", Longs: []string{"jobs", "workers"},
-		TakesValue: true, Global: true}
+	global := &Flag{
+		Key: 2, Name: "jobs", Longs: []string{"jobs", "workers"},
+		TakesValue: true, Global: true,
+	}
 	local := &Flag{Key: 3, Name: "jobs", Longs: []string{"jobs"}}
 	sub := &Command{Name: "run", Key: 4, Flags: []*Flag{local}}
 	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{global}, Subcommands: []*Command{sub}}
@@ -271,8 +291,10 @@ func TestAOneCharacterLongFormIsNotMistakenForAShort(t *testing.T) {
 		t.Errorf("no spelling means no prefix invented: %s", bare)
 	}
 	// Both sides of a conflict get their own.
-	both := explain(&Error{Code: CodeConflictingFlags, Name: "a", Spelling: "--a",
-		Other: "f", OtherSpelling: "-f"}, nil)
+	both := explain(&Error{
+		Code: CodeConflictingFlags, Name: "a", Spelling: "--a",
+		Other: "f", OtherSpelling: "-f",
+	}, nil)
 	if !strings.Contains(both, "`--a`") || !strings.Contains(both, "`-f`") {
 		t.Errorf("want both spellings, got %s", both)
 	}

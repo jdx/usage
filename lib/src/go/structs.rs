@@ -45,7 +45,6 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
                 "// {type_name} is one `{}` clause instance.",
                 clause.name
             );
-            let _ = writeln!(out, "type {type_name} struct {{");
             let mut fields = Vec::new();
             let mut add_field = |base: String, ty: String, named: &super::Named| {
                 let field = if taken.insert(base.clone()) {
@@ -69,6 +68,11 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
             for (arg, named) in &e.clause_args {
                 add_field(field_name(&arg.name), arg_type(arg).to_string(), named);
             }
+            if fields.is_empty() {
+                let _ = writeln!(out, "type {type_name} struct{{}}\n");
+                return (type_name, args);
+            }
+            let _ = writeln!(out, "type {type_name} struct {{");
             let name_col = fields.iter().map(|(n, _, _)| n.len()).max().unwrap_or(0);
             let type_col = fields.iter().map(|(_, t, _)| t.len()).max().unwrap_or(0);
             for (field, ty, key) in fields {
@@ -84,7 +88,6 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
             format!("// {} is `{}`.", name(e), e.cmd.full_cmd.join(" "))
         };
         let _ = writeln!(out, "{doc}");
-        let _ = writeln!(out, "type {} struct {{", name(e));
 
         let mut fields: Vec<(String, String, String)> = Vec::new();
         let mut taken: HashSet<String> = HashSet::new();
@@ -153,6 +156,11 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
             assigned.insert(sub.named.key.clone(), field);
         }
 
+        if fields.is_empty() {
+            let _ = writeln!(out, "type {} struct{{}}\n", name(e));
+            continue;
+        }
+        let _ = writeln!(out, "type {} struct {{", name(e));
         // gofmt aligns a run of field declarations into columns, so this does too.
         let name_col = fields.iter().map(|(n, _, _)| n.len()).max().unwrap_or(0);
         let type_col = fields.iter().map(|(_, t, _)| t.len()).max().unwrap_or(0);

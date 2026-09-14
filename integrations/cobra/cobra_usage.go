@@ -24,7 +24,7 @@ func GenerateJSON(cmd *cobra.Command) ([]byte, error) {
 // GenerateToFile converts a Cobra command tree and writes the KDL spec to a file.
 func GenerateToFile(cmd *cobra.Command, path string) error {
 	kdl := Generate(cmd)
-	return os.WriteFile(path, []byte(kdl), 0644)
+	return os.WriteFile(path, []byte(kdl), 0o644)
 }
 
 // GenerateJSONToFile converts a Cobra command tree and writes the JSON spec to a file.
@@ -33,5 +33,5 @@ func GenerateJSONToFile(cmd *cobra.Command, path string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o644)
 }

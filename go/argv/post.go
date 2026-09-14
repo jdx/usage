@@ -334,8 +334,10 @@ func CheckDisplaced(m *Meta, values []string) *Error {
 	// and a bad one, and so can a repeatable flag across occurrences.
 	for _, v := range values {
 		if !containsChoice(accepted, v, m.IgnoreCase) {
-			return &Error{Code: CodeInvalidChoice, Name: m.Name,
-				Spelling: m.Spelling, Choices: m.Choices}
+			return &Error{
+				Code: CodeInvalidChoice, Name: m.Name,
+				Spelling: m.Spelling, Choices: m.Choices,
+			}
 		}
 	}
 	return nil
@@ -378,27 +380,35 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 	if m.Validate != "" {
 		program, err := expr.Compile(m.Validate, expr.Env(map[string]any{"value": ""}))
 		if err != nil {
-			return &Error{Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
-				Reason: "validation expression failed: " + err.Error()}
+			return &Error{
+				Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
+				Reason: "validation expression failed: " + err.Error(),
+			}
 		}
 		for _, value := range values {
 			result, err := expr.Run(program, map[string]any{"value": value})
 			if err != nil {
-				return &Error{Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
-					Value: value, Reason: "validation expression failed: " + err.Error()}
+				return &Error{
+					Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
+					Value: value, Reason: "validation expression failed: " + err.Error(),
+				}
 			}
 			valid, ok := result.(bool)
 			if !ok {
-				return &Error{Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
-					Value: value, Reason: fmt.Sprintf("validation expression must return a boolean, got %T", result)}
+				return &Error{
+					Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
+					Value: value, Reason: fmt.Sprintf("validation expression must return a boolean, got %T", result),
+				}
 			}
 			if !valid {
 				reason := m.ValidateError
 				if reason == "" {
 					reason = "does not satisfy the validation expression"
 				}
-				return &Error{Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
-					Value: value, Reason: reason}
+				return &Error{
+					Code: CodeInvalidValue, Name: m.Name, Spelling: m.Spelling,
+					Value: value, Reason: reason,
+				}
 			}
 		}
 	}
@@ -407,13 +417,17 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 	// its minimum; it simply is not there, and reporting `var_too_few` for it
 	// would make every bounded variadic effectively required.
 	if m.VarMin > 0 && len(values) > 0 && uint32(len(values)) < m.VarMin {
-		return &Error{Code: CodeVarTooFew, Name: m.Name, Spelling: m.Spelling,
-			Bound: m.VarMin, Got: len(values)}
+		return &Error{
+			Code: CodeVarTooFew, Name: m.Name, Spelling: m.Spelling,
+			Bound: m.VarMin, Got: len(values),
+		}
 	}
 
 	if m.VarMax > 0 && occurrences > int(m.VarMax) {
-		return &Error{Code: CodeVarTooMany, Name: m.Name, Spelling: m.Spelling,
-			Bound: m.VarMax, Got: occurrences}
+		return &Error{
+			Code: CodeVarTooMany, Name: m.Name, Spelling: m.Spelling,
+			Bound: m.VarMax, Got: occurrences,
+		}
 	}
 
 	return nil

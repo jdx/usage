@@ -6108,8 +6108,7 @@ type BackendsCmd struct {
 }
 
 // BackendsLsCmd is `backends ls`.
-type BackendsLsCmd struct {
-}
+type BackendsLsCmd struct{}
 
 // BinPathsCmd is `bin-paths`.
 type BinPathsCmd struct {
@@ -6156,28 +6155,22 @@ type BootstrapCmd struct {
 }
 
 // BootstrapApplyAccountPlanCmd is `bootstrap __apply-account-plan`.
-type BootstrapApplyAccountPlanCmd struct {
-}
+type BootstrapApplyAccountPlanCmd struct{}
 
 // BootstrapApplyServicePlanCmd is `bootstrap __apply-service-plan`.
-type BootstrapApplyServicePlanCmd struct {
-}
+type BootstrapApplyServicePlanCmd struct{}
 
 // BootstrapApplyFirewallPlanCmd is `bootstrap __apply-firewall-plan`.
-type BootstrapApplyFirewallPlanCmd struct {
-}
+type BootstrapApplyFirewallPlanCmd struct{}
 
 // BootstrapApplySystemPlanCmd is `bootstrap __apply-system-plan`.
-type BootstrapApplySystemPlanCmd struct {
-}
+type BootstrapApplySystemPlanCmd struct{}
 
 // BootstrapInspectSystemFilesCmd is `bootstrap __inspect-system-files`.
-type BootstrapInspectSystemFilesCmd struct {
-}
+type BootstrapInspectSystemFilesCmd struct{}
 
 // BootstrapInspectFirewallPlanCmd is `bootstrap __inspect-firewall-plan`.
-type BootstrapInspectFirewallPlanCmd struct {
-}
+type BootstrapInspectFirewallPlanCmd struct{}
 
 // BootstrapAccountsCmd is `bootstrap accounts`.
 type BootstrapAccountsCmd struct {
@@ -6686,8 +6679,7 @@ type CacheClearCmd struct {
 }
 
 // CachePathCmd is `cache path`.
-type CachePathCmd struct {
-}
+type CachePathCmd struct{}
 
 // CachePruneCmd is `cache prune`.
 type CachePruneCmd struct {
@@ -6747,8 +6739,7 @@ type CurrentCmd struct {
 }
 
 // DeactivateCmd is `deactivate`.
-type DeactivateCmd struct {
-}
+type DeactivateCmd struct{}
 
 // DirenvCmd is `direnv`.
 type DirenvCmd struct {
@@ -6758,16 +6749,13 @@ type DirenvCmd struct {
 }
 
 // DirenvActivateCmd is `direnv activate`.
-type DirenvActivateCmd struct {
-}
+type DirenvActivateCmd struct{}
 
 // DirenvEnvrcCmd is `direnv envrc`.
-type DirenvEnvrcCmd struct {
-}
+type DirenvEnvrcCmd struct{}
 
 // DirenvExecCmd is `direnv exec`.
-type DirenvExecCmd struct {
-}
+type DirenvExecCmd struct{}
 
 // DotfilesCmd is `dotfiles`.
 type DotfilesCmd struct {
@@ -7108,8 +7096,7 @@ type LsRemoteCmd struct {
 }
 
 // McpCmd is `mcp`.
-type McpCmd struct {
-}
+type McpCmd struct{}
 
 // OciCmd is `oci`.
 type OciCmd struct {
@@ -7301,8 +7288,7 @@ type RegistryCmd struct {
 }
 
 // RenderHelpCmd is `render-help`.
-type RenderHelpCmd struct {
-}
+type RenderHelpCmd struct{}
 
 // ReshimCmd is `reshim`.
 type ReshimCmd struct {
@@ -7479,8 +7465,7 @@ type ShellAliasUnsetCmd struct {
 }
 
 // SponsorsCmd is `sponsors`.
-type SponsorsCmd struct {
-}
+type SponsorsCmd struct{}
 
 // SyncCmd is `sync`.
 type SyncCmd struct {
@@ -7763,8 +7748,7 @@ type UpgradeCmd struct {
 }
 
 // UsageCmd is `usage`.
-type UsageCmd struct {
-}
+type UsageCmd struct{}
 
 // UseCmd is `use`.
 type UseCmd struct {

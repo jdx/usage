@@ -62,7 +62,9 @@ func TestPersistentFlags(t *testing.T) {
 func TestRequiredFlags(t *testing.T) {
 	cmd := &cobra.Command{Use: "deploy"}
 	cmd.Flags().String("env", "", "Target environment")
-	cmd.MarkFlagRequired("env")
+	if err := cmd.MarkFlagRequired("env"); err != nil {
+		t.Fatal(err)
+	}
 
 	got := Generate(cmd)
 
@@ -78,7 +80,9 @@ func TestHiddenAndDeprecated(t *testing.T) {
 	root.AddCommand(hidden, deprecated)
 
 	root.Flags().String("secret", "", "Secret flag")
-	root.Flags().MarkHidden("secret")
+	if err := root.Flags().MarkHidden("secret"); err != nil {
+		t.Fatal(err)
+	}
 
 	got := Generate(root)
 

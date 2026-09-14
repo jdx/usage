@@ -983,6 +983,7 @@ func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (
 	}
 	return 0, false
 }
+
 func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 	out := &argv.Flag{
 		Key:         b.next(),

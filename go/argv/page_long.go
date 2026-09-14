@@ -21,8 +21,10 @@ import (
 const helpWidth = 80
 
 // blockIndent is what a page uses where it cannot align to its column.
-const blockIndent = 4
-const minInlineHelpWidth = 30
+const (
+	blockIndent        = 4
+	minInlineHelpWidth = 30
+)
 
 // LongHelp renders what `--help` prints for the command at the end of `chain`.
 func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {

@@ -247,14 +247,20 @@ func suppliedEntries(cmd *Command, claimed []string) []shownFlag {
 		case !hasLong && !hasShort:
 			return shownFlag{}, false
 		case !hasLong:
-			return shownFlag{supplied: long, suppliedHelp: help,
-				usage: "-" + string(short)}, true
+			return shownFlag{
+				supplied: long, suppliedHelp: help,
+				usage: "-" + string(short),
+			}, true
 		case !hasShort:
-			return shownFlag{supplied: long, suppliedHelp: help,
-				usage: pad("", shortCol) + "--" + long}, true
+			return shownFlag{
+				supplied: long, suppliedHelp: help,
+				usage: pad("", shortCol) + "--" + long,
+			}, true
 		default:
-			return shownFlag{supplied: long, suppliedHelp: help,
-				usage: pad("-"+string(short)+",", shortCol) + "--" + long}, true
+			return shownFlag{
+				supplied: long, suppliedHelp: help,
+				usage: pad("-"+string(short)+",", shortCol) + "--" + long,
+			}, true
 		}
 	}
 

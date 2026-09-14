@@ -185,7 +185,11 @@ impl Types {
                 let _ = writeln!(decl, "// {name} is `{path}`.");
             }
         }
-        let _ = write!(decl, "type {name} struct {{\n{}}}\n", fields.body);
+        if fields.body.is_empty() {
+            let _ = writeln!(decl, "type {name} struct{{}}");
+        } else {
+            let _ = write!(decl, "type {name} struct {{\n{}}}\n", fields.body);
+        }
         self.decls[slot] = decl;
         name
     }

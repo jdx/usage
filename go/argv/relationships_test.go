@@ -296,8 +296,10 @@ func TestRelationshipValuesNormalizesBooleans(t *testing.T) {
 // twice in two different voices helps nobody.
 func TestAnAlreadyRequiredEntryIsNotReportedTwice(t *testing.T) {
 	meta := Metadata{
-		{Key: keyFile, Name: "file", Flag: true, Required: true,
-			RequiredUnless: []uint64{keyStdin}},
+		{
+			Key: keyFile, Name: "file", Flag: true, Required: true,
+			RequiredUnless: []uint64{keyStdin},
+		},
 		{Key: keyStdin, Name: "stdin", Flag: true},
 	}
 	none := func(uint64) Source { return Unset }

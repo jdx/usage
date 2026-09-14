@@ -316,10 +316,14 @@ func TestParseAllocatesNothing(t *testing.T) {
 		cmd  *Command
 		argv []string
 	}{
-		{"a subcommand, a global, flags and words", root,
-			[]string{"install", "--verbose", "-f", "a", "b", "c"}},
-		{"values in every form", root,
-			[]string{"--jobs=8", "-j", "9", "-fv", "--no-color", "--", "-x"}},
+		{
+			"a subcommand, a global, flags and words", root,
+			[]string{"install", "--verbose", "-f", "a", "b", "c"},
+		},
+		{
+			"values in every form", root,
+			[]string{"--jobs=8", "-j", "9", "-fv", "--no-color", "--", "-x"},
+		},
 		{"a variadic flag collecting", root, []string{"--include", "a", "b", "c"}},
 		{"a failure", strict, []string{"--wat"}},
 		{"a failure part way through a bundle", strict, []string{"-fz"}},
@@ -368,10 +372,14 @@ func TestNameOutranksAnotherCommandsAlias(t *testing.T) {
 }
 
 func TestAllowHyphenValues(t *testing.T) {
-	args := &Flag{Key: 6, Name: "args", Longs: []string{"args"}, Shorts: []byte{'a'},
-		TakesValue: true, AllowHyphenValues: true}
-	dir := &Flag{Key: 7, Name: "working-dir", Longs: []string{"working-dir"}, Shorts: []byte{'d'},
-		TakesValue: true}
+	args := &Flag{
+		Key: 6, Name: "args", Longs: []string{"args"}, Shorts: []byte{'a'},
+		TakesValue: true, AllowHyphenValues: true,
+	}
+	dir := &Flag{
+		Key: 7, Name: "working-dir", Longs: []string{"working-dir"}, Shorts: []byte{'d'},
+		TakesValue: true,
+	}
 	rest := &Arg{Key: 11, Name: "rest", Var: true}
 	cmd := &Command{Name: "ex", Flags: []*Flag{args, dir}, Args: []*Arg{rest}}
 
@@ -409,8 +417,10 @@ func TestTokenBoundaryControls(t *testing.T) {
 }
 
 func TestRequireEquals(t *testing.T) {
-	inspect := &Flag{Key: 8, Name: "inspect", Longs: []string{"inspect"}, Shorts: []byte{'i'},
-		TakesValue: true, RequireEquals: true}
+	inspect := &Flag{
+		Key: 8, Name: "inspect", Longs: []string{"inspect"}, Shorts: []byte{'i'},
+		TakesValue: true, RequireEquals: true,
+	}
 	all := &Flag{Key: 9, Name: "all", Longs: []string{"all"}, Shorts: []byte{'a'}}
 	cmd := &Command{Name: "ex", Flags: []*Flag{inspect, all}}
 
@@ -429,8 +439,10 @@ func TestRequireEquals(t *testing.T) {
 }
 
 func TestDefaultMissing(t *testing.T) {
-	color := &Flag{Key: 9, Name: "color", Longs: []string{"color"}, Shorts: []byte{'c'},
-		TakesValue: true, DefaultMissing: "always"}
+	color := &Flag{
+		Key: 9, Name: "color", Longs: []string{"color"}, Shorts: []byte{'c'},
+		TakesValue: true, DefaultMissing: "always",
+	}
 	verbose := &Flag{Key: 10, Name: "verbose", Longs: []string{"verbose"}, Shorts: []byte{'v'}}
 	cmd := &Command{Name: "ex", Flags: []*Flag{color, verbose}}
 
@@ -458,8 +470,10 @@ func TestDefaultMissing(t *testing.T) {
 }
 
 func TestOptionalFlagValue(t *testing.T) {
-	color := &Flag{Key: 9, Name: "color", Longs: []string{"color"}, Shorts: []byte{'c'},
-		TakesValue: true, ValueOptional: true}
+	color := &Flag{
+		Key: 9, Name: "color", Longs: []string{"color"}, Shorts: []byte{'c'},
+		TakesValue: true, ValueOptional: true,
+	}
 	verbose := &Flag{Key: 10, Name: "verbose", Longs: []string{"verbose"}, Shorts: []byte{'v'}}
 	rest := &Arg{Key: 11, Name: "rest"}
 	cmd := &Command{Name: "ex", Flags: []*Flag{color, verbose}, Args: []*Arg{rest}}
@@ -493,8 +507,10 @@ func TestOptionalFlagValue(t *testing.T) {
 // Bind only: choices live in Check. A missing default that is not on the list
 // still binds, and Check is what refuses it — the same path as `--color=wat`.
 func TestDefaultMissingGoesThroughChoices(t *testing.T) {
-	color := &Flag{Key: 13, Name: "color", Longs: []string{"color"},
-		TakesValue: true, DefaultMissing: "always"}
+	color := &Flag{
+		Key: 13, Name: "color", Longs: []string{"color"},
+		TakesValue: true, DefaultMissing: "always",
+	}
 	cmd := &Command{Name: "ex", Flags: []*Flag{color}}
 	meta := &Meta{Name: "color", Flag: true, Choices: []string{"auto", "always", "never"}}
 
@@ -505,8 +521,10 @@ func TestDefaultMissingGoesThroughChoices(t *testing.T) {
 		t.Errorf("always is a choice: %v", err)
 	}
 
-	bad := &Flag{Key: 14, Name: "color", Longs: []string{"color"},
-		TakesValue: true, DefaultMissing: "wat"}
+	bad := &Flag{
+		Key: 14, Name: "color", Longs: []string{"color"},
+		TakesValue: true, DefaultMissing: "wat",
+	}
 	if got := collect(&Command{Name: "ex", Flags: []*Flag{bad}}, "--color"); got != "flag:color=wat" {
 		t.Errorf("bind still happens: got %s", got)
 	}
@@ -517,8 +535,10 @@ func TestDefaultMissingGoesThroughChoices(t *testing.T) {
 }
 
 func TestDefaultMissingWithRequireEquals(t *testing.T) {
-	inspect := &Flag{Key: 11, Name: "inspect", Longs: []string{"inspect"},
-		TakesValue: true, RequireEquals: true, DefaultMissing: "9229"}
+	inspect := &Flag{
+		Key: 11, Name: "inspect", Longs: []string{"inspect"},
+		TakesValue: true, RequireEquals: true, DefaultMissing: "9229",
+	}
 	rest := &Arg{Key: 12, Name: "rest"}
 	cmd := &Command{Name: "ex", Flags: []*Flag{inspect}, Args: []*Arg{rest}}
 
@@ -592,9 +612,11 @@ func BenchmarkParse(b *testing.B) {
 
 func TestMixedDefaultBundleHonorsParentConflicts(t *testing.T) {
 	child := &Command{Name: "install", Flags: []*Flag{{Name: "update", Shorts: []byte{'u'}}}}
-	root := &Command{Name: "em", Flags: []*Flag{{Name: "pretend", Shorts: []byte{'p'}}},
+	root := &Command{
+		Name: "em", Flags: []*Flag{{Name: "pretend", Shorts: []byte{'p'}}},
 		Subcommands: []*Command{child}, DefaultSubcommand: child,
-		DefaultSubcommandFlags: true, ArgsConflictWithSubcommands: true, Version: true}
+		DefaultSubcommandFlags: true, ArgsConflictWithSubcommands: true, Version: true,
+	}
 	for _, bundle := range []string{"-pu", "-up", "-uhp", "-uVp"} {
 		if got := collect(root, bundle); got != "err:subcommand_conflict" {
 			t.Errorf("%s: got %s", bundle, got)

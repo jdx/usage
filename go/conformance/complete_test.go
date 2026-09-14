@@ -38,8 +38,10 @@ func completeWord(t *testing.T, usageBin, kdl string, words []string, cword int)
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	args := []string{"complete-word", "--shell", "bash", "-f", kdl,
-		"--cword", itoa(cword), "--"}
+	args := []string{
+		"complete-word", "--shell", "bash", "-f", kdl,
+		"--cword", itoa(cword), "--",
+	}
 	args = append(args, words...)
 	out, err := exec.CommandContext(ctx, usageBin, args...).Output()
 	if err != nil {
