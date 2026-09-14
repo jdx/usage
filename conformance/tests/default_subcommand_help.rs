@@ -9,6 +9,7 @@ use usage_derive::Cli;
 )]
 struct Ex {
     #[usage(subcommand)]
+    #[allow(dead_code)]
     command: Option<Commands>,
 }
 
