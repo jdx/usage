@@ -1,6 +1,13 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
-use usage::{parse, Spec, SpecArg, SpecCommand, SpecFlag};
+use usage::{kdl::KdlDocument, parse, Spec, SpecArg, SpecCommand, SpecFlag};
+
+fn bench_parse_mise_kdl(c: &mut Criterion) {
+    let source = include_str!("../../benches/mise.usage.kdl");
+    c.bench_function("parse_mise_kdl_document", |b| {
+        b.iter(|| black_box(source).parse::<KdlDocument>().unwrap())
+    });
+}
 
 fn build_small_spec() -> Spec {
     let install_cmd = SpecCommand::builder()
@@ -176,5 +183,10 @@ fn bench_parse_large_spec(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_parse_small_spec, bench_parse_large_spec);
+criterion_group!(
+    benches,
+    bench_parse_mise_kdl,
+    bench_parse_small_spec,
+    bench_parse_large_spec
+);
 criterion_main!(benches);

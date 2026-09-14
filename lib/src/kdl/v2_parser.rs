@@ -788,18 +788,9 @@ fn unambiguous_ident(input: &mut Input<'_>) -> PResult<()> {
     trace(
         "identifier chars",
         cut_err(
-            repeat(1.., identifier_char)
-                .verify_map(|s: String| {
-                    if matches!(
-                        s.as_str(),
-                        "true" | "false" | "null" | "inf" | "-inf" | "nan"
-                    ) {
-                        None
-                    } else {
-                        Some(s)
-                    }
-                })
-                .void(),
+            take_while(1.., |c| !is_disallowed_ident_char(c)).verify_map(|s: &str| {
+                (!matches!(s, "true" | "false" | "null" | "inf" | "-inf" | "nan")).then_some(())
+            }),
         ),
     )
     .parse_next(input)
@@ -828,9 +819,9 @@ static DISALLOWED_IDENT_CHARS: [char; 11] =
     ['\\', '/', '(', ')', '{', '}', '[', ']', ';', '"', '#'];
 
 pub(crate) fn is_disallowed_ident_char(c: char) -> bool {
-    DISALLOWED_IDENT_CHARS.iter().any(|ic| ic == &c)
-        || NEWLINES.iter().copied().collect::<String>().contains(c)
-        || UNICODE_SPACES.iter().any(|us| us == &c)
+    DISALLOWED_IDENT_CHARS.contains(&c)
+        || is_newline_char(c)
+        || UNICODE_SPACES.contains(&c)
         || is_disallowed_unicode(c)
         || c == '='
 }
@@ -972,13 +963,21 @@ fn quoted_string(input: &mut Input<'_>) -> PResult<KdlValue> {
                     ),
                 ),
                 alt((
-                    ws_escape.map(|_| None),
-                    string_char.map(Some),
-                ))
-                ).map(|(_, c)| c),
+                    take_while(1.., |c: char| {
+                        c != '\\'
+                            && c != '\"'
+                            && !is_newline_char(c)
+                            && !is_disallowed_unicode(c)
+                    })
+                    .map(str::to_owned),
+                    ws_escape.value(String::new()),
+                    escaped_char.map(|c| c.to_string()),
+                )),
+            )
+                .map(|(_, chunk)| chunk),
             peek("\"")
         )
-        .map(|(cs, _): (Vec<Option<char>>, _)| cs.into_iter().flatten().collect::<String>())
+        .map(|(chunks, _): (Vec<String>, _)| chunks.concat())
         .context(cx().lbl("quoted string"));
         cut_err(parser).parse_next(input)?
     };
@@ -1101,12 +1100,13 @@ fn raw_string(input: &mut Input<'_>) -> PResult<KdlValue> {
                     (
                         repeat(
                             0..,
-                            (
-                                not(newline),
-                                not(disallowed_unicode),
-                                not(("\"\"\"", &hashes[..])),
-                                any,
-                            ),
+                            alt((
+                                take_while(1.., |c: char| {
+                                    c != '\"' && !is_newline_char(c) && !is_disallowed_unicode(c)
+                                })
+                                .void(),
+                                (not(("\"\"\"", &hashes[..])), "\"").void(),
+                            )),
                         )
                         .map(|()| ()),
                         newline,
@@ -1138,13 +1138,16 @@ fn raw_string(input: &mut Input<'_>) -> PResult<KdlValue> {
                     empty_line.map(|s| s.to_string()),
                     repeat_till(
                         0..,
-                        (not(newline), not(("\"\"\"", &hashes[..])), any)
-                            .map(|((), (), _)| ())
-                            .take(),
+                        alt((
+                            take_while(1.., |c: char| {
+                                c != '\"' && !is_newline_char(c) && !is_disallowed_unicode(c)
+                            }),
+                            (not(("\"\"\"", &hashes[..])), "\"").take(),
+                        )),
                         newline,
                     )
                     // multiline string literal newlines are normalized to `\n`
-                    .map(|(s, _): (Vec<&str>, _)| format!("{}\n", s.join(""))),
+                    .map(|(s, _): (Vec<&str>, _)| format!("{}\n", s.concat())),
                 )),
             )
                 .map(|(_, s)| s),
@@ -1164,16 +1167,15 @@ fn raw_string(input: &mut Input<'_>) -> PResult<KdlValue> {
     } else {
         repeat_till(
             0..,
-            (
-                not(disallowed_unicode),
-                not(newline),
-                not(("\"", &hashes[..])),
-                any,
-            )
-                .map(|(_, _, _, s)| s),
+            alt((
+                take_while(1.., |c: char| {
+                    c != '\"' && !is_newline_char(c) && !is_disallowed_unicode(c)
+                }),
+                ("\"", not(&hashes[..])).take(),
+            )),
             peek(("\"", &hashes[..])),
         )
-        .map(|(s, _): (String, _)| s)
+        .map(|(chunks, _): (Vec<&str>, _)| chunks.concat())
         .context(cx().lbl("raw string"))
         .parse_next(input)?
     };
@@ -1280,6 +1282,13 @@ pub(crate) static NEWLINES: [&str; 8] = [
     "\u{2028}",
     "\u{2029}",
 ];
+
+fn is_newline_char(c: char) -> bool {
+    matches!(
+        c,
+        '\u{000D}' | '\u{000A}' | '\u{0085}' | '\u{000B}' | '\u{000C}' | '\u{2028}' | '\u{2029}'
+    )
+}
 
 /// `newline := <See Table>`
 fn newline(input: &mut Input<'_>) -> PResult<()> {
@@ -1650,6 +1659,15 @@ escaped "line\n\u{1f642}"
         assert_eq!(
             document.get("escaped").unwrap().get(0),
             Some(&KdlValue::String("line\n🙂".into()))
+        );
+
+        let multiline = "raw #\"\"\"\n  first \" quote\n  triple \"\"\" stays\n  🙂\n  \"\"\"#";
+        let document = multiline.parse::<KdlDocument>().unwrap();
+        assert_eq!(
+            document.get("raw").unwrap().get(0),
+            Some(&KdlValue::String(
+                "first \" quote\ntriple \"\"\" stays\n🙂".into()
+            ))
         );
     }
 
