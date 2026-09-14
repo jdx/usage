@@ -1733,10 +1733,21 @@ fn default_visible_child<'a>(
     root: &'a CommandMeta<'a>,
 ) -> Option<&'a CommandMeta<'a>> {
     let name = spec.default_subcommand?;
+    // A command's own name outranks another command's alias — the same
+    // precedence a typed word gets — so an earlier-declared alias can't
+    // shadow the real match, and a hidden canonical match doesn't fall
+    // through to a visible command that merely aliases the same name.
     root.subcommands
         .iter()
         .copied()
-        .find(|sub| !sub.hide && (sub.cmd.name == name || sub.cmd.aliases.contains(&name)))
+        .find(|sub| sub.cmd.name == name)
+        .or_else(|| {
+            root.subcommands
+                .iter()
+                .copied()
+                .find(|sub| sub.cmd.aliases.contains(&name))
+        })
+        .filter(|sub| !sub.hide)
 }
 
 fn root_default_command_name<'a>(
@@ -4250,9 +4261,10 @@ fn recursive_help<'a>(
 #[cfg(test)]
 mod style_tests {
     use super::{
-        commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
-        inline_environment_notes, long_help, render, render_styled, render_view_at_styled,
-        styled_flag_usage, styled_help, styled_inline, usage_line, wrap, Palette, Shown, Style,
+        commands_section, default_visible_child, display_usage_masked, flag_notes, flag_usage,
+        flat_commands_short, inline_environment_notes, long_help, render, render_styled,
+        render_view_at_styled, styled_flag_usage, styled_help, styled_inline, usage_line, wrap,
+        Palette, Shown, Style,
     };
     use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
     use crate::{Arg, ArgAction, Clause, Command, Flag};
@@ -5247,6 +5259,48 @@ mod style_tests {
             }
         }
         out
+    }
+
+    #[test]
+    fn a_commands_own_name_outranks_another_commands_alias() {
+        // `query` is declared first and aliases "install" — the same name
+        // `install` uses as its own. Resolving the default must not let the
+        // earlier-declared alias shadow the real match.
+        let query = Command {
+            name: "query",
+            aliases: &["install"],
+            ..Command::EMPTY
+        };
+        let install = Command {
+            name: "install",
+            ..Command::EMPTY
+        };
+        let query_meta = CommandMeta {
+            cmd: &query,
+            ..CommandMeta::EMPTY
+        };
+        let install_meta = CommandMeta {
+            cmd: &install,
+            ..CommandMeta::EMPTY
+        };
+        let root_cmd = Command {
+            name: "ex",
+            ..Command::EMPTY
+        };
+        let root_meta = CommandMeta {
+            cmd: &root_cmd,
+            subcommands: &[&query_meta, &install_meta],
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            default_subcommand: Some("install"),
+            root: &root_meta,
+            ..Spec::EMPTY
+        };
+
+        let resolved = default_visible_child(&spec, &root_meta).expect("a default is resolved");
+        assert_eq!(resolved.cmd.name, "install");
     }
 }
 #[cfg(test)]
