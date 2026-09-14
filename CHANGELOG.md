@@ -1,5 +1,26 @@
 # Changelog
 
+## [6.9.1](https://github.com/jdx/usage/compare/v6.9.0..v6.9.1) - 2026-09-14
+
+### 🐛 Bug Fixes
+
+- **(docs)** align benchmark section by [@jdx](https://github.com/jdx) in [1f0d82f](https://github.com/jdx/usage/commit/1f0d82f5aed3d5c83994f39f687c904bedd1db6c)
+- **(parse)** keep implicit default after a default-only flag by [@lu-zero](https://github.com/lu-zero) in [#1418](https://github.com/jdx/usage/pull/1418)
+
+### 🔍 Other Changes
+
+- **(go)** tidy the Go modules, require Go 1.26, and run go fix by [@sahidvelji](https://github.com/sahidvelji) in [#1421](https://github.com/jdx/usage/pull/1421)
+- **(go)** lint every Go module with gofumpt, golangci-lint, and go fix by [@sahidvelji](https://github.com/sahidvelji) in [#1425](https://github.com/jdx/usage/pull/1425)
+- replace lefthook with hk for git hooks by [@sahidvelji](https://github.com/sahidvelji) in [#1422](https://github.com/jdx/usage/pull/1422)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1427](https://github.com/jdx/usage/pull/1427)
+
+### New Contributors
+
+- @sahidvelji made their first contribution in [#1425](https://github.com/jdx/usage/pull/1425)
+
 ## [6.9.0](https://github.com/jdx/usage/compare/v6.8.0..v6.9.0) - 2026-09-12
 
 ### 🚀 Features
