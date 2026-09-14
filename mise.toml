@@ -23,6 +23,8 @@ hk = { version = "latest", minimum_release_age = "0s" }
 "npm:prettier" = "latest"
 shellcheck = "latest"
 go = "1.27.1"
+gofumpt = "0.12.0"
+golangci-lint = "2.13.2"
 node = "24"
 python = "latest"
 "npm:tsc" = "latest"
@@ -76,14 +78,10 @@ run = 'cargo test --all --all-features'
 [tasks."test:go"]
 dir = '{{config_root}}'
 depends = ['build']
-# The shadows are the last line, and skipped when the frameworks cannot be fetched: they
-# are a benchmark fixture, and a machine without a proxy should still get the suite that
-# matters. Asked as its own question rather than with `|| true`, so a generator change that
-# broke a shadow is a failure rather than a skip.
 run = [
     'cd go && go test ./...',
     'cd integrations/cobra && go test ./...',
-    'cd benches/go && if go mod download >/dev/null 2>&1; then go test ./...; else echo "skipped: the benchmark frameworks could not be fetched"; fi',
+    'cd benches/go && go test ./...',
 ]
 
 # Linters are defined in `hk.pkl`.
@@ -128,31 +126,6 @@ if wrong:
 print(f"{found} Rust dependency examples use major {want}")
 PY
 '''
-[tasks."lint:go"]
-dir = "{{config_root}}"
-# `gofmt -l` prints what it would change and exits 0 either way, so the output is
-# the failure condition.
-#
-# Both modules. Everything under `benches/go` is generated, and a generated file that gofmt
-# would reformat is one the generator is not finished with — `gen-shadow` runs gofmt for
-# exactly that reason.
-#
-# The benches module is skipped only when its dependencies cannot be *fetched* — asked as its
-# own question, because `go vet ./... || true` would swallow a generator regression as well: a
-# shadow that no longer compiles would pass the lint and then report itself unmeasured.
-run = [
-    # The status as well as the output: a file gofmt cannot *parse* is reported on stderr with
-    # nothing on stdout, so `test -z "$(gofmt -l …)"` called that a pass — the one case where
-    # the answer matters most.
-    'list=$(gofmt -l go benches/go) || { echo "gofmt could not parse a file; see above"; exit 1; }; test -z "$list" || { echo "$list"; echo "gofmt would change these; run mise run lint-fix"; exit 1; }',
-    'cd go && go vet ./...',
-    'cd benches/go && if go mod download >/dev/null 2>&1; then go vet ./...; else echo "skipped: the benchmark frameworks could not be fetched"; fi',
-]
-
-[tasks."lint-fix:go"]
-dir = "{{config_root}}"
-run = 'gofmt -w go benches/go'
-
 [tasks.lint-fix]
 run = "hk fix --all"
 
@@ -231,11 +204,10 @@ run = [
     "cargo run -q -p xtask -- gen-shadow benches/external/fd.usage.kdl benches/shadows/external-fd usage",
     "cargo run -q -p xtask -- gen-shadow benches/external/tokei.usage.kdl benches/shadows/external-tokei usage",
     "cargo run -q -p xtask -- gen-shadow benches/external/starship.usage.kdl benches/shadows/external-starship usage",
-    # The Go emitters write valid Go and leave the columns to gofmt, which is the tool that
-    # decides where they go. Emitting pre-aligned struct fields would mean reimplementing
-    # tabwriter's heuristics to guess what it would have done, and being wrong about it
-    # every time `lint:go` ran.
-    "gofmt -w benches/go",
+    # The Go emitters write valid Go and leave the columns to the formatter, which is the tool
+    # that decides where they go. Explicit paths, not the directory: gofumpt skips generated
+    # files when it walks one, which is every file this task just wrote.
+    "find benches/go -name '*.go' -exec gofumpt -w {} +",
 ]
 
 # The Go tables the shadow test parses against, from the same spec and for the same
@@ -243,8 +215,8 @@ run = [
 # changes, and so CI can assert that regenerating produces none.
 #
 # No formatter afterwards, unlike `render:fig`. `usage generate go` emits
-# gofmt-clean output, which `lint:go` then checks — a generated file an adopter has
-# to reformat before committing is one the generator is not finished with.
+# gofumpt-clean output, which the `gofumpt` hk step then checks — a generated file an
+# adopter has to reformat before committing is one the generator is not finished with.
 #
 # Twice, into two modules, on purpose. `go/internal/shadow/mise` is the Go module's own
 # fixture: its tests measure allocations at mise's scale and must keep running on a machine

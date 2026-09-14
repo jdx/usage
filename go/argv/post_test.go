@@ -29,28 +29,62 @@ func TestFillOrder(t *testing.T) {
 		want   []string
 		source Source
 	}{
-		{"the command line wins", []string{"8"}, map[string]string{"EX_JOBS": "4"},
-			[]string{"8"}, FromArgv},
-		{"then the environment", nil, map[string]string{"EX_JOBS": "4"},
-			[]string{"4"}, FromEnv},
-		{"the canonical environment wins over fallbacks", nil,
-			map[string]string{"EX_JOBS": "4", "OLD_JOBS": "3"}, []string{"4"}, FromEnv},
-		{"fallbacks preserve declaration order", nil,
-			map[string]string{"OLD_JOBS": "3", "OLDER_JOBS": "2"}, []string{"3"}, FromEnv},
-		{"deprecated aliases are consulted last", nil,
-			map[string]string{"DEPRECATED_JOBS": "2"}, []string{"2"}, FromEnv},
+		{
+			"the command line wins",
+			[]string{"8"},
+			map[string]string{"EX_JOBS": "4"},
+			[]string{"8"},
+			FromArgv,
+		},
+		{
+			"then the environment", nil,
+			map[string]string{"EX_JOBS": "4"},
+			[]string{"4"},
+			FromEnv,
+		},
+		{
+			"the canonical environment wins over fallbacks", nil,
+			map[string]string{"EX_JOBS": "4", "OLD_JOBS": "3"},
+			[]string{"4"},
+			FromEnv,
+		},
+		{
+			"fallbacks preserve declaration order", nil,
+			map[string]string{"OLD_JOBS": "3", "OLDER_JOBS": "2"},
+			[]string{"3"},
+			FromEnv,
+		},
+		{
+			"deprecated aliases are consulted last", nil,
+			map[string]string{"DEPRECATED_JOBS": "2"},
+			[]string{"2"},
+			FromEnv,
+		},
 		{"then the default", nil, nil, []string{"1"}, FromDefault},
 		// Treating empty as unset would make `EX_JOBS=` mean something no other
 		// empty value in the grammar means.
-		{"an empty variable is set", nil, map[string]string{"EX_JOBS": ""},
-			[]string{""}, FromEnv},
+		{
+			"an empty variable is set", nil,
+			map[string]string{"EX_JOBS": ""},
+			[]string{""},
+			FromEnv,
+		},
 		// The grammar never re-splits a value: quoting is the shell's job, and
 		// there was no shell involved here at all.
-		{"a value is one token", nil, map[string]string{"EX_JOBS": "a b,c"},
-			[]string{"a b,c"}, FromEnv},
+		{
+			"a value is one token", nil,
+			map[string]string{"EX_JOBS": "a b,c"},
+			[]string{"a b,c"},
+			FromEnv,
+		},
 		// `--jobs=` binds the empty string, which is a value the command line gave.
-		{"an empty value from argv is still a value", []string{""},
-			map[string]string{"EX_JOBS": "4"}, []string{""}, FromArgv},
+		{
+			"an empty value from argv is still a value",
+			[]string{""},
+			map[string]string{"EX_JOBS": "4"},
+			[]string{""},
+			FromArgv,
+		},
 	}
 
 	for _, c := range cases {
@@ -83,53 +117,112 @@ func TestCheck(t *testing.T) {
 		want        Code
 		ok          bool
 	}{
-		{"a required flag nobody gave", Meta{Name: "file", Flag: true, Required: true},
-			nil, 0, CodeMissingRequiredFlag, false},
-		{"a required argument nobody filled", Meta{Name: "file", Required: true},
-			nil, 0, CodeMissingRequiredArg, false},
-		{"a required flag given a value", Meta{Name: "file", Flag: true, Required: true},
-			[]string{"x"}, 1, 0, true},
+		{
+			"a required flag nobody gave",
+			Meta{Name: "file", Flag: true, Required: true},
+			nil, 0, CodeMissingRequiredFlag, false,
+		},
+		{
+			"a required argument nobody filled",
+			Meta{Name: "file", Required: true},
+			nil, 0, CodeMissingRequiredArg, false,
+		},
+		{
+			"a required flag given a value",
+			Meta{Name: "file", Flag: true, Required: true},
+			[]string{"x"},
+			1, 0, true,
+		},
 		// A value-less flag has no values to count, so being seen at all is the
 		// only evidence it was given.
-		{"a required flag that holds no value", Meta{Name: "v", Flag: true, Required: true},
-			nil, 1, 0, true},
-		{"a strict scalar repeated", Meta{Name: "jobs", Flag: true, RejectDuplicate: true},
-			[]string{"2"}, 2, CodeDuplicateFlag, false},
-		{"a permissive scalar repeated", Meta{Name: "jobs", Flag: true},
-			[]string{"2"}, 2, 0, true},
+		{
+			"a required flag that holds no value",
+			Meta{Name: "v", Flag: true, Required: true},
+			nil, 1, 0, true,
+		},
+		{
+			"a strict scalar repeated",
+			Meta{Name: "jobs", Flag: true, RejectDuplicate: true},
+			[]string{"2"},
+			2, CodeDuplicateFlag, false,
+		},
+		{
+			"a permissive scalar repeated",
+			Meta{Name: "jobs", Flag: true},
+			[]string{"2"},
+			2, 0, true,
+		},
 
-		{"a value outside the choices", Meta{Name: "shell", Choices: []string{"bash", "zsh"}},
-			[]string{"csh"}, 1, CodeInvalidChoice, false},
+		{
+			"a value outside the choices",
+			Meta{Name: "shell", Choices: []string{"bash", "zsh"}},
+			[]string{"csh"},
+			1, CodeInvalidChoice, false,
+		},
 		// Matching is case-sensitive: case-insensitive matching would have to be
 		// declared rather than assumed.
-		{"choices are case-sensitive", Meta{Name: "shell", Choices: []string{"bash"}},
-			[]string{"BASH"}, 1, CodeInvalidChoice, false},
+		{
+			"choices are case-sensitive",
+			Meta{Name: "shell", Choices: []string{"bash"}},
+			[]string{"BASH"},
+			1, CodeInvalidChoice, false,
+		},
 		// Every value, because a variadic can be given a good one and a bad one.
-		{"every value is checked", Meta{Name: "shell", Choices: []string{"bash", "zsh"}},
-			[]string{"bash", "csh"}, 1, CodeInvalidChoice, false},
-		{"all of them allowed", Meta{Name: "shell", Choices: []string{"bash", "zsh"}},
-			[]string{"bash", "zsh"}, 2, 0, true},
-		{"suggested choices accept other values", Meta{Name: "shell", Choices: []string{"bash", "zsh"}, AllowUnknownChoices: true},
-			[]string{"csh"}, 1, 0, true},
+		{
+			"every value is checked",
+			Meta{Name: "shell", Choices: []string{"bash", "zsh"}},
+			[]string{"bash", "csh"},
+			1, CodeInvalidChoice, false,
+		},
+		{
+			"all of them allowed",
+			Meta{Name: "shell", Choices: []string{"bash", "zsh"}},
+			[]string{"bash", "zsh"},
+			2, 0, true,
+		},
+		{
+			"suggested choices accept other values",
+			Meta{Name: "shell", Choices: []string{"bash", "zsh"}, AllowUnknownChoices: true},
+			[]string{"csh"},
+			1, 0, true,
+		},
 
-		{"fewer values than var_min", Meta{Name: "files", VarMin: 2},
-			[]string{"a"}, 1, CodeVarTooFew, false},
+		{
+			"fewer values than var_min",
+			Meta{Name: "files", VarMin: 2},
+			[]string{"a"},
+			1, CodeVarTooFew, false,
+		},
 		{"enough values", Meta{Name: "files", VarMin: 2}, []string{"a", "b"}, 1, 0, true},
 		// An absent optional variadic has not broken its minimum; it simply is not
 		// there, and reporting it would make every bounded variadic required.
-		{"an absent variadic has not broken its minimum", Meta{Name: "files", VarMin: 2},
-			nil, 0, 0, true},
+		{
+			"an absent variadic has not broken its minimum",
+			Meta{Name: "files", VarMin: 2},
+			nil, 0, 0, true,
+		},
 
 		// Occurrences, not values: a variadic occurrence can bring several.
-		{"more occurrences than var_max", Meta{Name: "include", Flag: true, VarMax: 1},
-			[]string{"a", "b"}, 2, CodeVarTooMany, false},
-		{"one occurrence bringing several values", Meta{Name: "include", Flag: true, VarMax: 1},
-			[]string{"a", "b"}, 1, 0, true},
+		{
+			"more occurrences than var_max",
+			Meta{Name: "include", Flag: true, VarMax: 1},
+			[]string{"a", "b"},
+			2, CodeVarTooMany, false,
+		},
+		{
+			"one occurrence bringing several values",
+			Meta{Name: "include", Flag: true, VarMax: 1},
+			[]string{"a", "b"},
+			1, 0, true,
+		},
 
 		// Required is asked first: a required variadic given nothing is missing
 		// rather than short, which is the more useful thing to be told.
-		{"missing beats short", Meta{Name: "files", Required: true, VarMin: 2},
-			nil, 0, CodeMissingRequiredArg, false},
+		{
+			"missing beats short",
+			Meta{Name: "files", Required: true, VarMin: 2},
+			nil, 0, CodeMissingRequiredArg, false,
+		},
 	}
 
 	for _, c := range cases {
@@ -180,8 +273,10 @@ func TestCheckRichChoices(t *testing.T) {
 // has nothing to judge — but `overrides` settles which of a pair is in effect,
 // not whether the word the loser was handed was one it accepts.
 func TestCheckDisplacedJudgesOnlyTheWords(t *testing.T) {
-	meta := &Meta{Name: "log-level", Spelling: "--log-level",
-		Choices: []string{"debug", "info"}, Required: true}
+	meta := &Meta{
+		Name: "log-level", Spelling: "--log-level",
+		Choices: []string{"debug", "info"}, Required: true,
+	}
 
 	if err := CheckDisplaced(meta, []string{"v"}); err == nil || err.Code != CodeInvalidChoice {
 		t.Fatalf("a word outside the choices survives the displacement: %+v", err)

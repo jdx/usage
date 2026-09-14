@@ -65,8 +65,10 @@ func TestAFlagsDefaultCanBeDeclaredOnItsValue(t *testing.T) {
 		Name: "ex", Bin: "ex",
 		Cmd: Cmd{Name: "ex", Flags: []Flag{
 			{Name: "jobs", Long: []string{"jobs"}, Arg: &Arg{Name: "n", Default: []string{"4"}}},
-			{Name: "level", Long: []string{"level"}, Default: []string{"info"},
-				Arg: &Arg{Name: "l", Default: []string{"ignored"}}},
+			{
+				Name: "level", Long: []string{"level"}, Default: []string{"info"},
+				Arg: &Arg{Name: "l", Default: []string{"ignored"}},
+			},
 			{Name: "plain", Long: []string{"plain"}, Arg: &Arg{Name: "p"}},
 		}},
 	})
@@ -115,10 +117,14 @@ func TestVariadicFlagMinimumComesFromItsValue(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",
 		Cmd: Cmd{Name: "ex", Flags: []Flag{
-			{Name: "include", Long: []string{"include"}, VarMin: 7, VarMax: 8,
-				Arg: &Arg{Name: "pattern", Var: true, VarMin: 2, VarMax: 3}},
-			{Name: "fallback", Long: []string{"fallback"}, VarMin: 4,
-				Arg: &Arg{Name: "value", Var: true}},
+			{
+				Name: "include", Long: []string{"include"}, VarMin: 7, VarMax: 8,
+				Arg: &Arg{Name: "pattern", Var: true, VarMin: 2, VarMax: 3},
+			},
+			{
+				Name: "fallback", Long: []string{"fallback"}, VarMin: 4,
+				Arg: &Arg{Name: "value", Var: true},
+			},
 		}},
 	})
 
@@ -163,8 +169,10 @@ func TestChoicesAreReadThroughTheValue(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",
 		Cmd: Cmd{Name: "ex", Flags: []Flag{
-			{Name: "shell", Long: []string{"shell"},
-				Arg: &Arg{Name: "s", Choices: &Choices{Choices: []string{"bash", "zsh"}}}},
+			{
+				Name: "shell", Long: []string{"shell"},
+				Arg: &Arg{Name: "s", Choices: &Choices{Choices: []string{"bash", "zsh"}}},
+			},
 		}},
 	})
 	want := []string{"bash", "zsh"}
@@ -206,7 +214,8 @@ func TestRichChoicesSeparateAcceptanceFromVisibility(t *testing.T) {
 func TestValidationIsReadThroughTheValue(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",
-		Cmd: Cmd{Name: "ex",
+		Cmd: Cmd{
+			Name: "ex",
 			Flags: []Flag{{Name: "port", Long: []string{"port"}, Arg: &Arg{
 				Name: "port", Validate: "int(value) > 0", ValidateError: "must be positive",
 			}}},
@@ -228,12 +237,15 @@ func TestValidationIsReadThroughTheValue(t *testing.T) {
 func TestMetadataLinesUpWithTheParseTables(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",
-		Cmd: Cmd{Name: "ex",
+		Cmd: Cmd{
+			Name:  "ex",
 			Flags: []Flag{{Name: "verbose", Long: []string{"verbose"}}},
 			Args:  []Arg{{Name: "file", Required: true}},
-			Subcommands: Subcommands{{Name: "install", Cmd: Cmd{Name: "install",
+			Subcommands: Subcommands{{Name: "install", Cmd: Cmd{
+				Name:  "install",
 				Flags: []Flag{{Name: "force", Long: []string{"force"}}},
-				Args:  []Arg{{Name: "pkg"}}}}},
+				Args:  []Arg{{Name: "pkg"}},
+			}}},
 		},
 	})
 
@@ -267,7 +279,8 @@ func TestMetadataLinesUpWithTheParseTables(t *testing.T) {
 func TestARelationshipCanNameAnInheritedGlobal(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",
-		Cmd: Cmd{Name: "ex",
+		Cmd: Cmd{
+			Name: "ex",
 			Flags: []Flag{
 				{Name: "quiet", Long: []string{"quiet"}, Global: true},
 				// Not global, so not in scope below, and naming it must resolve to
@@ -307,7 +320,8 @@ func TestARelationshipCanNameAnInheritedGlobal(t *testing.T) {
 func TestConflictsCanNamePositionals(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",
-		Cmd: Cmd{Name: "ex",
+		Cmd: Cmd{
+			Name:  "ex",
 			Flags: []Flag{{Name: "from-file", Long: []string{"from-file"}, Conflicts: []string{"value"}}},
 			Args:  []Arg{{Name: "value", Conflicts: []string{"--from-file"}}},
 		},
@@ -349,7 +363,8 @@ func TestClauseRelationshipsCanNameScopedPositionalsAndFlags(t *testing.T) {
 func TestALocalFlagShadowsTheGlobalOfTheSameName(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",
-		Cmd: Cmd{Name: "ex",
+		Cmd: Cmd{
+			Name:  "ex",
 			Flags: []Flag{{Name: "quiet", Long: []string{"quiet"}, Global: true}},
 			Subcommands: Subcommands{{Name: "run", Cmd: Cmd{Name: "run", Flags: []Flag{
 				{Name: "quiet", Long: []string{"quiet"}},
@@ -532,7 +547,8 @@ func TestASingleDashNegationIsNamedByItsOwnForm(t *testing.T) {
 // table — see TestTheTwoProducersAgree, which cannot see this one because mise
 // declares no alias twice.
 func TestAnAliasDeclaredBothWaysStaysHidden(t *testing.T) {
-	s := &Spec{Name: "ex", Bin: "ex",
+	s := &Spec{
+		Name: "ex", Bin: "ex",
 		Cmd: Cmd{Name: "ex", Subcommands: Subcommands{{Name: "install", Cmd: Cmd{
 			Name:          "install",
 			Aliases:       []string{"i", "add"},

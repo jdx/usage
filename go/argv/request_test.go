@@ -12,24 +12,43 @@ func requestFixture() (*Command, HelpTable, Metadata) {
 	tool := &Flag{Key: 3, Name: "tool", Longs: []string{"tool"}, TakesValue: true}
 	file := &Arg{Key: 4, Name: "FILE"}
 	edit := &Command{Key: 5, Name: "edit", Flags: []*Flag{into}, Args: []*Arg{file}}
-	use := &Command{Key: 6, Name: "use", Flags: []*Flag{tool},
-		Args: []*Arg{{Key: 7, Name: "TOOL"}}}
-	after := &Command{Key: 8, Name: "run",
-		Args: []*Arg{{Key: 9, Name: "TASK", DoubleDash: DoubleDashRequired}}}
-	forward := &Command{Key: 10, Name: "forward",
-		Args: []*Arg{{Key: 11, Name: "COMMAND", Var: true, DoubleDash: DoubleDashAutomatic}}}
+	use := &Command{
+		Key: 6, Name: "use", Flags: []*Flag{tool},
+		Args: []*Arg{{Key: 7, Name: "TOOL"}},
+	}
+	after := &Command{
+		Key: 8, Name: "run",
+		Args: []*Arg{{Key: 9, Name: "TASK", DoubleDash: DoubleDashRequired}},
+	}
+	forward := &Command{
+		Key: 10, Name: "forward",
+		Args: []*Arg{{Key: 11, Name: "COMMAND", Var: true, DoubleDash: DoubleDashAutomatic}},
+	}
 	root := &Command{Key: 1, Name: "ex", Subcommands: []*Command{edit, use, after, forward}}
 
-	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}, {Key: 5, Short: "Edit a file"},
-		{Key: 6, Short: "Use a tool"}, {Key: 7}, {Key: 8, Short: "Run a task"}, {Key: 9},
-		{Key: 10, Short: "Forward a command"}, {Key: 11}}
+	help := HelpTable{
+		{Key: 1},
+		{Key: 2},
+		{Key: 3},
+		{Key: 4},
+		{Key: 5, Short: "Edit a file"},
+		{Key: 6, Short: "Use a tool"},
+		{Key: 7},
+		{Key: 8, Short: "Run a task"},
+		{Key: 9},
+		{Key: 10, Short: "Forward a command"},
+		{Key: 11},
+	}
 	meta := Metadata{
 		{Key: 1},
 		{Key: 2, Name: "into", Flag: true, ValueName: "DIR"},
-		{Key: 3, Name: "tool", Flag: true, ValueName: "TOOL",
-			Choices: []string{"node", "python"}},
+		{
+			Key: 3, Name: "tool", Flag: true, ValueName: "TOOL",
+			Choices: []string{"node", "python"},
+		},
 		{Key: 4, Name: "FILE"},
-		{Key: 5}, {Key: 6},
+		{Key: 5},
+		{Key: 6},
 		{Key: 7, Name: "TOOL", Choices: []string{"node", "python"}},
 		{Key: 8},
 		{Key: 9, Name: "TASK"},
@@ -86,8 +105,10 @@ func TestAnOrdinaryInvocationIsNotARequest(t *testing.T) {
 
 // The three arguments a shell passes, and what a missing one means.
 func TestReadingTheRequest(t *testing.T) {
-	req, ok := ParseRequest([]string{RequestName, "--shell", "zsh",
-		"--line", "ex use no", "--cursor", "6"})
+	req, ok := ParseRequest([]string{
+		RequestName, "--shell", "zsh",
+		"--line", "ex use no", "--cursor", "6",
+	})
 	if !ok || req.Shell != Zsh || req.Line != "ex use no" || req.Cursor != 6 {
 		t.Fatalf("read back wrong: %+v ok=%v", req, ok)
 	}
@@ -101,8 +122,10 @@ func TestReadingTheRequest(t *testing.T) {
 
 	// A shell passing something this version does not know about is answered, not
 	// refused: a completion that errors out beeps at every keystroke.
-	req, ok = ParseRequest([]string{RequestName, "--wat", "1", "--shell", "klingon",
-		"--line", "ex ", "--cursor", "nope"})
+	req, ok = ParseRequest([]string{
+		RequestName, "--wat", "1", "--shell", "klingon",
+		"--line", "ex ", "--cursor", "nope",
+	})
 	if !ok || req.Shell != Bash || req.Line != "ex " {
 		t.Errorf("unknown arguments should be ignored: %+v", req)
 	}
@@ -157,9 +180,11 @@ func TestWhenPathsBelongAtTheCursor(t *testing.T) {
 // asks whether *anything* was offered. Offering every flag at a bare cursor made
 // every position on every command with a flag look answered.
 func TestFlagsDoNotCloseThePositionToPaths(t *testing.T) {
-	root := &Command{Key: 1, Name: "ex",
+	root := &Command{
+		Key: 1, Name: "ex",
 		Flags: []*Flag{{Key: 2, Name: "verbose", Longs: []string{"verbose"}}},
-		Args:  []*Arg{{Key: 3, Name: "INPUT"}}}
+		Args:  []*Arg{{Key: 3, Name: "INPUT"}},
+	}
 	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}}
 	meta := Metadata{{Key: 1}, {Key: 2, Name: "verbose", Flag: true}, {Key: 3, Name: "INPUT"}}
 
@@ -214,13 +239,20 @@ func TestHiddenChoicesCloseThePositionToPaths(t *testing.T) {
 // A variadic still collecting is on the flag's value, not on the argument behind
 // it — so an argument owing a separator has nothing to say about this position.
 func TestASeparatorOwedBehindACollectingFlag(t *testing.T) {
-	tools := &Flag{Key: 2, Name: "tools", Longs: []string{"tools"},
-		TakesValue: true, Variadic: true}
-	root := &Command{Key: 1, Name: "ex", Flags: []*Flag{tools},
-		Args: []*Arg{{Key: 3, Name: "TASK", DoubleDash: DoubleDashRequired}}}
+	tools := &Flag{
+		Key: 2, Name: "tools", Longs: []string{"tools"},
+		TakesValue: true, Variadic: true,
+	}
+	root := &Command{
+		Key: 1, Name: "ex", Flags: []*Flag{tools},
+		Args: []*Arg{{Key: 3, Name: "TASK", DoubleDash: DoubleDashRequired}},
+	}
 	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}}
-	meta := Metadata{{Key: 1}, {Key: 2, Name: "tools", Flag: true, ValueName: "PATH"},
-		{Key: 3, Name: "TASK"}}
+	meta := Metadata{
+		{Key: 1},
+		{Key: 2, Name: "tools", Flag: true, ValueName: "PATH"},
+		{Key: 3, Name: "TASK"},
+	}
 
 	const line = "ex --tools a "
 	if got := (Request{Shell: Bash, Line: line, Cursor: len(line)}).

@@ -17,7 +17,8 @@ import (
 // resolve runs a parse and applies the rules to one named entry, returning what
 // it ended up with.
 func resolve(t *testing.T, name string, args []string,
-	environ map[string]string) (values []string, source argv.Source, err *argv.Error) {
+	environ map[string]string,
+) (values []string, source argv.Source, err *argv.Error) {
 	t.Helper()
 
 	// A value-less flag that was given has no values, and nil would read as "the

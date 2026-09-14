@@ -165,8 +165,7 @@ type BackendsCmd struct {
 }
 
 // BackendsLsCmd is `backends ls`: List built-in backends
-type BackendsLsCmd struct {
-}
+type BackendsLsCmd struct{}
 
 // BinPathsCmd is `bin-paths`: List all the active runtime bin paths
 type BinPathsCmd struct {
@@ -211,28 +210,22 @@ type BootstrapCmd struct {
 }
 
 // BootstrapApplyAccountPlanCmd is `bootstrap __apply-account-plan`.
-type BootstrapApplyAccountPlanCmd struct {
-}
+type BootstrapApplyAccountPlanCmd struct{}
 
 // BootstrapApplyServicePlanCmd is `bootstrap __apply-service-plan`.
-type BootstrapApplyServicePlanCmd struct {
-}
+type BootstrapApplyServicePlanCmd struct{}
 
 // BootstrapApplyFirewallPlanCmd is `bootstrap __apply-firewall-plan`.
-type BootstrapApplyFirewallPlanCmd struct {
-}
+type BootstrapApplyFirewallPlanCmd struct{}
 
 // BootstrapApplySystemPlanCmd is `bootstrap __apply-system-plan`.
-type BootstrapApplySystemPlanCmd struct {
-}
+type BootstrapApplySystemPlanCmd struct{}
 
 // BootstrapInspectSystemFilesCmd is `bootstrap __inspect-system-files`.
-type BootstrapInspectSystemFilesCmd struct {
-}
+type BootstrapInspectSystemFilesCmd struct{}
 
 // BootstrapInspectFirewallPlanCmd is `bootstrap __inspect-firewall-plan`.
-type BootstrapInspectFirewallPlanCmd struct {
-}
+type BootstrapInspectFirewallPlanCmd struct{}
 
 // BootstrapAccountsCmd is `bootstrap accounts`: Manage Linux users and groups from `[bootstrap.users]` and `[bootstrap.groups]`
 type BootstrapAccountsCmd struct {
@@ -241,8 +234,7 @@ type BootstrapAccountsCmd struct {
 }
 
 // BootstrapAccountsApplyCmd is `bootstrap accounts apply`: Apply configured Linux users and groups
-type BootstrapAccountsApplyCmd struct {
-}
+type BootstrapAccountsApplyCmd struct{}
 
 // BootstrapAccountsStatusCmd is `bootstrap accounts status`: Show configured Linux user and group state
 type BootstrapAccountsStatusCmd struct {
@@ -257,8 +249,7 @@ type BootstrapComposeCmd struct {
 }
 
 // BootstrapComposeApplyCmd is `bootstrap compose apply`: Apply configured Docker Compose project state
-type BootstrapComposeApplyCmd struct {
-}
+type BootstrapComposeApplyCmd struct{}
 
 // BootstrapComposeStatusCmd is `bootstrap compose status`: Show configured Docker Compose project state
 type BootstrapComposeStatusCmd struct {
@@ -318,8 +309,7 @@ type BootstrapFilesCmd struct {
 }
 
 // BootstrapFilesApplyCmd is `bootstrap files apply`: Apply configured privileged files and directories
-type BootstrapFilesApplyCmd struct {
-}
+type BootstrapFilesApplyCmd struct{}
 
 // BootstrapFilesStatusCmd is `bootstrap files status`: Show configured privileged file and directory state
 type BootstrapFilesStatusCmd struct {
@@ -334,8 +324,7 @@ type BootstrapFirewallCmd struct {
 }
 
 // BootstrapFirewallApplyCmd is `bootstrap firewall apply`: Apply the configured Linux host firewall
-type BootstrapFirewallApplyCmd struct {
-}
+type BootstrapFirewallApplyCmd struct{}
 
 // BootstrapFirewallStatusCmd is `bootstrap firewall status`: Show configured Linux host firewall state
 type BootstrapFirewallStatusCmd struct {
@@ -350,8 +339,7 @@ type BootstrapLaunchdCmd struct {
 }
 
 // BootstrapLaunchdApplyCmd is `bootstrap launchd apply`.
-type BootstrapLaunchdApplyCmd struct {
-}
+type BootstrapLaunchdApplyCmd struct{}
 
 // BootstrapLaunchdStatusCmd is `bootstrap launchd status`.
 type BootstrapLaunchdStatusCmd struct {
@@ -371,8 +359,7 @@ type BootstrapLinuxSystemdUnitsCmd struct {
 }
 
 // BootstrapLinuxSystemdUnitsApplyCmd is `bootstrap linux systemd-units apply`.
-type BootstrapLinuxSystemdUnitsApplyCmd struct {
-}
+type BootstrapLinuxSystemdUnitsApplyCmd struct{}
 
 // BootstrapLinuxSystemdUnitsStatusCmd is `bootstrap linux systemd-units status`.
 type BootstrapLinuxSystemdUnitsStatusCmd struct {
@@ -393,8 +380,7 @@ type BootstrapMacosDefaultsCmd struct {
 }
 
 // BootstrapMacosDefaultsApplyCmd is `bootstrap macos defaults apply`.
-type BootstrapMacosDefaultsApplyCmd struct {
-}
+type BootstrapMacosDefaultsApplyCmd struct{}
 
 // BootstrapMacosDefaultsStatusCmd is `bootstrap macos defaults status`.
 type BootstrapMacosDefaultsStatusCmd struct {
@@ -409,8 +395,7 @@ type BootstrapMacosLaunchdAgentsCmd struct {
 }
 
 // BootstrapMacosLaunchdAgentsApplyCmd is `bootstrap macos launchd-agents apply`.
-type BootstrapMacosLaunchdAgentsApplyCmd struct {
-}
+type BootstrapMacosLaunchdAgentsApplyCmd struct{}
 
 // BootstrapMacosLaunchdAgentsStatusCmd is `bootstrap macos launchd-agents status`.
 type BootstrapMacosLaunchdAgentsStatusCmd struct {
@@ -425,8 +410,7 @@ type BootstrapMacosDefaultsCmd2 struct {
 }
 
 // BootstrapMacosDefaultsCmd2ApplyCmd is `bootstrap macos-defaults apply`.
-type BootstrapMacosDefaultsCmd2ApplyCmd struct {
-}
+type BootstrapMacosDefaultsCmd2ApplyCmd struct{}
 
 // BootstrapMacosDefaultsCmd2StatusCmd is `bootstrap macos-defaults status`.
 type BootstrapMacosDefaultsCmd2StatusCmd struct {
@@ -441,8 +425,7 @@ type BootstrapMiseShellActivateCmd struct {
 }
 
 // BootstrapMiseShellActivateApplyCmd is `bootstrap mise-shell-activate apply`.
-type BootstrapMiseShellActivateApplyCmd struct {
-}
+type BootstrapMiseShellActivateApplyCmd struct{}
 
 // BootstrapMiseShellActivateStatusCmd is `bootstrap mise-shell-activate status`.
 type BootstrapMiseShellActivateStatusCmd struct {
@@ -533,8 +516,7 @@ type BootstrapPluginsCmd struct {
 }
 
 // BootstrapPluginsApplyCmd is `bootstrap plugins apply`.
-type BootstrapPluginsApplyCmd struct {
-}
+type BootstrapPluginsApplyCmd struct{}
 
 // BootstrapPluginsStatusCmd is `bootstrap plugins status`.
 type BootstrapPluginsStatusCmd struct {
@@ -572,8 +554,7 @@ type BootstrapReposCmd struct {
 }
 
 // BootstrapReposApplyCmd is `bootstrap repos apply`.
-type BootstrapReposApplyCmd struct {
-}
+type BootstrapReposApplyCmd struct{}
 
 // BootstrapReposExecCmd is `bootstrap repos exec`.
 type BootstrapReposExecCmd struct {
@@ -609,8 +590,7 @@ type BootstrapServicesCmd struct {
 }
 
 // BootstrapServicesApplyCmd is `bootstrap services apply`: Apply configured Linux system service state
-type BootstrapServicesApplyCmd struct {
-}
+type BootstrapServicesApplyCmd struct{}
 
 // BootstrapServicesStatusCmd is `bootstrap services status`: Show configured Linux system service state
 type BootstrapServicesStatusCmd struct {
@@ -631,8 +611,7 @@ type BootstrapSystemdCmd struct {
 }
 
 // BootstrapSystemdApplyCmd is `bootstrap systemd apply`.
-type BootstrapSystemdApplyCmd struct {
-}
+type BootstrapSystemdApplyCmd struct{}
 
 // BootstrapSystemdStatusCmd is `bootstrap systemd status`.
 type BootstrapSystemdStatusCmd struct {
@@ -647,8 +626,7 @@ type BootstrapUserCmd struct {
 }
 
 // BootstrapUserApplyCmd is `bootstrap user apply`.
-type BootstrapUserApplyCmd struct {
-}
+type BootstrapUserApplyCmd struct{}
 
 // BootstrapUserStatusCmd is `bootstrap user status`.
 type BootstrapUserStatusCmd struct {
@@ -672,8 +650,7 @@ type CacheClearCmd struct {
 }
 
 // CachePathCmd is `cache path`: Show the cache directory path
-type CachePathCmd struct {
-}
+type CachePathCmd struct{}
 
 // CachePruneCmd is `cache prune`: Removes stale mise cache files
 type CachePruneCmd struct {
@@ -710,8 +687,7 @@ type ConfigGetCmd struct {
 }
 
 // ConfigLsCmd is `config ls`: List config files currently in use
-type ConfigLsCmd struct {
-}
+type ConfigLsCmd struct{}
 
 // ConfigSetCmd is `config set`: Set the value of a setting in a mise.toml file
 type ConfigSetCmd struct {
@@ -727,8 +703,7 @@ type CurrentCmd struct {
 }
 
 // DeactivateCmd is `deactivate`: Disable mise for current shell session
-type DeactivateCmd struct {
-}
+type DeactivateCmd struct{}
 
 // DirenvCmd is `direnv`: Output direnv function to use mise inside direnv
 type DirenvCmd struct {
@@ -738,16 +713,13 @@ type DirenvCmd struct {
 }
 
 // DirenvActivateCmd is `direnv activate`: Output direnv function to use mise inside direnv
-type DirenvActivateCmd struct {
-}
+type DirenvActivateCmd struct{}
 
 // DirenvEnvrcCmd is `direnv envrc`: [internal] This is an internal command that writes an envrc file
-type DirenvEnvrcCmd struct {
-}
+type DirenvEnvrcCmd struct{}
 
 // DirenvExecCmd is `direnv exec`: [internal] This is an internal command that writes an envrc file
-type DirenvExecCmd struct {
-}
+type DirenvExecCmd struct{}
 
 // DotfilesCmd is `dotfiles`: Manage dotfiles from `[dotfiles]` (deprecated)
 type DotfilesCmd struct {
@@ -1054,8 +1026,7 @@ type LsRemoteCmd struct {
 }
 
 // McpCmd is `mcp`: Run Model Context Protocol (MCP) server
-type McpCmd struct {
-}
+type McpCmd struct{}
 
 // OciCmd is `oci`: [experimental] Build OCI container images from a mise.toml
 type OciCmd struct {
@@ -1220,8 +1191,7 @@ type RegistryCmd struct {
 }
 
 // RenderHelpCmd is `render-help`: internal command to generate markdown from help
-type RenderHelpCmd struct {
-}
+type RenderHelpCmd struct{}
 
 // ReshimCmd is `reshim`: Creates new shims based on bin paths from currently installed tools.
 type ReshimCmd struct {
@@ -1351,8 +1321,7 @@ type ShellAliasGetCmd struct {
 }
 
 // ShellAliasLsCmd is `shell-alias ls`: List shell aliases
-type ShellAliasLsCmd struct {
-}
+type ShellAliasLsCmd struct{}
 
 // ShellAliasSetCmd is `shell-alias set`: Add/update a shell alias
 type ShellAliasSetCmd struct {
@@ -1366,8 +1335,7 @@ type ShellAliasUnsetCmd struct {
 }
 
 // SponsorsCmd is `sponsors`: Show the companies sponsoring mise and the jdx.dev open source tools
-type SponsorsCmd struct {
-}
+type SponsorsCmd struct{}
 
 // SyncCmd is `sync`: Synchronize tools from other version managers with mise
 type SyncCmd struct {
@@ -1459,8 +1427,7 @@ type TasksInfoCmd struct {
 }
 
 // TasksLsCmd is `tasks ls`: List available tasks to execute
-type TasksLsCmd struct {
-}
+type TasksLsCmd struct{}
 
 // TasksRunCmd is `tasks run`: Run task(s)
 type TasksRunCmd struct {
@@ -1604,8 +1571,7 @@ type UpgradeCmd struct {
 }
 
 // UsageCmd is `usage`: Generate a usage CLI spec
-type UsageCmd struct {
-}
+type UsageCmd struct{}
 
 // UseCmd is `use`: Installs a tool and adds the version to mise.toml.
 type UseCmd struct {

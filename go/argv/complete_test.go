@@ -21,20 +21,33 @@ func completionFixture() (*Command, HelpTable, Metadata) {
 	run := &Command{Name: "run", Key: 2, Flags: []*Flag{shell}, Args: []*Arg{mode}}
 	list := &Command{Name: "list", Key: 3}
 	buried := &Command{Name: "buried", Key: 9}
-	root := &Command{Name: "ex", Key: 1,
+	root := &Command{
+		Name: "ex", Key: 1,
 		Flags:       []*Flag{verbose, color, hidden},
 		Subcommands: []*Command{run, list, buried},
 	}
 
 	help := HelpTable{
-		{Key: 1}, {Key: 2, Short: "run it", VisibleAliases: []string{"r"}},
-		{Key: 3, Short: "list them"}, {Key: 4, Short: "be loud"}, {Key: 5},
-		{Key: 6}, {Key: 7, Hide: true}, {Key: 8}, {Key: 9, Hide: true},
+		{Key: 1},
+		{Key: 2, Short: "run it", VisibleAliases: []string{"r"}},
+		{Key: 3, Short: "list them"},
+		{Key: 4, Short: "be loud"},
+		{Key: 5},
+		{Key: 6},
+		{Key: 7, Hide: true},
+		{Key: 8},
+		{Key: 9, Hide: true},
 	}
 	meta := Metadata{
-		{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}, {Key: 5},
+		{Key: 1},
+		{Key: 2},
+		{Key: 3},
+		{Key: 4},
+		{Key: 5},
 		{Key: 6, Name: "shell", Flag: true, Choices: []string{"bash", "zsh"}},
-		{Key: 7}, {Key: 8, Name: "MODE", Choices: []string{"fast", "slow"}}, {Key: 9},
+		{Key: 7},
+		{Key: 8, Name: "MODE", Choices: []string{"fast", "slow"}},
+		{Key: 9},
 	}
 	return root, help, meta
 }
@@ -217,8 +230,10 @@ func TestAnArgumentNeedingASeparatorWaitsForIt(t *testing.T) {
 // binding, so they stay offered. Dropping the whole flag hid spellings the parser
 // still accepts.
 func TestOnlyTheClaimedSpellingIsWithdrawn(t *testing.T) {
-	global := &Flag{Key: 3, Name: "jobs", Longs: []string{"jobs", "workers"},
-		Shorts: []byte{'j'}, Global: true}
+	global := &Flag{
+		Key: 3, Name: "jobs", Longs: []string{"jobs", "workers"},
+		Shorts: []byte{'j'}, Global: true,
+	}
 	local := &Flag{Key: 4, Name: "jobs", Longs: []string{"jobs"}}
 	sub := &Command{Name: "run", Key: 2, Flags: []*Flag{local}}
 	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{global}, Subcommands: []*Command{sub}}
@@ -319,8 +334,10 @@ func TestANegationLosesToALongOfTheSameSpelling(t *testing.T) {
 // survives — but `--no-color` still binds to the global, and dropping the flag
 // for having no primary form left hid it.
 func TestAnInheritedNegationSurvivesItsFlagsOtherSpellings(t *testing.T) {
-	global := &Flag{Key: 3, Name: "color", Longs: []string{"color"},
-		Negate: "no-color", Global: true}
+	global := &Flag{
+		Key: 3, Name: "color", Longs: []string{"color"},
+		Negate: "no-color", Global: true,
+	}
 	local := &Flag{Key: 4, Name: "color", Longs: []string{"color"}}
 	sub := &Command{Name: "run", Key: 2, Flags: []*Flag{local}}
 	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{global}, Subcommands: []*Command{sub}}
@@ -346,9 +363,11 @@ func TestAnInheritedNegationSurvivesItsFlagsOtherSpellings(t *testing.T) {
 // the same mistake as offering a flag past a `--`.
 func TestASubcommandIsNotOfferedOnceAPositionalIsFilled(t *testing.T) {
 	sub := &Command{Name: "run", Key: 2}
-	root := &Command{Name: "ex", Key: 1,
+	root := &Command{
+		Name: "ex", Key: 1,
 		Args:        []*Arg{{Key: 3, Name: "file"}},
-		Subcommands: []*Command{sub}}
+		Subcommands: []*Command{sub},
+	}
 	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}}
 	meta := Metadata{{Key: 1}, {Key: 2}, {Key: 3}}
 
@@ -395,12 +414,16 @@ func TestANegationSpelledLikeItsOwnLongIsOfferedOnce(t *testing.T) {
 // the same offered only the variadic's values, so the flags were invisible in a
 // place they still work.
 func TestAVariadicStillCollectingOffersFlagsToo(t *testing.T) {
-	tools := &Flag{Key: 2, Name: "tools", Longs: []string{"tools"},
-		TakesValue: true, Variadic: true}
+	tools := &Flag{
+		Key: 2, Name: "tools", Longs: []string{"tools"},
+		TakesValue: true, Variadic: true,
+	}
 	force := &Flag{Key: 3, Name: "force", Longs: []string{"force"}}
 	sub := &Command{Name: "run", Key: 4}
-	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{tools, force},
-		Subcommands: []*Command{sub}}
+	root := &Command{
+		Name: "ex", Key: 1, Flags: []*Flag{tools, force},
+		Subcommands: []*Command{sub},
+	}
 	help := HelpTable{{Key: 1}, {Key: 2}, {Key: 3}, {Key: 4}}
 	meta := Metadata{{Key: 1}, {Key: 2, Choices: []string{"node", "python"}}, {Key: 3}, {Key: 4}}
 

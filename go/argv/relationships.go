@@ -133,7 +133,8 @@ func CheckRelationships(meta Metadata, entries []uint64, sourceOf func(uint64) S
 // "true" or "false" regardless of whether that value came from a spelling such
 // as `--feature`, its negation, or a truthy environment value.
 func CheckRelationshipsWithValues(meta Metadata, entries []uint64,
-	sourceOf func(uint64) Source, valuesOf func(uint64) []string) *Error {
+	sourceOf func(uint64) Source, valuesOf func(uint64) []string,
+) *Error {
 	return CheckRelationshipsWithValuesAndRequirements(meta, entries, sourceOf, valuesOf,
 		func(uint64) bool { return true })
 }
@@ -142,7 +143,8 @@ func CheckRelationshipsWithValues(meta Metadata, entries []uint64,
 // positive requirement rules enforced. Conflicts always apply.
 func CheckRelationshipsWithValuesAndRequirements(meta Metadata, entries []uint64,
 	sourceOf func(uint64) Source, valuesOf func(uint64) []string,
-	requirementsOf func(uint64) bool) *Error {
+	requirementsOf func(uint64) bool,
+) *Error {
 	given := func(key uint64) bool { return sourceOf(key).Given() }
 
 	for _, key := range entries {
@@ -213,7 +215,7 @@ func CheckRelationshipsWithValuesAndRequirements(meta Metadata, entries []uint64
 		// requirement stands.
 		unlessAny := anySet(m.RequiredUnless, given)
 		unlessAll := len(m.RequiredUnlessAll) > 0 && allSet(m.RequiredUnlessAll, given)
-		if (len(m.RequiredUnless) > 0 || len(m.RequiredUnlessAll) > 0) && !(unlessAny || unlessAll) {
+		if (len(m.RequiredUnless) > 0 || len(m.RequiredUnlessAll) > 0) && !unlessAny && !unlessAll {
 			return missingRequired(m)
 		}
 

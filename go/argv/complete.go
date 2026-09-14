@@ -68,9 +68,10 @@ func Walk(root *Command, words []string) Position {
 
 	for p.Next() {
 		ev := p.Event()
-		if ev.Kind == KindCommand {
+		switch ev.Kind {
+		case KindCommand:
 			chain = append(chain, ev.Command)
-		} else if ev.Kind == KindArg {
+		case KindArg:
 			if ev.Arg == lastArg {
 				lastArgValues++
 			} else {
@@ -236,7 +237,7 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 	// `arg_requires_double_dash`, which is the exact failure this design exists
 	// to prevent.
 	if pos.NextArg != nil && !collecting &&
-		!(pos.NextArg.DoubleDash == DoubleDashRequired && !pos.SeparatorSeen) {
+		(pos.NextArg.DoubleDash != DoubleDashRequired || pos.SeparatorSeen) {
 		for _, c := range choicesFor(pos.NextArg.Key, meta) {
 			add(CandidateValue, c, "")
 		}

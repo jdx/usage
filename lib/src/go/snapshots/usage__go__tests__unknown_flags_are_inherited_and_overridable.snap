@@ -105,8 +105,7 @@ type StrictCmd struct {
 }
 
 // StrictDeepCmd is `strict deep`.
-type StrictDeepCmd struct {
-}
+type StrictDeepCmd struct{}
 
 // ExecCmd is `exec`.
 type ExecCmd struct {
@@ -114,8 +113,7 @@ type ExecCmd struct {
 }
 
 // ExecNestedCmd is `exec nested`.
-type ExecNestedCmd struct {
-}
+type ExecNestedCmd struct{}
 
 // Parse binds a command line and fills the structs above.
 //

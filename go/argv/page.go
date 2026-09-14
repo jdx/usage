@@ -451,8 +451,8 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 // declared heading takes it: the default title names the entries that asked for no
 // section, and the same entries appear under a different default per renderer.
 func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string, n int,
-	headingOf func(int) string, proseOf func(string) string, writeItem func(*strings.Builder, int)) {
-
+	headingOf func(int) string, proseOf func(string) string, writeItem func(*strings.Builder, int),
+) {
 	if n == 0 {
 		return
 	}
@@ -517,37 +517,11 @@ func examplesSection(out *strings.Builder, examples []Example) {
 	}
 }
 
-// annotations writes what a page appends to an entry's help, then the newline.
+// inlineAnnotations is what a page appends to an entry's help, as one string.
 //
 // `withDefault` is false for a flag, which is not an oversight: usage-lib prints
 // `(default: …)` for an argument and not for a flag, and the short page follows
 // it. A flag's default shows up in the long page instead.
-func annotations(out *strings.Builder, h *Help, withDefault bool) {
-	if h != nil {
-		if !h.HidePossibleValues && len(h.Choices) > 0 {
-			out.WriteString(" [" + strings.Join(h.Choices, ", ") + "]")
-		}
-		if !h.HideEnv && h.Env != "" {
-			out.WriteString(" [env: " + h.Env + "]")
-		}
-		if !h.HideEnv {
-			for _, env := range h.EnvFallback {
-				out.WriteString(" [env fallback: " + env + "]")
-			}
-			for _, env := range h.DeprecatedEnv {
-				out.WriteString(" [deprecated env: " + env + "]")
-			}
-		}
-		if withDefault && !h.HideDefaultValue && len(h.Default) > 0 {
-			out.WriteString(" (default: " + strings.Join(h.Default, ", ") + ")")
-		}
-	}
-	out.WriteString("\n")
-}
-
-// inlineAnnotations is the same annotations as one string, for an entry that carries
-// them in its text rather than writing them out. The narrow layout needs its text
-// complete before it is wrapped.
 func inlineAnnotations(h *Help, withDefault, withDeprecation bool) string {
 	if h == nil {
 		return ""
@@ -713,10 +687,3 @@ func width(s string) int { return len([]rune(s)) }
 // trimEnd drops trailing whitespace, which is what `str::trim_end` does on the
 // two sides this is ported from.
 func trimEnd(s string) string { return strings.TrimRightFunc(s, unicode.IsSpace) }
-
-// sortLines orders a section's entries by their rendered usage, which is how
-// usage-lib orders them — for a command with no flags or arguments that agrees
-// with sorting by name, and where it differs this is what a reader sees.
-func sortLines[T any](lines []T, key func(int) string) {
-	sort.SliceStable(lines, func(i, j int) bool { return key(i) < key(j) })
-}

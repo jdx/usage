@@ -1,0 +1,13 @@
+# Linters for all three Go modules: `go`, `integrations/cobra`, `benches/go`.
+# golangci-lint walks up from the module directory, so one file here covers them all.
+# Formatting is gofumpt's, as its own hk step.
+version: "2"
+
+linters:
+  default: standard
+
+issues:
+  # Report every finding. The defaults cap a linter at 50 and one message at 3, which
+  # turns a count into a floor: 17 formatting findings reported as 3.
+  max-issues-per-linter: 0
+  max-same-issues: 0

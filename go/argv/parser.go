@@ -232,7 +232,7 @@ func (p *Parser) defaultFlagRoute() int {
 						}
 						break
 					}
-					if isFlagLike(next) && !(f.AllowNegativeNumbers && isNegativeNumber(next)) {
+					if isFlagLike(next) && (!f.AllowNegativeNumbers || !isNegativeNumber(next)) {
 						break
 					}
 					if p.cmd.SubcommandPrecedenceOverArg && p.findSubcommand(next) != nil {
@@ -822,8 +822,10 @@ func (p *Parser) word(token string) bool {
 
 		if arg, sigil := p.matchSigilArg(token); arg != nil {
 			if len(token) == len(sigil) {
-				return p.fail(Error{Code: CodeInvalidValue, Name: arg.Name, Value: token,
-					Reason: "expected a value after sigil " + sigil})
+				return p.fail(Error{
+					Code: CodeInvalidValue, Name: arg.Name, Value: token,
+					Reason: "expected a value after sigil " + sigil,
+				})
 			}
 			return p.emit(Event{
 				Kind: KindArg, Arg: arg, Value: token[len(sigil):], HasValue: true, Delimit: true,
@@ -844,8 +846,10 @@ func (p *Parser) word(token string) bool {
 	if p.argFilled {
 		if arg, sigil := p.matchSigilArg(token); arg != nil {
 			if len(token) == len(sigil) {
-				return p.fail(Error{Code: CodeInvalidValue, Name: arg.Name, Value: token,
-					Reason: "expected a value after sigil " + sigil})
+				return p.fail(Error{
+					Code: CodeInvalidValue, Name: arg.Name, Value: token,
+					Reason: "expected a value after sigil " + sigil,
+				})
 			}
 			return p.emit(Event{
 				Kind: KindArg, Arg: arg, Value: token[len(sigil):], HasValue: true, Delimit: true,
@@ -866,7 +870,7 @@ func (p *Parser) word(token string) bool {
 
 	p.argFilled = true
 	trailingValue := p.separatorSeen || arg.DoubleDash == DoubleDashAutomatic
-	delimit := !(p.dontDelimitTrailingValues && trailingValue)
+	delimit := !p.dontDelimitTrailingValues || !trailingValue
 	// An automatic argument stops flag interpretation from here on, as though the
 	// caller had typed the separator themselves.
 	if arg.DoubleDash == DoubleDashAutomatic {
