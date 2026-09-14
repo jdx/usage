@@ -986,7 +986,15 @@ fn assembled_help(
 ) -> String {
     let page = rendered_page(spec, path, chain, long, style, inherit_version_actions);
     if include_default_help {
-        with_default_command_help(spec, path, chain, long, style, inherit_version_actions, page)
+        with_default_command_help(
+            spec,
+            path,
+            chain,
+            long,
+            style,
+            inherit_version_actions,
+            page,
+        )
     } else {
         page
     }
