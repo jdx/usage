@@ -1,0 +1,82 @@
+{
+  "section": "default-subcommand",
+  "about": "A default_subcommand is marked (default) in the parent command list. default_subcommand_help appends that child's own help page after the parent. A hidden default is neither marked nor appended.",
+  "vectors": [
+    {
+      "id": "default-child-is-marked",
+      "doc": "The default child's command-list row ends with (default) even without the help opt-in.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\ndefault_subcommand \"install\"\ncmd \"install\" help=\"Put a package on the system\" {\n    flag \"-u --update\" help=\"Update installed packages\"\n    arg \"[package]\" help=\"What to install\"\n}\ncmd \"query\" help=\"Look something up\"\n",
+      "expect": {
+        "usage": "ex [SUBCOMMAND]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [SUBCOMMAND]",
+          "",
+          "Commands:",
+          "  install  Put a package on the system (default)",
+          "  query    Look something up",
+          "  help     Print this message or the help of the given subcommand(s)",
+          "",
+          "Flags:",
+          "  -h, --help  Print help"
+        ]
+      }
+    },
+    {
+      "id": "default-help-appends-the-child-page",
+      "doc": "default_subcommand_help concatenates the child's --help after the parent page.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\ndefault_subcommand \"install\"\ndefault_subcommand_help #true\ncmd \"install\" help=\"Put a package on the system\" {\n    flag \"-u --update\" help=\"Update installed packages\"\n    arg \"[package]\" help=\"What to install\"\n}\ncmd \"query\" help=\"Look something up\"\n",
+      "expect": {
+        "usage": "ex [SUBCOMMAND]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [SUBCOMMAND]",
+          "",
+          "Commands:",
+          "  install  Put a package on the system (default)",
+          "  query    Look something up",
+          "  help     Print this message or the help of the given subcommand(s)",
+          "",
+          "Flags:",
+          "  -h, --help  Print help",
+          "",
+          "Default command: install",
+          "  Unmatched words select this command.",
+          "",
+          "Put a package on the system",
+          "",
+          "Usage: ex install [-u --update] [package]",
+          "",
+          "Arguments:",
+          "  [package]  What to install",
+          "",
+          "Flags:",
+          "  -u, --update  Update installed packages",
+          "  -h, --help    Print help"
+        ]
+      }
+    },
+    {
+      "id": "hidden-default-is-not-marked",
+      "doc": "A hidden default is omitted from the command list and is not appended.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\ndefault_subcommand \"install\"\ndefault_subcommand_help #true\ncmd \"install\" hide=#true help=\"Put a package on the system\" {\n    flag \"-u --update\"\n}\ncmd \"query\" help=\"Look something up\"\n",
+      "expect": {
+        "usage": "ex [SUBCOMMAND]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [SUBCOMMAND]",
+          "",
+          "Commands:",
+          "  query  Look something up",
+          "  help   Print this message or the help of the given subcommand(s)",
+          "",
+          "Flags:",
+          "  -h, --help  Print help"
+        ]
+      }
+    }
+  ]
+}

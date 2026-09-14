@@ -366,6 +366,8 @@ pub struct Spec<'a> {
     /// Which command the root falls back to when a word matches no subcommand.
     /// mise uses this so `mise foo` completes as `mise run foo`.
     pub default_subcommand: Option<&'a str>,
+    /// Append that command's help page after the root page.
+    pub default_subcommand_help: bool,
     /// Whether argv[0]'s basename selects a subcommand (busybox-style applets).
     ///
     /// clap's `multicall`. The dispatcher names (`name` / `bin`) are skipped; any
@@ -614,6 +616,7 @@ impl<'a> SpecView<'a> {
             usage: self.base.usage,
             help_template: self.base.help_template,
             default_subcommand: self.base.default_subcommand,
+            default_subcommand_help: self.base.default_subcommand_help,
             multicall: self.base.multicall,
             views: self.base.views,
             root: self.base.root,
@@ -646,6 +649,7 @@ impl Spec<'_> {
         usage: None,
         help_template: None,
         default_subcommand: None,
+        default_subcommand_help: false,
         multicall: false,
         views: &[],
         root: &CommandMeta::EMPTY,
@@ -1596,6 +1600,9 @@ impl Spec<'_> {
         }
         if self.root.cmd.default_subcommand_flags {
             writeln!(out, "default_subcommand_flags #true")?;
+        }
+        if self.default_subcommand_help {
+            writeln!(out, "default_subcommand_help #true")?;
         }
         if self.multicall {
             writeln!(out, "multicall #true")?;

@@ -40,6 +40,8 @@ type Spec struct {
 	// the root.
 	DefaultSubcommand      string `json:"default_subcommand"`
 	DefaultSubcommandFlags bool   `json:"default_subcommand_flags"`
+	// DefaultSubcommandHelp appends the default command's help page after the root page.
+	DefaultSubcommandHelp bool `json:"default_subcommand_help"`
 	// Multicall is whether argv[0]'s basename selects a subcommand (busybox-style
 	// applets). clap's multicall. The dispatcher names (Name / Bin) are skipped;
 	// any other basename is parsed as the first word.
@@ -526,6 +528,7 @@ func (s *Spec) BuildAll() (*argv.Command, argv.Metadata, argv.HelpTable) {
 	// name outranks another command's alias, so this does not depend on the order
 	// the spec declares them in.
 	root.DefaultSubcommandFlags = s.DefaultSubcommandFlags
+	root.DefaultSubcommandHelp = s.DefaultSubcommandHelp
 	if s.DefaultSubcommand != "" {
 		for _, sub := range root.Subcommands {
 			if sub.Name == s.DefaultSubcommand {

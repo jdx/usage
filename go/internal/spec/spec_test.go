@@ -12,6 +12,29 @@ import (
 // the `usage` CLI. The corpus is where the lowering itself is exercised.
 func build(s *Spec) (*argv.Command, argv.Metadata) { return s.Build() }
 
+func TestDefaultSubcommandHelpSurvivesJSONLowering(t *testing.T) {
+	var s Spec
+	if err := json.Unmarshal([]byte(`{
+		"name":"ex",
+		"bin":"ex",
+		"default_subcommand":"install",
+		"default_subcommand_help":true,
+		"cmd":{"name":"ex","subcommands":{
+			"install":{"name":"install"},
+			"query":{"name":"query"}
+		}}
+	}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	root, _ := build(&s)
+	if root.DefaultSubcommand == nil || root.DefaultSubcommand.Name != "install" {
+		t.Fatalf("default child: %+v", root.DefaultSubcommand)
+	}
+	if !root.DefaultSubcommandHelp {
+		t.Fatal("default_subcommand_help should reach the root command")
+	}
+}
+
 func TestLongVersionSurvivesJSONLowering(t *testing.T) {
 	var s Spec
 	if err := json.Unmarshal([]byte(`{

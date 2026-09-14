@@ -64,6 +64,10 @@ type Command struct {
 	DefaultSubcommand *Command
 	// DefaultSubcommandFlags opts in to flag-prefix default routing.
 	DefaultSubcommandFlags bool
+	// DefaultSubcommandHelp opts in to appending that command's help page after
+	// the root page. The command list always marks a visible default with
+	// (default), whether this is set or not.
+	DefaultSubcommandHelp bool
 	// ExternalSubcommand is whether an unmatched word is forwarded as an external
 	// command plus the rest of argv.
 	//

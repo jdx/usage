@@ -43,7 +43,9 @@ a fixed 80 columns.
 
 Both pages list a command's children identically: the name, then the summary — `help`, or the
 first line of `long_help` when there is no `help`. A child's full `long_help` appears on the
-child's own page, not repeated in every ancestor's list.
+child's own page, not repeated in every ancestor's list. A `default_subcommand` is marked
+`(default)` in that list. `default_subcommand_help` appends that child's page after the parent
+so the default command's flags are on the mount `--help`.
 
 The short page appends `[choices]`, `[env: X]`, and (for arguments) `(default: …)` to the
 description, wrapping with it; the long page gives each its own line, indented to the description

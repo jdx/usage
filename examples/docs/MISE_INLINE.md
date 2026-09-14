@@ -2959,7 +2959,7 @@ $ ~/.local/share/mise/shims/node -v
 v20.0.0
 ```
 
-## `mise run`
+## `mise run` (default)
 
 - **Usage:** `mise run [FLAGS]`
 - **Aliases:** `r`

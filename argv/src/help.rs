@@ -926,7 +926,7 @@ fn styled_help(
     out
 }
 
-fn assembled_help(
+fn rendered_page(
     spec: &Spec<'_>,
     path: &[&str],
     chain: &[&CommandMeta<'_>],
@@ -973,6 +973,31 @@ fn assembled_help(
         ),
     };
     finish_page(page, style)
+}
+
+fn assembled_help(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    long: bool,
+    style: Style,
+    inherit_version_actions: bool,
+    include_default_help: bool,
+) -> String {
+    let page = rendered_page(spec, path, chain, long, style, inherit_version_actions);
+    if include_default_help {
+        with_default_command_help(
+            spec,
+            path,
+            chain,
+            long,
+            style,
+            inherit_version_actions,
+            page,
+        )
+    } else {
+        page
+    }
 }
 
 /// The `Usage:` line's body, without the `Usage: ` prefix.
@@ -1428,7 +1453,15 @@ fn exact_arity(min: Option<usize>, max: Option<usize>) -> Option<usize> {
 ///
 /// `path` is the command as invoked, as for [`usage_line`].
 pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
-    short_help_with(spec, path, chain, false)
+    with_default_command_help(
+        spec,
+        path,
+        chain,
+        false,
+        Style::PLAIN,
+        false,
+        short_help_with(spec, path, chain, false),
+    )
 }
 
 fn short_help_with(
@@ -1506,6 +1539,7 @@ fn short_sections(
             meta,
             width,
             false,
+            root_default_command_name(spec, path, meta),
         );
     }
 
@@ -1693,6 +1727,82 @@ fn short_sections(
 const HELP_SUBCOMMAND: &str = "help";
 const HELP_SUBCOMMAND_SUMMARY: &str = "Print this message or the help of the given subcommand(s)";
 
+/// The visible default child on the root page, if the spec names one.
+fn default_visible_child<'a>(
+    spec: &Spec<'a>,
+    root: &'a CommandMeta<'a>,
+) -> Option<&'a CommandMeta<'a>> {
+    let name = spec.default_subcommand?;
+    // A command's own name outranks another command's alias — the same
+    // precedence a typed word gets — so an earlier-declared alias can't
+    // shadow the real match, and a hidden canonical match doesn't fall
+    // through to a visible command that merely aliases the same name.
+    root.subcommands
+        .iter()
+        .copied()
+        .find(|sub| sub.cmd.name == name)
+        .or_else(|| {
+            root.subcommands
+                .iter()
+                .copied()
+                .find(|sub| sub.cmd.aliases.contains(&name))
+        })
+        .filter(|sub| !sub.hide)
+}
+
+fn root_default_command_name<'a>(
+    spec: &Spec<'a>,
+    path: &[&str],
+    meta: &'a CommandMeta<'a>,
+) -> Option<&'a str> {
+    (path.len() <= 1)
+        .then(|| default_visible_child(spec, meta))
+        .flatten()
+        .map(|child| child.cmd.name)
+}
+
+/// Parent page, then the default command's own page when that opt-in is set.
+fn with_default_command_help(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    long: bool,
+    style: Style,
+    inherit_version_actions: bool,
+    parent: String,
+) -> String {
+    if path.len() > 1 || !spec.default_subcommand_help {
+        return parent;
+    }
+    let Some(root) = chain.first().copied() else {
+        return parent;
+    };
+    if flatten_help(root) {
+        return parent;
+    }
+    let Some(child) = default_visible_child(spec, root) else {
+        return parent;
+    };
+    let mut child_path = path.to_vec();
+    child_path.push(child.cmd.name);
+    let child_chain = [root, child];
+    let child_page = rendered_page(
+        spec,
+        &child_path,
+        &child_chain,
+        long,
+        style,
+        inherit_version_actions,
+    );
+    let mut out = parent.trim_end().to_string();
+    out.push_str("\n\nDefault command: ");
+    out.push_str(&style.command(child.cmd.name));
+    out.push_str("\n  Unmatched words select this command.\n\n");
+    out.push_str(child_page.trim_end());
+    out.push('\n');
+    out
+}
+
 /// The command list, identical on both pages.
 ///
 /// The name alone occupies the column, so the summaries line up down the page and the syntax a
@@ -1705,6 +1815,7 @@ fn commands_section(
     meta: &CommandMeta<'_>,
     width: usize,
     long: bool,
+    default_name: Option<&str>,
 ) {
     let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
     order_commands(&mut visible);
@@ -1771,7 +1882,7 @@ fn commands_section(
             entry(
                 out,
                 sub.cmd.name,
-                command_row(sub).as_deref(),
+                command_row(sub, default_name == Some(sub.cmd.name)).as_deref(),
                 col,
                 width,
                 meta.next_line_help,
@@ -1794,7 +1905,7 @@ fn commands_section(
 ///
 /// Aliases and deprecation trail the summary rather than sitting beside the name, so they wrap
 /// with the text instead of pushing every description out of the column.
-fn command_row<'a>(sub: &'a CommandMeta<'a>) -> Option<Cow<'a, str>> {
+fn command_row<'a>(sub: &'a CommandMeta<'a>, is_default: bool) -> Option<Cow<'a, str>> {
     // A command that wrote only a long description still has a summary: its first line. Both
     // pages read the same one, so `-h` never says less about a command than `--help` does.
     let summary = summarize(sub.about)
@@ -1815,7 +1926,7 @@ fn command_row<'a>(sub: &'a CommandMeta<'a>) -> Option<Cow<'a, str>> {
     );
     // A summary and nothing else is what almost every row is, and borrowing it there keeps the
     // whole list off the allocator — which `usage --help` notices, since it renders one.
-    if visible_aliases.peek().is_none() && label.is_none() {
+    if visible_aliases.peek().is_none() && label.is_none() && !is_default {
         return summary.map(Cow::Borrowed);
     }
     let mut row = String::new();
@@ -1840,6 +1951,12 @@ fn command_row<'a>(sub: &'a CommandMeta<'a>) -> Option<Cow<'a, str>> {
             row.push(' ');
         }
         row.push_str(&label);
+    }
+    if is_default {
+        if !row.is_empty() {
+            row.push(' ');
+        }
+        row.push_str("(default)");
     }
     Some(Cow::Owned(row))
 }
@@ -2392,7 +2509,15 @@ fn usage_column_width(longest: usize, terminal_width: usize) -> usize {
 /// under the usage rather than beside it, because there is no column that keeps a line the
 /// author already broke readable.
 pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
-    long_help_with(spec, path, chain, false)
+    with_default_command_help(
+        spec,
+        path,
+        chain,
+        true,
+        Style::PLAIN,
+        false,
+        long_help_with(spec, path, chain, false),
+    )
 }
 
 fn long_help_with(
@@ -2469,6 +2594,7 @@ fn long_sections(
             meta,
             width,
             true,
+            root_default_command_name(spec, path, meta),
         );
     }
 
@@ -3659,7 +3785,9 @@ pub fn render_styled(
     style: Style,
 ) -> Option<String> {
     let (path, chain) = find(spec, cmd)?;
-    Some(assembled_help(spec, &path, &chain, long, style, false))
+    Some(assembled_help(
+        spec, &path, &chain, long, style, false, true,
+    ))
 }
 
 /// Long help for a command and every visible descendant, in depth-first order.
@@ -3802,7 +3930,9 @@ pub fn render_at_styled(
     style: Style,
 ) -> Option<String> {
     let (path, chain) = route_context(spec, route)?;
-    Some(assembled_help(spec, &path, &chain, long, style, false))
+    Some(assembled_help(
+        spec, &path, &chain, long, style, false, true,
+    ))
 }
 
 /// Render help through a spec-declared executable view.
@@ -3849,11 +3979,14 @@ pub fn render_view_at_styled(
         long_about: promoted.long_about,
         usage: None,
         default_subcommand: None,
+        default_subcommand_help: false,
         multicall: false,
         root: &root,
         ..*spec
     };
-    Some(assembled_help(&viewed, &path, &chain, long, style, true))
+    Some(assembled_help(
+        &viewed, &path, &chain, long, style, true, true,
+    ))
 }
 
 /// Recursive long help for a command reached by a known route.
@@ -3915,6 +4048,7 @@ pub fn render_all_view_at_styled(
         long_about: promoted.long_about,
         usage: None,
         default_subcommand: None,
+        default_subcommand_help: false,
         multicall: false,
         root: &root,
         ..*spec
@@ -4095,6 +4229,7 @@ fn recursive_help<'a>(
             true,
             style,
             inherit_version_actions,
+            false,
         ));
 
         let current = *chain.last().expect("a recursive page has a command");
@@ -4126,9 +4261,10 @@ fn recursive_help<'a>(
 #[cfg(test)]
 mod style_tests {
     use super::{
-        commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
-        inline_environment_notes, long_help, render, render_styled, render_view_at_styled,
-        styled_flag_usage, styled_help, styled_inline, usage_line, wrap, Palette, Shown, Style,
+        commands_section, default_visible_child, display_usage_masked, flag_notes, flag_usage,
+        flat_commands_short, inline_environment_notes, long_help, render, render_styled,
+        render_view_at_styled, styled_flag_usage, styled_help, styled_inline, usage_line, wrap,
+        Palette, Shown, Style,
     };
     use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
     use crate::{Arg, ArgAction, Clause, Command, Flag};
@@ -4595,7 +4731,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        commands_section(&mut page, &[], &root_meta, 80, false);
+        commands_section(&mut page, &[], &root_meta, 80, false, None);
 
         assert!(page.contains("  run   run it\n  help"));
         assert!(!page.contains("  run   run it\n\n  help"));
@@ -5123,6 +5259,48 @@ mod style_tests {
             }
         }
         out
+    }
+
+    #[test]
+    fn a_commands_own_name_outranks_another_commands_alias() {
+        // `query` is declared first and aliases "install" — the same name
+        // `install` uses as its own. Resolving the default must not let the
+        // earlier-declared alias shadow the real match.
+        let query = Command {
+            name: "query",
+            aliases: &["install"],
+            ..Command::EMPTY
+        };
+        let install = Command {
+            name: "install",
+            ..Command::EMPTY
+        };
+        let query_meta = CommandMeta {
+            cmd: &query,
+            ..CommandMeta::EMPTY
+        };
+        let install_meta = CommandMeta {
+            cmd: &install,
+            ..CommandMeta::EMPTY
+        };
+        let root_cmd = Command {
+            name: "ex",
+            ..Command::EMPTY
+        };
+        let root_meta = CommandMeta {
+            cmd: &root_cmd,
+            subcommands: &[&query_meta, &install_meta],
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            default_subcommand: Some("install"),
+            root: &root_meta,
+            ..Spec::EMPTY
+        };
+
+        let resolved = default_visible_child(&spec, &root_meta).expect("a default is resolved");
+        assert_eq!(resolved.cmd.name, "install");
     }
 }
 #[cfg(test)]

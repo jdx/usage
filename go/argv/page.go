@@ -79,6 +79,10 @@ const shortCol = 4
 // the root down to this one, which is what a page needs to work out which
 // inherited globals are still this command's to offer.
 func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
+	return withDefaultCommandHelp(spec, path, chain, help, false, shortHelpPage(spec, path, chain, help))
+}
+
+func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
 	if len(chain) == 0 {
 		return ""
 	}
@@ -341,7 +345,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 			if itemSection != section {
 				continue
 			}
-			entry(out, l.sub.Name, commandRow(help.Lookup(l.sub.Key)), col, nextLineHelp)
+			entry(out, l.sub.Name, commandRow(help.Lookup(l.sub.Key), cmd.DefaultSubcommand == l.sub), col, nextLineHelp)
 		}
 		if section == "" && showHelp {
 			entry(out, helpSubcommand, helpSubcommandSummary, col, nextLineHelp)
@@ -352,29 +356,77 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 // commandRow is everything that follows a command's name in its parent's list, as one
 // string. Aliases and deprecation trail the summary rather than sitting beside the name,
 // so they wrap with the text instead of pushing every description out of the column.
-func commandRow(h *Help) string {
-	if h == nil {
-		return ""
-	}
+func commandRow(h *Help, isDefault bool) string {
 	parts := []string{}
-	// A command that wrote only a long description still has a summary: its first line.
-	// Both pages read the same one, so `-h` never says less than `--help` does.
-	summary := trimEnd(h.Short)
-	if summary == "" {
-		summary = trimEnd(strings.SplitN(h.Long, "\n", 2)[0])
+	if h != nil {
+		// A command that wrote only a long description still has a summary: its first line.
+		// Both pages read the same one, so `-h` never says less than `--help` does.
+		summary := trimEnd(h.Short)
+		if summary == "" {
+			summary = trimEnd(strings.SplitN(h.Long, "\n", 2)[0])
+		}
+		if summary != "" {
+			parts = append(parts, summary)
+		}
+		// Visible aliases only: a hidden alias works and is not advertised, which is the
+		// whole of the distinction.
+		if len(h.VisibleAliases) > 0 {
+			parts = append(parts, "[aliases: "+strings.Join(h.VisibleAliases, ", ")+"]")
+		}
+		if label := deprecationLabel(h); label != "" {
+			parts = append(parts, label)
+		}
 	}
-	if summary != "" {
-		parts = append(parts, summary)
-	}
-	// Visible aliases only: a hidden alias works and is not advertised, which is the
-	// whole of the distinction.
-	if len(h.VisibleAliases) > 0 {
-		parts = append(parts, "[aliases: "+strings.Join(h.VisibleAliases, ", ")+"]")
-	}
-	if label := deprecationLabel(h); label != "" {
-		parts = append(parts, label)
+	if isDefault {
+		parts = append(parts, "(default)")
 	}
 	return strings.Join(parts, " ")
+}
+
+// visibleDefault is the default child when it is named and not hidden.
+func visibleDefault(cmd *Command, help HelpTable) *Command {
+	if cmd == nil || cmd.DefaultSubcommand == nil {
+		return nil
+	}
+	if h := help.Lookup(cmd.DefaultSubcommand.Key); h != nil && h.Hide {
+		return nil
+	}
+	return cmd.DefaultSubcommand
+}
+
+// withDefaultCommandHelp appends the default command's own page after the parent
+// when DefaultSubcommandHelp is set. The marker in the command list is independent.
+func withDefaultCommandHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable, long bool, parent string) string {
+	if len(path) > 1 || len(chain) == 0 {
+		return parent
+	}
+	root := chain[0]
+	if !root.DefaultSubcommandHelp {
+		return parent
+	}
+	if h := help.Lookup(root.Key); h != nil && h.FlattenHelp {
+		return parent
+	}
+	child := visibleDefault(root, help)
+	if child == nil {
+		return parent
+	}
+	childPath := append(append([]string{}, path...), child.Name)
+	childChain := []*Command{root, child}
+	var childPage string
+	if long {
+		childPage = longHelpPage(spec, childPath, childChain, help)
+	} else {
+		childPage = shortHelpPage(spec, childPath, childChain, help)
+	}
+	var b strings.Builder
+	b.WriteString(strings.TrimRight(parent, "\n"))
+	b.WriteString("\n\nDefault command: ")
+	b.WriteString(child.Name)
+	b.WriteString("\n  Unmatched words select this command.\n\n")
+	b.WriteString(strings.TrimRight(childPage, "\n"))
+	b.WriteByte('\n')
+	return b.String()
 }
 
 func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {
