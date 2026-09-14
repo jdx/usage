@@ -738,6 +738,14 @@
   margin-bottom: -12px !important;
 }
 
+/* The star count lives in that bottom padding, and the negative margin keeps it
+   out of flow so it does not grow the nav bar. VitePress's overflow menu sets
+   `overflow-y: auto`, which clips anything hanging past its padding box, so put
+   the padding back in flow there and let the menu grow instead. */
+.VPNavBarExtra .VPSocialLinks a[href*="github.com/jdx/usage"] {
+  margin-bottom: 0 !important;
+}
+
 .VPSocialLinks a[href*="github.com/jdx/usage"] svg {
   display: block !important;
   width: 20px;
