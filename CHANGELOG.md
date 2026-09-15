@@ -1,5 +1,28 @@
 # Changelog
 
+## [6.10.0](https://github.com/jdx/usage/compare/v6.9.1..v6.10.0) - 2026-09-15
+
+### 🚀 Features
+
+- **(help)** mark the default subcommand and opt in to appending its page by [@lu-zero](https://github.com/lu-zero) in [#1424](https://github.com/jdx/usage/pull/1424)
+
+### 🐛 Bug Fixes
+
+- **(parse)** suggest `--` when a refused flag could have been a value by [@jdx](https://github.com/jdx) in [#1430](https://github.com/jdx/usage/pull/1430)
+
+### 🛡️ Security
+
+- **(deps)** update dependency aube to latest by [@renovate[bot]](https://github.com/renovate[bot]) in [#1433](https://github.com/jdx/usage/pull/1433)
+- **(deps)** update node.js to 24 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1434](https://github.com/jdx/usage/pull/1434)
+- stop clipping the GitHub star count in the nav overflow menu by [@jdx](https://github.com/jdx) in [#1429](https://github.com/jdx/usage/pull/1429)
+
+### 📦️ Dependency Updates
+
+- bump mbx to 1.11.1 by [@jdx](https://github.com/jdx) in [8f406f0](https://github.com/jdx/usage/commit/8f406f00d5a2d45b2cb3de5b9a7fd3eb57503c00)
+- update dependency github:jdx/tak to v0.0.10 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1431](https://github.com/jdx/usage/pull/1431)
+- update dependency cargo-binstall to v1.23.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1432](https://github.com/jdx/usage/pull/1432)
+- update dependency hk to latest by [@renovate[bot]](https://github.com/renovate[bot]) in [#1435](https://github.com/jdx/usage/pull/1435)
+
 ## [6.9.1](https://github.com/jdx/usage/compare/v6.9.0..v6.9.1) - 2026-09-14
 
 ### 🐛 Bug Fixes
