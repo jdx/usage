@@ -69,7 +69,7 @@ url = "https://github.com/orhun/git-cliff/releases/download/v2.14.1/git-cliff-2.
 url_api = "https://api.github.com/repos/orhun/git-cliff/releases/assets/539702434"
 
 [[tools.aube]]
-version = "2.2.12"
+version = "2.2.17"
 backend = "github:endevco/aube"
 
 [tools.aube."platforms.linux-arm64"]
