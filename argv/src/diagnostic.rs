@@ -352,9 +352,13 @@ fn tip(style: Style, noun: &str, near: &[&str]) -> String {
 fn separator_before(argv: &[&std::ffi::OsStr], token: &[u8]) -> bool {
     // `span_of_slice` matches on storage, which a token the parser cut out of argv shares and
     // one an embedding built for itself does not -- and `render` and `report` are public and
-    // take both. Matching the word covers the second kind; where the same word appears twice
-    // the first is taken, which is the only one a refusal can be about, since a `--` ahead of
-    // the later one would have stopped the parser treating it as a flag at all.
+    // take both. Matching the word covers the second kind.
+    //
+    // Taking the first occurrence is what makes the answer "a separator stands ahead of *every*
+    // occurrence of this word", since one ahead of the first is ahead of all of them. Where the
+    // word appears on both sides of a `--` that reads as no separator given, and the tip is
+    // offered: an embedding's error need not say which occurrence it means, and repeating advice
+    // the user may already have taken is the smaller fault of the two available.
     let Some(limit) = span_of_slice(argv, token)
         .map(|span| span.index)
         .or_else(|| {
@@ -2112,6 +2116,35 @@ mod tests {
             Style::PLAIN,
         );
         assert!(!message.contains("to pass"), "{message}");
+    }
+
+    /// An embedding's error carries the word, not which occurrence of it. Answering for the
+    /// first is what makes the question "does a separator stand ahead of every one of them",
+    /// which has a defensible answer where "which one did they mean" does not.
+    #[test]
+    fn a_repeated_word_is_answered_for_every_occurrence_of_it() {
+        let render_literal = |words: &[&str]| {
+            let owned: Vec<std::ffi::OsString> =
+                words.iter().map(std::ffi::OsString::from).collect();
+            let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|word| word.as_os_str()).collect();
+            render(
+                &SPEC,
+                &argv,
+                &Error::UnknownFlag { token: b"--zzz" },
+                Style::PLAIN,
+            )
+        };
+
+        // Split across the separator: the first occurrence has none ahead of it, so the tip
+        // stands. The user may have meant the later one and already know, which costs them a
+        // line they can ignore -- against withholding the answer from someone who does not.
+        let split = render_literal(&["use", "--zzz", "--", "--zzz"]);
+        assert!(split.contains("to pass '--zzz' as a value"), "{split}");
+
+        // All of them past the separator: now it really is ahead of every candidate, whichever
+        // one the error meant, and the tip would be telling the user what they already did.
+        let after = render_literal(&["use", "--", "--zzz", "--zzz"]);
+        assert!(!after.contains("to pass"), "{after}");
     }
 
     /// Nowhere to put a value means no value to suggest. `user` takes no positionals at all.
