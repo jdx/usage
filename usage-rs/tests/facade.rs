@@ -250,9 +250,12 @@ fn executable_views_emit_and_dispatch_from_argv0() {
         &omitted_error,
         &ViewHost::spec().views[0],
     );
-    assert_eq!(
-        omitted_diagnostic.matches("--root-token").count(),
-        1,
+    // The word gets quoted back more than once now -- once in the error, once in the tip that
+    // offers it as a value -- so counting occurrences no longer says what this is about. What
+    // must not appear is a *spelling* suggestion: an omitted host global is not a flag this view
+    // accepts, and offering it would send the user round in a circle.
+    assert!(
+        !omitted_diagnostic.contains("a similar argument exists"),
         "an omitted host flag must not be suggested by view diagnostics: {omitted_diagnostic}"
     );
     assert!(
