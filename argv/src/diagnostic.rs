@@ -350,9 +350,24 @@ fn tip(style: Style, noun: &str, near: &[&str]) -> String {
 /// `DoubleDash::Preserve` argument kept as a value counts here when it should not; that only
 /// ever withholds the tip below, which is the harmless direction to be wrong in.
 fn separator_before(argv: &[&std::ffi::OsStr], token: &[u8]) -> bool {
-    let limit = span_of_slice(argv, token)
+    // `span_of_slice` matches on storage, which a token the parser cut out of argv shares and
+    // one an embedding built for itself does not -- and `render` and `report` are public and
+    // take both. Matching the word covers the second kind; where the same word appears twice
+    // the first is taken, which is the only one a refusal can be about, since a `--` ahead of
+    // the later one would have stopped the parser treating it as a flag at all.
+    let Some(limit) = span_of_slice(argv, token)
         .map(|span| span.index)
-        .unwrap_or(argv.len());
+        .or_else(|| {
+            argv.iter()
+                .position(|word| word.as_encoded_bytes() == token)
+        })
+    else {
+        // A token that appears nowhere in argv belongs to a command line this argv does not
+        // describe, so nothing here places a separator ahead of it. Answering "yes" on the
+        // strength of a `--` standing somewhere in an unrelated argv is the one reading that
+        // is certainly wrong.
+        return false;
+    };
     argv.iter()
         .take(limit)
         .any(|word| word.as_encoded_bytes() == b"--")
@@ -2049,6 +2064,51 @@ mod tests {
             &Error::UnknownFlag {
                 token: argv[2].as_encoded_bytes(),
             },
+            Style::PLAIN,
+        );
+        assert!(!message.contains("to pass"), "{message}");
+    }
+
+    /// `render` and `report` are public and accept an error an embedding built itself, whose
+    /// token shares no storage with argv. Locating it by storage alone then found nothing, the
+    /// scan fell back to the whole of argv, and a `--` standing *after* the refused flag was
+    /// read as standing before it — withholding the tip on the strength of a separator the user
+    /// had not reached yet.
+    #[test]
+    fn a_separator_later_on_the_line_does_not_count_as_already_given() {
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("--zzz"),
+            std::ffi::OsString::from("--"),
+            std::ffi::OsString::from("tail"),
+        ];
+        let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|word| word.as_os_str()).collect();
+        // A standalone literal, the way an embedding constructing its own error would have it,
+        // rather than the slice of argv the parser hands back.
+        let message = render(
+            &SPEC,
+            &argv,
+            &Error::UnknownFlag { token: b"--zzz" },
+            Style::PLAIN,
+        );
+        assert!(
+            message.contains("to pass '--zzz' as a value, use '-- --zzz'"),
+            "{message}"
+        );
+
+        // And the other direction through the same path: a separator that really does stand
+        // ahead of the refused word still counts, so matching the word is what makes both
+        // answers right rather than one of them merely defaulting.
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("--"),
+            std::ffi::OsString::from("--zzz"),
+        ];
+        let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|word| word.as_os_str()).collect();
+        let message = render(
+            &SPEC,
+            &argv,
+            &Error::UnknownFlag { token: b"--zzz" },
             Style::PLAIN,
         );
         assert!(!message.contains("to pass"), "{message}");
