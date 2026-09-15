@@ -24,7 +24,7 @@
 use core::fmt::Write as _;
 
 use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
-use crate::{Command, Error};
+use crate::{Command, DoubleDash, Error};
 
 /// A stable machine-readable category for one parse outcome.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -343,9 +343,88 @@ fn tip(style: Style, noun: &str, near: &[&str]) -> String {
     }
 }
 
+/// Whether a bare `--` stands in argv ahead of `token`.
+///
+/// The parser knows this as `separator_seen`, but the error it hands back does not carry the
+/// flag, and argv answers the same question without widening a public enum. A `--` that a
+/// `DoubleDash::Preserve` argument kept as a value counts here when it should not; that only
+/// ever withholds the tip below, which is the harmless direction to be wrong in.
+fn separator_before(argv: &[&std::ffi::OsStr], token: &[u8]) -> bool {
+    // `span_of_slice` matches on storage, which a token the parser cut out of argv shares and
+    // one an embedding built for itself does not -- and `render` and `report` are public and
+    // take both. Matching the word covers the second kind.
+    //
+    // Taking the first occurrence is what makes the answer "a separator stands ahead of *every*
+    // occurrence of this word", since one ahead of the first is ahead of all of them. Where the
+    // word appears on both sides of a `--` that reads as no separator given, and the tip is
+    // offered: an embedding's error need not say which occurrence it means, and repeating advice
+    // the user may already have taken is the smaller fault of the two available.
+    let Some(limit) = span_of_slice(argv, token)
+        .map(|span| span.index)
+        .or_else(|| {
+            argv.iter()
+                .position(|word| word.as_encoded_bytes() == token)
+        })
+    else {
+        // A token that appears nowhere in argv belongs to a command line this argv does not
+        // describe, so nothing here places a separator ahead of it. Answering "yes" on the
+        // strength of a `--` standing somewhere in an unrelated argv is the one reading that
+        // is certainly wrong.
+        return false;
+    };
+    argv.iter()
+        .take(limit)
+        .any(|word| word.as_encoded_bytes() == b"--")
+}
+
+/// What a command can still do with a word it refused as a flag.
+///
+/// Gathered at the call site, where argv and the resolved command are both in hand, and read by
+/// [`unexpected_flag`] once it knows whether it has a spelling to suggest.
+#[derive(Clone, Copy, Default)]
+struct ValueCapture {
+    /// The command takes positional values at all.
+    takes_positionals: bool,
+    /// One of those positionals collects the rest of the line — a `--`-only argument, or an
+    /// `automatic` one that turns into the separator as soon as it takes a value. clap's
+    /// `last`/`trailing_var_arg`.
+    captures_trailing: bool,
+    /// A bare `--` already stands ahead of the refused word, so the user knows about the
+    /// separator and the word is a genuine mistake.
+    separator_seen: bool,
+}
+
+fn value_capture(
+    argv: &[&std::ffi::OsStr],
+    token: &[u8],
+    here: Option<&CommandMeta<'_>>,
+) -> ValueCapture {
+    let Some(meta) = here else {
+        return ValueCapture::default();
+    };
+    let clause_args = meta.cmd.clause.map(|clause| clause.args).unwrap_or(&[]);
+    let positionals = || meta.cmd.args.iter().chain(clause_args.iter());
+    ValueCapture {
+        takes_positionals: positionals().next().is_some(),
+        captures_trailing: positionals().any(|arg| {
+            matches!(
+                arg.double_dash,
+                DoubleDash::Required | DoubleDash::Automatic
+            )
+        }),
+        separator_seen: separator_before(argv, token),
+    }
+}
+
 // Both parser errors use the same spelling suggestions and output layout.
 #[inline(never)]
-fn unexpected_flag(out: &mut String, style: Style, typed: &str, chain: &[&CommandMeta<'_>]) {
+fn unexpected_flag(
+    out: &mut String,
+    style: Style,
+    typed: &str,
+    chain: &[&CommandMeta<'_>],
+    capture: ValueCapture,
+) {
     let _ = writeln!(
         out,
         "{} unexpected argument '{}' found",
@@ -362,11 +441,36 @@ fn unexpected_flag(out: &mut String, style: Style, typed: &str, chain: &[&Comman
         .into_iter()
         .map(|name| format!("--{name}"))
         .collect();
-    out.push_str(&tip(
+    let spelling = tip(
         style,
         "argument",
         &near.iter().map(String::as_str).collect::<Vec<_>>(),
-    ));
+    );
+    out.push_str(&spelling);
+    // clap's rule, transcribed rather than invented, down to the exception. Its comment:
+    // "`did_you_mean` is a lot more likely and should cause us to skip the `--` suggestion
+    // with the one exception being that the CLI is trying to capture arguments". So a
+    // misspelling wins on an ordinary command — `--fore` against `--force` is a typo, not a
+    // value somebody wanted forwarded — but a command that exists to collect a trailing
+    // command line says both, because there the flag really may have been meant for what runs
+    // next. `mise exec -- pnpm --version` is that shape.
+    let as_value = capture.takes_positionals
+        && !capture.separator_seen
+        && (near.is_empty() || capture.captures_trailing);
+    // `tip` opens with the blank line separating the tips from the error above; when there was
+    // no spelling to suggest, this supplies it instead.
+    if as_value {
+        if spelling.is_empty() {
+            out.push('\n');
+        }
+        let _ = writeln!(
+            out,
+            "  {} to pass '{}' as a value, use '{}'",
+            style.valid("tip:"),
+            style.invalid(typed),
+            style.valid(&format!("-- {typed}"))
+        );
+    }
 }
 
 /// A name as a usage line writes it: `<TOOL>`, `[TOOL]…`, `--jobs`.
@@ -877,7 +981,8 @@ fn render_inner<'a>(
             with_usage = true;
             let whole = String::from_utf8_lossy(token);
             let typed = flag_named(&whole);
-            unexpected_flag(&mut out, style, typed, chain);
+            let capture = value_capture(argv, token, here);
+            unexpected_flag(&mut out, style, typed, chain, capture);
         }
         Error::UnexpectedArg { token } => {
             with_usage = true;
@@ -891,7 +996,8 @@ fn render_inner<'a>(
                 // Same rule as a refused flag: a value attached with `=` is not part of the
                 // name, and the word reaches here by the same spelling mistake.
                 let named = flag_named(&word);
-                unexpected_flag(&mut out, style, named, chain);
+                let capture = value_capture(argv, token, here);
+                unexpected_flag(&mut out, style, named, chain, capture);
             } else if cmd.subcommands.is_empty() {
                 let _ = writeln!(
                     out,
@@ -1202,12 +1308,27 @@ mod tests {
         longs: &["setup"],
         ..Flag::BOOL
     };
+    /// `--`-only, the shape of `mise exec -- <command>`. A command whose job is to collect a
+    /// command line is the one case where a flag it does not know may still have been meant as
+    /// a value, which is what makes the separator tip worth printing next to a spelling.
+    static CMDLINE: Arg = Arg {
+        key: 8,
+        name: "COMMAND",
+        double_dash: DoubleDash::Required,
+        ..Arg::VAR
+    };
+    static EXEC: Command = Command {
+        name: "exec",
+        flags: &[&FORCE],
+        args: &[&CMDLINE],
+        ..Command::EMPTY
+    };
     static ROOT: Command = Command {
         name: "ex",
         flags: &[&QUIET, &SETUP],
         // `user` first, so the walk to `use` passes through it: a sibling that is visited on the
         // way is exactly what leaked into scope before.
-        subcommands: &[&USER, &USE],
+        subcommands: &[&USER, &USE, &EXEC],
         ..Command::EMPTY
     };
     static USE_META: CommandMeta = CommandMeta {
@@ -1253,6 +1374,22 @@ mod tests {
         }],
         ..CommandMeta::EMPTY
     };
+    static EXEC_META: CommandMeta = CommandMeta {
+        cmd: &EXEC,
+        about: Some("Run a command"),
+        flags: &[FlagMeta {
+            flag: &FORCE,
+            help: Some("Force it"),
+            ..FlagMeta::EMPTY
+        }],
+        args: &[ArgMeta {
+            arg: &CMDLINE,
+            help: Some("What to run"),
+            required: true,
+            ..ArgMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
     static ROOT_META: CommandMeta = CommandMeta {
         cmd: &ROOT,
         flags: &[
@@ -1267,7 +1404,7 @@ mod tests {
                 ..FlagMeta::EMPTY
             },
         ],
-        subcommands: &[&USER_META, &USE_META],
+        subcommands: &[&USER_META, &USE_META, &EXEC_META],
         ..CommandMeta::EMPTY
     };
     static SPEC: Spec = Spec {
@@ -1869,16 +2006,152 @@ mod tests {
     #[test]
     fn nothing_is_suggested_when_nothing_is_close() {
         // Offering `--force` for `--zzz` is worse than offering nothing: a user reads a tip as
-        // the CLI having understood them. clap's threshold, so clap's silence — and the rest of
-        // the message is the same either way.
+        // the CLI having understood them. clap's threshold, so clap's silence about spelling.
+        // What is left is the separator tip, for the same reason: with no flag close to it, a
+        // word this command refused is as likely to have been a value as a mistake. clap 4 was
+        // run to check, not remembered.
         assert_eq!(
             rendered(&["use"], Error::UnknownFlag { token: b"--zzz" }),
             "error: unexpected argument '--zzz' found\n\
+             \n\
+             \x20 tip: to pass '--zzz' as a value, use '-- --zzz'\n\
              \n\
              Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…\n\
              \n\
              For more information, try '--help'.\n"
         );
+    }
+
+    /// <https://github.com/jdx/mise/discussions/13196> is what this is for: a shell that eats the
+    /// separator leaves `mise exec pnpm --version`, and the message a user got named `--verbose`
+    /// and nothing else. The flag they typed was never meant for mise.
+    #[test]
+    fn a_command_that_collects_a_command_line_offers_the_separator_too() {
+        // `exec` takes its values only after `--`, so both readings are live at once: a near
+        // miss on one of its own flags, and a flag meant for whatever it runs. clap prints both
+        // here and only the spelling on an ordinary command; this is that rule, either way.
+        assert_eq!(
+            rendered(&["exec"], Error::UnknownFlag { token: b"--fore" }),
+            "error: unexpected argument '--fore' found\n\
+             \n\
+             \x20 tip: a similar argument exists: '--force'\n\
+             \x20 tip: to pass '--fore' as a value, use '-- --fore'\n\
+             \n\
+             Usage: ex exec [-f --force] <-- COMMAND>…\n\
+             \n\
+             For more information, try '--help'.\n"
+        );
+
+        // An ordinary command keeps the spelling alone. Without this the pair above says only
+        // that a tip appeared, not that it appeared where clap puts it.
+        let ordinary = rendered(&["use"], Error::UnknownFlag { token: b"--fore" });
+        assert!(
+            ordinary.contains("tip: a similar argument exists: '--force'"),
+            "{ordinary}"
+        );
+        assert!(!ordinary.contains("to pass"), "{ordinary}");
+    }
+
+    /// A user who has already typed one separator knows about them; a second refusal past it is
+    /// a real mistake, and repeating the advice they just took reads as the CLI not listening.
+    #[test]
+    fn the_separator_is_not_suggested_once_it_has_been_given() {
+        let owned = [
+            std::ffi::OsString::from("exec"),
+            std::ffi::OsString::from("--"),
+            std::ffi::OsString::from("--zzz"),
+        ];
+        let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|word| word.as_os_str()).collect();
+        let message = render(
+            &SPEC,
+            &argv,
+            &Error::UnknownFlag {
+                token: argv[2].as_encoded_bytes(),
+            },
+            Style::PLAIN,
+        );
+        assert!(!message.contains("to pass"), "{message}");
+    }
+
+    /// `render` and `report` are public and accept an error an embedding built itself, whose
+    /// token shares no storage with argv. Locating it by storage alone then found nothing, the
+    /// scan fell back to the whole of argv, and a `--` standing *after* the refused flag was
+    /// read as standing before it — withholding the tip on the strength of a separator the user
+    /// had not reached yet.
+    #[test]
+    fn a_separator_later_on_the_line_does_not_count_as_already_given() {
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("--zzz"),
+            std::ffi::OsString::from("--"),
+            std::ffi::OsString::from("tail"),
+        ];
+        let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|word| word.as_os_str()).collect();
+        // A standalone literal, the way an embedding constructing its own error would have it,
+        // rather than the slice of argv the parser hands back.
+        let message = render(
+            &SPEC,
+            &argv,
+            &Error::UnknownFlag { token: b"--zzz" },
+            Style::PLAIN,
+        );
+        assert!(
+            message.contains("to pass '--zzz' as a value, use '-- --zzz'"),
+            "{message}"
+        );
+
+        // And the other direction through the same path: a separator that really does stand
+        // ahead of the refused word still counts, so matching the word is what makes both
+        // answers right rather than one of them merely defaulting.
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("--"),
+            std::ffi::OsString::from("--zzz"),
+        ];
+        let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|word| word.as_os_str()).collect();
+        let message = render(
+            &SPEC,
+            &argv,
+            &Error::UnknownFlag { token: b"--zzz" },
+            Style::PLAIN,
+        );
+        assert!(!message.contains("to pass"), "{message}");
+    }
+
+    /// An embedding's error carries the word, not which occurrence of it. Answering for the
+    /// first is what makes the question "does a separator stand ahead of every one of them",
+    /// which has a defensible answer where "which one did they mean" does not.
+    #[test]
+    fn a_repeated_word_is_answered_for_every_occurrence_of_it() {
+        let render_literal = |words: &[&str]| {
+            let owned: Vec<std::ffi::OsString> =
+                words.iter().map(std::ffi::OsString::from).collect();
+            let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|word| word.as_os_str()).collect();
+            render(
+                &SPEC,
+                &argv,
+                &Error::UnknownFlag { token: b"--zzz" },
+                Style::PLAIN,
+            )
+        };
+
+        // Split across the separator: the first occurrence has none ahead of it, so the tip
+        // stands. The user may have meant the later one and already know, which costs them a
+        // line they can ignore -- against withholding the answer from someone who does not.
+        let split = render_literal(&["use", "--zzz", "--", "--zzz"]);
+        assert!(split.contains("to pass '--zzz' as a value"), "{split}");
+
+        // All of them past the separator: now it really is ahead of every candidate, whichever
+        // one the error meant, and the tip would be telling the user what they already did.
+        let after = render_literal(&["use", "--", "--zzz", "--zzz"]);
+        assert!(!after.contains("to pass"), "{after}");
+    }
+
+    /// Nowhere to put a value means no value to suggest. `user` takes no positionals at all.
+    #[test]
+    fn the_separator_is_not_suggested_where_nothing_takes_a_value() {
+        let message = rendered(&["user"], Error::UnknownFlag { token: b"--zzz" });
+        assert!(!message.contains("to pass"), "{message}");
     }
 
     #[test]
@@ -1989,7 +2262,7 @@ mod tests {
         // than no tip — and the first version of this walked the whole tree, collecting globals
         // from every branch it passed through.
         let message = rendered(&["use"], Error::UnknownFlag { token: b"--locl" });
-        assert!(!message.contains("tip:"), "{message}");
+        assert!(!message.contains("a similar argument exists"), "{message}");
 
         // Inside `user` itself it is offered, which is what makes the absence above a rule
         // rather than an oversight.
@@ -2009,7 +2282,7 @@ mod tests {
         // An ancestor's *non*-global flag does not: the root declares `--setup` for itself, and
         // the parser would refuse it inside `use` exactly as it refuses a sibling's.
         let message = rendered(&["use"], Error::UnknownFlag { token: b"--setu" });
-        assert!(!message.contains("tip:"), "{message}");
+        assert!(!message.contains("a similar argument exists"), "{message}");
         let message = rendered(&[], Error::UnknownFlag { token: b"--setu" });
         assert!(
             message.contains("tip: a similar argument exists: '--setup'"),
