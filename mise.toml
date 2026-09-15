@@ -12,7 +12,7 @@ mr-boxington = "1.11.1"
 "github:jdx/tak" = "v0.0.9"
 aube = "latest"
 communique = "latest"
-cargo-binstall = "1.22.0"
+cargo-binstall = "1.23.0"
 gh = "latest"
 hk = { version = "latest", minimum_release_age = "0s" }
 "cargo:cargo-edit" = "latest"
