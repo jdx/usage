@@ -141,16 +141,22 @@ func TestDefaultSubcommandHelpDoesNotRepeatRootGlobalFlags(t *testing.T) {
 	color := &Flag{Name: "color", Key: 6, Longs: []string{"color"}, Global: true}
 	root.Flags = append(root.Flags, color)
 	help = append(help, Help{Key: 6})
-	page := LongHelp(spec, []string{"ex"}, []*Command{root}, help)
-	rootPage, appended, ok := strings.Cut(page, "Default command: ")
-	if !ok {
-		t.Fatalf("the default command's page should be appended:\n%s", page)
-	}
-	if !strings.Contains(rootPage, "--color") {
-		t.Fatalf("the root's own page should list --color:\n%s", page)
-	}
-	if strings.Contains(appended, "--color") || strings.Contains(appended, "Global flags:") {
-		t.Fatalf("the appended page should not repeat the root's --color under its own Global flags section:\n%s", page)
+	// Short and long help each have their own render path down to
+	// withDefaultCommandHelp, so both need to suppress the repeat.
+	for _, page := range []string{
+		ShortHelp(spec, []string{"ex"}, []*Command{root}, help),
+		LongHelp(spec, []string{"ex"}, []*Command{root}, help),
+	} {
+		rootPage, appended, ok := strings.Cut(page, "Default command: ")
+		if !ok {
+			t.Fatalf("the default command's page should be appended:\n%s", page)
+		}
+		if !strings.Contains(rootPage, "--color") {
+			t.Fatalf("the root's own page should list --color:\n%s", page)
+		}
+		if strings.Contains(appended, "--color") || strings.Contains(appended, "Global flags:") {
+			t.Fatalf("the appended page should not repeat the root's --color under its own Global flags section:\n%s", page)
+		}
 	}
 }
 
