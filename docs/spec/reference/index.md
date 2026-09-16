@@ -196,10 +196,11 @@ cmd "query" {}
 ```
 
 `ex --help` then lists `install (default)` and `query`, says `Default command:
-install`, and prints the same page as `ex install --help`. Parent-only flags
-and an empty invocation stay on the parent. A hidden default is neither marked
-nor appended. `flatten_help` already inlines every child, so the append is
-skipped there.
+install`, and prints the same page as `ex install --help` — minus its `Global
+flags:` section, which the parent page just printed above it. Parent-only
+flags and an empty invocation stay on the parent. A hidden default is neither
+marked nor appended. `flatten_help` already inlines every child, so the append
+is skipped there.
 
 Rust derives use `#[usage(default_subcommand = "install", default_subcommand_help)]`.
 

@@ -79,10 +79,10 @@ const shortCol = 4
 // the root down to this one, which is what a page needs to work out which
 // inherited globals are still this command's to offer.
 func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
-	return withDefaultCommandHelp(spec, path, chain, help, false, shortHelpPage(spec, path, chain, help))
+	return withDefaultCommandHelp(spec, path, chain, help, false, shortHelpPage(spec, path, chain, help, false))
 }
 
-func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
+func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable, suppressGlobal bool) string {
 	if len(chain) == 0 {
 		return ""
 	}
@@ -174,7 +174,11 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 
 	own, inherited := ownAndGlobal(chain, help)
 	own = filterHelpMode(own, help, false)
-	inherited = filterHelpMode(inherited, help, false)
+	if suppressGlobal {
+		inherited = nil
+	} else {
+		inherited = filterHelpMode(inherited, help, false)
+	}
 
 	// One column over *both* lists, so the two sections read as one table with a
 	// rule through it rather than two tables that happen to be adjacent.
@@ -413,11 +417,16 @@ func withDefaultCommandHelp(spec HelpSpec, path []string, chain []*Command, help
 	}
 	childPath := append(append([]string{}, path...), child.Name)
 	childChain := []*Command{root, child}
+	// The root's own page, printed directly above, already lists every one of its
+	// visible flags under "Flags:" — global-marked or not. Since the child's only
+	// ancestor here is that same root, its "Global flags:" section would repeat
+	// exactly that list, so it is dropped from the appended page rather than shown
+	// twice.
 	var childPage string
 	if long {
-		childPage = longHelpPage(spec, childPath, childChain, help)
+		childPage = longHelpPage(spec, childPath, childChain, help, true)
 	} else {
-		childPage = shortHelpPage(spec, childPath, childChain, help)
+		childPage = shortHelpPage(spec, childPath, childChain, help, true)
 	}
 	var b strings.Builder
 	b.WriteString(strings.TrimRight(parent, "\n"))
