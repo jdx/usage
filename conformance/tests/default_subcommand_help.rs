@@ -8,6 +8,9 @@ use usage_derive::Cli;
     unknown_flags = "error"
 )]
 struct Ex {
+    #[usage(long, global = true)]
+    #[allow(dead_code)]
+    color: bool,
     #[usage(subcommand)]
     #[allow(dead_code)]
     command: Option<Commands>,
@@ -40,6 +43,26 @@ fn parent_help_names_the_default_and_appends_its_page() {
     assert!(page.contains("(default)"), "{page}");
     assert!(page.contains("Default command: install"), "{page}");
     assert!(page.contains("Usage: ex install"), "{page}");
+}
+
+#[test]
+fn the_appended_default_page_does_not_repeat_the_root_global_flags() {
+    // The root's own `Flags:` section already lists `--color`; the appended `install` page
+    // must not show it again under its own `Global flags:` section — on both the short and
+    // the long page, since each has its own render path down to `with_default_command_help`.
+    for page in [
+        usage_argv::help::short_help(Ex::spec(), &["ex"], &[Ex::spec().root]),
+        usage_argv::help::long_help(Ex::spec(), &["ex"], &[Ex::spec().root]),
+    ] {
+        let (root, appended) = page
+            .split_once("Default command: ")
+            .expect("the default command's page is appended");
+        assert!(root.contains("--color"), "{page}");
+        assert!(
+            !appended.contains("--color") && !appended.contains("Global flags:"),
+            "the appended page should not repeat the root's --color under its own Global flags section:\n{page}"
+        );
+    }
 }
 
 #[test]

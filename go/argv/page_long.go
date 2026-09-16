@@ -28,10 +28,10 @@ const (
 
 // LongHelp renders what `--help` prints for the command at the end of `chain`.
 func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
-	return withDefaultCommandHelp(spec, path, chain, help, true, longHelpPage(spec, path, chain, help))
+	return withDefaultCommandHelp(spec, path, chain, help, true, longHelpPage(spec, path, chain, help, false))
 }
 
-func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
+func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable, suppressGlobal bool) string {
 	if len(chain) == 0 {
 		return ""
 	}
@@ -116,7 +116,11 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 
 	own, inherited := ownAndGlobal(chain, help)
 	own = filterHelpMode(own, help, true)
-	inherited = filterHelpMode(inherited, help, true)
+	if suppressGlobal {
+		inherited = nil
+	} else {
+		inherited = filterHelpMode(inherited, help, true)
+	}
 
 	// One column over *both* lists, so the two sections read as one table with a
 	// rule through it rather than two tables that happen to be adjacent.
@@ -204,7 +208,7 @@ func AllHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) str
 		if out.Len() > 0 {
 			out.WriteByte('\n')
 		}
-		out.WriteString(longHelpPage(spec, currentPath, currentChain, help))
+		out.WriteString(longHelpPage(spec, currentPath, currentChain, help, false))
 		current := currentChain[len(currentChain)-1]
 		children := append([]*Command(nil), current.Subcommands...)
 		sort.SliceStable(children, func(i, j int) bool {

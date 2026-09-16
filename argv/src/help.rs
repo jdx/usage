@@ -682,6 +682,7 @@ fn help_structure(
     chain: &[&CommandMeta<'_>],
     long: bool,
     inherit_version_actions: bool,
+    suppress_global: bool,
 ) -> HelpStructure {
     let meta = *chain.last().expect("a page is always about some command");
     let mut headings = Vec::new();
@@ -716,6 +717,11 @@ fn help_structure(
     }
 
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
+    let inherited = if suppress_global {
+        Vec::new()
+    } else {
+        inherited
+    };
     let visible_arg = |arg: &&ArgMeta<'_>| {
         !arg.hide
             && if long {
@@ -933,15 +939,23 @@ fn rendered_page(
     long: bool,
     style: Style,
     inherit_version_actions: bool,
+    suppress_global: bool,
 ) -> String {
     let sections = if long {
-        long_sections(spec, path, chain, inherit_version_actions)
+        long_sections(spec, path, chain, inherit_version_actions, suppress_global)
     } else {
-        short_sections(spec, path, chain, inherit_version_actions)
+        short_sections(spec, path, chain, inherit_version_actions, suppress_global)
     };
     // Plain output never reads the spellings used to recognize colored spans.
     let structure = if style.coloured {
-        help_structure(spec, path, chain, long, inherit_version_actions)
+        help_structure(
+            spec,
+            path,
+            chain,
+            long,
+            inherit_version_actions,
+            suppress_global,
+        )
     } else {
         HelpStructure::default()
     };
@@ -984,7 +998,15 @@ fn assembled_help(
     inherit_version_actions: bool,
     include_default_help: bool,
 ) -> String {
-    let page = rendered_page(spec, path, chain, long, style, inherit_version_actions);
+    let page = rendered_page(
+        spec,
+        path,
+        chain,
+        long,
+        style,
+        inherit_version_actions,
+        false,
+    );
     if include_default_help {
         with_default_command_help(
             spec,
@@ -1472,7 +1494,7 @@ fn short_help_with(
 ) -> String {
     assemble(
         spec,
-        &short_sections(spec, path, chain, inherit_version_actions),
+        &short_sections(spec, path, chain, inherit_version_actions, false),
         Style::PLAIN,
     )
 }
@@ -1482,6 +1504,7 @@ fn short_sections(
     path: &[&str],
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
+    suppress_global: bool,
 ) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
@@ -1489,10 +1512,14 @@ fn short_sections(
         .into_iter()
         .filter(|flag| !flag.hide_short_help)
         .collect();
-    let inherited: Vec<_> = inherited
-        .into_iter()
-        .filter(|(flag, _)| !flag.hide_short_help)
-        .collect();
+    let inherited: Vec<_> = if suppress_global {
+        Vec::new()
+    } else {
+        inherited
+            .into_iter()
+            .filter(|(flag, _)| !flag.hide_short_help)
+            .collect()
+    };
     let mut sections = Sections::default();
     // The narrow page wraps too. Its descriptions used to run off the end of the terminal,
     // which the wide page has never done — and `-h` is the form most people type.
@@ -1786,6 +1813,10 @@ fn with_default_command_help(
     let mut child_path = path.to_vec();
     child_path.push(child.cmd.name);
     let child_chain = [root, child];
+    // The root's own page, printed directly above, already lists every one of its visible
+    // flags under `Flags:` — global-marked or not. Since the child's only ancestor here is
+    // that same root, its `Global flags:` section would repeat exactly that list, so it is
+    // dropped from the appended page rather than shown twice.
     let child_page = rendered_page(
         spec,
         &child_path,
@@ -1793,6 +1824,7 @@ fn with_default_command_help(
         long,
         style,
         inherit_version_actions,
+        true,
     );
     let mut out = parent.trim_end().to_string();
     out.push_str("\n\nDefault command: ");
@@ -2528,7 +2560,7 @@ fn long_help_with(
 ) -> String {
     assemble(
         spec,
-        &long_sections(spec, path, chain, inherit_version_actions),
+        &long_sections(spec, path, chain, inherit_version_actions, false),
         Style::PLAIN,
     )
 }
@@ -2538,6 +2570,7 @@ fn long_sections(
     path: &[&str],
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
+    suppress_global: bool,
 ) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
@@ -2545,10 +2578,14 @@ fn long_sections(
         .into_iter()
         .filter(|flag| !flag.hide_long_help)
         .collect();
-    let inherited: Vec<_> = inherited
-        .into_iter()
-        .filter(|(flag, _)| !flag.hide_long_help)
-        .collect();
+    let inherited: Vec<_> = if suppress_global {
+        Vec::new()
+    } else {
+        inherited
+            .into_iter()
+            .filter(|(flag, _)| !flag.hide_long_help)
+            .collect()
+    };
     let width = terminal_width(meta);
     let mut sections = Sections::default();
     let out = &mut sections.about;
@@ -3717,9 +3754,9 @@ fn topics_with_blocks(
 ) -> Option<Vec<(Topic, String)>> {
     let (path, chain) = find(spec, cmd)?;
     let sections = if long {
-        long_sections(spec, &path, &chain, false)
+        long_sections(spec, &path, &chain, false, false)
     } else {
-        short_sections(spec, &path, &chain, false)
+        short_sections(spec, &path, &chain, false, false)
     };
     let mut used = Vec::<String>::new();
     Some(
