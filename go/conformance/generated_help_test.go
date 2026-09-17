@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// Exercise the generated front door, not just the event parser: synthetic help
-// and version flags are events that Parse must turn into requests.
+// TestGeneratedHelpAndVersion verifies that generated Parse turns synthetic
+// help/version events into requests, without changing shadowed or disabled flags.
 func TestGeneratedHelpAndVersion(t *testing.T) {
 	dir := t.TempDir()
 	module, err := filepath.Abs("..")

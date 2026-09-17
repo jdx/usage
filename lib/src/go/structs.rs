@@ -173,6 +173,7 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
     parse_fn(out, commands, &assigned, &clauses);
 }
 
+/// Emit the typed parser, including help/version requests and post-binding rules.
 fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: &Clauses) {
     let root = &commands[0];
     let mut strict_keys = commands
