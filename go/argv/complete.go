@@ -66,7 +66,11 @@ func Walk(root *Command, words []string) Position {
 	var lastArg *Arg
 	var lastArgValues uint32
 
+	// Remember where the next event starts: a help topic consumes words without
+	// emitting command events for them.
+	nextWord := p.pos
 	for p.Next() {
+		nextWord = p.pos
 		ev := p.Event()
 		switch ev.Kind {
 		case KindCommand:
@@ -92,6 +96,16 @@ func Walk(root *Command, words []string) Position {
 		// the request. Nothing else can be typed there: a topic takes no flags and
 		// fills no argument.
 		case CodeHelp:
+			if err.Cmd != p.Command() {
+				// Follow only the topic words the parser consumed, after `help`.
+				// Searching the tree by target pointer would choose the wrong
+				// ancestors when the same command is shared by several routes.
+				cmd := p.Command()
+				for _, word := range words[nextWord+1 : p.pos] {
+					cmd = findNamed(cmd, word)
+					chain = append(chain, cmd)
+				}
+			}
 			// SubcommandsPossible stays false: a topic is not descended into, and
 			// the commands under it are offered by HelpTopic instead.
 			return Position{Cmd: err.Cmd, Chain: chain, HelpTopic: true}

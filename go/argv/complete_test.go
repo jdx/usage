@@ -511,3 +511,38 @@ func TestCompletionFollowsDefaultFlagRouting(t *testing.T) {
 		t.Errorf("default flags require the opt-in: %v", got)
 	}
 }
+
+// A help request resolves a topic without emitting command events for it.
+// Renderers still need the complete route, including the actual parent when a
+// command is shared by two branches.
+func TestWalkHelpTopicChain(t *testing.T) {
+	leaf := &Command{Name: "leaf", Aliases: []string{"l"}}
+	shared := &Command{Name: "shared", Subcommands: []*Command{leaf}}
+	alpha := &Command{Name: "alpha", Subcommands: []*Command{shared}}
+	beta := &Command{Name: "beta", Aliases: []string{"b"}, Subcommands: []*Command{shared}}
+	assist := &Flag{Name: "assist", Longs: []string{"assist"}, Action: ActionHelp}
+	root := &Command{Name: "ex", Flags: []*Flag{assist}, Subcommands: []*Command{alpha, beta}}
+
+	for _, tc := range []struct {
+		name  string
+		words []string
+		chain []*Command
+	}{
+		{"root", []string{"help"}, []*Command{root}},
+		{"child", []string{"help", "alpha"}, []*Command{root, alpha}},
+		{"nested", []string{"help", "alpha", "shared", "leaf"}, []*Command{root, alpha, shared, leaf}},
+		{"shared route", []string{"help", "beta", "shared", "leaf"}, []*Command{root, beta, shared, leaf}},
+		{"aliases", []string{"help", "b", "shared", "l"}, []*Command{root, beta, shared, leaf}},
+		{"within child", []string{"beta", "help", "shared", "leaf"}, []*Command{root, beta, shared, leaf}},
+		{"partial topic", []string{"help", "beta", "sha"}, []*Command{root, beta}},
+		{"explicit action", []string{"--assist"}, []*Command{root}},
+		{"synthetic flag", []string{"beta", "--help"}, []*Command{root, beta}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pos := Walk(root, tc.words)
+			if !slices.Equal(pos.Chain, tc.chain) || pos.Cmd != tc.chain[len(tc.chain)-1] {
+				t.Fatalf("Walk(%q) = %+v; want chain %v", tc.words, pos, tc.chain)
+			}
+		})
+	}
+}
