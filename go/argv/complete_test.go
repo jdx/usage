@@ -489,6 +489,7 @@ func count(list []string, want string) int {
 	return n
 }
 
+// TestCompletionFollowsDefaultFlagRouting checks completion scope at implicit command boundaries.
 func TestCompletionFollowsDefaultFlagRouting(t *testing.T) {
 	root, help, meta := completionFixture()
 	root.DefaultSubcommand = root.Subcommands[0]
@@ -512,9 +513,8 @@ func TestCompletionFollowsDefaultFlagRouting(t *testing.T) {
 	}
 }
 
-// A help request resolves a topic without emitting command events for it.
-// Renderers still need the complete route, including the actual parent when a
-// command is shared by two branches.
+// TestWalkHelpTopicChain checks that help topics retain the complete command
+// route, including the actual parent when a command is shared by two branches.
 func TestWalkHelpTopicChain(t *testing.T) {
 	leaf := &Command{Name: "leaf", Aliases: []string{"l"}}
 	shared := &Command{Name: "shared", Subcommands: []*Command{leaf}}
