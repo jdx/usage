@@ -202,6 +202,13 @@ func Parse(args []string) (*Cli, error) {
 				cmdConfigV.Ls = cmdConfigLsV
 			}
 		case argv.KindFlag:
+			// The event parser leaves synthetic help/version requests to its caller.
+			switch ev.Flag {
+			case argv.HelpShort, argv.HelpLong:
+				return nil, &argv.Error{Code: argv.CodeHelp, Cmd: p.Command(), Long: ev.Flag == argv.HelpLong}
+			case argv.VersionShort, argv.VersionLong:
+				return nil, &argv.Error{Code: argv.CodeVersion, Cmd: p.Command(), Long: ev.Flag == argv.VersionLong}
+			}
 			seen[ev.Flag.Key]++
 			if ev.Flag.BoolValue {
 				// Boolean binding is last-one-wins. Replace an earlier attached value even
