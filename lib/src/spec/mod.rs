@@ -23,7 +23,7 @@ pub mod view;
 use crate::kdl;
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
-use log::{info, warn};
+use log::{debug, warn};
 use regex::Regex;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -775,7 +775,11 @@ impl Spec {
                             .join(file),
                         false => file.to_path_buf(),
                     };
-                    info!("include: {}", file.display());
+                    // Library bookkeeping, not something the user asked to see: an embedder
+                    // whose logger shows info by default printed this line on every run, once
+                    // per include, for a spec it parses on behalf of a command that never
+                    // mentioned includes. The rest of the parser logs at trace for this reason.
+                    debug!("include: {}", file.display());
                     let other = Self::parse_file_with_metadata_inference(&file, false, false)?;
                     // Two *declarations* of one name are refused, the same as two in a single
                     // file. Letting the incoming set win would make which declaration a
