@@ -1,6 +1,7 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use usage::go::GoOptions;
+use usage::go::{GoOptions, ValueType};
 use usage::miette::Result;
 use usage_rs::Args;
 
@@ -33,6 +34,10 @@ pub struct Go {
     #[usage(short, long)]
     package: Option<String>,
 
+    /// Convert a generated field by its key, e.g. FlagTimeout=duration (repeatable)
+    #[usage(long)]
+    field_type: Vec<String>,
+
     /// The spec itself, as a string, instead of a file
     #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
@@ -57,12 +62,26 @@ impl usage_rs::Run for Go {
         }
 
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
-        let out = usage::go::generate(
+        let mut field_types = BTreeMap::new();
+        for binding in &self.field_type {
+            let (key, value) = binding
+                .split_once('=')
+                .ok_or_else(|| usage::miette::miette!("--field-type requires KEY=TYPE"))?;
+            let ty = value
+                .parse::<ValueType>()
+                .map_err(|err| usage::miette::miette!("{err}"))?;
+            if field_types.insert(key.to_string(), ty).is_some() {
+                usage::miette::bail!("duplicate --field-type for {key}");
+            }
+        }
+        let out = usage::go::generate_with_types(
             &spec,
             &GoOptions {
                 package: self.package.clone(),
             },
-        );
+            &field_types,
+        )
+        .map_err(|err| usage::miette::miette!("{err}"))?;
         generate::write_or_stdout(self.out_file.as_deref(), &out)?;
         Ok(())
     }
