@@ -104,6 +104,7 @@ struct Emitter<'a> {
 }
 
 impl<'a> Emitter<'a> {
+    /// Create an emitter with a sanitized package name and empty allocation state.
     fn new(spec: &'a Spec, opts: &GoOptions) -> Self {
         // An explicit package that is not an identifier is sanitized rather than
         // emitted: a caller that wants to reject it should ask `is_valid_package`
@@ -168,6 +169,7 @@ impl<'a> Emitter<'a> {
         }
     }
 
+    /// Collect the specification and render constants, tables, metadata, help, and structs.
     fn run(mut self) -> String {
         // Collected first so the constants can be emitted in one block before any
         // table refers to them, which is also the order a reader wants: the names
@@ -284,6 +286,7 @@ impl<'a> Emitter<'a> {
         out[index].subcommands = children;
     }
 
+    /// Emit the generated-file header and imports required by configured field types.
     fn header(&mut self) {
         let imports = if self
             .field_types

@@ -944,6 +944,24 @@
                 }
               },
               {
+                "name": "field-type",
+                "usage": "--field-type <FIELD_TYPE>",
+                "help": "Convert a generated field by its key, e.g. FlagTimeout=duration (repeatable)",
+                "help_first_line": "Convert a generated field by its key, e.g. FlagTimeout=duration (repeatable)",
+                "short": [],
+                "long": ["field-type"],
+                "var": true,
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "FIELD_TYPE",
+                  "usage": "<FIELD_TYPE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
                 "name": "spec",
                 "usage": "--spec <SPEC>",
                 "help": "The spec itself, as a string, instead of a file",

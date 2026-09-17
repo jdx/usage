@@ -26,6 +26,7 @@ pub enum ValueType {
 impl FromStr for ValueType {
     type Err = String;
 
+    /// Parse the stable command-line spelling for a supported generated Go type.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "int" => Ok(Self::Int),

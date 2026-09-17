@@ -517,6 +517,15 @@ const completionSpec: Fig.Spec = {
               },
             },
             {
+              name: "--field-type",
+              description:
+                "Convert a generated field by its key, e.g. FlagTimeout=duration (repeatable)",
+              isRepeatable: true,
+              args: {
+                name: "field_type",
+              },
+            },
+            {
               name: "--spec",
               description: "The spec itself, as a string, instead of a file",
               isRepeatable: false,

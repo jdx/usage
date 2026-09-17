@@ -49,6 +49,7 @@ import (
  "time"
  "github.com/jdx/usage/go/argv"
 )
+// TestSources verifies argv, environment, and default precedence before conversion.
 func TestSources(t *testing.T) {
  cli,err:=Parse(nil)
  if err!=nil{t.Fatal(err)}
@@ -70,11 +71,13 @@ func TestSources(t *testing.T) {
  cli,err=Parse([]string{"run"})
  if err!=nil||cli.Run==nil||cli.Run.Wait!=4*time.Second{t.Fatalf("selected command: %+v %v",cli,err)}
 }
+// TestShortFlagDiagnostic verifies conversion errors retain the short flag name.
 func TestShortFlagDiagnostic(t *testing.T) {
  _,err:=Parse([]string{"-n","bad"})
  var e *argv.Error
  if !errors.As(err,&e)||e.Name!="-n"{t.Fatalf("short flag error: %v",err)}
 }
+// TestInvalidAndConditionalDefaults verifies typed errors and conditional defaults.
 func TestInvalidAndConditionalDefaults(t *testing.T) {
  cli,err:=Parse([]string{"--quick"})
  if err!=nil||cli.Conditional!=time.Second{t.Fatalf("conditional default: %+v %v",cli,err)}
@@ -86,6 +89,7 @@ func TestInvalidAndConditionalDefaults(t *testing.T) {
   if cli!=nil||!errors.As(err,&e)||e.Code!=argv.CodeInvalidValue{t.Fatalf("invalid typed values %q: %+v %v",args,cli,err)}
  }
 }
+// TestOnlyResolvedValuesConvert verifies overridden values are not converted.
 func TestOnlyResolvedValuesConvert(t *testing.T) {
  t.Setenv("USAGE_TYPED_TIMEOUT","invalid")
  cli,err:=Parse([]string{"--timeout","bad","--timeout","3s"})
