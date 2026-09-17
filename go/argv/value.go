@@ -38,6 +38,16 @@ func Int(name, value string) (int64, *Error) {
 	return n, nil
 }
 
+// NativeInt converts a bound value to Go's machine-sized int, rejecting overflow
+// on the target architecture. Use [Int] for an architecture-independent int64.
+func NativeInt(name, value string) (int, *Error) {
+	n, err := strconv.ParseInt(value, 10, strconv.IntSize)
+	if err != nil {
+		return 0, invalid(name, value, "a whole number fitting in int")
+	}
+	return int(n), nil
+}
+
 // Uint is [Int] for a value that may not be negative.
 //
 // A leading `+` is a sign, not a digit, and Rust takes it: `"+8".parse::<u64>()`

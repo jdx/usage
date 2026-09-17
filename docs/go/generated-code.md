@@ -89,9 +89,38 @@ type InstallCmd struct {
 - Field types: `count` flags → `int`; value-less flags → `bool`; `var` flags/args → `[]string`;
   everything else → `string`. There is no type inference from the spec — a spec says what a
   value is _called_, never what type it is. Convert with the
-  [typed helpers](/go/binding#typed-values).
+  [typed helpers](/go/binding#typed-values), or opt in to explicit generated types below.
 - A flag and a command sharing a name are disambiguated by kind: a `--shell` flag beside a
   `shell` command yields fields `Shell` and `ShellCmd`, not `Shell2`.
+
+## Explicit Go field types
+
+Types are opt-in generator settings, not inferred from names like `<duration>`:
+
+```sh
+usage generate go -f mycli.usage.kdl -o tables.go \
+  --field-type FlagTimeout=duration --field-type FlagJobs=int
+```
+
+Use the generated key constants to identify fields, including their command prefix
+(for example, `FlagRunTimeout`). Repeat `--field-type KEY=TYPE` for each binding.
+Supported types are `int`, `int64`, `uint64`, `float64`, `bool`, and `duration`.
+A `duration` field has Go type `time.Duration`; variadic entries become slices
+of the chosen type. Unconfigured fields and portable spec semantics are unchanged.
+
+`Parse` converts the final resolved text, after argv/env/conditional-default/default
+precedence and ordinary validation. Overridden values do not cause conversion
+errors. Absent fields keep their Go zero value, while an explicitly supplied empty
+string is converted and may be rejected. Errors use `argv.CodeInvalidValue` and
+identify the entry and rejected value. `int` rejects overflow on the target
+architecture; use `int64` for fixed-width values. Duration notation is Go's, such
+as `1m30s`, and conversions use the [typed helpers](/go/binding#typed-values).
+
+Unknown keys, duplicate bindings, unsupported type names, valueless flags, and count
+flags are rejected at generation time. Clause-instance fields and custom converters
+are not supported yet. This experimental interface does not change the shared KDL
+schema. Library callers can use `generate_with_types` and `ValueType` alongside the
+unchanged `generate` API.
 
 ## What `Parse` enforces
 

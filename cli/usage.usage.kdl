@@ -305,6 +305,9 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
         flag "-p --package" help="Go package clause for the generated file (defaults to the spec's bin name)" {
             arg <PACKAGE>
         }
+        flag --field-type help="Convert a generated field by its key, e.g. FlagTimeout=duration (repeatable)" var=#true {
+            arg <FIELD_TYPE>
+        }
         flag --spec help="The spec itself, as a string, instead of a file" overrides=--file required_unless=--file {
             arg <SPEC>
         }

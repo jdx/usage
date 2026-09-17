@@ -20,5 +20,6 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
   **Effect:** modifies state
 
 - **`-p --package <PACKAGE>`** — Go package clause for the generated file (defaults to the spec's bin name)
+- **`--field-type <FIELD_TYPE>`** — Convert a generated field by its key, e.g. FlagTimeout=duration (repeatable)
 - **`--spec <SPEC>`** — The spec itself, as a string, instead of a file
 - **`-h --help`** — Print help

@@ -5,16 +5,14 @@
 //! post-binding rules, the three tables — is unchanged, and this is the shape
 //! that makes it usable without knowing any of it.
 //!
-//! Fields are `string`, `bool` and `[]string`, because that is what a usage spec
-//! knows. A spec says what a value is *called* and never what type it is, so
-//! turning `"8"` into an `int` stays the caller's business — `argv.Int` and its
-//! neighbours exist for exactly that, and inferring a type from an argument's
-//! name would be guessing.
+//! Fields default to the textual types the spec knows. Explicit generator type
+//! bindings opt individual fields into conversion after resolution and validation;
+//! placeholder names never imply a Go type.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write as _;
 
-use super::{field_name, Emitted};
+use super::{field_name, Emitted, ValueType};
 use crate::{SpecArg, SpecFlag};
 
 /// The field each entry is assigned to, by key.
@@ -32,7 +30,7 @@ struct ClauseFields {
 type Clauses = HashMap<String, ClauseFields>;
 
 /// Write every command's struct, then `Parse`.
-pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
+pub(super) fn emit(out: &mut String, commands: &[Emitted], types: &BTreeMap<String, ValueType>) {
     let mut assigned: Fields = HashMap::new();
     let mut clauses: Clauses = HashMap::new();
     for e in commands {
@@ -117,14 +115,23 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
             let field = claim(field_name(&flag.name), "Flag");
             fields.push((
                 field.clone(),
-                flag_type(flag).to_string(),
+                types.get(&named.key).map_or_else(
+                    || flag_type(flag).to_string(),
+                    |ty| ty.field_type(flag_type(flag) == "[]string"),
+                ),
                 named.key.clone(),
             ));
             assigned.insert(named.key.clone(), field);
         }
         for (arg, named) in &e.args {
             let field = claim(field_name(&arg.name), "Arg");
-            fields.push((field.clone(), arg_type(arg).to_string(), named.key.clone()));
+            fields.push((
+                field.clone(),
+                types
+                    .get(&named.key)
+                    .map_or_else(|| arg_type(arg).to_string(), |ty| ty.field_type(arg.var)),
+                named.key.clone(),
+            ));
             assigned.insert(named.key.clone(), field);
         }
         if let (Some(clause), Some((type_name, args))) = (&e.cmd.clause, clause_type) {
@@ -170,11 +177,17 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
         let _ = writeln!(out, "}}\n");
     }
 
-    parse_fn(out, commands, &assigned, &clauses);
+    parse_fn(out, commands, &assigned, &clauses, types);
 }
 
 /// Emit the typed parser, including help/version requests and post-binding rules.
-fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: &Clauses) {
+fn parse_fn(
+    out: &mut String,
+    commands: &[Emitted],
+    assigned: &Fields,
+    clauses: &Clauses,
+    types: &BTreeMap<String, ValueType>,
+) {
     let root = &commands[0];
     let mut strict_keys = commands
         .iter()
@@ -485,6 +498,9 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
     for e in commands {
         let owner = owner_of(e);
         for (flag, named) in &e.flags {
+            if types.contains_key(&named.key) {
+                continue;
+            }
             let _ = writeln!(
                 out,
                 "\t\t\tcase {}:\n{}",
@@ -504,6 +520,9 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
     for e in commands {
         let owner = owner_of(e);
         for (arg, named) in &e.args {
+            if types.contains_key(&named.key) {
+                continue;
+            }
             let field = &assigned[&named.key];
             let assign = if arg.var {
                 format!("\t\t\t\t{owner}.{field} = append({owner}.{field}, values...)")
@@ -561,7 +580,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
          \t\tif source == argv.FromEnv || source == argv.FromDefault {{\n\
          \t\t\tswitch key {{"
     );
-    fallback_cases(out, commands, assigned);
+    fallback_cases(out, commands, assigned, types);
     let _ = writeln!(out, "\t\t\t}}\n\t\t}}\n\t}}");
     let clause_keys = commands
         .iter()
@@ -659,6 +678,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
         );
     }
     emit_clause_instances(out, commands, clauses, has_relationship_values);
+    typed_assignments(out, commands, assigned, types);
     let _ = writeln!(out, "\treturn out, nil\n}}\n");
 }
 
@@ -776,10 +796,18 @@ fn emit_clause_instances(
 }
 
 /// The cases that put an `env` or `default` value into its field.
-fn fallback_cases(out: &mut String, commands: &[Emitted], assigned: &Fields) {
+fn fallback_cases(
+    out: &mut String,
+    commands: &[Emitted],
+    assigned: &Fields,
+    types: &BTreeMap<String, ValueType>,
+) {
     for e in commands {
         let owner = owner_of(e);
         for (flag, named) in &e.flags {
+            if types.contains_key(&named.key) {
+                continue;
+            }
             let field = &assigned[&named.key];
             let assign = match flag_type(flag) {
                 // A value-less flag has nowhere to put text, so the variable is
@@ -800,6 +828,9 @@ fn fallback_cases(out: &mut String, commands: &[Emitted], assigned: &Fields) {
             let _ = writeln!(out, "\t\t\tcase {}:\n{assign}", named.key);
         }
         for (arg, named) in &e.args {
+            if types.contains_key(&named.key) {
+                continue;
+            }
             let field = &assigned[&named.key];
             let assign = if arg.var {
                 format!("\t\t\t\t{owner}.{field} = append({owner}.{field}, values...)")
@@ -882,5 +913,51 @@ fn clause_flag_assign(flag: &SpecFlag, field: &str, key: &str) -> String {
         ),
         "[]string" => format!("item.{field} = append(item.{field}, values...)"),
         _ => format!("item.{field} = values[len(values)-1]"),
+    }
+}
+
+/// Convert only final resolved values, identically for argv, environment and defaults.
+fn typed_assignments(
+    out: &mut String,
+    commands: &[Emitted],
+    assigned: &Fields,
+    types: &BTreeMap<String, ValueType>,
+) {
+    for e in commands {
+        let owner = owner_of(e);
+        let entries = e
+            .flags
+            .iter()
+            .map(|(flag, named)| {
+                (
+                    named,
+                    flag_type(flag) == "[]string",
+                    flag.long
+                        .first()
+                        .map(|long| format!("--{long}"))
+                        .or_else(|| flag.short.first().map(|short| format!("-{short}")))
+                        .unwrap_or_else(|| flag.name.clone()),
+                )
+            })
+            .chain(
+                e.args
+                    .iter()
+                    .map(|(arg, named)| (named, arg.var, arg.name.clone())),
+            );
+        for (named, many, entry_name) in entries {
+            let Some(ty) = types.get(&named.key) else {
+                continue;
+            };
+            let field = &assigned[&named.key];
+            let key = &named.key;
+            let convert = ty.converter();
+            let label = super::go_string(&entry_name);
+            let call = if many {
+                format!("argv.Each({label}, values, argv.{convert})")
+            } else {
+                format!("argv.{convert}({label}, values[len(values)-1])")
+            };
+            let _ = writeln!(out, "\tif values := filled[{key}]; len(values) > 0 {{\n\t\tvalue, err := {call}\n\t\tif err != nil {{\n\t\t\treturn nil, err\n\t\t}}\n\t\t{owner}.{field} = value\n\t}}");
+        }
     }
 }
