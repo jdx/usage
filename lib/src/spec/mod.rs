@@ -290,6 +290,18 @@ impl Spec {
         Self::parse_script_with_path(input, Path::new(""))
     }
 
+    /// Parse spec text that came from `file`, without reading the file itself.
+    ///
+    /// For a caller that already holds the spec — because it extracted the spec lines from a
+    /// larger file, or rendered them from a template — but knows which file they came from.
+    /// The path is what relative `include` paths resolve against, and what diagnostics name,
+    /// so the same text parsed through [`FromStr`] differs from this only in that its
+    /// includes have nothing to be relative to.
+    #[must_use = "parsing result should be used"]
+    pub fn parse_str_with_path(input: &str, file: &Path) -> Result<Spec, UsageErr> {
+        Self::parse(&ParsingContext::new(file, input), input)
+    }
+
     fn parse_script_with_path(input: &str, file: &Path) -> Result<Spec, UsageErr> {
         let raw = extract_usage_from_comments(input);
         let ctx = ParsingContext::new(file, &raw);
@@ -1396,7 +1408,12 @@ impl FromStr for Spec {
     type Err = UsageErr;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::parse(&Default::default(), s)
+        // The input is handed to the context, not just to the parser: a diagnostic carries a
+        // span into the spec text and the text to render it against, and a default context
+        // has no text. Without this a spec parsed from a string reported *that* something was
+        // wrong and pointed at a blank line, which is what every embedder parsing a spec it
+        // built itself — a task runner, a template renderer — shows its users.
+        Self::parse(&ParsingContext::new(Path::new(""), s), s)
     }
 }
 
@@ -1834,6 +1851,38 @@ cmd "run"
             .unwrap_err()
             .to_string()
             .contains("not a root global"));
+    }
+
+    #[test]
+    fn a_string_parsed_spec_reports_the_offending_line() {
+        let err = "flag \"--verbose\"\nflag \"--json\" bogus_key=\"nope\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        let rendered = format!("{:?}", crate::miette::Error::from(err));
+        assert!(
+            rendered.contains("unsupported flag key bogus_key"),
+            "{rendered}"
+        );
+        // The source text reaches the diagnostic, so the snippet shows the line the span
+        // points at rather than a blank one.
+        assert!(rendered.contains("flag \"--json\""), "{rendered}");
+    }
+
+    #[test]
+    fn parse_str_with_path_resolves_relative_includes() {
+        let dir = tempfile::tempdir().unwrap();
+        let included = dir.path().join("shared.usage.kdl");
+        std::fs::write(&included, "flagset \"common\" {\n  flag \"--shared\"\n}\n").unwrap();
+
+        let spec_text = "include file=\"./shared.usage.kdl\"\nuse \"common\"\nflag \"--own\"\n";
+
+        // Without a source path there is nothing for the include to be relative to.
+        assert!(spec_text.parse::<Spec>().is_err());
+
+        let spec =
+            Spec::parse_str_with_path(spec_text, &dir.path().join("root.usage.kdl")).unwrap();
+        let flags: Vec<_> = spec.cmd.flags.iter().map(|f| f.name.clone()).collect();
+        assert_eq!(flags, vec!["shared".to_string(), "own".to_string()]);
     }
 
     #[test]
