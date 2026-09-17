@@ -8,6 +8,14 @@ in progress; APIs, generated code, and behavior may change. See the
 
 ## Rendering help and version requests
 
+::: warning Generated-parser prerequisite
+The generated-parser example below requires the synthetic help/version event
+bridge in [#1437](https://github.com/jdx/usage/pull/1437). Until that change lands,
+regenerating against `main` does not make built-in `-h`, `--help`, `-V`, and
+`--version` return requests. Explicitly declared help/version action flags already
+return requests and can use this renderer. This helper does not change parsing.
+:::
+
 `RenderRequest` handles `CodeHelp` and `CodeVersion` without application-side
 command-tree searches or page selection:
 
