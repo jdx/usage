@@ -41,14 +41,26 @@ func requestPath(root *Command, words []string, bin string) ([]string, []*Comman
 	path := []string{bin}
 	chain := []*Command{root}
 	p := New(root, words)
-	nextWord := p.pos
-	for p.Next() {
+	var topicStart int
+	for {
+		eventStart := p.pos
+		skippedTerminator := requestTerminatorAt(&p, words, eventStart)
+		if skippedTerminator {
+			eventStart++
+		}
+		if !p.Next() {
+			topicStart = eventStart
+			break
+		}
 		ev := p.Event()
 		switch ev.Kind {
 		case KindCommand:
 			name := ev.Command.Name
-			if p.pos > nextWord {
-				name = words[p.pos-1]
+			// A terminator is consumed without an event, so the command token is
+			// at the adjusted event boundary.
+			commandPos := p.pos - 1
+			if commandPos >= eventStart && commandPos < len(words) {
+				name = words[commandPos]
 			}
 			path = append(path, name)
 			chain = append(chain, ev.Command)
@@ -57,15 +69,32 @@ func requestPath(root *Command, words []string, bin string) ([]string, []*Comman
 				return path, chain
 			}
 		}
-		nextWord = p.pos
 	}
 	if err, ok := p.Err().(*Error); ok && err.Code == CodeHelp && err.Cmd != p.Command() {
+		// A help topic is consumed in one parser step, and that step can also
+		// consume a variadic terminator before it sees `help`. Consequently the
+		// last event's position is only a valid lower bound, not the exact topic
+		// start.
 		cmd := p.Command()
-		for _, word := range words[nextWord+1 : p.pos] {
+		for _, word := range words[topicStart+1 : p.pos] {
 			cmd = findNamed(cmd, word)
 			path = append(path, word)
 			chain = append(chain, cmd)
 		}
 	}
 	return path, chain
+}
+
+// requestTerminatorAt reports whether the next parser step will consume a
+// variadic flag terminator before producing its event. The parser checks
+// subcommands first when precedence is enabled, so an explicit child that
+// shares a terminator spelling must not be skipped here.
+func requestTerminatorAt(p *Parser, words []string, pos int) bool {
+	if pos >= len(words) || p.cmd.SubcommandPrecedenceOverArg && !p.flagsStopped && p.findSubcommand(words[pos]) != nil {
+		return false
+	}
+	if p.collecting != nil && p.collecting.ValueTerminator != "" && words[pos] == p.collecting.ValueTerminator {
+		return true
+	}
+	return false
 }
