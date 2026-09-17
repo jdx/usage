@@ -67,10 +67,17 @@ func Walk(root *Command, words []string) Position {
 	var lastArgValues uint32
 
 	// Remember where the next event starts: a help topic consumes words without
-	// emitting command events for them.
-	nextWord := p.pos
-	for p.Next() {
+	// emitting command events for them. A variadic value terminator is consumed
+	// silently by Next, so skip it when establishing the boundary as well.
+	var nextWord int
+	for {
 		nextWord = p.pos
+		if flag := p.Collecting(); flag != nil && flag.ValueTerminator != "" && p.pos < len(words) && words[p.pos] == flag.ValueTerminator {
+			nextWord++
+		}
+		if !p.Next() {
+			break
+		}
 		ev := p.Event()
 		switch ev.Kind {
 		case KindCommand:

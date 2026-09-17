@@ -517,7 +517,8 @@ func TestCompletionFollowsDefaultFlagRouting(t *testing.T) {
 // route, including the actual parent when a command is shared by two branches.
 func TestWalkHelpTopicChain(t *testing.T) {
 	leaf := &Command{Name: "leaf", Aliases: []string{"l"}}
-	shared := &Command{Name: "shared", Subcommands: []*Command{leaf}}
+	helpTopic := &Command{Name: "help", Aliases: []string{"h"}}
+	shared := &Command{Name: "shared", Subcommands: []*Command{leaf, helpTopic}}
 	alpha := &Command{Name: "alpha", Subcommands: []*Command{shared}}
 	beta := &Command{Name: "beta", Aliases: []string{"b"}, Subcommands: []*Command{shared}}
 	assist := &Flag{Name: "assist", Longs: []string{"assist"}, Action: ActionHelp}
@@ -531,6 +532,7 @@ func TestWalkHelpTopicChain(t *testing.T) {
 		{"root", []string{"help"}, []*Command{root}},
 		{"child", []string{"help", "alpha"}, []*Command{root, alpha}},
 		{"nested", []string{"help", "alpha", "shared", "leaf"}, []*Command{root, alpha, shared, leaf}},
+		{"declared help command", []string{"help", "alpha", "shared", "help"}, []*Command{root, alpha, shared, helpTopic}},
 		{"shared route", []string{"help", "beta", "shared", "leaf"}, []*Command{root, beta, shared, leaf}},
 		{"aliases", []string{"help", "b", "shared", "l"}, []*Command{root, beta, shared, leaf}},
 		{"within child", []string{"beta", "help", "shared", "leaf"}, []*Command{root, beta, shared, leaf}},
@@ -544,5 +546,37 @@ func TestWalkHelpTopicChain(t *testing.T) {
 				t.Fatalf("Walk(%q) = %+v; want chain %v", tc.words, pos, tc.chain)
 			}
 		})
+	}
+}
+
+// TestWalkHelpTopicAfterVariadicTerminator checks that a silently consumed
+// terminator does not become part of the reconstructed help topic.
+func TestWalkHelpTopicAfterVariadicTerminator(t *testing.T) {
+	tools := &Flag{Name: "tools", Longs: []string{"tools"}, TakesValue: true, Variadic: true, ValueTerminator: ">>"}
+	config := &Command{Name: "config"}
+	root := &Command{Name: "ex", Flags: []*Flag{tools}, Subcommands: []*Command{config}}
+
+	pos := Walk(root, []string{"--tools", "x", ">>", "help", "config"})
+	if !pos.HelpTopic || pos.Cmd != config || !slices.Equal(pos.Chain, []*Command{root, config}) {
+		t.Fatalf("Walk after variadic terminator = %+v; want config help topic", pos)
+	}
+}
+
+// TestWalkHelpWordUsedAsVariadicTerminator checks that a terminator named help
+// is consumed as a value boundary, while a later help token remains actionable.
+func TestWalkHelpWordUsedAsVariadicTerminator(t *testing.T) {
+	tools := &Flag{Name: "tools", Longs: []string{"tools"}, TakesValue: true, Variadic: true, ValueTerminator: "help"}
+	leaf := &Command{Name: "leaf", Aliases: []string{"l"}}
+	help := &Command{Name: "help", Aliases: []string{"h"}}
+	shared := &Command{Name: "shared", Aliases: []string{"s"}, Subcommands: []*Command{leaf, help}}
+	alpha := &Command{Name: "alpha", Subcommands: []*Command{shared}}
+	beta := &Command{Name: "beta", Aliases: []string{"b"}, Subcommands: []*Command{shared}}
+	config := &Command{Name: "config"}
+	root := &Command{Name: "ex", Flags: []*Flag{tools}, Subcommands: []*Command{alpha, beta, config}}
+
+	pos := Walk(root, []string{"--tools", "x", "help", "help", "b", "s", "l"})
+	want := []*Command{root, beta, shared, leaf}
+	if !pos.HelpTopic || pos.Cmd != leaf || !slices.Equal(pos.Chain, want) {
+		t.Fatalf("Walk with help terminator = %+v; want help topic chain %v", pos, want)
 	}
 }
