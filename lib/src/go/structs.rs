@@ -454,7 +454,14 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
     };
     let _ = writeln!(
         out,
-        "\t\t\t}}\n\t\tcase argv.KindFlag:\n\t\t\tseen[ev.Flag.Key]++\n\
+        "\t\t\t}}\n\t\tcase argv.KindFlag:\n\t\t\t// The event parser leaves synthetic help/version requests to its caller.\n\
+         \t\t\tswitch ev.Flag {{\n\
+         \t\t\tcase argv.HelpShort, argv.HelpLong:\n\
+         \t\t\t\treturn nil, &argv.Error{{Code: argv.CodeHelp, Cmd: p.Command(), Long: ev.Flag == argv.HelpLong}}\n\
+         \t\t\tcase argv.VersionShort, argv.VersionLong:\n\
+         \t\t\t\treturn nil, &argv.Error{{Code: argv.CodeVersion, Cmd: p.Command(), Long: ev.Flag == argv.VersionLong}}\n\
+         \t\t\t}}\n\
+         \t\t\tseen[ev.Flag.Key]++\n\
          {duplicate_event}\
          {conditional_event}\
          {clause_flag_target}\
