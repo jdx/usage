@@ -1,0 +1,17 @@
+does extends in mise file tasks support relative paths or env vars?
+
+---
+
+sorry i menat include
+
+---
+
+even in file tasks?
+
+---
+
+let's fix this
+
+---
+
+could we at least support "$" env vars and include the config root in an env var?
