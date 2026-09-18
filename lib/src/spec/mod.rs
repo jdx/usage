@@ -242,8 +242,25 @@ impl Spec {
         infer_metadata_from_filename: bool,
         resolve_outputs: bool,
     ) -> Result<Spec, UsageErr> {
+        Self::parse_file_with_metadata_inference_and_env(
+            file,
+            infer_metadata_from_filename,
+            resolve_outputs,
+            None,
+        )
+    }
+
+    fn parse_file_with_metadata_inference_and_env(
+        file: &Path,
+        infer_metadata_from_filename: bool,
+        resolve_outputs: bool,
+        include_env: Option<&HashMap<String, String>>,
+    ) -> Result<Spec, UsageErr> {
         let spec = split_script(file)?;
-        let ctx = ParsingContext::new(file, &spec);
+        let mut ctx = ParsingContext::new(file, &spec);
+        if let Some(env) = include_env {
+            ctx = ctx.with_include_env(env);
+        }
         let mut schema = Self::parse_with_output_resolution(&ctx, &spec, resolve_outputs)?;
         if infer_metadata_from_filename && schema.bin.is_empty() {
             schema.bin = file
@@ -300,6 +317,22 @@ impl Spec {
     #[must_use = "parsing result should be used"]
     pub fn parse_str_with_path(input: &str, file: &Path) -> Result<Spec, UsageErr> {
         Self::parse(&ParsingContext::new(file, input), input)
+    }
+
+    /// Parse spec text from `file`, expanding environment variables in `include` paths.
+    ///
+    /// Expansion is deliberately limited to an `include` node's `file` property. It accepts
+    /// `$NAME`, `${NAME}`, and `$$`; an undefined variable is an error. Other spec strings are
+    /// left byte-for-byte unchanged. Included files inherit the same environment for nested
+    /// includes.
+    #[must_use = "parsing result should be used"]
+    pub fn parse_str_with_path_and_env(
+        input: &str,
+        file: &Path,
+        env: &HashMap<String, String>,
+    ) -> Result<Spec, UsageErr> {
+        let ctx = ParsingContext::new(file, input).with_include_env(env);
+        Self::parse(&ctx, input)
     }
 
     fn parse_script_with_path(input: &str, file: &Path) -> Result<Spec, UsageErr> {
@@ -759,6 +792,11 @@ impl Spec {
                         .map(|v| v.ensure_string())
                         .transpose()?
                         .ok_or_else(|| ctx.build_err("missing file".into(), node.span()))?;
+                    let file = match &ctx.include_env {
+                        Some(env) => expand_include_env(&file, env)
+                            .map_err(|msg| ctx.build_err(msg, node.span()))?,
+                        None => file,
+                    };
                     let file = Path::new(&file);
                     let file = match file.is_relative() {
                         true => ctx
@@ -780,7 +818,12 @@ impl Spec {
                     // per include, for a spec it parses on behalf of a command that never
                     // mentioned includes. The rest of the parser logs at trace for this reason.
                     debug!("include: {}", file.display());
-                    let other = Self::parse_file_with_metadata_inference(&file, false, false)?;
+                    let other = Self::parse_file_with_metadata_inference_and_env(
+                        &file,
+                        false,
+                        false,
+                        ctx.include_env.as_ref(),
+                    )?;
                     // Two *declarations* of one name are refused, the same as two in a single
                     // file. Letting the incoming set win would make which declaration a
                     // `use` gets depend on whether the `include` stands above or below it —
@@ -1408,6 +1451,55 @@ impl Display for Spec {
     }
 }
 
+fn expand_include_env(input: &str, env: &HashMap<String, String>) -> Result<String, String> {
+    let mut output = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '$' {
+            output.push(ch);
+            continue;
+        }
+        if chars.next_if_eq(&'$').is_some() {
+            output.push('$');
+            continue;
+        }
+
+        let name = if chars.next_if_eq(&'{').is_some() {
+            let mut name = String::new();
+            let mut closed = false;
+            for ch in chars.by_ref() {
+                if ch == '}' {
+                    closed = true;
+                    break;
+                }
+                name.push(ch);
+            }
+            if !closed {
+                return Err("include path contains an unterminated environment reference".into());
+            }
+            name
+        } else {
+            let mut name = String::new();
+            while chars
+                .peek()
+                .is_some_and(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+            {
+                name.push(chars.next().expect("peeked character exists"));
+            }
+            name
+        };
+        if name.is_empty() {
+            output.push('$');
+            continue;
+        }
+        let value = env.get(&name).ok_or_else(|| {
+            format!("include path references undefined environment variable {name}")
+        })?;
+        output.push_str(value);
+    }
+    Ok(output)
+}
+
 impl FromStr for Spec {
     type Err = UsageErr;
 
@@ -1887,6 +1979,68 @@ cmd "run"
             Spec::parse_str_with_path(spec_text, &dir.path().join("root.usage.kdl")).unwrap();
         let flags: Vec<_> = spec.cmd.flags.iter().map(|f| f.name.clone()).collect();
         assert_eq!(flags, vec!["shared".to_string(), "own".to_string()]);
+    }
+
+    #[test]
+    fn parse_str_with_path_and_env_expands_nested_include_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared = dir.path().join("shared");
+        std::fs::create_dir(&shared).unwrap();
+        std::fs::write(
+            shared.join("common.usage.kdl"),
+            "include file=\"${SHARED_ROOT}/flags.usage.kdl\"\nuse \"common\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            shared.join("flags.usage.kdl"),
+            "flagset \"common\" {\n  flag \"--shared\"\n}\n",
+        )
+        .unwrap();
+        let input = "include file=\"$CONFIG_ROOT/shared/common.usage.kdl\"\n";
+        let env = HashMap::from([
+            (
+                "CONFIG_ROOT".to_string(),
+                dir.path().to_string_lossy().into_owned(),
+            ),
+            (
+                "SHARED_ROOT".to_string(),
+                shared.to_string_lossy().into_owned(),
+            ),
+        ]);
+
+        let spec =
+            Spec::parse_str_with_path_and_env(input, &dir.path().join("mise-tasks/build"), &env)
+                .unwrap();
+
+        assert_eq!(spec.cmd.flags.len(), 1);
+        assert_eq!(spec.cmd.flags[0].long, ["shared"]);
+    }
+
+    #[test]
+    fn parse_str_with_path_and_env_rejects_an_undefined_include_variable() {
+        let err = Spec::parse_str_with_path_and_env(
+            "include file=\"$MISSING/shared.usage.kdl\"\n",
+            Path::new("mise-tasks/build"),
+            &HashMap::new(),
+        )
+        .unwrap_err();
+        let rendered = format!("{:?}", crate::miette::Error::from(err));
+
+        assert!(
+            rendered.contains("undefined environment variable MISSING"),
+            "{rendered}"
+        );
+    }
+
+    #[test]
+    fn include_environment_expansion_supports_braces_and_literal_dollars() {
+        let env = HashMap::from([("ROOT".to_string(), "/project".to_string())]);
+
+        assert_eq!(
+            expand_include_env("$ROOT/${ROOT}/$$ROOT", &env).unwrap(),
+            "/project//project/$ROOT"
+        );
+        assert!(expand_include_env("${ROOT", &env).is_err());
     }
 
     #[test]
