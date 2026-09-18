@@ -1464,7 +1464,7 @@ fn expand_include_env(input: &str, env: &HashMap<String, String>) -> Result<Stri
             continue;
         }
 
-        let name = if chars.next_if_eq(&'{').is_some() {
+        let (name, braced) = if chars.next_if_eq(&'{').is_some() {
             let mut name = String::new();
             let mut closed = false;
             for ch in chars.by_ref() {
@@ -1477,7 +1477,7 @@ fn expand_include_env(input: &str, env: &HashMap<String, String>) -> Result<Stri
             if !closed {
                 return Err("include path contains an unterminated environment reference".into());
             }
-            name
+            (name, true)
         } else {
             let mut name = String::new();
             while chars
@@ -1486,10 +1486,10 @@ fn expand_include_env(input: &str, env: &HashMap<String, String>) -> Result<Stri
             {
                 name.push(chars.next().expect("peeked character exists"));
             }
-            name
+            (name, false)
         };
         if name.is_empty() {
-            output.push('$');
+            output.push_str(if braced { "${}" } else { "$" });
             continue;
         }
         let value = env.get(&name).ok_or_else(|| {
@@ -2037,8 +2037,8 @@ cmd "run"
         let env = HashMap::from([("ROOT".to_string(), "/project".to_string())]);
 
         assert_eq!(
-            expand_include_env("$ROOT/${ROOT}/$$ROOT", &env).unwrap(),
-            "/project//project/$ROOT"
+            expand_include_env("$ROOT/${ROOT}/$$ROOT/assets/${}", &env).unwrap(),
+            "/project//project/$ROOT/assets/${}"
         );
         assert!(expand_include_env("${ROOT", &env).is_err());
     }
