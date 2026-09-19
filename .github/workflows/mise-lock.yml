@@ -1,0 +1,42 @@
+name: mise-lock
+
+# Regenerates mise.lock on Renovate branches. Renovate's mise manager rewrites
+# the `version =` line in mise.lock and nothing else, so the per-platform URLs
+# and checksums keep pointing at the previous release — `mise install --locked`
+# then reports the new version while installing the old artifact, and a plain
+# `mise install` does not self-heal. The hosted Mend app this org uses does not
+# run postUpgradeTasks, so the regeneration has to happen here rather than in
+# Renovate's own config. This is the mise sibling of aube-lock.yml. See
+# jdx/renovate-config for the workflow implementation.
+
+on:
+  push:
+    branches: ["renovate/**"]
+
+permissions: {}
+
+jobs:
+  mise-lock:
+    permissions:
+      # Pushes the regenerated lockfile back onto the Renovate branch. The
+      # shared workflow gates itself on the sender being renovate[bot], so our
+      # own fix-up push cannot re-enter it.
+      contents: write # commit mise.lock and the regenerated generator output
+    uses: jdx/renovate-config/.github/workflows/mise-lock.yml@64eb824cc68fce06c1842df1b513ee40f23bf076 # main
+    with:
+      # test-impl.yml runs render, gen-shadow and gen-go and fails the branch if
+      # any of them produces a diff. Two are driven by mise-managed tools —
+      # prettier formats render's output, gofumpt formats gen-shadow's — so a
+      # tool bump has to regenerate them in the same commit, otherwise the
+      # lockfile fix just trades one red check for another.
+      post_update_task: renovate:post-update
+      # The whole tree, rather than the generators' own output directories:
+      # render's last step is `hk fix --all --step prettier`, which formats every
+      # prettier-covered file in the repo, so a prettier bump can touch any
+      # tracked .md, .json, .yml or .ts file. This also picks up the
+      # .mise/locks/** sidecars that `mise lock` rewrites for npm: backends.
+      post_update_paths: |
+        .
+    secrets:
+      MISE_LOCK_APP_ID: ${{ secrets.MISE_LOCK_APP_ID }}
+      MISE_LOCK_APP_PRIVATE_KEY: ${{ secrets.MISE_LOCK_APP_PRIVATE_KEY }}

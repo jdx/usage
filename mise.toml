@@ -166,6 +166,14 @@ run = [
     'prettier -w cli/assets/fig.ts',
 ]
 
+# What `.github/workflows/mise-lock.yml` runs after regenerating mise.lock on a
+# Renovate branch. Exactly the three generators `test-impl.yml` asserts produce no
+# diff, in the order it runs them: `depends` would run them concurrently, and
+# gen-shadow's `gofumpt -w` walk over benches/go races gen-go writing a table into
+# the same directory.
+[tasks."renovate:post-update"]
+run = ['mise run render', 'mise run gen-shadow', 'mise run gen-go']
+
 [tasks.release]
 run = "cargo release --workspace"
 
