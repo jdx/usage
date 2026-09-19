@@ -1,5 +1,43 @@
 # Changelog
 
+## [6.10.0](https://github.com/jdx/usage/compare/v6.9.1..v6.10.0) - 2026-09-19
+
+### 🚀 Features
+
+- **(go)** generate explicitly typed CLI fields by [@zeitlinger](https://github.com/zeitlinger) in [#1441](https://github.com/jdx/usage/pull/1441)
+- **(help)** mark the default subcommand and opt in to appending its page by [@lu-zero](https://github.com/lu-zero) in [#1424](https://github.com/jdx/usage/pull/1424)
+- **(parse)** render Go help and version requests by [@zeitlinger](https://github.com/zeitlinger) in [#1439](https://github.com/jdx/usage/pull/1439)
+- **(spec)** expand environment variables in include paths by [@jdx](https://github.com/jdx) in [#1446](https://github.com/jdx/usage/pull/1446)
+
+### 🐛 Bug Fixes
+
+- **(cli)** migrate to rmcp 3.4 server config by [@jdx](https://github.com/jdx) in [#1448](https://github.com/jdx/usage/pull/1448)
+- **(complete)** preserve the full Go help-topic command chain by [@zeitlinger](https://github.com/zeitlinger) in [#1440](https://github.com/jdx/usage/pull/1440)
+- **(help)** drop repeated global flags from the appended default-subcommand page by [@lu-zero](https://github.com/lu-zero) in [#1436](https://github.com/jdx/usage/pull/1436)
+- **(parse)** suggest `--` when a refused flag could have been a value by [@jdx](https://github.com/jdx) in [#1430](https://github.com/jdx/usage/pull/1430)
+- **(parse)** return help and version requests from generated Go parsers by [@zeitlinger](https://github.com/zeitlinger) in [#1437](https://github.com/jdx/usage/pull/1437)
+- **(spec)** give a string-parsed spec its source by [@jdx](https://github.com/jdx) in [#1443](https://github.com/jdx/usage/pull/1443)
+- **(spec)** log include resolution at debug level by [@jdx](https://github.com/jdx) in [#1444](https://github.com/jdx/usage/pull/1444)
+
+### 🛡️ Security
+
+- **(deps)** update dependency aube to latest by [@renovate[bot]](https://github.com/renovate[bot]) in [#1433](https://github.com/jdx/usage/pull/1433)
+- **(deps)** update node.js to 24 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1434](https://github.com/jdx/usage/pull/1434)
+- stop clipping the GitHub star count in the nav overflow menu by [@jdx](https://github.com/jdx) in [#1429](https://github.com/jdx/usage/pull/1429)
+- add entire trail runners by [@jdx](https://github.com/jdx) in [#1445](https://github.com/jdx/usage/pull/1445)
+
+### 🔍 Other Changes
+
+- remove entire and codex agent hooks by [@jdx](https://github.com/jdx) in [5a9da44](https://github.com/jdx/usage/commit/5a9da440b3fe6d799b5903e7b04848f182c33977)
+- refresh aube-lock workflow pin by [@jdx](https://github.com/jdx) in [#1447](https://github.com/jdx/usage/pull/1447)
+
+### 📦️ Dependency Updates
+
+- bump mbx to 1.11.1 by [@jdx](https://github.com/jdx) in [8f406f0](https://github.com/jdx/usage/commit/8f406f00d5a2d45b2cb3de5b9a7fd3eb57503c00)
+- update dependency github:jdx/tak to v0.0.10 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1431](https://github.com/jdx/usage/pull/1431)
+- update dependency cargo-binstall to v1.23.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1432](https://github.com/jdx/usage/pull/1432)
+- update dependency hk to latest by [@renovate[bot]](https://github.com/renovate[bot]) in [#1435](https://github.com/jdx/usage/pull/1435)
+
 ## [6.9.1](https://github.com/jdx/usage/compare/v6.9.0..v6.9.1) - 2026-09-14
 
 ### 🐛 Bug Fixes
