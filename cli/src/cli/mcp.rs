@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use rmcp::{
     handler::server::{tool::ToolRouter, wrapper::Parameters, ServerHandler},
-    model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerInfo},
+    model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig},
     tool, tool_handler, tool_router, ErrorData, ServiceExt,
 };
 use schemars::JsonSchema;
@@ -155,8 +155,8 @@ impl SpecServer {
 // default is `Self::tool_router()`, which rebuilds it on every request.
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for SpecServer {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             // Without this the server names itself after rmcp, since rmcp's
             // default reads the `CARGO_*` vars of its own crate.
             .with_server_info(Implementation::new("usage", env!("CARGO_PKG_VERSION")))
