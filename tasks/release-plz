@@ -137,10 +137,13 @@ for p in packages:
         continue
     path = Path(p["manifest_path"])
     text = path.read_text()
-    section = re.search(r"^\[package\]\n(?:(?!\[).*\n)*", text, re.MULTILINE)
+    section = re.search(r"^\[package\][^\n]*\n(?:(?!\[).*\n)*", text, re.MULTILINE)
+    if not section:
+        raise SystemExit(f"{path}: no [package] table")
     head, count = re.subn(
-        r'^version = "[^"]*"$', f'version = "{new}"', section.group(0),
-        count=1, flags=re.MULTILINE,
+        r'^(version[ \t]*=[ \t]*)"[^"]*"',
+        lambda m: f'{m.group(1)}"{new}"',
+        section.group(0), count=1, flags=re.MULTILINE,
     )
     if count != 1:
         raise SystemExit(f"{path}: no literal [package] version to set")
@@ -149,19 +152,18 @@ for p in packages:
 # Requirements on path dependencies that point at a bumped crate, in
 # [workspace.dependencies] and in members:
 # `usage-lib = { path = "./lib", version = "6.10.0" }` -> version = "<new>".
-inline_dep = re.compile(r"^(\s*([A-Za-z0-9_-]+)\s*=\s*\{)([^\n]*)(\}\s*)$", re.MULTILINE)
-dep_table = re.compile(
-    r"^\[(?:[^\]\n]*\.)?(?:dev-|build-)?dependencies\.([A-Za-z0-9_-]+)\]", re.MULTILINE
-)
+inline_dep = re.compile(r"^([ \t]*([A-Za-z0-9_-]+)[ \t]*=[ \t]*\{)([^\n]*)(\}[ \t]*)$", re.MULTILINE)
 
 
 def bump(m):
     body = m.group(3)
-    renamed = re.search(r'\bpackage\s*=\s*"([^"]+)"', body)
+    renamed = re.search(r'\bpackage[ \t]*=[ \t]*"([^"]+)"', body)
     name = renamed.group(1) if renamed else m.group(2)
-    if name not in bumped or not re.search(r"\bpath\s*=", body):
+    if name not in bumped or not re.search(r"\bpath[ \t]*=", body):
         return m.group(0)
-    body = re.sub(r'\bversion\s*=\s*"[^"]*"', f'version = "{new}"', body)
+    body = re.sub(
+        r'(\bversion[ \t]*=[ \t]*)"[^"]*"', lambda v: f'{v.group(1)}"{new}"', body
+    )
     return m.group(1) + body + m.group(4)
 
 
@@ -169,14 +171,69 @@ manifests = [Path(data["workspace_root"]) / "Cargo.toml"]
 manifests += [Path(p["manifest_path"]) for p in packages]
 for path in dict.fromkeys(manifests):
     text = path.read_text()
-    for name in dep_table.findall(text):
-        if name in bumped:
-            raise SystemExit(f"{path}: [dependencies.{name}] tables are not handled")
     updated = inline_dep.sub(bump, text)
     if updated != text:
         path.write_text(updated)
 PY
   cargo update --workspace
+  # Fail the release if anything was missed, e.g. a manifest reformatted so a
+  # pattern above no longer matches: every bumped crate and every versioned path
+  # dependency on one, in the manifests and in what cargo resolves.
+  python3 - "$1" <<'PY'
+import json
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+new = sys.argv[1]
+data = json.loads(
+    subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--no-deps", "--offline"],
+        check=True, capture_output=True, text=True,
+    ).stdout
+)
+members = set(data["workspace_members"])
+packages = [p for p in data["packages"] if p["id"] in members]
+# The same selection as the bump; a crate it missed is still at its old version.
+bumped = {
+    p["name"]
+    for p in packages
+    if p["name"] != "clap_usage" and p["version"] != "0.0.0"
+}
+errors = []
+if not bumped:
+    errors.append("no crates were selected for the bump")
+for p in packages:
+    if p["name"] in bumped and p["version"] != new:
+        errors.append(f"{p['name']} is {p['version']}, not {new}")
+    for dep in p["dependencies"]:
+        if dep["name"] in bumped and dep.get("path") and dep["req"] not in ("*", f"^{new}"):
+            errors.append(f"{p['name']} requires {dep['name']} {dep['req']}, not ^{new}")
+
+
+def dep_tables(doc):
+    for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+        yield doc.get(key, {})
+    for target in doc.get("target", {}).values():
+        yield from dep_tables(target)
+
+
+root = Path(data["workspace_root"]) / "Cargo.toml"
+manifests = [root] + [Path(p["manifest_path"]) for p in packages]
+for path in dict.fromkeys(manifests):
+    doc = tomllib.loads(path.read_text())
+    tables = list(dep_tables(doc)) + [doc.get("workspace", {}).get("dependencies", {})]
+    for table in tables:
+        for key, spec in table.items():
+            if not isinstance(spec, dict) or "path" not in spec or "version" not in spec:
+                continue
+            if spec.get("package", key) in bumped and spec["version"] != new:
+                errors.append(f"{path}: {key} requires {spec['version']}, not {new}")
+if errors:
+    raise SystemExit("version bump incomplete:\n" + "\n".join(errors))
+print(f"bumped {len(bumped)} crates to {new}")
+PY
 }
 set_workspace_version "${version#v}"
 
