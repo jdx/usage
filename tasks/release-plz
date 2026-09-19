@@ -137,7 +137,8 @@ for p in packages:
         continue
     path = Path(p["manifest_path"])
     text = path.read_text()
-    section = re.search(r"^\[package\][^\n]*\n(?:(?!\[).*\n)*", text, re.MULTILINE)
+    # From the header up to the next table or the end of the file, final newline or not.
+    section = re.search(r"^\[package\][^\n]*(?:\n(?!\[)[^\n]*)*", text, re.MULTILINE)
     if not section:
         raise SystemExit(f"{path}: no [package] table")
     head, count = re.subn(
