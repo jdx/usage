@@ -566,10 +566,10 @@ aube = { path = ".mise/locks/npm-prettier/3.9.6", digest = "sha256:2713c3c98701f
 backend = "npm:prettier"
 specifiers = ["latest"]
 
-[[tools."npm:tsc"]]
-version = "2.0.4"
-aube = { path = ".mise/locks/npm-tsc/2.0.4", digest = "sha256:4db6b2511e9518d457da17f0904953db3376c461c8bf96028c9eb1b09add9c4d" }
-backend = "npm:tsc"
+[[tools."npm:typescript"]]
+version = "6.0.3"
+aube = { path = ".mise/locks/npm-typescript/6.0.3", digest = "sha256:bfd4f60761264c1fe455bfca4cc3841cabe82be4d3aa7c85d578f29f6a674804" }
+backend = "npm:typescript"
 specifiers = ["latest"]
 
 [[tools.python]]

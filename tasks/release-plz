@@ -152,7 +152,11 @@ for p in packages:
 # Requirements on path dependencies that point at a bumped crate, in
 # [workspace.dependencies] and in members:
 # `usage-lib = { path = "./lib", version = "6.10.0" }` -> version = "<new>".
-inline_dep = re.compile(r"^([ \t]*([A-Za-z0-9_-]+)[ \t]*=[ \t]*\{)([^\n]*)(\}[ \t]*)$", re.MULTILINE)
+# A trailing `# comment` is allowed; the check after `cargo update` catches any
+# layout this still misses.
+inline_dep = re.compile(
+    r"^([ \t]*([A-Za-z0-9_-]+)[ \t]*=[ \t]*\{)([^\n]*?)(\}[ \t]*(?:#[^\n]*)?)$", re.MULTILINE
+)
 
 
 def bump(m):
