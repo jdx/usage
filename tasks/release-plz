@@ -99,26 +99,149 @@ git cliff "$release_range" --tag "$version" --prepend CHANGELOG.md
 # Strip version header since PR title already has version
 PR_BODY="$(git cliff "$release_range" --tag "$version" --strip all | tail -n +3)"
 
+# Bump the published crates to the release version, as `cargo set-version` did. Done
+# here rather than with cargo-edit because that has no prebuilt binary: mise compiled
+# it from source in every CI job that installs the project's tools.
+#
 # clap_usage is versioned by hand. Everything still at 0.0.0 is unpublished
-# (xtask, conformance, benches) and must stay there. `cargo set-version`
-# otherwise stamps those too; `cargo update` writes 6.x into Cargo.lock; git add
-# below does not include their manifests — MSRV `cargo check --locked` then
-# fails (https://github.com/jdx/usage/pull/795).
-exclude_args=(--exclude clap_usage)
-while IFS= read -r pkg; do
-  exclude_args+=(--exclude "$pkg")
-done < <(
-  cargo metadata --format-version 1 --no-deps --offline | python3 -c '
-import json, sys
+# (xtask, conformance, benches) and must stay there. Stamping those too makes
+# `cargo update` write 6.x into Cargo.lock, while git add below does not include
+# their manifests — MSRV `cargo check --locked` then fails
+# (https://github.com/jdx/usage/pull/795).
+set_workspace_version() {
+  python3 - "$1" <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
 
-data = json.load(sys.stdin)
-members = set(data["workspace_members"])
-for package in data["packages"]:
-    if package["id"] in members and package["version"] == "0.0.0":
-        print(package["name"])
-'
+new = sys.argv[1]
+data = json.loads(
+    subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--no-deps", "--offline"],
+        check=True, capture_output=True, text=True,
+    ).stdout
 )
-cargo set-version "${version#v}" "${exclude_args[@]}"
+members = set(data["workspace_members"])
+packages = [p for p in data["packages"] if p["id"] in members]
+bumped = {
+    p["name"]
+    for p in packages
+    if p["name"] != "clap_usage" and p["version"] != "0.0.0"
+}
+
+# The `version` line in each bumped crate's [package] table.
+for p in packages:
+    if p["name"] not in bumped:
+        continue
+    path = Path(p["manifest_path"])
+    text = path.read_text()
+    # From the header up to the next table or the end of the file, final newline or not.
+    section = re.search(r"^\[package\][^\n]*(?:\n(?!\[)[^\n]*)*", text, re.MULTILINE)
+    if not section:
+        raise SystemExit(f"{path}: no [package] table")
+    head, count = re.subn(
+        r'^(version[ \t]*=[ \t]*)"[^"]*"',
+        lambda m: f'{m.group(1)}"{new}"',
+        section.group(0), count=1, flags=re.MULTILINE,
+    )
+    if count != 1:
+        raise SystemExit(f"{path}: no literal [package] version to set")
+    path.write_text(text[: section.start()] + head + text[section.end() :])
+
+# Requirements on path dependencies that point at a bumped crate, in
+# [workspace.dependencies] and in members:
+# `usage-lib = { path = "./lib", version = "6.10.0" }` -> version = "<new>".
+# A trailing `# comment` is allowed; the check below catches any
+# layout this still misses.
+inline_dep = re.compile(
+    r"^([ \t]*([A-Za-z0-9_-]+)[ \t]*=[ \t]*\{)([^\n]*?)(\}[ \t]*(?:#[^\n]*)?)$", re.MULTILINE
+)
+
+
+def bump(m):
+    body = m.group(3)
+    renamed = re.search(r'\bpackage[ \t]*=[ \t]*"([^"]+)"', body)
+    name = renamed.group(1) if renamed else m.group(2)
+    if name not in bumped or not re.search(r"\bpath[ \t]*=", body):
+        return m.group(0)
+    body = re.sub(
+        r'(\bversion[ \t]*=[ \t]*)"[^"]*"', lambda v: f'{v.group(1)}"{new}"', body
+    )
+    return m.group(1) + body + m.group(4)
+
+
+manifests = [Path(data["workspace_root"]) / "Cargo.toml"]
+manifests += [Path(p["manifest_path"]) for p in packages]
+for path in dict.fromkeys(manifests):
+    text = path.read_text()
+    updated = inline_dep.sub(bump, text)
+    if updated != text:
+        path.write_text(updated)
+PY
+  # Resolve only: rewrites the workspace crates' Cargo.lock entries, upgrades nothing.
+  cargo metadata --format-version 1 >/dev/null
+  # Fail the release if anything was missed, e.g. a manifest reformatted so a
+  # pattern above no longer matches: every bumped crate and every versioned path
+  # dependency on one, in the manifests and in what cargo resolves.
+  python3 - "$1" <<'PY'
+import json
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+new = sys.argv[1]
+data = json.loads(
+    subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--no-deps", "--offline"],
+        check=True, capture_output=True, text=True,
+    ).stdout
+)
+members = set(data["workspace_members"])
+packages = [p for p in data["packages"] if p["id"] in members]
+# The same selection as the bump; a crate it missed is still at its old version.
+bumped = {
+    p["name"]
+    for p in packages
+    if p["name"] != "clap_usage" and p["version"] != "0.0.0"
+}
+errors = []
+if not bumped:
+    errors.append("no crates were selected for the bump")
+for p in packages:
+    if p["name"] in bumped and p["version"] != new:
+        errors.append(f"{p['name']} is {p['version']}, not {new}")
+    for dep in p["dependencies"]:
+        if dep["name"] in bumped and dep.get("path") and dep["req"] not in ("*", f"^{new}"):
+            errors.append(f"{p['name']} requires {dep['name']} {dep['req']}, not ^{new}")
+
+
+def dep_tables(doc):
+    for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+        yield doc.get(key, {})
+    for target in doc.get("target", {}).values():
+        yield from dep_tables(target)
+
+
+root = Path(data["workspace_root"]) / "Cargo.toml"
+manifests = [root] + [Path(p["manifest_path"]) for p in packages]
+for path in dict.fromkeys(manifests):
+    doc = tomllib.loads(path.read_text())
+    tables = list(dep_tables(doc)) + [doc.get("workspace", {}).get("dependencies", {})]
+    for table in tables:
+        for key, spec in table.items():
+            if not isinstance(spec, dict) or "path" not in spec or "version" not in spec:
+                continue
+            if spec.get("package", key) in bumped and spec["version"] != new:
+                errors.append(f"{path}: {key} requires {spec['version']}, not {new}")
+if errors:
+    raise SystemExit("version bump incomplete:\n" + "\n".join(errors))
+print(f"bumped {len(bumped)} crates to {new}")
+PY
+}
+set_workspace_version "${version#v}"
 
 # User-facing dependency examples track the compatible major, not a point release.
 # Keep `version = "6"` through every 6.x release and change it only for 7.0.0.
