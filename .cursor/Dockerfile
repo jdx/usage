@@ -18,9 +18,11 @@ ENV LANG=C.UTF-8 \
 
 # System packages:
 # - ca-certificates/curl/git/xz-utils/unzip: fetch + unpack toolchains and tools
-# - build-essential/pkg-config/libssl-dev: compile cargo-installed tools (cargo-edit)
+# - build-essential: C toolchain for rustc's linker and the `cc`-driven build
+#   scripts in the dependency tree (alloca), plus cgo for the Go corpus tests
 # - zsh/fish: shell-completion integration tests (they panic rather than skip under CI=1)
-# - libicu74: required by the PowerShell runtime
+# - libicu78: required by the PowerShell runtime. The soname is baked into the
+#   package name, so this has to be bumped together with the base image tag.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -29,15 +31,13 @@ RUN apt-get update \
         xz-utils \
         unzip \
         build-essential \
-        pkg-config \
-        libssl-dev \
         zsh \
         fish \
-        libicu74 \
+        libicu78 \
     && rm -rf /var/lib/apt/lists/*
 
 # PowerShell (pwsh) from the official tarball — the fourth shell the completion
-# integration tests drive. Not packaged for Ubuntu 24.04, so install from release.
+# integration tests drive. Not packaged for Ubuntu, so install from release.
 RUN PWSH_VERSION=7.6.5 \
     && curl -fsSL -o /tmp/pwsh.tar.gz \
         "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell-${PWSH_VERSION}-linux-x64.tar.gz" \
