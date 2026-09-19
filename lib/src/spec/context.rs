@@ -1,5 +1,6 @@
 use crate::error::UsageErr;
 use crate::miette::{NamedSource, SourceSpan};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
@@ -7,6 +8,7 @@ use std::sync::{Mutex, OnceLock};
 pub struct ParsingContext {
     pub(crate) file: PathBuf,
     pub(crate) spec: String,
+    pub(crate) include_env: Option<HashMap<String, String>>,
     sources: OnceLock<Mutex<Vec<PathBuf>>>,
 }
 
@@ -15,8 +17,14 @@ impl ParsingContext {
         Self {
             file: file.to_path_buf(),
             spec: spec.to_string(),
+            include_env: None,
             sources: OnceLock::new(),
         }
+    }
+
+    pub(crate) fn with_include_env(mut self, env: &HashMap<String, String>) -> Self {
+        self.include_env = Some(env.clone());
+        self
     }
 
     pub(crate) fn build_err(&self, msg: String, span: SourceSpan) -> UsageErr {
