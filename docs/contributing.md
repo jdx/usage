@@ -35,9 +35,7 @@ mise run build
 ```
 
 Mise activates the project's Cargo cache wrapper. For standalone Cargo commands,
-use `mise exec -- cargo …` or an activated mise shell. See the
-[repository contribution notes](https://github.com/jdx/usage/blob/main/CONTRIBUTING.md#mbx-build-cache)
-if the wrapper fails.
+use `mise exec -- cargo …` or an activated mise shell.
 
 ## Work on the documentation
 
