@@ -99,26 +99,86 @@ git cliff "$release_range" --tag "$version" --prepend CHANGELOG.md
 # Strip version header since PR title already has version
 PR_BODY="$(git cliff "$release_range" --tag "$version" --strip all | tail -n +3)"
 
+# Bump the published crates to the release version, as `cargo set-version` did. Done
+# here rather than with cargo-edit because that has no prebuilt binary: mise compiled
+# it from source in every CI job that installs the project's tools.
+#
 # clap_usage is versioned by hand. Everything still at 0.0.0 is unpublished
-# (xtask, conformance, benches) and must stay there. `cargo set-version`
-# otherwise stamps those too; `cargo update` writes 6.x into Cargo.lock; git add
-# below does not include their manifests — MSRV `cargo check --locked` then
-# fails (https://github.com/jdx/usage/pull/795).
-exclude_args=(--exclude clap_usage)
-while IFS= read -r pkg; do
-  exclude_args+=(--exclude "$pkg")
-done < <(
-  cargo metadata --format-version 1 --no-deps --offline | python3 -c '
-import json, sys
+# (xtask, conformance, benches) and must stay there. Stamping those too makes
+# `cargo update` write 6.x into Cargo.lock, while git add below does not include
+# their manifests — MSRV `cargo check --locked` then fails
+# (https://github.com/jdx/usage/pull/795).
+set_workspace_version() {
+  python3 - "$1" <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
 
-data = json.load(sys.stdin)
-members = set(data["workspace_members"])
-for package in data["packages"]:
-    if package["id"] in members and package["version"] == "0.0.0":
-        print(package["name"])
-'
+new = sys.argv[1]
+data = json.loads(
+    subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--no-deps", "--offline"],
+        check=True, capture_output=True, text=True,
+    ).stdout
 )
-cargo set-version "${version#v}" "${exclude_args[@]}"
+members = set(data["workspace_members"])
+packages = [p for p in data["packages"] if p["id"] in members]
+bumped = {
+    p["name"]
+    for p in packages
+    if p["name"] != "clap_usage" and p["version"] != "0.0.0"
+}
+
+# The `version` line in each bumped crate's [package] table.
+for p in packages:
+    if p["name"] not in bumped:
+        continue
+    path = Path(p["manifest_path"])
+    text = path.read_text()
+    section = re.search(r"^\[package\]\n(?:(?!\[).*\n)*", text, re.MULTILINE)
+    head, count = re.subn(
+        r'^version = "[^"]*"$', f'version = "{new}"', section.group(0),
+        count=1, flags=re.MULTILINE,
+    )
+    if count != 1:
+        raise SystemExit(f"{path}: no literal [package] version to set")
+    path.write_text(text[: section.start()] + head + text[section.end() :])
+
+# Requirements on path dependencies that point at a bumped crate, in
+# [workspace.dependencies] and in members:
+# `usage-lib = { path = "./lib", version = "6.10.0" }` -> version = "<new>".
+inline_dep = re.compile(r"^(\s*([A-Za-z0-9_-]+)\s*=\s*\{)([^\n]*)(\}\s*)$", re.MULTILINE)
+dep_table = re.compile(
+    r"^\[(?:[^\]\n]*\.)?(?:dev-|build-)?dependencies\.([A-Za-z0-9_-]+)\]", re.MULTILINE
+)
+
+
+def bump(m):
+    body = m.group(3)
+    renamed = re.search(r'\bpackage\s*=\s*"([^"]+)"', body)
+    name = renamed.group(1) if renamed else m.group(2)
+    if name not in bumped or not re.search(r"\bpath\s*=", body):
+        return m.group(0)
+    body = re.sub(r'\bversion\s*=\s*"[^"]*"', f'version = "{new}"', body)
+    return m.group(1) + body + m.group(4)
+
+
+manifests = [Path(data["workspace_root"]) / "Cargo.toml"]
+manifests += [Path(p["manifest_path"]) for p in packages]
+for path in dict.fromkeys(manifests):
+    text = path.read_text()
+    for name in dep_table.findall(text):
+        if name in bumped:
+            raise SystemExit(f"{path}: [dependencies.{name}] tables are not handled")
+    updated = inline_dep.sub(bump, text)
+    if updated != text:
+        path.write_text(updated)
+PY
+  cargo update --workspace
+}
+set_workspace_version "${version#v}"
 
 # User-facing dependency examples track the compatible major, not a point release.
 # Keep `version = "6"` through every 6.x release and change it only for 7.0.0.
