@@ -68,6 +68,13 @@ func TestRequests(t *testing.T) {
             if request.Cmd.Name != tc.command || request.Long != tc.long {
                 t.Fatalf("request = %+v; want command %q, long %v", request, tc.command, tc.long)
             }
+            rendered, handled := argv.RenderRequest(request, HelpMeta, Root, tc.args, HelpText)
+            if !handled || rendered == "" {
+                t.Fatalf("generated request was not rendered: %q, %v", rendered, handled)
+            }
+            if tc.code == argv.CodeVersion && rendered != "1.0.0\n" {
+                t.Fatalf("version output = %q", rendered)
+            }
         })
     }
 }

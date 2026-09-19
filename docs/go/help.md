@@ -6,6 +6,39 @@ in progress; APIs, generated code, and behavior may change. See the
 [overview](/go/) for the current scope and limitations.
 :::
 
+## Rendering help and version requests
+
+`RenderRequest` handles `CodeHelp` and `CodeVersion` without application-side
+command-tree searches or page selection:
+
+```go
+cli, err := Parse(args)
+if err != nil {
+    var request *argv.Error
+    if errors.As(err, &request) {
+        meta := HelpMeta
+        meta.Version = buildVersion // optional runtime version; leaves tables unchanged
+        if text, handled := argv.RenderRequest(request, meta, Root, args, HelpText); handled {
+            _, writeErr := io.WriteString(stdout, text)
+            return writeErr
+        }
+    }
+    return err
+}
+// Dispatch cli.
+```
+
+Pass the same arguments used for parsing, excluding the program name. `HelpMeta.Bin`
+sets the displayed binary name; command aliases retain their invoked spelling.
+The helper follows parser events, so shared command nodes retain the correct
+ancestors and implicit default commands use their declared names. It stops at
+help/version even when more arguments follow.
+
+Short, long, and recursive help use the existing page renderers. Versions are
+returned with a trailing newline; long requests prefer `LongVersion` and fall
+back to `Version`. Ordinary errors and nil return `("", false)`. The caller
+retains control of output, write errors, and exit status.
+
 ## Help pages
 
 Three renderers cover the usage line, the `-h` page, and the `--help` page:
