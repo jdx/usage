@@ -566,12 +566,6 @@ aube = { path = ".mise/locks/npm-prettier/3.9.6", digest = "sha256:2713c3c98701f
 backend = "npm:prettier"
 specifiers = ["latest"]
 
-[[tools."npm:typescript"]]
-version = "6.0.3"
-aube = { path = ".mise/locks/npm-typescript/6.0.3", digest = "sha256:bfd4f60761264c1fe455bfca4cc3841cabe82be4d3aa7c85d578f29f6a674804" }
-backend = "npm:typescript"
-specifiers = ["latest"]
-
 [[tools.python]]
 version = "3.14.7"
 backend = "core:python"

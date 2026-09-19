@@ -152,7 +152,7 @@ for p in packages:
 # Requirements on path dependencies that point at a bumped crate, in
 # [workspace.dependencies] and in members:
 # `usage-lib = { path = "./lib", version = "6.10.0" }` -> version = "<new>".
-# A trailing `# comment` is allowed; the check after `cargo update` catches any
+# A trailing `# comment` is allowed; the check below catches any
 # layout this still misses.
 inline_dep = re.compile(
     r"^([ \t]*([A-Za-z0-9_-]+)[ \t]*=[ \t]*\{)([^\n]*?)(\}[ \t]*(?:#[^\n]*)?)$", re.MULTILINE
@@ -179,7 +179,8 @@ for path in dict.fromkeys(manifests):
     if updated != text:
         path.write_text(updated)
 PY
-  cargo update --workspace
+  # Resolve only: rewrites the workspace crates' Cargo.lock entries, upgrades nothing.
+  cargo metadata --format-version 1 >/dev/null
   # Fail the release if anything was missed, e.g. a manifest reformatted so a
   # pattern above no longer matches: every bumped crate and every versioned path
   # dependency on one, in the manifests and in what cargo resolves.
