@@ -3,7 +3,12 @@ use usage_argv::help;
 use usage_derive::{Args, Cli, Subcommands};
 
 #[derive(Cli)]
-#[usage(bin = "ex")]
+#[usage(
+    bin = "ex",
+    // A page asserted line by line is laid out at a width the test knows, rather than at
+    // the one the terminal `cargo test` was started from happens to have.
+    term_width = 80,
+)]
 #[allow(dead_code)]
 struct Ex {
     /// Override the discovered configuration.

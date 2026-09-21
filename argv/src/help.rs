@@ -2525,12 +2525,26 @@ fn terminal_width(meta: &CommandMeta<'_>) -> usize {
         .ok()
         .and_then(|value| value.parse().ok())
         .filter(|columns| *columns > 0)
-        .or_else(crate::tty::columns)
+        .or_else(probed_width)
         .unwrap_or(80);
     match meta.max_term_width {
         Some(0) | None => detected,
         Some(max) => detected.min(max),
     }
+}
+
+/// The terminal's width — except under this crate's own tests, which have no business
+/// measuring the developer's window.
+///
+/// `cargo test` leaves the harness's standard output attached to the terminal it was started
+/// from, so a page rendered in a test would be laid out for whatever that window happened to
+/// be and would match a pinned expectation only at 80 columns. A test that cares about a
+/// width says so with `term_width`; one that does not gets the same page everywhere.
+fn probed_width() -> Option<usize> {
+    if cfg!(test) {
+        return None;
+    }
+    crate::tty::columns()
 }
 
 /// Keep a single long spelling from narrowing every description on the page.
