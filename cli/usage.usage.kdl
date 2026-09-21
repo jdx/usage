@@ -23,6 +23,16 @@ A usage spec describes a CLI's commands, flags, and arguments once, in KDL. Most
 
 Guides and a reference for every command: https://usage.jdx.dev/cli/
 """#
+logo #"""
+▐███████████
+▐██  ██  ███
+▐███████████
+▐ ▀▀▀▀▀▀▀▀▀▀▀
+▐  ▀▀▀▀▀▀▀▀▀▀▀
+▐
+▐
+
+"""# style=magenta
 usage #"""
 Usage: usage <COMMAND>
        usage --completions <COMPLETIONS>

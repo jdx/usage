@@ -283,6 +283,27 @@ pub(crate) fn substitute_with_style(
     render_marked(&collapse_styled_blank_runs(&marked), coloured)
 }
 
+/// Whether a `+`-combined style specification names only styles that exist.
+///
+/// Shared by `help_template`'s own tags and by every other place a spec names a style —
+/// `logo "…" style="cyan+bold"` — so that one vocabulary is checked one way and a spec is
+/// refused where it is written rather than rendered without the colour it asked for.
+pub fn check_style(specification: &str) -> Result<(), String> {
+    if specification.is_empty() {
+        return Err("has an empty style".to_string());
+    }
+    match specification
+        .split('+')
+        .find(|fragment| !STYLES.contains(fragment))
+    {
+        Some(unknown) => Err(format!(
+            "names no style \"{unknown}\"; use {}",
+            STYLES.join(", ")
+        )),
+        None => Ok(()),
+    }
+}
+
 fn check_styles(template: &str) -> Result<(), String> {
     let mut rest = template;
     let mut depth = 0usize;
@@ -299,15 +320,7 @@ fn check_styles(template: &str) -> Result<(), String> {
                 if specification.is_empty() {
                     return Err("help_template has an empty style tag `{$}`".to_string());
                 }
-                if let Some(unknown) = specification
-                    .split('+')
-                    .find(|fragment| !STYLES.contains(fragment))
-                {
-                    return Err(format!(
-                        "help_template names no style \"{unknown}\"; use {}",
-                        STYLES.join(", ")
-                    ));
-                }
+                check_style(specification).map_err(|problem| format!("help_template {problem}"))?;
                 depth += 1;
                 rest = &tag[end + 1..];
             }

@@ -128,6 +128,38 @@ Plain and generated help removes the tags. Tags in substituted descriptions are
 ordinary prose rather than template markup. Double the dollar sign to write a delimiter
 literally: `{$$heading}` renders `{$heading}`, and `{/$$}` renders `{/$}`.
 
+## Logo
+
+`logo` is art printed on the program's own help page, and `style` colours it from the
+same vocabulary the template styles use:
+
+```kdl
+name "ex"
+bin "ex"
+about "An example"
+logo #"""
+  /\
+ /  \
+/____\
+"""# style="cyan+bold"
+```
+
+Where the art lands is decided by how wide the terminal is, not by the spec:
+
+| The terminal                                                         | The page                                                          |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Wide enough to keep 50 columns after the art and a two-column gutter | Help wraps into the narrowed width and the art sits in the margin |
+| Narrower than that, but wider than the art                           | Help keeps the whole width and the art goes above it as a banner  |
+| Narrower than the art                                                | No logo: a wrapped logo is not a logo                             |
+
+A logo appears on the root's `-h` and `--help` only. It is not repeated on subcommand
+pages, and it is not part of generated Markdown, man pages, or SDKs — it is a terminal
+decoration rather than documentation.
+
+Art is measured in characters, like every other column on the page, so double-width
+characters will not line up. Colour is applied a line at a time and removed entirely
+from a plain page, so a page still pipes cleanly.
+
 ## Root command policy
 
 The root accepts the same command-policy nodes documented in the

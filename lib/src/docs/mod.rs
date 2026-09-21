@@ -6,6 +6,8 @@ use std::sync::LazyLock;
 pub mod cli;
 #[cfg(feature = "cli-help")]
 mod layout;
+/// Where a spec's logo goes on a page it shares with the help.
+pub(crate) mod logo;
 #[cfg(feature = "manpage")]
 pub mod manpage;
 #[cfg(feature = "markdown")]

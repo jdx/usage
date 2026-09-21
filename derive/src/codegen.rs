@@ -211,6 +211,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let max_term_width = option_usize(cli.max_term_width);
     let usage = option_str(cli.usage.as_deref());
     let help_template = option_str(cli.help_template.as_deref());
+    let logo = option_expr(cli.logo.as_ref());
+    let logo_style = option_str(cli.logo_style.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
     let OutputTokens {
@@ -1399,6 +1401,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 min_usage_version: #min_usage_version,
                 about: #about,
                 long_about: #long_about,
+                logo: #logo,
+                logo_style: #logo_style,
                 usage: #usage,
                 help_template: #help_template,
                 default_subcommand: #default_subcommand,

@@ -1,0 +1,94 @@
+{
+  "section": "logo",
+  "about": "Where a spec's logo lands on the program's page, which is decided by how wide the page is rather than by the spec. A logo beside the page is a reservation taken before anything is laid out — the page is narrowed by the art's width and a two-column gutter — so these vectors pin the wrapped page as well as the art, and a implementation that placed the art without narrowing the page would fail them on the text rather than on the picture. Rendered at 80 columns like the rest of the corpus.",
+  "vectors": [
+    {
+      "id": "logo-beside-the-page",
+      "doc": "Six columns of art and two of gutter leave the page 72, and the art starts at 74. The description wraps to 72 rather than to 80, which is the reservation showing: an implementation that placed the art on a page laid out at the full width would fail this on the text. The blank line that separates the description from the synopsis is where the last line of art sits.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example whose description is long enough to show that the page was narrowed before the art was placed beside it\"\nlogo \"  /\\\\\\n /  \\\\\\n/____\\\\\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example whose description is long enough to show that the page was       /\\",
+          "narrowed before the art was placed beside it                               /  \\",
+          "                                                                          /____\\",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ],
+        "long_help": [
+          "An example whose description is long enough to show that the page was       /\\",
+          "narrowed before the art was placed beside it                               /  \\",
+          "                                                                          /____\\",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ]
+      }
+    },
+    {
+      "id": "logo-above-a-page-with-no-room-beside-it",
+      "doc": "Art 34 columns wide would leave the page 44, under the fifty a page keeps for itself, so the page keeps its full width and the art goes above it as a banner.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nlogo \"----------------------------------\\n|   a very wide logo indeed      |\\n----------------------------------\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "----------------------------------",
+          "|   a very wide logo indeed      |",
+          "----------------------------------",
+          "",
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ],
+        "long_help": [
+          "----------------------------------",
+          "|   a very wide logo indeed      |",
+          "----------------------------------",
+          "",
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ]
+      }
+    },
+    {
+      "id": "logo-wider-than-the-page-is-not-printed",
+      "doc": "Ninety columns of art on an eighty-column page is not a logo once it has wrapped, so the page renders as though the spec declared none.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nlogo \"##########################################################################################\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ],
+        "long_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ]
+      }
+    }
+  ]
+}
