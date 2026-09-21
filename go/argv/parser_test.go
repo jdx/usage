@@ -122,6 +122,19 @@ func TestClauseSeparatorIsNotAScopedFlagValue(t *testing.T) {
 	}
 }
 
+func TestRootClauseSeparatorDoesNotSelectEmptyDefault(t *testing.T) {
+	child := &Command{Name: "run"}
+	root := &Command{
+		Name:        "ex",
+		Clause:      &Clause{Key: 26, Name: "items", Separator: ":::"},
+		Subcommands: []*Command{child}, DefaultSubcommand: child,
+		DefaultSubcommandOnEmpty: true,
+	}
+	if got := collect(root, ":::"); got != "clause:items" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestAllowMissingPositionalReservesLastWord(t *testing.T) {
 	optional := &Arg{Key: 90, Name: "optional"}
 	required := &Arg{Key: 91, Name: "required", Required: true}

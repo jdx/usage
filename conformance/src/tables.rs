@@ -134,6 +134,7 @@ pub fn build(
         // either.
         default_subcommand: None,
         default_subcommand_flags: false,
+        default_subcommand_on_empty: false,
         version: false,
         disable_help_flag: cmd.disable_help_flag,
         disable_help_subcommand: cmd.disable_help_subcommand,
@@ -270,6 +271,7 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
     let root_cmd: &'static Command<'static> = Box::leak(Box::new(Command {
         version: spec.version.is_some(),
         default_subcommand_flags: spec.default_subcommand_flags,
+        default_subcommand_on_empty: spec.default_subcommand_on_empty,
         default_subcommand: spec
             .default_subcommand
             .as_deref()

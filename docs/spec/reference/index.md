@@ -216,6 +216,20 @@ routing continues to happen only at an unmatched word.
 
 Rust derives use `#[usage(default_subcommand = "install", default_subcommand_flags)]`.
 
+### Default command on an empty invocation
+
+`default_subcommand_on_empty #true` selects the declared default when parsing
+reaches the end of an otherwise empty root invocation. Parent and global flags
+remain owned by the root, while an explicit subcommand, positional value,
+syntactic `--`, help, version, or parse error keeps its normal precedence. The
+option requires `default_subcommand` and is disabled by default:
+
+```kdl
+default_subcommand "run"
+default_subcommand_on_empty #true
+cmd "run" {}
+```
+
 ### Default-command help
 
 The command list always marks a visible default with `(default)`. Opt in with

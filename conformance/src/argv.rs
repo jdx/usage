@@ -90,6 +90,7 @@ pub fn run(vector: &Vector) -> Outcome {
             Box::leak(Box::new(Command {
                 default_subcommand: default,
                 default_subcommand_flags: spec.default_subcommand_flags,
+                default_subcommand_on_empty: spec.default_subcommand_on_empty,
                 ..*root
             }))
         }

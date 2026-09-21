@@ -1,0 +1,171 @@
+{
+  "section": "default-subcommand-on-empty",
+  "about": "Opt-in routing selects the declared default command only when the root reaches the successful end of argv without consuming a positional argument or a syntactic separator.",
+  "vectors": [
+    {
+      "id": "empty-selects-default",
+      "doc": "An explicitly enabled empty invocation enters the default command.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\ncmd \"run\"\n",
+      "argv": [],
+      "expect": {
+        "ok": {
+          "cmd": ["run"]
+        }
+      }
+    },
+    {
+      "id": "parent-flag-selects-default",
+      "doc": "Parent and global flags are still owned by the root while an otherwise empty invocation selects its default.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\nflag \"--verbose\" global=#true\ncmd \"run\"\n",
+      "argv": ["--verbose"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "verbose": true
+          }
+        }
+      }
+    },
+    {
+      "id": "ordinary-word-retains-existing-default-route",
+      "doc": "An unmatched ordinary word retains the pre-existing default-word route; on-empty does not change that behavior.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\ncmd \"run\" {\n  arg \"[task]\"\n}\n",
+      "argv": ["value"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "args": {
+            "task": "value"
+          }
+        }
+      }
+    },
+    {
+      "id": "separator-prevents-empty-selection",
+      "doc": "A syntactic separator suppresses implicit selection even when no positional follows it.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\ncmd \"run\"\n",
+      "argv": ["--"],
+      "expect": {
+        "ok": {}
+      }
+    },
+    {
+      "id": "literal-separator-flag-value-does-not-suppress",
+      "doc": "A flag that accepts hyphenated values consumes a literal separator as its value; this is not a syntactic separator and the default is selected.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\nflag \"--value <value>\" allow_hyphen_values=#true\ncmd \"run\"\n",
+      "argv": ["--value", "--"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "value": "--"
+          }
+        }
+      }
+    },
+    {
+      "id": "missing-value-fails-before-selection",
+      "doc": "A missing parent flag value is a parse error rather than an empty invocation.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\nflag \"--value <value>\"\ncmd \"run\"\n",
+      "argv": ["--value"],
+      "expect": {
+        "error": "missing_flag_value"
+      }
+    },
+    {
+      "id": "child-env-binds-after-empty-selection",
+      "doc": "Child environment values are applied after implicit selection.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\ncmd \"run\" {\n  flag \"--profile <profile>\" env=\"EX_PROFILE\"\n}\n",
+      "argv": [],
+      "env": {
+        "EX_PROFILE": "ci"
+      },
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "profile": "ci"
+          }
+        }
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "child-default-binds-after-empty-selection",
+      "doc": "Child defaults are applied after implicit selection.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\ncmd \"run\" {\n  flag \"--profile <profile>\" default=\"local\"\n}\n",
+      "argv": [],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "profile": "local"
+          }
+        }
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "root-required-preserved-when-negates-false",
+      "doc": "Implicit child selection does not waive required root arguments when negation is disabled.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\narg \"<root>\"\ncmd \"run\"\n",
+      "argv": [],
+      "expect": {
+        "error": "missing_required_arg"
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "root-required-negated-by-empty-child",
+      "doc": "A child selected with subcommand_negates_reqs waives the root requirement.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\nsubcommand_negates_reqs #true\narg \"<root>\"\ncmd \"run\"\n",
+      "argv": [],
+      "expect": {
+        "ok": {
+          "cmd": ["run"]
+        }
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "explicit-child-root-required-parity",
+      "doc": "Explicit selection retains the same root requirement policy.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\narg \"<root>\"\ncmd \"run\"\n",
+      "argv": ["run"],
+      "expect": {
+        "error": "missing_required_arg"
+      },
+      "layer": "post-binding"
+    },
+    {
+      "id": "explicit-alias-is-not-empty-fallback",
+      "doc": "An explicit alias selects the child normally.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\ncmd \"run\" { alias \"r\" }\n",
+      "argv": ["r"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"]
+        }
+      }
+    },
+    {
+      "id": "unknown-flag-wins-over-empty-fallback",
+      "doc": "An unknown flag error wins before implicit selection.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ndefault_subcommand_on_empty #true\nunknown_flags \"error\"\ncmd \"run\"\n",
+      "argv": ["--wat"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "option-off-keeps-root",
+      "doc": "The option is disabled by default.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ncmd \"run\"\n",
+      "argv": [],
+      "expect": {
+        "ok": {}
+      }
+    }
+  ]
+}

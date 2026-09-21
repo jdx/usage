@@ -64,6 +64,8 @@ type Command struct {
 	DefaultSubcommand *Command
 	// DefaultSubcommandFlags opts in to flag-prefix default routing.
 	DefaultSubcommandFlags bool
+	// DefaultSubcommandOnEmpty selects the default after successful empty input.
+	DefaultSubcommandOnEmpty bool
 	// DefaultSubcommandHelp opts in to appending that command's help page after
 	// the root page. The command list always marks a visible default with
 	// (default), whether this is set or not.

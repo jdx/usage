@@ -231,6 +231,8 @@ pub struct Command<'a> {
     /// A sibling name before any default-only flag stays on the parent; after one,
     /// later words are the default command's args.
     pub default_subcommand_flags: bool,
+    /// Select the default subcommand for an otherwise empty successful invocation.
+    pub default_subcommand_on_empty: bool,
     /// Whether an unmatched word is forwarded as an external command plus the rest of argv.
     ///
     /// clap's `allow_external_subcommands`. Known subcommands still win; a
@@ -305,6 +307,7 @@ impl Command<'_> {
         subcommands: &[],
         default_subcommand: ::core::option::Option::None,
         default_subcommand_flags: false,
+        default_subcommand_on_empty: false,
         external_subcommand: false,
         arg_required_else_help: false,
         subcommand_negates_reqs: false,
@@ -1691,6 +1694,7 @@ pub struct Parser<'t, 'a, 'v> {
     /// `arg_filled`, flags count because clap's command policy treats both as
     /// arguments that exclude a later subcommand.
     command_arg_found: bool,
+    positional_arg_found: bool,
     /// Whether flag interpretation has stopped. A `--` does this, and so does an
     /// `automatic` argument taking a value.
     flags_stopped: bool,
@@ -1702,6 +1706,8 @@ pub struct Parser<'t, 'a, 'v> {
     /// consuming it. Callers asking this question want to know what the user
     /// wrote, not what state the parser reached.
     separator_seen: bool,
+    /// Whether a root clause separator was consumed, so empty-default routing cannot fire.
+    clause_separator_seen: bool,
     /// Whether the default subcommand has already been taken.
     ///
     /// Once, per parse: a default subcommand that itself declares one would otherwise
@@ -1775,8 +1781,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             arg_taken: 0,
             arg_filled: false,
             command_arg_found: false,
+            positional_arg_found: false,
             flags_stopped: false,
             separator_seen: false,
+            clause_separator_seen: false,
             default_taken: false,
             default_flag_at: None,
             default_bundle_end: 0,
@@ -2042,6 +2050,34 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if matches!(event, Some(Ok(Event::Flag { .. } | Event::Arg { .. }))) {
             self.command_arg_found = true;
         }
+        if matches!(event, Some(Ok(Event::Arg { .. }))) {
+            self.positional_arg_found = true;
+        }
+        if event.is_none()
+            && self.depth == 0
+            && self.cmd.default_subcommand_on_empty
+            && !self.default_taken
+            && !self.positional_arg_found
+            && !self.separator_seen
+            && !self.clause_separator_seen
+        {
+            if let Some(default) = self.cmd.default_subcommand {
+                if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
+                    self.done = true;
+                    return Some(Err(Error::SubcommandConflict {
+                        subcommand: default,
+                    }));
+                }
+                self.default_taken = true;
+                match self.descend(default) {
+                    Ok(()) => return Some(Ok(Event::Command(default))),
+                    Err(error) => {
+                        self.done = true;
+                        return Some(Err(error));
+                    }
+                }
+            }
+        }
         if let Some(Err(_)) = event {
             self.done = true;
         }
@@ -2178,6 +2214,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             self.arg_filled = false;
             self.collecting = None;
             self.flags_stopped = false;
+            if self.depth == 0 {
+                self.clause_separator_seen = true;
+            }
             return Some(Ok(Event::ClauseSeparator { clause }));
         }
 
@@ -3944,6 +3983,35 @@ mod tests {
                 value: b"build",
                 delimit: true,
             }))
+        );
+    }
+
+    #[test]
+    fn a_root_clause_separator_does_not_select_empty_default() {
+        static CHILD: Command = Command {
+            name: "run",
+            ..Command::EMPTY
+        };
+        static ROOT: Command = Command {
+            name: "ex",
+            clause: Some(Clause {
+                key: 400,
+                name: "items",
+                separator: Some(b":::"),
+                flags: &[],
+                args: &[],
+            }),
+            subcommands: &[&CHILD],
+            default_subcommand: Some(&CHILD),
+            default_subcommand_on_empty: true,
+            ..Command::EMPTY
+        };
+        let a = argv([":::"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![Event::ClauseSeparator {
+                clause: ROOT.clause.unwrap(),
+            }]
         );
     }
 

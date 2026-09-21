@@ -1627,6 +1627,9 @@ impl Spec<'_> {
         if self.root.cmd.default_subcommand_flags {
             writeln!(out, "default_subcommand_flags #true")?;
         }
+        if self.root.cmd.default_subcommand_on_empty {
+            writeln!(out, "default_subcommand_on_empty #true")?;
+        }
         if self.default_subcommand_help {
             writeln!(out, "default_subcommand_help #true")?;
         }
