@@ -2078,6 +2078,8 @@
   "repository": "https://github.com/jdx/usage",
   "about": "Generate completions, docs, manpages, and SDKs from a usage spec, and run scripts that carry one",
   "about_long": "Generate completions, docs, manpages, and SDKs from a usage spec, and run scripts that carry one\n\nA usage spec describes a CLI's commands, flags, and arguments once, in KDL. Most commands here read one: a `.usage.kdl` file given with `-f`, a script whose `#USAGE` comments declare it, or `-` for stdin. A binary built with the Rust framework prints its own spec, so a pipeline like `mycli __usage_spec__ | usage generate markdown -f -` needs no file at all.\n\nGuides and a reference for every command: https://usage.jdx.dev/cli/",
+  "logo": "▐███████████\n▐██  ██  ███\n▐███████████\n▐ ▀▀▀▀▀▀▀▀▀▀▀\n▐  ▀▀▀▀▀▀▀▀▀▀▀\n▐\n▐\n",
+  "logo_style": "magenta",
   "min_usage_version": "6.5",
   "unknown_flags": "error"
 }

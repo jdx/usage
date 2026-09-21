@@ -198,6 +198,12 @@ pub struct Cli {
     /// Text around the rest of the help page. mise puts an Examples section in
     /// `after_long_help` on 115 commands, and a page without it is missing what a reader came
     /// for. Nothing derives these from the code, so they are declared.
+    /// Art printed on the program's own help page; see `usage_argv::Spec::logo`.
+    pub logo: Option<proc_macro2::TokenStream>,
+    /// How [`Self::logo`] is coloured, from the `help_template` style vocabulary.
+    pub logo_style: Option<String>,
+    /// Where `logo_style` was written, for the diagnostic when it names no logo.
+    pub logo_style_span: Option<Span>,
     pub before_help: Option<proc_macro2::TokenStream>,
     /// Default help section for fields declared by this argument struct.
     pub next_help_heading: Option<String>,
@@ -804,6 +810,9 @@ impl Cli {
             min_usage_version: None,
             usage: None,
             help_template: None,
+            logo: None,
+            logo_style: None,
+            logo_style_span: None,
             effect: None,
             aliases: Vec::new(),
             hidden_aliases: Vec::new(),
@@ -1050,6 +1059,29 @@ impl Cli {
                         }
                         cli.help_template = (!template.trim().is_empty()).then_some(template);
                     }
+                    // An expression, because a logo of any size belongs in a file beside
+                    // the code rather than in an attribute: `logo = include_str!("logo.txt")`.
+                    "logo" => cli.logo = Some(metadata_expr(&meta)?),
+                    // Checked here rather than at render time, as the template's styles are:
+                    // an unknown name would otherwise reach a reader as an unstyled logo and
+                    // nothing to say why.
+                    "logo_style" => {
+                        let style = string_value(&meta)?;
+                        if let Some(unknown) = style
+                            .split('+')
+                            .find(|fragment| !HELP_STYLES.contains(fragment))
+                        {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                format!(
+                                    "`logo_style` names no style `{unknown}`; use {}",
+                                    HELP_STYLES.join(", ")
+                                ),
+                            ));
+                        }
+                        cli.logo_style_span = Some(syn::spanned::Spanned::span(&meta));
+                        cli.logo_style = Some(style);
+                    }
                     "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
                     "next_help_heading" => cli.next_help_heading = Some(string_value(&meta)?),
                     "before_long_help" => cli.before_long_help = Some(metadata_expr(&meta)?),
@@ -1188,7 +1220,7 @@ impl Cli {
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `surface`, `available_if`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `default_subcommand_flags`, `default_subcommand_help`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
-                                 `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `term_width`, `max_term_width`, \
+                                 `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `logo`, `logo_style`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount`, `example`, `heading`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
                                  `group`, `view`, `validate_with`, and `try_into` here, and the description comes from the doc comment"
                             ),
@@ -1449,6 +1481,9 @@ impl Cli {
                 // enough. A command declaring its own would be laying out a page nobody
                 // assembles from it.
                 ("help_template", self.help_template.is_some()),
+                // A logo is the program's, and it is printed on the program's page only.
+                ("logo", self.logo.is_some()),
+                ("logo_style", self.logo_style.is_some()),
             ]
             .into_iter()
             .find_map(|(name, present)| present.then_some(name))
@@ -1665,6 +1700,18 @@ impl Cli {
 
     /// Reject declarations that would compile into a CLI nobody could use.
     fn check(&self) -> syn::Result<()> {
+        // A style is written into KDL as a property of the `logo` node, so there is nowhere
+        // to put one that names no logo: it would sit in the compiled tables, vanish from the
+        // emitted spec, and colour nothing either way. Refused where it is written instead.
+        if self.logo.is_none() {
+            if let Some(span) = self.logo_style_span {
+                return Err(syn::Error::new(
+                    span,
+                    "`logo_style` colours a `logo`, and this CLI declares none; add \
+                     `logo = …` or drop the style",
+                ));
+            }
+        }
         let mut seen_long: Vec<(&str, Span)> = Vec::new();
         let mut seen_short: Vec<(char, Span)> = Vec::new();
         let mut seen_sigils: Vec<(&str, Span)> = Vec::new();

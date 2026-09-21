@@ -246,7 +246,13 @@ impl Sections {
 /// usage-lib trims the whole document and puts back one newline, which is what keeps the blank
 /// lines between sections from becoming trailing ones. That applies to a template's output too:
 /// a page ends in exactly one newline however it was assembled.
-fn assemble(spec: &Spec<'_>, sections: &Sections, style: Style) -> String {
+fn assemble(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    sections: &Sections,
+    style: Style,
+) -> String {
     let page = match spec
         .help_template
         .filter(|template| !template.trim().is_empty())
@@ -254,7 +260,209 @@ fn assemble(spec: &Spec<'_>, sections: &Sections, style: Style) -> String {
         Some(template) => sections.substituted(template, style),
         None => sections.concatenated(),
     };
-    finish_page(page, style)
+    with_logo(spec, path, chain, style, finish_page(page, style))
+}
+
+/// Blank columns kept between the widest line of the page and the art beside it.
+const LOGO_GUTTER: usize = 2;
+
+/// The narrowest a page will make itself to keep a logo in its margin.
+///
+/// Below this the art is not worth what it costs: a page wrapped into fifty columns on a
+/// terminal that has more of them looks like a rendering fault, and the banner is the better
+/// use of a narrow window.
+const LOGO_MIN_PAGE: usize = 50;
+
+/// The columns a page keeps for itself when a logo takes the margin, and where the art starts.
+///
+/// A logo beside the page is a *reservation*, made before anything is laid out, not a decision
+/// taken about a finished page: help wraps to whatever width it is given, so a page rendered
+/// at the full width fills the full width and there is never any margin left to put art in.
+/// Every implementation therefore narrows the page first and places the art second, and the
+/// two halves have to agree about the same number — which is why this is one function.
+///
+/// `None` when the page keeps the whole width: the CLI declared no logo, this is not its root
+/// page, there is no art after trimming, the width is unbounded, or narrowing it would leave
+/// less than [`LOGO_MIN_PAGE`].
+///
+/// The empty case is not a formality. A logo that is nothing but blank lines has a width of
+/// zero and would otherwise reserve the gutter alone — wrapping help two columns short of the
+/// terminal to make room for a picture that is never drawn.
+fn logo_margin(spec: &Spec<'_>, root: bool, width: usize) -> Option<(usize, usize)> {
+    let logo = spec.logo.filter(|_| root)?;
+    let art = logo_lines(logo);
+    if art.is_empty() || width == usize::MAX {
+        return None;
+    }
+    let art_width = art.iter().copied().map(shown_width).max().unwrap_or(0);
+    let page = width.checked_sub(art_width + LOGO_GUTTER)?;
+    (page >= LOGO_MIN_PAGE).then_some((page, width - art_width))
+}
+
+/// The width a page's own text is laid out in: the terminal, less any logo margin.
+fn page_width(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> usize {
+    let width = terminal_width(meta);
+    match logo_margin(spec, path.len() <= 1, width) {
+        Some((page, _)) => page,
+        None => width,
+    }
+}
+
+/// The finished page with the spec's logo on it, if it declared one and this is its page.
+///
+/// The program's own page only: a logo is what a program is, and reprinting it on forty
+/// subcommand pages would make it furniture.
+fn with_logo(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    style: Style,
+    page: String,
+) -> String {
+    let Some(logo) = spec.logo.filter(|_| path.len() <= 1) else {
+        return page;
+    };
+    let Some(meta) = chain.last() else {
+        return page;
+    };
+    let width = terminal_width(meta);
+    place_logo(
+        &page,
+        logo,
+        spec.logo_style,
+        width,
+        logo_margin(spec, true, width).map(|(_, column)| column),
+        style.coloured,
+    )
+}
+
+/// A page with the spec's logo on it, when the page is the program's own and there is room.
+///
+/// Where the art lands is decided by the terminal's width rather than by the spec, in three
+/// outcomes: beside the page with its right edge at the terminal's, when every line it would
+/// share ends at least [`LOGO_GUTTER`] columns short of it; above the page as a banner, when
+/// the page is too wide to share a line but the terminal is still wider than the art; and not
+/// at all, when the terminal is narrower than the art, because a wrapped logo is not a logo.
+///
+/// Called last, on a page that is already styled and already trimmed: the art is held in its
+/// column by indentation, and anything that trimmed the page afterwards would move it.
+///
+/// The twins of this are usage-lib's `docs::logo` and Go's `placeLogo`; `conformance/tests/
+/// render.rs` is what says the three still agree.
+pub fn place_logo(
+    page: &str,
+    logo: &str,
+    style: Option<&str>,
+    width: usize,
+    reserved: Option<usize>,
+    coloured: bool,
+) -> String {
+    let art = logo_lines(logo);
+    if art.is_empty() {
+        return page.to_string();
+    }
+    let art_width = art.iter().copied().map(shown_width).max().unwrap_or(0);
+    // `reserved` is the column the page was laid out to leave clear, which is normally the
+    // whole answer. It is still checked against what was actually rendered: a line nothing
+    // can wrap — a synopsis, an example's command, a long URL — can overrun the margin it was
+    // given, and art printed over it would be worse than the banner.
+    let column = reserved.filter(|column| {
+        page.lines()
+            .take(art.len())
+            .all(|line| shown_width(line) + LOGO_GUTTER <= *column)
+    });
+    let mut out = match column {
+        Some(column) => {
+            let mut lines: Vec<String> = page.lines().map(str::to_string).collect();
+            // Art taller than the page keeps going below it rather than being cut off: a logo
+            // with its bottom sliced away looks like a rendering fault.
+            if lines.len() < art.len() {
+                lines.resize(art.len(), String::new());
+            }
+            for (line, art) in lines.iter_mut().zip(&art) {
+                if art.is_empty() {
+                    continue;
+                }
+                for _ in 0..column.saturating_sub(shown_width(line)) {
+                    line.push(' ');
+                }
+                line.push_str(&painted_logo(art, style, coloured));
+            }
+            lines.join("\n")
+        }
+        None if art_width <= width => {
+            let mut banner = String::new();
+            for art in &art {
+                banner.push_str(&painted_logo(art, style, coloured));
+                banner.push('\n');
+            }
+            banner.push('\n');
+            banner.push_str(page);
+            banner
+        }
+        None => return page.to_string(),
+    };
+    out.truncate(out.trim_end().len());
+    out.push('\n');
+    out
+}
+
+/// One escape pair per line rather than one around the whole logo: a sequence left open
+/// across a newline is open across whatever the terminal puts on the next line, which beside
+/// a page is the page.
+fn painted_logo(line: &str, style: Option<&str>, coloured: bool) -> String {
+    if !coloured {
+        // The page had its own escapes taken out before it arrived here, and art carrying
+        // escapes of its own has to lose them by the same rule: a plain page is plain all the
+        // way across, or a redirected `--help` writes control bytes into a file.
+        return strip_ansi_sequences(line.to_string());
+    }
+    match style {
+        Some(style) if !line.trim().is_empty() => template::semantic(style, line, Style::COLOURED),
+        _ => line.to_string(),
+    }
+}
+
+/// The art's lines, without the blank ones above and below it and without trailing spaces.
+///
+/// An author writes a logo as an indented block in KDL or a raw string in Rust, and both
+/// commonly arrive with a leading newline and a trailing one. Neither is part of the picture.
+fn logo_lines(logo: &str) -> Vec<&str> {
+    let mut lines: Vec<&str> = logo.lines().map(str::trim_end).collect();
+    while lines.first().is_some_and(|line| line.is_empty()) {
+        lines.remove(0);
+    }
+    while lines.last().is_some_and(|line| line.is_empty()) {
+        lines.pop();
+    }
+    lines
+}
+
+/// How many columns a line takes up, counting what is printed and not the escapes that colour
+/// it. A page arrives at the logo already styled, so its widest line is only knowable this way.
+///
+/// Characters, as every other column on the page is counted here and in the other two
+/// implementations — art built from double-width characters will not line up in any of them.
+fn shown_width(line: &str) -> usize {
+    let bytes = line.as_bytes();
+    let mut at = 0;
+    let mut columns = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'\x1b' && bytes.get(at + 1) == Some(&b'[') {
+            let mut end = at + 2;
+            while end < bytes.len() && !(0x40..=0x7e).contains(&bytes[end]) {
+                end += 1;
+            }
+            at = (end + 1).min(bytes.len());
+            continue;
+        }
+        // A continuation byte is the rest of a character already counted.
+        if bytes[at] & 0xc0 != 0x80 {
+            columns += 1;
+        }
+        at += 1;
+    }
+    columns
 }
 
 fn finish_page(page: String, style: Style) -> String {
@@ -986,7 +1194,7 @@ fn rendered_page(
             &structure.synopsis,
         ),
     };
-    finish_page(page, style)
+    with_logo(spec, path, chain, style, finish_page(page, style))
 }
 
 fn assembled_help(
@@ -1494,6 +1702,8 @@ fn short_help_with(
 ) -> String {
     assemble(
         spec,
+        path,
+        chain,
         &short_sections(spec, path, chain, inherit_version_actions, false),
         Style::PLAIN,
     )
@@ -1523,7 +1733,8 @@ fn short_sections(
     let mut sections = Sections::default();
     // The narrow page wraps too. Its descriptions used to run off the end of the terminal,
     // which the wide page has never done — and `-h` is the form most people type.
-    let width = terminal_width(meta);
+    // Less the logo's margin, when the root page is reserving one; see `logo_margin`.
+    let width = page_width(spec, path, meta);
     let out = &mut sections.about;
 
     // Text the command puts above everything else, and below it. The short form has only the
@@ -2590,6 +2801,8 @@ fn long_help_with(
 ) -> String {
     assemble(
         spec,
+        path,
+        chain,
         &long_sections(spec, path, chain, inherit_version_actions, false),
         Style::PLAIN,
     )
@@ -2616,7 +2829,8 @@ fn long_sections(
             .filter(|(flag, _)| !flag.hide_long_help)
             .collect()
     };
-    let width = terminal_width(meta);
+    // Less the logo's margin, when the root page is reserving one; see `logo_margin`.
+    let width = page_width(spec, path, meta);
     let mut sections = Sections::default();
     let out = &mut sections.about;
 

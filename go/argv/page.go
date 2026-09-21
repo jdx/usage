@@ -41,6 +41,17 @@ type HelpSpec struct {
 	AfterHelp      string
 	BeforeLongHelp string
 	AfterLongHelp  string
+	// Logo is art printed on the program's own help page, as the author wrote it.
+	//
+	// Where it lands is decided by how wide the page is rather than by the spec:
+	// beside the page when every line it would share leaves the gutter clear,
+	// above it as a banner when they do not, and nowhere at all when the page is
+	// narrower than the art. See [placeLogo].
+	//
+	// The root page only. A logo is what a program is, and reprinting it on forty
+	// subcommand pages would make it furniture. A spec's logo style is not carried
+	// here: this renderer produces the portable plain page and colours nothing.
+	Logo string
 	// HelpTemplate is how every page in this CLI is laid out, as named sections:
 	// `{{about}}`, `{{usage}}`, `{{commands}}`, `{{args}}`, `{{flags}}` and
 	// `{{after_help}}`, which an author may reorder, omit or wrap. Empty means the
@@ -89,6 +100,8 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 	cmd := chain[len(chain)-1]
 	meta := help.Lookup(cmd.Key)
 	root := len(path) <= 1
+	// Less the logo's margin, when the root page is reserving one; see logoMargin.
+	cols := pageWidth(spec, root)
 	var sections helpSections
 	out := &sections.about
 
@@ -97,7 +110,7 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 		before = spec.BeforeHelp
 	}
 	if before != "" {
-		writeWrapped(out, before, 0)
+		writeWrapped(out, before, 0, cols)
 		out.WriteString("\n")
 	}
 
@@ -122,11 +135,11 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 	// under a description belongs to the renderer, so one already in the text is a
 	// second one.
 	if about := trimEnd(about); about != "" {
-		writeWrapped(out, about, 0)
+		writeWrapped(out, about, 0, cols)
 		out.WriteString("\n")
 	}
 	if label := deprecationLabel(meta); label != "" {
-		writeWrapped(out, label, 0)
+		writeWrapped(out, label, 0, cols)
 		out.WriteString("\n")
 	}
 
@@ -142,7 +155,7 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 	// usage-lib prints the whole path from the root rather than the child's own
 	// name.
 	if meta == nil || !meta.FlattenHelp {
-		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help, false)
+		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help, false, cols)
 	}
 
 	args := visibleArgs(cmd, help, false)
@@ -153,7 +166,7 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 			argCol = n
 		}
 	}
-	argCol = usageColumnWidth(argCol)
+	argCol = usageColumnWidth(argCol, cols)
 	groupsSection(&sections.args, &sections.ungroupedArgs, &sections.groupedArgs, "Arguments", len(args),
 		func(i int) string { return headingOf(help, args[i].Key) },
 		nil,
@@ -164,13 +177,13 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 			if nextLineHelp {
 				w.WriteString("  " + usage + "\n")
 				if text := helpText(h); text != "" {
-					writeWrapped(w, text, 4)
+					writeWrapped(w, text, 4, cols)
 				}
-				longAnnotations(w, h, true, blockIndent)
+				longAnnotations(w, h, true, blockIndent, cols)
 				return
 			}
-			entry(w, usage, withAnnotations(shortSummary(h), inlineAnnotations(h, true, false)), argCol, false)
-		})
+			entry(w, usage, withAnnotations(shortSummary(h), inlineAnnotations(h, true, false)), argCol, false, cols)
+		}, cols)
 
 	own, inherited := ownAndGlobal(chain, help)
 	own = filterHelpMode(own, help, false)
@@ -193,7 +206,7 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 			flagCol = n
 		}
 	}
-	flagCol = usageColumnWidth(flagCol)
+	flagCol = usageColumnWidth(flagCol, cols)
 	flagEntry := func(w *strings.Builder, f shownFlag) {
 		h := help.Lookup(f.key)
 		if f.supplied != "" {
@@ -201,22 +214,22 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 			if nextLineHelp {
 				w.WriteString("  " + f.usage + "\n")
 				if text := f.suppliedHelp; text != "" {
-					writeWrapped(w, text, 4)
+					writeWrapped(w, text, 4, cols)
 				}
 				return
 			}
-			entry(w, f.usage, f.suppliedHelp, flagCol, false)
+			entry(w, f.usage, f.suppliedHelp, flagCol, false, cols)
 			return
 		}
 		if nextLineHelp {
 			w.WriteString("  " + f.usage + "\n")
 			if text := metaField(h, func(x *Help) string { return x.Short }); text != "" {
-				writeWrapped(w, text, 4)
+				writeWrapped(w, text, 4, cols)
 			}
-			longAnnotations(w, h, true, blockIndent)
+			longAnnotations(w, h, true, blockIndent, cols)
 			return
 		}
-		entry(w, f.usage, withAnnotations(shortSummary(h), inlineAnnotations(h, true, true)), flagCol, false)
+		entry(w, f.usage, withAnnotations(shortSummary(h), inlineAnnotations(h, true, true)), flagCol, false, cols)
 	}
 	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Flags", len(own),
 		func(i int) string {
@@ -226,16 +239,16 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 			return headingOf(help, own[i].key)
 		},
 		nil,
-		func(w *strings.Builder, i int) { flagEntry(w, own[i]) })
+		func(w *strings.Builder, i int) { flagEntry(w, own[i]) }, cols)
 	// After the command's own, and under a heading that says where they came
 	// from: a global belongs to the program, not to this command, and a reader
 	// should be able to see that.
 	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Global flags", len(inherited),
 		func(int) string { return "" },
 		nil,
-		func(w *strings.Builder, i int) { flagEntry(w, inherited[i]) })
+		func(w *strings.Builder, i int) { flagEntry(w, inherited[i]) }, cols)
 	if meta != nil && meta.FlattenHelp {
-		flatCommandsShort(&sections.flattened, path[min(1, len(path)):], cmd, help, nextLineHelp)
+		flatCommandsShort(&sections.flattened, path[min(1, len(path)):], cmd, help, nextLineHelp, cols)
 	}
 
 	examplesSection(&sections.afterHelp, pageExamples(meta))
@@ -246,10 +259,10 @@ func shortHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTabl
 	}
 	if after != "" {
 		sections.afterHelp.WriteString("\n")
-		writeWrapped(&sections.afterHelp, after, 0)
+		writeWrapped(&sections.afterHelp, after, 0, cols)
 	}
 
-	return sections.assemble(spec.HelpTemplate)
+	return placeLogo(sections.assemble(spec.HelpTemplate), spec, root)
 }
 
 // commandsSection lists the subcommands, and the `help` command every CLI with
@@ -265,7 +278,7 @@ const (
 // command takes belongs to that command's own page. Both pages read the same summary: a
 // parent's list says what each child is *for*, and what a child does at length belongs on
 // the child's own page rather than repeated in every ancestor's.
-func commandsSection(out *strings.Builder, path []string, cmd *Command, help HelpTable, long bool) {
+func commandsSection(out *strings.Builder, path []string, cmd *Command, help HelpTable, long bool, cols int) {
 	type line struct {
 		usage string
 		sub   *Command
@@ -315,7 +328,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 			col = n
 		}
 	}
-	col = usageColumnWidth(col)
+	col = usageColumnWidth(col, cols)
 
 	headings := []string{""}
 	for _, l := range lines {
@@ -336,7 +349,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 		if long && section != "" {
 			if proseOf := headingProse(help.Lookup(cmd.Key)); proseOf != nil {
 				if prose := proseOf(section); prose != "" {
-					writeWrapped(out, prose, 2)
+					writeWrapped(out, prose, 2, cols)
 					out.WriteString("\n")
 				}
 			}
@@ -349,10 +362,10 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 			if itemSection != section {
 				continue
 			}
-			entry(out, l.sub.Name, commandRow(help.Lookup(l.sub.Key), cmd.DefaultSubcommand == l.sub), col, nextLineHelp)
+			entry(out, l.sub.Name, commandRow(help.Lookup(l.sub.Key), cmd.DefaultSubcommand == l.sub), col, nextLineHelp, cols)
 		}
 		if section == "" && showHelp {
-			entry(out, helpSubcommand, helpSubcommandSummary, col, nextLineHelp)
+			entry(out, helpSubcommand, helpSubcommandSummary, col, nextLineHelp, cols)
 		}
 	}
 }
@@ -438,7 +451,7 @@ func withDefaultCommandHelp(spec HelpSpec, path []string, chain []*Command, help
 	return b.String()
 }
 
-func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {
+func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool, cols int) {
 	visible := append([]*Command{}, cmd.Subcommands...)
 	orderCommands(visible, help)
 	for _, sub := range visible {
@@ -449,10 +462,10 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 		subPath := append(append([]string{}, path...), sub.Name)
 		out.WriteString("\n" + strings.Join(subPath, " ") + ":\n")
 		if text := metaField(h, func(x *Help) string { return x.Short }); strings.TrimSpace(text) != "" {
-			writeWrapped(out, trimEnd(text), 0)
+			writeWrapped(out, trimEnd(text), 0, cols)
 		}
 		if label := deprecationLabel(h); label != "" {
-			writeWrapped(out, label, 0)
+			writeWrapped(out, label, 0, cols)
 		}
 
 		args := visibleArgs(sub, help, false)
@@ -461,7 +474,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 		for _, a := range args {
 			argCol = max(argCol, width(argUsage(a, help.Lookup(a.Key))))
 		}
-		argCol = usageColumnWidth(argCol)
+		argCol = usageColumnWidth(argCol, cols)
 		flagCol := 0
 		for _, f := range sub.Flags {
 			fh := help.Lookup(f.Key)
@@ -471,7 +484,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 			flags = append(flags, f)
 			flagCol = max(flagCol, width(columnUsage(f, allShown(f), help)))
 		}
-		flagCol = usageColumnWidth(flagCol)
+		flagCol = usageColumnWidth(flagCol, cols)
 		orderFlags(flags, help)
 		for _, a := range args {
 			ah := help.Lookup(a.Key)
@@ -479,11 +492,11 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 			if nextLine {
 				out.WriteString("  " + usage + "\n")
 				if text := metaField(ah, func(x *Help) string { return x.Short }); text != "" {
-					writeWrapped(out, text, 4)
+					writeWrapped(out, text, 4, cols)
 				}
-				longAnnotations(out, ah, true, blockIndent)
+				longAnnotations(out, ah, true, blockIndent, cols)
 			} else {
-				entry(out, usage, withAnnotations(shortSummary(ah), inlineAnnotations(ah, true, false)), argCol, false)
+				entry(out, usage, withAnnotations(shortSummary(ah), inlineAnnotations(ah, true, false)), argCol, false, cols)
 			}
 		}
 		for _, f := range flags {
@@ -492,15 +505,15 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 			if nextLine {
 				out.WriteString("  " + usage + "\n")
 				if text := metaField(fh, func(x *Help) string { return x.Short }); text != "" {
-					writeWrapped(out, text, 4)
+					writeWrapped(out, text, 4, cols)
 				}
-				longAnnotations(out, fh, true, blockIndent)
+				longAnnotations(out, fh, true, blockIndent, cols)
 			} else {
-				entry(out, usage, withAnnotations(shortSummary(fh), inlineAnnotations(fh, true, true)), flagCol, false)
+				entry(out, usage, withAnnotations(shortSummary(fh), inlineAnnotations(fh, true, true)), flagCol, false, cols)
 			}
 		}
 		if h != nil && h.FlattenHelp {
-			flatCommandsShort(out, subPath, sub, help, h.NextLineHelp)
+			flatCommandsShort(out, subPath, sub, help, h.NextLineHelp, cols)
 		}
 		out.WriteString("\n")
 	}
@@ -513,6 +526,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 // section, and the same entries appear under a different default per renderer.
 func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string, n int,
 	headingOf func(int) string, proseOf func(string) string, writeItem func(*strings.Builder, int),
+	cols int,
 ) {
 	if n == 0 {
 		return
@@ -540,7 +554,7 @@ func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string
 		section.WriteString("\n" + title + ":\n")
 		if heading != "" && proseOf != nil {
 			if prose := proseOf(heading); prose != "" {
-				writeWrapped(&section, prose, 2)
+				writeWrapped(&section, prose, 2, cols)
 				section.WriteString("\n")
 			}
 		}

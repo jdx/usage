@@ -308,6 +308,34 @@ combines both blocks in their normal help order. Hidden entries never create or 
 topic whose heading declares `heading(…, help = …)` opens with that prose, since the topic is the
 section as the long page renders it.
 
+## Logo
+
+`logo` is art printed on the root's help page, and `logo_style` colours it from the same
+vocabulary `help_template` uses. Art belongs in a file beside the code, because art is
+edited by looking at it:
+
+```rust
+/// An example
+#[derive(usage::Cli)]
+#[usage(bin = "ex", logo = include_str!("logo.txt"), logo_style = "cyan+bold")]
+struct Cli {
+    /// Do it anyway
+    #[usage(long)]
+    force: bool,
+}
+```
+
+Where the art lands is decided by how wide the terminal is: beside the page when the
+terminal can spare the columns, above it as a banner when it cannot, and nowhere at all
+when the terminal is narrower than the art. The page is wrapped into what the art leaves,
+so the text never runs under it. See the
+[spec reference](/spec/reference/#logo) for the exact rule, which every implementation of
+the spec follows.
+
+The root's `-h` and `--help` only: a logo is what a program is, and repeating it on every
+subcommand page would make it furniture. It is not part of generated Markdown, man pages,
+or SDKs.
+
 ## Version
 
 Declaring `version` (or bare `version`, which reads `CARGO_PKG_VERSION`) gives the root command

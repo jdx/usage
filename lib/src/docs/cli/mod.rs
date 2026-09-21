@@ -67,7 +67,17 @@ pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Sty
         }
     }
 
-    let width = crate::docs::layout::help_width(cmd.term_width, cmd.max_term_width);
+    // The terminal's width, less the margin the root page reserves for a logo: help wraps to
+    // whatever width it is given, so a page laid out at the full width leaves no margin for
+    // the art to sit in. See `crate::docs::logo::margin`.
+    let terminal = crate::docs::layout::help_width(cmd.term_width, cmd.max_term_width);
+    let logo_margin = docs_cmd
+        .full_cmd
+        .is_empty()
+        .then_some(spec.logo.as_deref())
+        .flatten()
+        .and_then(|logo| crate::docs::logo::margin(logo, terminal));
+    let width = logo_margin.map_or(terminal, |(page, _)| page);
     ctx.insert("terminal_width", &width);
     lay_out_group_help(&mut docs_cmd.subcommand_groups, width);
     lay_out_group_help(&mut docs_cmd.arg_groups, width);
@@ -233,6 +243,21 @@ pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Sty
     };
     let mut page = page.trim().to_string();
     page.push('\n');
+    // Last, and only on the program's own page. The art is positioned by column, so anything
+    // that trims or re-wraps the page afterwards would move it; and a default subcommand's
+    // page is appended after this, below the logo rather than beside it.
+    if docs_cmd.full_cmd.is_empty() {
+        if let Some(logo) = spec.logo.as_deref() {
+            page = crate::docs::logo::place(
+                &page,
+                logo,
+                spec.logo_style.as_deref(),
+                terminal,
+                logo_margin.map(|(_, column)| column),
+                style.coloured,
+            );
+        }
+    }
     append_default_command_help(spec, cmd, long, style, page)
 }
 

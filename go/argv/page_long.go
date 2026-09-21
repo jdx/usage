@@ -24,9 +24,12 @@ import (
 // differently on a wide terminal.
 //
 // Acceptable for now because usage-go is a development preview (see ../README.md) and
-// nothing ships on it. Closing it means giving this package a terminal probe and
-// threading a width through the renderer in place of this constant, which is not
-// something to do while the package's shape is still moving.
+// nothing ships on it. Closing it means giving this package a terminal probe, which is
+// not something to do while the package's shape is still moving — the width is already
+// threaded through the renderer in place of a bare constant, so that is all it takes.
+//
+// A page's own text may be narrower than this: a root page with a logo reserves the
+// art's columns out of it. See pageWidth.
 const helpWidth = 80
 
 // blockIndent is what a page uses where it cannot align to its column.
@@ -47,6 +50,8 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 	cmd := chain[len(chain)-1]
 	meta := help.Lookup(cmd.Key)
 	root := len(path) <= 1
+	// Less the logo's margin, when the root page is reserving one; see logoMargin.
+	cols := pageWidth(spec, root)
 	nextLineHelp := meta != nil && meta.NextLineHelp
 	var sections helpSections
 	out := &sections.about
@@ -57,7 +62,7 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 		before = firstOf(spec.BeforeLongHelp, spec.BeforeHelp)
 	}
 	if before != "" {
-		writeWrapped(out, before, 0)
+		writeWrapped(out, before, 0, cols)
 		out.WriteString("\n")
 	}
 
@@ -83,11 +88,11 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 	// an examples section written with a trailing newline — and it reaches the spec
 	// verbatim.
 	if about := trimEnd(about); about != "" {
-		writeWrapped(out, about, 0)
+		writeWrapped(out, about, 0, cols)
 		out.WriteString("\n")
 	}
 	if label := deprecationLabel(meta); label != "" {
-		writeWrapped(out, label, 0)
+		writeWrapped(out, label, 0, cols)
 		out.WriteString("\n")
 	}
 
@@ -100,7 +105,7 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 	}
 
 	if meta == nil || !meta.FlattenHelp {
-		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help, true)
+		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help, true, cols)
 	}
 
 	// One column width per section, over its visible entries — separately, so a
@@ -112,16 +117,16 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 			argCol = n
 		}
 	}
-	argCol = usageColumnWidth(argCol)
+	argCol = usageColumnWidth(argCol, cols)
 	groupsSection(&sections.args, &sections.ungroupedArgs, &sections.groupedArgs, "Arguments", len(args),
 		func(i int) string { return headingOf(help, args[i].Key) },
 		headingProse(meta),
 		func(w *strings.Builder, i int) {
 			h := help.Lookup(args[i].Key)
 			indent := entry(w, argUsage(args[i], h), firstOf(metaField(h, func(x *Help) string { return x.Long }),
-				metaField(h, func(x *Help) string { return x.Short })), argCol, nextLineHelp)
-			longAnnotations(w, h, true, indent)
-		})
+				metaField(h, func(x *Help) string { return x.Short })), argCol, nextLineHelp, cols)
+			longAnnotations(w, h, true, indent, cols)
+		}, cols)
 
 	own, inherited := ownAndGlobal(chain, help)
 	own = filterHelpMode(own, help, true)
@@ -139,16 +144,16 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 			flagCol = n
 		}
 	}
-	flagCol = usageColumnWidth(flagCol)
+	flagCol = usageColumnWidth(flagCol, cols)
 	writeFlag := func(w *strings.Builder, f shownFlag) {
 		if f.supplied != "" {
-			entry(w, f.usage, f.suppliedHelp, flagCol, nextLineHelp)
+			entry(w, f.usage, f.suppliedHelp, flagCol, nextLineHelp, cols)
 			return
 		}
 		h := help.Lookup(f.key)
 		indent := entry(w, f.usage, firstOf(metaField(h, func(x *Help) string { return x.Long }),
-			metaField(h, func(x *Help) string { return x.Short })), flagCol, nextLineHelp)
-		longAnnotations(w, h, true, indent)
+			metaField(h, func(x *Help) string { return x.Short })), flagCol, nextLineHelp, cols)
+		longAnnotations(w, h, true, indent, cols)
 	}
 	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Flags", len(own),
 		func(i int) string {
@@ -158,16 +163,16 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 			return headingOf(help, own[i].key)
 		},
 		headingProse(meta),
-		func(w *strings.Builder, i int) { writeFlag(w, own[i]) })
+		func(w *strings.Builder, i int) { writeFlag(w, own[i]) }, cols)
 	// Not grouped by heading: an ancestor's headings describe that command's page,
 	// and borrowing them here would put a section title on flags that are only
 	// visiting.
 	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Global flags", len(inherited),
 		func(int) string { return "" },
 		nil,
-		func(w *strings.Builder, i int) { writeFlag(w, inherited[i]) })
+		func(w *strings.Builder, i int) { writeFlag(w, inherited[i]) }, cols)
 	if meta != nil && meta.FlattenHelp {
-		flatCommandsLong(&sections.flattened, path[min(1, len(path)):], cmd, help, nextLineHelp)
+		flatCommandsLong(&sections.flattened, path[min(1, len(path)):], cmd, help, nextLineHelp, cols)
 	}
 
 	out = &sections.afterHelp
@@ -198,7 +203,7 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 	}
 	if after != "" {
 		out.WriteString("\n")
-		writeWrapped(out, after, 0)
+		writeWrapped(out, after, 0, cols)
 	}
 	if root && (spec.Author != "" || spec.License != "") {
 		out.WriteByte('\n')
@@ -210,7 +215,7 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 		}
 	}
 
-	return sections.assemble(spec.HelpTemplate)
+	return placeLogo(sections.assemble(spec.HelpTemplate), spec, root)
 }
 
 // AllHelp renders long help for the selected command and every visible descendant.
@@ -247,7 +252,7 @@ func AllHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) str
 
 // longCommandsSection lists the subcommands, each description on its own indented
 // line rather than beside the name.
-func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {
+func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool, cols int) {
 	visible := append([]*Command{}, cmd.Subcommands...)
 	orderCommands(visible, help)
 	for _, sub := range visible {
@@ -259,10 +264,10 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 		out.WriteString("\n" + strings.Join(subPath, " ") + ":\n")
 		if about := firstOf(metaField(h, func(x *Help) string { return x.Long }),
 			metaField(h, func(x *Help) string { return x.Short })); strings.TrimSpace(about) != "" {
-			writeWrapped(out, trimEnd(about), 0)
+			writeWrapped(out, trimEnd(about), 0, cols)
 		}
 		if label := deprecationLabel(h); label != "" {
-			writeWrapped(out, label, 0)
+			writeWrapped(out, label, 0, cols)
 		}
 
 		args := visibleArgs(sub, help, true)
@@ -271,7 +276,7 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 		for _, a := range args {
 			argCol = max(argCol, width(argUsage(a, help.Lookup(a.Key))))
 		}
-		argCol = usageColumnWidth(argCol)
+		argCol = usageColumnWidth(argCol, cols)
 		flagCol := 0
 		for _, f := range sub.Flags {
 			fh := help.Lookup(f.Key)
@@ -281,23 +286,23 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 			flags = append(flags, f)
 			flagCol = max(flagCol, width(columnUsage(f, allShown(f), help)))
 		}
-		flagCol = usageColumnWidth(flagCol)
+		flagCol = usageColumnWidth(flagCol, cols)
 		orderFlags(flags, help)
 		for _, a := range args {
 			ah := help.Lookup(a.Key)
 			entry(out, argUsage(a, ah), firstOf(metaField(ah, func(x *Help) string { return x.Long }),
-				metaField(ah, func(x *Help) string { return x.Short })), argCol, nextLine)
-			longAnnotations(out, ah, true, blockIndent)
+				metaField(ah, func(x *Help) string { return x.Short })), argCol, nextLine, cols)
+			longAnnotations(out, ah, true, blockIndent, cols)
 		}
 		for _, f := range flags {
 			fh := help.Lookup(f.Key)
 			entry(out, columnUsage(f, allShown(f), help), firstOf(
 				metaField(fh, func(x *Help) string { return x.Long }),
-				metaField(fh, func(x *Help) string { return x.Short })), flagCol, nextLine)
-			longAnnotations(out, fh, true, blockIndent)
+				metaField(fh, func(x *Help) string { return x.Short })), flagCol, nextLine, cols)
+			longAnnotations(out, fh, true, blockIndent, cols)
 		}
 		if h != nil && h.FlattenHelp {
-			flatCommandsLong(out, subPath, sub, help, h.NextLineHelp)
+			flatCommandsLong(out, subPath, sub, help, h.NextLineHelp, cols)
 		}
 		out.WriteString("\n")
 	}
@@ -307,11 +312,11 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 // indented underneath, where the text has line breaks of its own.
 // entry writes one flag or argument and returns the indent its annotations should take:
 // the description column when the description reached it, and blockIndent when it did not.
-func entry(out *strings.Builder, usage, help string, col int, nextLine bool) int {
+func entry(out *strings.Builder, usage, help string, col int, nextLine bool, cols int) int {
 	// The column layout only works for text that has not been broken already, and
 	// only when there is room left for it to say anything.
 	indent := 2 + col + 2
-	room := max(helpWidth-indent, 0)
+	room := max(cols-indent, 0)
 	// A long outlier leaves the shared column to ordinary entries, but keeps its own help on
 	// the row when at least a useful line of prose remains.
 	overflow := width(usage) > col
@@ -319,11 +324,11 @@ func entry(out *strings.Builder, usage, help string, col int, nextLine bool) int
 	if overflow {
 		inlineStart = 2 + width(usage) + 2
 	}
-	inlineRoom := helpWidth - inlineStart
+	inlineRoom := cols - inlineStart
 	canInline := !nextLine && ((overflow && inlineRoom >= minInlineHelpWidth) || (!overflow && room >= 10))
 	block := !canInline
 	stackIndent := blockIndent
-	if !nextLine && helpWidth-indent >= 10 {
+	if !nextLine && cols-indent >= 10 {
 		stackIndent = indent
 	}
 	if strings.TrimSpace(help) == "" {
@@ -338,7 +343,7 @@ func entry(out *strings.Builder, usage, help string, col int, nextLine bool) int
 
 	if block {
 		out.WriteString("  " + usage + "\n")
-		writeWrapped(out, help, stackIndent)
+		writeWrapped(out, help, stackIndent, cols)
 		return stackIndent
 	}
 
@@ -383,8 +388,8 @@ func wrapAt(text string, firstWidth, continuationWidth int) []string {
 
 // usageColumnWidth prevents one long spelling from narrowing every description on the page.
 // After the two-space indent and gap, usage gets at most two fifths of the remaining width.
-func usageColumnWidth(longest int) int {
-	available := helpWidth - 4
+func usageColumnWidth(longest, cols int) int {
+	available := cols - 4
 	cap := available * 2 / 5
 	return min(longest, cap)
 }
@@ -395,29 +400,29 @@ func usageColumnWidth(longest int) int {
 // them ended up: the description column when the description reached it, and blockIndent
 // when it did not. An annotation is a note about the same entry, so it belongs under the
 // text it qualifies rather than in the gutter beside a column it is ignoring.
-func longAnnotations(out *strings.Builder, h *Help, withDefault bool, indent int) {
+func longAnnotations(out *strings.Builder, h *Help, withDefault bool, indent, cols int) {
 	if h == nil {
 		return
 	}
 	if !h.HidePossibleValues && len(h.Choices) > 0 {
-		writeWrapped(out, "[possible values: "+strings.Join(h.Choices, ", ")+"]", indent)
+		writeWrapped(out, "[possible values: "+strings.Join(h.Choices, ", ")+"]", indent, cols)
 	}
 	if !h.HideEnv && h.Env != "" {
-		writeWrapped(out, "[env: "+h.Env+"]", indent)
+		writeWrapped(out, "[env: "+h.Env+"]", indent, cols)
 	}
 	if !h.HideEnv {
 		for _, env := range h.EnvFallback {
-			writeWrapped(out, "[env fallback: "+env+"]", indent)
+			writeWrapped(out, "[env fallback: "+env+"]", indent, cols)
 		}
 		for _, env := range h.DeprecatedEnv {
-			writeWrapped(out, "[deprecated env: "+env+"]", indent)
+			writeWrapped(out, "[deprecated env: "+env+"]", indent, cols)
 		}
 	}
 	if withDefault && !h.HideDefaultValue && len(h.Default) > 0 {
-		writeWrapped(out, "(default: "+strings.Join(h.Default, ", ")+")", indent)
+		writeWrapped(out, "(default: "+strings.Join(h.Default, ", ")+")", indent, cols)
 	}
 	if label := deprecationLabel(h); label != "" {
-		writeWrapped(out, label, indent)
+		writeWrapped(out, label, indent, cols)
 	}
 }
 
@@ -437,9 +442,9 @@ func headingProse(meta *Help) func(string) string {
 	}
 }
 
-func writeWrapped(out *strings.Builder, text string, by int) {
+func writeWrapped(out *strings.Builder, text string, by, cols int) {
 	prefix := strings.Repeat(" ", by)
-	for _, line := range wrap(text, helpWidth-by) {
+	for _, line := range wrap(text, cols-by) {
 		if line == "" {
 			out.WriteString("\n")
 		} else {
