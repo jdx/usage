@@ -447,10 +447,12 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 	// per-entry pass reports failures in, and a loser has one question left to
 	// answer even though it has no state.
 	var ordered []uint64
+	owners := map[uint64]*argv.Command{}
 
 	for _, cmd := range path {
 		for _, f := range cmd.Flags {
 			ordered = append(ordered, f.Key)
+			owners[f.Key] = cmd
 			// A flag that lost an override is out of the running rather than
 			// merely absent: it is not filled from `env` or `default`, and the
 			// rules that judge what it *holds* do not apply. A `required` loser
@@ -465,6 +467,7 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 		}
 		for _, a := range cmd.Args {
 			ordered = append(ordered, a.Key)
+			owners[a.Key] = cmd
 			fill(a.Key, true).arg = a
 		}
 	}
@@ -485,7 +488,8 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 		r.source = sources[key]
 	}
 
-	// What one entry ended up with, judged on its own.
+	// A selected child may waive only requirements owned by a parent command whose
+	// subcommand_negates_reqs policy is enabled. Other checks still run.
 	for _, key := range ordered {
 		if lost[key] {
 			// Nothing to end up with, so only the words it was typed are left to
@@ -497,11 +501,15 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 			continue
 		}
 		r := final[key]
+		adjusted := *meta.Lookup(key)
+		if owner := owners[key]; owner != nil && owner.SubcommandNegatesReqs && owner != path[len(path)-1] {
+			adjusted.Required = false
+		}
 		occurrences := r.occurrences
 		if r.arg != nil {
 			occurrences = 0
 		}
-		if err := argv.Check(meta.Lookup(key), r.values, occurrences); err != nil {
+		if err := argv.Check(&adjusted, r.values, occurrences); err != nil {
 			return nil, err
 		}
 	}

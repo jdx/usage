@@ -68,6 +68,8 @@ type Parser struct {
 	// argFilled records whether any word has been bound to a positional of cmd.
 	// Once one has, no further word can select a subcommand.
 	argFilled bool
+	// positionalArgFound records whether argv supplied a positional value in this command.
+	positionalArgFound bool
 	// commandArgFound includes flags as well as positionals for the command
 	// policy that makes either exclude a later subcommand.
 	commandArgFound bool
@@ -260,6 +262,17 @@ func (p *Parser) Next() bool {
 	}
 	ok := p.step()
 	if !ok {
+		if !p.failed && p.depth == 0 && p.cmd.DefaultSubcommandOnEmpty &&
+			!p.defaultTaken && !p.positionalArgFound && !p.separatorSeen && p.cmd.DefaultSubcommand != nil {
+			if p.cmd.ArgsConflictWithSubcommands && p.commandArgFound {
+				return p.fail(Error{Code: CodeSubcommandConflict, Cmd: p.cmd.DefaultSubcommand})
+			}
+			p.defaultTaken = true
+			if p.descend(p.cmd.DefaultSubcommand) {
+				p.event = Event{Kind: KindCommand, Command: p.cmd}
+				return true
+			}
+		}
 		p.done = true
 	}
 	return ok
@@ -340,6 +353,9 @@ func (p *Parser) emit(e Event) bool {
 	p.event = e
 	if e.Kind == KindFlag || e.Kind == KindArg {
 		p.commandArgFound = true
+	}
+	if e.Kind == KindArg {
+		p.positionalArgFound = true
 	}
 	return true
 }
@@ -915,6 +931,7 @@ func (p *Parser) descend(sub *Command) bool {
 	p.argPos = 0
 	p.argTaken = 0
 	p.argFilled = false
+	p.positionalArgFound = false
 	p.commandArgFound = false
 	return true
 }

@@ -165,6 +165,14 @@ pub fn lint_spec(spec: &Spec, opts: LintOptions) -> Vec<LintIssue> {
             location: None,
         });
     }
+    if spec.default_subcommand_on_empty && spec.default_subcommand.is_none() {
+        issues.push(LintIssue {
+            severity: Severity::Error,
+            code: "invalid-default-subcommand-on-empty".to_string(),
+            message: "default_subcommand_on_empty requires default_subcommand".to_string(),
+            location: None,
+        });
+    }
 
     if spec.default_subcommand_help && spec.default_subcommand.is_none() {
         issues.push(LintIssue {
@@ -1929,5 +1937,16 @@ cmd "update" help="update"
         assert!(issue.message.contains("valid subcommands:"));
         assert!(issue.message.contains("install"));
         assert!(issue.message.contains("update"));
+    }
+
+    #[test]
+    fn test_lint_default_subcommand_on_empty_requires_default() {
+        let spec: Spec = "name \"test\"\ndefault_subcommand_on_empty #true"
+            .parse()
+            .unwrap();
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(issues.iter().any(|issue| {
+            issue.code == "invalid-default-subcommand-on-empty" && issue.severity == Severity::Error
+        }));
     }
 }

@@ -1512,6 +1512,9 @@ fn parse_partial_traced(
     // env/default. Start at the root, then reset on every explicit descent. A default
     // subcommand receives the unmatched word that selected it, so it is necessarily non-bare.
     let mut command_has_argv = !input.is_empty();
+    // Unlike `out.args`, this survives clause finalization and restart rewinds. It records
+    // whether the root actually consumed a positional token before empty-default routing.
+    let mut root_positional_arg_found = false;
 
     let mut out = ParseOutput {
         cmd: spec.cmd.clone(),
@@ -2567,6 +2570,9 @@ fn parse_partial_traced(
             } else {
                 out.args.insert(key, ParseValue::String(value.to_string()));
             }
+            if out.cmds.len() == 1 {
+                root_positional_arg_found = true;
+            }
             continue;
         }
 
@@ -2693,6 +2699,9 @@ fn parse_partial_traced(
                     }
                 },
             );
+            if out.cmds.len() == 1 {
+                root_positional_arg_found = true;
+            }
             if arg.var {
                 let arr = out
                     .args
@@ -2783,6 +2792,51 @@ fn parse_partial_traced(
         );
         trace.close(&input);
         bail!("unexpected word: {w}");
+    }
+
+    // Resolve optional defaults before deciding whether argv is empty. This is deliberately
+    // inside the opt-in gate: completion's partial parser must retain its pending value when
+    // the feature is disabled.
+    if spec.default_subcommand_on_empty
+        && spec.default_subcommand.is_some()
+        && out.cmds.len() == 1
+        && !root_positional_arg_found
+        && !seen_double_dash
+        && out.errors.is_empty()
+    {
+        while try_bind_default_missing(
+            &mut out.flags,
+            &mut out.flag_awaiting_value,
+            custom_env,
+            &mut out.flag_origins,
+        )? {}
+        if !out.flag_awaiting_value.is_empty() {
+            // A required flag value is still pending; leave it for full-parse diagnostics or
+            // completion rather than routing to a synthetic child.
+        } else if let Some(subcommand) = out
+            .cmd
+            .find_subcommand(spec.default_subcommand.as_deref().unwrap())
+        {
+            if out.cmd.args_conflicts_with_subcommands && command_arg_found {
+                bail!(
+                    "subcommand '{}' cannot be used with arguments on its parent command",
+                    subcommand.name
+                );
+            }
+            let mut subcommand = subcommand.clone();
+            subcommand.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
+            let crossing_mount = subcommand.mounted && !out.cmd.mounted;
+            merge_subcommand_flags(
+                &mut out.available_flags,
+                gather_flags(&subcommand),
+                crossing_mount,
+            );
+            out.cmds.push(subcommand.clone());
+            out.cmd = subcommand;
+            command_has_argv = false;
+            prefix_flags.clear();
+            next_arg_idx = cursor_skip_sigils(&out.cmd, 0);
+        }
     }
 
     record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
@@ -9857,6 +9911,23 @@ cmd "run" arg_required_else_help=#true {
     }
 
     #[test]
+    fn empty_default_with_parent_flags_observes_child_argv() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+default_subcommand_on_empty #true
+flag "--verbose" global=#true
+cmd "run" arg_required_else_help=#true {}
+"#
+        .parse()
+        .unwrap();
+        let words = |items: &[&str]| items.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
+        let err = parse(&spec, &words(&["ex", "--verbose"])).unwrap_err();
+        assert!(err.to_string().contains("Usage: ex run"), "{err}");
+    }
+
+    #[test]
     fn an_unmatched_word_is_forwarded_when_external_subcommand_is_set() {
         let spec: Spec = r#"
 name "ex"
@@ -11255,5 +11326,156 @@ cmd "run" {
         // the caller wrote.
         assert_eq!(roles(&parsed, 0), ["program"]);
         assert_eq!(roles(&parsed, 2), ["value of token = [\"secret\"]"]);
+    }
+
+    #[test]
+    fn empty_default_does_not_hide_a_missing_parent_flag_value() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+default_subcommand_on_empty #true
+flag "--value <value>"
+cmd "run" arg_required_else_help=#true
+"#
+        .parse()
+        .unwrap();
+        let err = Parser::new(&spec)
+            .parse(&input(&["ex", "--value"]))
+            .unwrap_err();
+        assert!(err.to_string().contains("requires an argument"), "{err}");
+        assert!(!err.to_string().contains("Usage: ex run"), "{err}");
+    }
+
+    #[test]
+    fn empty_default_honors_parent_args_conflict_policy() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+default_subcommand_on_empty #true
+args_conflicts_with_subcommands #true
+flag "--verbose"
+cmd "run"
+"#
+        .parse()
+        .unwrap();
+        let err = Parser::new(&spec)
+            .parse(&input(&["ex", "--verbose"]))
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("cannot be used with arguments"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn empty_default_mount_matches_explicit_selection() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+default_subcommand_on_empty #true
+cmd "run" { mount run="discover" }
+"#
+        .parse()
+        .unwrap();
+        let mut mounts = HashMap::new();
+        mounts.insert(
+            "discover".to_string(),
+            "name \"run\"\nbin \"run\"\nflag \"--mounted <mounted>\" default=\"yes\"\n".to_string(),
+        );
+        for argv in [
+            vec!["ex".to_string()],
+            vec!["ex".to_string(), "run".to_string()],
+        ] {
+            let out = Parser::new(&spec)
+                .with_mount_outputs(mounts.clone())
+                .parse(&argv)
+                .unwrap();
+            assert_eq!(out.cmds.last().unwrap().name, "run");
+            assert_eq!(out.flags.values().next().unwrap().to_string(), "yes");
+        }
+    }
+
+    #[test]
+    fn pending_parent_value_stays_pending_in_partial_parse() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+default_subcommand_on_empty #true
+flag "--value <value>"
+cmd "run" {}
+"#
+        .parse()
+        .unwrap();
+        let out = parse_partial(&spec, &input(&["ex", "--value"])).unwrap();
+        assert_eq!(out.cmd.name, "ex");
+        assert_eq!(out.flag_awaiting_value[0].name, "value");
+    }
+
+    #[test]
+    fn optional_default_missing_still_selects_empty_child() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+default_subcommand_on_empty #true
+flag "--value <value>" default_missing="fallback"
+cmd "run" {}
+"#
+        .parse()
+        .unwrap();
+        let out = Parser::new(&spec)
+            .parse(&input(&["ex", "--value"]))
+            .unwrap();
+        assert_eq!(out.cmd.name, "run");
+        assert_eq!(out.flags.values().next().unwrap().to_string(), "fallback");
+    }
+
+    #[test]
+    fn empty_default_resets_cursor_after_root_sigil() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+default_subcommand_on_empty #true
+arg "[tool]..." sigil="@"
+cmd "run" { arg "[path]" }
+"#
+        .parse()
+        .unwrap();
+        let out = parse_partial(&spec, &input(&["ex"])).unwrap();
+        assert_eq!(out.cmd.name, "run");
+        assert_eq!(out.next_arg.as_ref().unwrap().name, "path");
+    }
+
+    #[test]
+    fn root_clause_positional_prevents_empty_default() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+default_subcommand_on_empty #true
+clause "tasks" {
+  arg "<number>" allow_negative_numbers=#true
+}
+cmd "run" { arg "[task]" }
+"#
+        .parse()
+        .unwrap();
+        let out = Parser::new(&spec).parse(&input(&["ex", "-7"])).unwrap();
+        assert!(
+            out.cmds.iter().all(|cmd| cmd.name != "run"),
+            "cmds={:?} args={:?}",
+            out.cmds.iter().map(|c| &c.name).collect::<Vec<_>>(),
+            out.args
+        );
+        let number = spec.cmd.clause.as_ref().unwrap().args.first().unwrap();
+        assert_eq!(
+            out.clauses["tasks"][0].get(number).unwrap().to_string(),
+            "-7"
+        );
     }
 }

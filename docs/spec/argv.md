@@ -105,6 +105,30 @@ command in scope at that moment. This is what makes the grammar implementable as
 a single loop, and it is also why a `--` or a subcommand word changes the meaning
 of everything after it but nothing before it.
 
+### Selecting a default on empty input
+
+`default_subcommand_on_empty #true` opts in to selecting the declared
+`default_subcommand` when argv reaches successful end-of-input without selecting
+a child or consuming a positional argument. It defaults to false and requires a
+default subcommand. Parent and global flags remain owned by the parent while the
+synthetic child is selected before environment/default resolution and validation.
+An explicit command, help/version request, parse error, positional value, or
+syntactic `--` keeps existing routing. A `--` consumed as a flag value is not a
+syntactic separator and does not suppress the fallback.
+
+The selected child is validated exactly as an explicitly named child. Parent
+requirements remain in force unless the parent sets
+`subcommand_negates_reqs #true`; the synthetic child does not waive them merely
+because the root was empty. Child `arg_required_else_help` reports the child
+help page, and does not count parent flags as child arguments.
+
+```kdl
+name "tool"
+default_subcommand "run"
+default_subcommand_on_empty #true
+cmd "run" { arg "[path]" }
+```
+
 At each token, in order:
 
 1. If flag interpretation has stopped (a `--` was consumed), the token is a

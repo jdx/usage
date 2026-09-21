@@ -532,6 +532,12 @@ impl<'a> Emitter<'a> {
                 if self.spec.default_subcommand_flags {
                     lines.push(Line::Field("DefaultSubcommandFlags".into(), "true".into()));
                 }
+                if self.spec.default_subcommand_on_empty {
+                    lines.push(Line::Field(
+                        "DefaultSubcommandOnEmpty".into(),
+                        "true".into(),
+                    ));
+                }
                 if let Some(var) = &default_subcommand {
                     lines.push(Line::Field("DefaultSubcommand".into(), var.clone()));
                 }

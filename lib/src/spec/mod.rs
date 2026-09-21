@@ -141,6 +141,11 @@ pub struct Spec {
     pub default_subcommand_flags: bool,
     #[serde(skip)]
     pub default_subcommand_flags_set: bool,
+    /// Opt in to selecting the default subcommand for empty successful input.
+    #[serde(skip_serializing_if = "is_false")]
+    pub default_subcommand_on_empty: bool,
+    #[serde(skip)]
+    pub default_subcommand_on_empty_set: bool,
     /// Opt in to appending the default command's help page after the root page.
     #[serde(skip_serializing_if = "is_false")]
     pub default_subcommand_help: bool,
@@ -505,6 +510,8 @@ impl Spec {
         spec.default_subcommand = None;
         spec.default_subcommand_flags = false;
         spec.default_subcommand_flags_set = false;
+        spec.default_subcommand_on_empty = false;
+        spec.default_subcommand_on_empty_set = false;
         spec.default_subcommand_help = false;
         spec.default_subcommand_help_set = false;
         spec.multicall = false;
@@ -683,6 +690,10 @@ impl Spec {
                 "default_subcommand_flags" => {
                     schema.default_subcommand_flags = node.arg(0)?.ensure_bool()?;
                     schema.default_subcommand_flags_set = true;
+                }
+                "default_subcommand_on_empty" => {
+                    schema.default_subcommand_on_empty = node.arg(0)?.ensure_bool()?;
+                    schema.default_subcommand_on_empty_set = true;
                 }
                 "default_subcommand_help" => {
                     schema.default_subcommand_help = node.arg(0)?.ensure_bool()?;
@@ -960,6 +971,10 @@ impl Spec {
         if other.default_subcommand_flags_set {
             self.default_subcommand_flags = other.default_subcommand_flags;
             self.default_subcommand_flags_set = true;
+        }
+        if other.default_subcommand_on_empty_set {
+            self.default_subcommand_on_empty = other.default_subcommand_on_empty;
+            self.default_subcommand_on_empty_set = true;
         }
         if other.default_subcommand_help_set {
             self.default_subcommand_help = other.default_subcommand_help;
@@ -1259,6 +1274,11 @@ impl Display for Spec {
         if self.default_subcommand_flags_set || self.default_subcommand_flags {
             let mut node = KdlNode::new("default_subcommand_flags");
             node.push(KdlEntry::new(self.default_subcommand_flags));
+            nodes.push(node);
+        }
+        if self.default_subcommand_on_empty_set || self.default_subcommand_on_empty {
+            let mut node = KdlNode::new("default_subcommand_on_empty");
+            node.push(KdlEntry::new(self.default_subcommand_on_empty));
             nodes.push(node);
         }
         if self.default_subcommand_help_set || self.default_subcommand_help {

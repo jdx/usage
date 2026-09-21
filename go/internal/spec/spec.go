@@ -38,8 +38,9 @@ type Spec struct {
 	UnknownFlags string `json:"unknown_flags"`
 	// DefaultSubcommand is declared once, at the top, and names a subcommand of
 	// the root.
-	DefaultSubcommand      string `json:"default_subcommand"`
-	DefaultSubcommandFlags bool   `json:"default_subcommand_flags"`
+	DefaultSubcommand        string `json:"default_subcommand"`
+	DefaultSubcommandFlags   bool   `json:"default_subcommand_flags"`
+	DefaultSubcommandOnEmpty bool   `json:"default_subcommand_on_empty"`
 	// DefaultSubcommandHelp appends the default command's help page after the root page.
 	DefaultSubcommandHelp bool `json:"default_subcommand_help"`
 	// Multicall is whether argv[0]'s basename selects a subcommand (busybox-style
@@ -528,6 +529,7 @@ func (s *Spec) BuildAll() (*argv.Command, argv.Metadata, argv.HelpTable) {
 	// name outranks another command's alias, so this does not depend on the order
 	// the spec declares them in.
 	root.DefaultSubcommandFlags = s.DefaultSubcommandFlags
+	root.DefaultSubcommandOnEmpty = s.DefaultSubcommandOnEmpty
 	root.DefaultSubcommandHelp = s.DefaultSubcommandHelp
 	if s.DefaultSubcommand != "" {
 		for _, sub := range root.Subcommands {
