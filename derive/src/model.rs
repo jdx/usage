@@ -202,6 +202,8 @@ pub struct Cli {
     pub logo: Option<proc_macro2::TokenStream>,
     /// How [`Self::logo`] is coloured, from the `help_template` style vocabulary.
     pub logo_style: Option<String>,
+    /// Where `logo_style` was written, for the diagnostic when it names no logo.
+    pub logo_style_span: Option<Span>,
     pub before_help: Option<proc_macro2::TokenStream>,
     /// Default help section for fields declared by this argument struct.
     pub next_help_heading: Option<String>,
@@ -810,6 +812,7 @@ impl Cli {
             help_template: None,
             logo: None,
             logo_style: None,
+            logo_style_span: None,
             effect: None,
             aliases: Vec::new(),
             hidden_aliases: Vec::new(),
@@ -1076,6 +1079,7 @@ impl Cli {
                                 ),
                             ));
                         }
+                        cli.logo_style_span = Some(syn::spanned::Spanned::span(&meta));
                         cli.logo_style = Some(style);
                     }
                     "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
@@ -1696,6 +1700,18 @@ impl Cli {
 
     /// Reject declarations that would compile into a CLI nobody could use.
     fn check(&self) -> syn::Result<()> {
+        // A style is written into KDL as a property of the `logo` node, so there is nowhere
+        // to put one that names no logo: it would sit in the compiled tables, vanish from the
+        // emitted spec, and colour nothing either way. Refused where it is written instead.
+        if self.logo.is_none() {
+            if let Some(span) = self.logo_style_span {
+                return Err(syn::Error::new(
+                    span,
+                    "`logo_style` colours a `logo`, and this CLI declares none; add \
+                     `logo = …` or drop the style",
+                ));
+            }
+        }
         let mut seen_long: Vec<(&str, Span)> = Vec::new();
         let mut seen_short: Vec<(char, Span)> = Vec::new();
         let mut seen_sigils: Vec<(&str, Span)> = Vec::new();

@@ -157,8 +157,13 @@ pages, and it is not part of generated Markdown, man pages, or SDKs — it is a 
 decoration rather than documentation.
 
 Art is measured in characters, like every other column on the page, so double-width
-characters will not line up. Colour is applied a line at a time and removed entirely
-from a plain page, so a page still pipes cleanly.
+characters will not line up. Art may carry its own escape sequences where one `style`
+is not enough colour; they are measured as the zero columns they print, and a plain
+page loses them along with every other authored escape, so `--help > file` never
+contains control bytes.
+
+A `logo` that is empty or nothing but blank lines is no logo: it reserves no margin and
+the page keeps its full width.
 
 ## Root command policy
 

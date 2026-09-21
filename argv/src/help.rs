@@ -282,18 +282,19 @@ const LOGO_MIN_PAGE: usize = 50;
 /// two halves have to agree about the same number — which is why this is one function.
 ///
 /// `None` when the page keeps the whole width: the CLI declared no logo, this is not its root
-/// page, the width is unbounded, or narrowing it would leave less than [`LOGO_MIN_PAGE`].
+/// page, there is no art after trimming, the width is unbounded, or narrowing it would leave
+/// less than [`LOGO_MIN_PAGE`].
+///
+/// The empty case is not a formality. A logo that is nothing but blank lines has a width of
+/// zero and would otherwise reserve the gutter alone — wrapping help two columns short of the
+/// terminal to make room for a picture that is never drawn.
 fn logo_margin(spec: &Spec<'_>, root: bool, width: usize) -> Option<(usize, usize)> {
     let logo = spec.logo.filter(|_| root)?;
-    if width == usize::MAX {
+    let art = logo_lines(logo);
+    if art.is_empty() || width == usize::MAX {
         return None;
     }
-    let art_width = logo_lines(logo)
-        .iter()
-        .copied()
-        .map(shown_width)
-        .max()
-        .unwrap_or(0);
+    let art_width = art.iter().copied().map(shown_width).max().unwrap_or(0);
     let page = width.checked_sub(art_width + LOGO_GUTTER)?;
     (page >= LOGO_MIN_PAGE).then_some((page, width - art_width))
 }
@@ -410,7 +411,13 @@ pub fn place_logo(
 /// across a newline is open across whatever the terminal puts on the next line, which beside
 /// a page is the page.
 fn painted_logo(line: &str, style: Option<&str>, coloured: bool) -> String {
-    match style.filter(|_| coloured) {
+    if !coloured {
+        // The page had its own escapes taken out before it arrived here, and art carrying
+        // escapes of its own has to lose them by the same rule: a plain page is plain all the
+        // way across, or a redirected `--help` writes control bytes into a file.
+        return strip_ansi_sequences(line.to_string());
+    }
+    match style {
         Some(style) if !line.trim().is_empty() => template::semantic(style, line, Style::COLOURED),
         _ => line.to_string(),
     }

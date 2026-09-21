@@ -43,13 +43,18 @@ pub const MIN_PAGE: usize = 50;
 /// Every implementation therefore narrows the page first and places the art second, and the
 /// two halves have to agree about the same number — which is why this is one function.
 ///
-/// `None` when the page keeps the whole width: the width is unbounded, or narrowing it would
-/// leave less than [`MIN_PAGE`].
+/// `None` when the page keeps the whole width: there is no art after trimming, the width is
+/// unbounded, or narrowing it would leave less than [`MIN_PAGE`].
+///
+/// The empty case is not a formality. A `logo ""`, or one that is nothing but blank lines,
+/// has a width of zero and would otherwise reserve the gutter alone — wrapping help two
+/// columns short of the terminal to make room for a picture that is never drawn.
 pub fn margin(logo: &str, width: usize) -> Option<(usize, usize)> {
-    if width == usize::MAX {
+    let art = trimmed_lines(logo);
+    if art.is_empty() || width == usize::MAX {
         return None;
     }
-    let art_width = art_width(&trimmed_lines(logo));
+    let art_width = art_width(&art);
     let page = width.checked_sub(art_width + GUTTER)?;
     (page >= MIN_PAGE).then_some((page, width - art_width))
 }
@@ -135,7 +140,13 @@ fn above(page: &str, art: &[&str], style: Option<&str>, coloured: bool) -> Strin
 /// A sequence left open across a newline is a sequence open across whatever the terminal puts
 /// on the next line, which beside a page is the page.
 fn paint(line: &str, style: Option<&str>, coloured: bool) -> String {
-    match style.filter(|_| coloured) {
+    if !coloured {
+        // The page had its own escapes taken out before it arrived here, and art carrying
+        // escapes of its own has to lose them by the same rule: a plain page is plain all
+        // the way across, or a redirected `--help` writes control bytes into a file.
+        return strip_ansi(line).into_owned();
+    }
+    match style {
         Some(style) if !line.trim().is_empty() => {
             crate::help_template::semantic(style, line, coloured)
         }
@@ -284,5 +295,29 @@ mod tests {
     #[test]
     fn nothing_but_whitespace_is_no_logo() {
         assert_eq!(render("hi\n", "\n   \n", None, 80, false), "hi\n");
+    }
+
+    #[test]
+    fn nothing_but_whitespace_reserves_nothing_either() {
+        // Width zero plus the gutter would still be a reservation, and the page would wrap
+        // two columns short to leave room for a picture that never gets drawn.
+        assert_eq!(margin("", 80), None);
+        assert_eq!(margin("\n   \n\t\n", 80), None);
+    }
+
+    #[test]
+    fn a_plain_page_loses_the_escapes_the_art_brought_with_it() {
+        // The page is stripped before the art is placed, so art that carries its own colour
+        // has to be stripped here or a redirected `--help` writes control bytes to a file.
+        let page = render("hi\n", "\u{1b}[31mab\u{1b}[0m\n", None, 80, false);
+        assert!(!page.contains('\u{1b}'), "{page:?}");
+        assert!(page.ends_with("ab\n"), "{page:?}");
+    }
+
+    #[test]
+    fn a_coloured_page_keeps_the_escapes_the_art_brought_with_it() {
+        // Art with more colours than one `style` can name is the reason to write them in.
+        let page = render("hi\n", "\u{1b}[31mab\u{1b}[0m\n", None, 80, true);
+        assert!(page.ends_with("\u{1b}[31mab\u{1b}[0m\n"), "{page:?}");
     }
 }

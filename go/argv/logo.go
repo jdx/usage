@@ -43,14 +43,22 @@ const logoMinPage = 50
 // left to put art in. Every implementation narrows the page first and places the art
 // second, and the two halves have to agree about the same number.
 //
-// ok is false when the page keeps the whole width: no logo, not the root page, or
-// narrowing would leave less than logoMinPage.
+// ok is false when the page keeps the whole width: no logo, not the root page, no
+// art left after trimming, or narrowing would leave less than logoMinPage.
+//
+// The empty case is not a formality. A logo that is nothing but blank lines has a
+// width of zero and would otherwise reserve the gutter alone — wrapping help two
+// columns short to make room for a picture that is never drawn.
 func logoMargin(spec HelpSpec, root bool, total int) (page, column int, ok bool) {
 	if spec.Logo == "" || !root {
 		return total, 0, false
 	}
+	art := logoLines(spec.Logo)
+	if len(art) == 0 {
+		return total, 0, false
+	}
 	artWidth := 0
-	for _, line := range logoLines(spec.Logo) {
+	for _, line := range art {
 		if w := width(line); w > artWidth {
 			artWidth = w
 		}
@@ -140,7 +148,10 @@ func beside(lines, art []string, column int) []string {
 // commonly arrives with a leading newline and a trailing one; neither is part of
 // the picture.
 func logoLines(logo string) []string {
-	lines := strings.Split(logo, "\n")
+	// Escapes come out here rather than at composition time, so that what is measured is
+	// what is printed. This renderer produces the portable plain page and colours nothing,
+	// so art carrying its own colour would otherwise write control bytes into it.
+	lines := strings.Split(stripANSISequences(logo), "\n")
 	for i, line := range lines {
 		lines[i] = strings.TrimRight(line, " \t\r")
 	}

@@ -89,6 +89,60 @@
           "  -h, --help   Print help"
         ]
       }
+    },
+    {
+      "id": "an-empty-logo-reserves-no-margin",
+      "doc": "Art that is nothing but whitespace is no logo, and reserves nothing. The first line runs to column eighty: a page that had reserved the gutter for zero columns of art would have wrapped it at seventy-eight and moved the last word down.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example whose first description line ends exactly at column eighty here so a narrowed page is visible\"\nlogo \"   \"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example whose first description line ends exactly at column eighty here so a",
+          "narrowed page is visible",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ],
+        "long_help": [
+          "An example whose first description line ends exactly at column eighty here so a",
+          "narrowed page is visible",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ]
+      }
+    },
+    {
+      "id": "art-escapes-leave-a-plain-page",
+      "doc": "Art may carry its own colour, for a logo that wants more of it than one `style` can name. A plain page loses those escapes as it loses any other authored escape, and the art is measured by what it prints either way — two columns here, not the eleven the bytes would count.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nlogo \"\\u{1b}[31mab\\u{1b}[0m\\n\\u{1b}[32mcd\\u{1b}[0m\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example                                                                    ab",
+          "                                                                              cd",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ],
+        "long_help": [
+          "An example                                                                    ab",
+          "                                                                              cd",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ]
+      }
     }
   ]
 }
