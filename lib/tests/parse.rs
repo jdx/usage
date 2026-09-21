@@ -7,7 +7,12 @@ macro_rules! tests {
     $(
         #[test]
         fn $name() {
-            let spec: Spec = $spec.parse().unwrap();
+            let mut spec: Spec = $spec.parse().unwrap();
+            // A page asserted line by line has to be laid out at a width the test knows.
+            // `cargo test` leaves the harness's standard output attached to the developer's
+            // terminal, which help would otherwise measure, so these cases would pass only
+            // in an 80-column window.
+            pin_width(&mut spec.cmd);
             let mut args = usage::shell_words::split($args).unwrap();
             args.insert(0, "test".to_string());
             match parse(&spec, &args) {
@@ -16,6 +21,16 @@ macro_rules! tests {
             }
         }
     )*
+    }
+}
+
+/// The width every page in this file is asserted at, on the command and its descendants.
+fn pin_width(cmd: &mut usage::SpecCommand) {
+    if cmd.term_width.is_none() && cmd.max_term_width.is_none() {
+        cmd.term_width = Some(80);
+    }
+    for sub in cmd.subcommands.values_mut() {
+        pin_width(sub);
     }
 }
 

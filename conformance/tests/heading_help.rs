@@ -20,6 +20,9 @@ struct Filters {
 #[derive(Cli)]
 #[usage(
     bin = "ex",
+    // A page asserted line by line is laid out at a width the test knows, rather than at the
+    // one the terminal `cargo test` was started from happens to have.
+    term_width = 80,
     heading("Filters", help = FILTERS),
     heading("Ignore Files", help = "Paths are matched the way `.gitignore` matches them.")
 )]

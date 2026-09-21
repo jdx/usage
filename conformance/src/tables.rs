@@ -308,6 +308,8 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         min_usage_version: opt(&spec.min_usage_version),
         about: opt(&spec.about),
         long_about: opt(&spec.about_long),
+        logo: opt(&spec.logo),
+        logo_style: opt(&spec.logo_style),
         default_subcommand: opt(&spec.default_subcommand),
         default_subcommand_help: spec.default_subcommand_help,
         multicall: spec.multicall,

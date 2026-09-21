@@ -79,7 +79,11 @@ fn embedded_dispatch_parses_or_renders_every_other_outcome() {
     let exit = help.exit().expect("help is a response");
     assert_eq!(exit.code, 0);
     assert!(!exit.stderr);
-    assert!(exit.text.contains("Usage: ex"), "{}", exit.text);
+    assert!(
+        strip_ansi(&exit.text).contains("Usage: ex"),
+        "{}",
+        exit.text
+    );
 
     let failure = Ex::embedded_outcome(&argv(&["--unknown"]));
     let exit = failure.exit().expect("a parse failure is a response");
@@ -126,7 +130,11 @@ fn finalizing_dispatch_converts_a_parsed_command_line() {
     let exit = help.exit().expect("help is a response");
     assert_eq!(exit.code, 0);
     assert!(!exit.stderr);
-    assert!(exit.text.contains("Usage: exi"), "{}", exit.text);
+    assert!(
+        strip_ansi(&exit.text).contains("Usage: exi"),
+        "{}",
+        exit.text
+    );
 }
 
 #[test]
@@ -153,4 +161,27 @@ fn a_host_can_finalize_an_unconverted_outcome_itself() {
 
     let help = Ex::embedded_outcome(&argv(&["--help"])).map(|parsed| parsed.force);
     assert_eq!(help.exit().map(|exit| exit.code), Some(0));
+}
+
+/// The text of a rendered message, without whatever the terminal asked for.
+///
+/// These pages and diagnostics come from `Style::auto()`, which colours when the destination
+/// is a terminal — and under `cargo test` the harness's streams still are one. A test that
+/// reads words should not pass or fail by whether it was run in a terminal or a pipe. The
+/// same stripper as `version.rs`'s: every escape this crate emits is `\x1b[`…`m`.
+fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('\u{1b}') {
+        out.push_str(&rest[..i]);
+        match rest[i..].find('m') {
+            Some(end) => rest = &rest[i + end + 1..],
+            None => {
+                rest = "";
+                break;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }

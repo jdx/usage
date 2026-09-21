@@ -45,8 +45,8 @@ pub fn dump(spec_path: &Path) {
     };
 
     // This JSON is a checked-in oracle, so its wrapping must not depend on the
-    // terminal where a maintainer regenerates it. Keep this in sync with
-    // usage-lib's default width.
+    // terminal where a maintainer regenerates it — and without `COLUMNS` the renderer
+    // would ask that terminal. 80 is the width the rendering corpus pins too.
     std::env::set_var("COLUMNS", "80");
 
     let mut out: BTreeMap<String, Pages> = BTreeMap::new();

@@ -40,6 +40,11 @@ mod sponsors;
 #[usage(
     bin = "usage",
     version,
+    // The project's mark in block characters: the flag on its pole, the two dashes it carries,
+    // and the copies behind it. In a file rather than in the attribute because art is edited by
+    // looking at it, and a raw string indented to match this list would not be what prints.
+    logo = include_str!("logo.txt"),
+    logo_style = "magenta",
     min_usage_version = "6.5",
     repository = "https://github.com/jdx/usage",
     // The command path is not the file path: command names are hyphenated where the files

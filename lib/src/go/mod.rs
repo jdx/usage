@@ -1133,6 +1133,11 @@ impl Emitter<'_> {
         if let Some(license) = &self.spec.license {
             fields.push(format!("License: {}", go_string(license)));
         }
+        // The style a spec gives its logo is not carried across: the Go renderer
+        // produces the portable plain page and colours nothing on it.
+        if let Some(logo) = &self.spec.logo {
+            fields.push(format!("Logo: {}", go_string(logo)));
+        }
         if let Some(before) = &self.spec.before_help {
             fields.push(format!("BeforeHelp: {}", go_string(before)));
         }

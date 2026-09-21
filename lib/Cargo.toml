@@ -24,6 +24,9 @@ name = "usage"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env", "string"], optional = true }
+# For `usage_argv::tty` alone: asking the kernel how wide the terminal is needs FFI, and one
+# reviewed copy of it in the workspace's dependency-free runtime beats a second copy here.
+usage-argv = { workspace = true }
 indexmap = { version = "2", features = ["serde"] }
 itertools = "0.15"
 log = "0.4"

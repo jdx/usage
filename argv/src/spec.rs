@@ -354,6 +354,18 @@ pub struct Spec<'a> {
     pub min_usage_version: Option<&'a str>,
     pub about: Option<&'a str>,
     pub long_about: Option<&'a str>,
+    /// Art printed on the program's own help page, as the author wrote it.
+    ///
+    /// Where it lands is decided by the terminal's width and not by the spec: beside the page
+    /// when there is room, above it when there is not, and nowhere on a terminal narrower than
+    /// the art. See [`crate::help::place_logo`].
+    ///
+    /// The root page only. A logo is what a program is, and reprinting it on forty subcommand
+    /// pages would make it furniture.
+    pub logo: Option<&'a str>,
+    /// How [`Self::logo`] is coloured, from the `help_template` style vocabulary — one
+    /// specification for the whole logo, `+`-combined, such as `"cyan+bold"`.
+    pub logo_style: Option<&'a str>,
     /// An exact usage synopsis, including the `Usage:` prefix, when the generated
     /// shape needs alternatives that cannot be inferred from one command grammar.
     pub usage: Option<&'a str>,
@@ -613,6 +625,8 @@ impl<'a> SpecView<'a> {
             min_usage_version: self.base.min_usage_version,
             about: self.base.about,
             long_about: self.base.long_about,
+            logo: self.base.logo,
+            logo_style: self.base.logo_style,
             usage: self.base.usage,
             help_template: self.base.help_template,
             default_subcommand: self.base.default_subcommand,
@@ -646,6 +660,8 @@ impl Spec<'_> {
         min_usage_version: None,
         about: None,
         long_about: None,
+        logo: None,
+        logo_style: None,
         usage: None,
         help_template: None,
         default_subcommand: None,
@@ -1569,6 +1585,16 @@ impl Spec<'_> {
         }
         if let Some(at) = self.root.deprecated_remove_at {
             prop(out, "deprecated_remove_at", at)?;
+        }
+        // Before the text around the page, which is where usage-lib writes it, so that a
+        // spec emitted here and one written by the reference are the same document.
+        if let Some(logo) = self.logo {
+            match self.logo_style {
+                Some(style) => {
+                    writeln!(out, "logo {} style={}", quoted(logo), quoted(style))?;
+                }
+                None => prop(out, "logo", logo)?,
+            }
         }
         // The text around the page. The root's nodes are written here rather than by
         // `write_body`, so these had to be repeated — and were not, which left a root's

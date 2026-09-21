@@ -394,3 +394,64 @@ func TestTheSectionVocabularyMatchesThePortableTemplate(t *testing.T) {
 		t.Fatalf("a section went unfilled:\n%s", got)
 	}
 }
+
+func TestExamplesAreSeparatedByABlankLine(t *testing.T) {
+	// corpus/render/07-examples.json#examples-are-separated-by-a-blank-line
+	//
+	// One example reads the same however it is written down; a list is what the
+	// separator is for, and what the two Rust renderers pin in the corpus.
+	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{force}}
+	help := helpKeyed(
+		Help{Key: 1, Examples: []Example{
+			{Header: "Force it", Help: "Skips the prompt", Code: "ex --force"},
+			{Header: "Ask first", Help: "The usual way", Code: "ex"},
+			{Code: "ex --force | tee log"},
+		}},
+		Help{Key: 2, Short: "Do it anyway"},
+	)
+	spec := HelpSpec{Name: "ex", Bin: "ex", About: "An example"}
+	head := []string{
+		"An example",
+		"",
+		"Usage: ex [--force]",
+		"",
+		"Flags:",
+		"      --force  Do it anyway",
+		"  -h, --help   Print help",
+		"",
+		"Examples:",
+	}
+	short := append(append([]string{}, head...),
+		"  Force it:",
+		"    $ ex --force",
+		"",
+		"  Ask first:",
+		"    $ ex",
+		"",
+		"    $ ex --force | tee log",
+	)
+	long := append(append([]string{}, head...),
+		"  Force it:",
+		"    Skips the prompt",
+		"    $ ex --force",
+		"",
+		"  Ask first:",
+		"    The usual way",
+		"    $ ex",
+		"",
+		"    $ ex --force | tee log",
+	)
+	for _, page := range []struct {
+		name string
+		got  string
+		want []string
+	}{
+		{"short", ShortHelp(spec, []string{"ex"}, []*Command{root}, help), short},
+		{"long", LongHelp(spec, []string{"ex"}, []*Command{root}, help), long},
+	} {
+		if want := strings.Join(page.want, "\n") + "\n"; page.got != want {
+			t.Errorf("%s page differs\n got:\n%s\nwant:\n%s", page.name, page.got, want)
+		}
+	}
+}

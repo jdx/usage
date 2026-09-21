@@ -98,6 +98,23 @@ pub struct Spec {
     pub about_md: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub license: Option<String>,
+    /// Art printed on the program's own help page, as the author wrote it.
+    ///
+    /// Where it lands is decided by how wide the terminal is, not by the spec: beside the page
+    /// when there is room for it there, above the page when there is not, and not at all on a
+    /// terminal too narrow for even that. See `crate::docs::logo`.
+    ///
+    /// The root page only. A logo is what a program is, and reprinting it on forty subcommand
+    /// pages would make it furniture.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logo: Option<String>,
+    /// How [`Self::logo`] is coloured, from the `help_template` style vocabulary.
+    ///
+    /// One specification for the whole logo, `+`-combined as everywhere else —
+    /// `style="cyan+bold"`. Art that wants more colours than that carries its own escapes,
+    /// which a plain page strips like any other authored escape.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logo_style: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before_help: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -584,6 +601,26 @@ impl Spec {
                         .collect::<Result<Vec<_>, _>>()?;
                 }
                 "license" => schema.license = Some(node.arg(0)?.ensure_string()?),
+                "logo" => {
+                    schema.logo = Some(node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                    for (key, value) in node.props() {
+                        match key {
+                            // Checked here rather than at render time, for the reason the
+                            // template's styles are: an unknown name would otherwise reach a
+                            // reader as an unstyled logo and nothing to say why.
+                            "style" => {
+                                let style = value.ensure_string()?;
+                                if let Err(problem) = crate::help_template::check_style(&style) {
+                                    bail_parse!(ctx, value.entry.span(), "{problem}");
+                                }
+                                schema.logo_style = Some(style);
+                            }
+                            key => {
+                                bail_parse!(ctx, value.entry.span(), "unsupported logo key {key}")
+                            }
+                        }
+                    }
+                }
                 "before_help" => schema.before_help = Some(node.arg(0)?.ensure_string()?),
                 "after_help" => schema.after_help = Some(node.arg(0)?.ensure_string()?),
                 "before_long_help" | "before_help_long" => {
@@ -960,6 +997,8 @@ impl Spec {
         merge_opt!(about_long);
         merge_opt!(about_md);
         merge_opt!(license);
+        merge_opt!(logo);
+        merge_opt!(logo_style);
         merge_opt!(before_help);
         merge_opt!(after_help);
         merge_opt!(before_help_long);
@@ -1224,6 +1263,14 @@ impl Display for Spec {
         if let Some(license) = &self.license {
             let mut node = KdlNode::new("license");
             node.push(string_entry(None, license));
+            nodes.push(node);
+        }
+        if let Some(logo) = &self.logo {
+            let mut node = KdlNode::new("logo");
+            node.push(string_entry(None, logo));
+            if let Some(style) = &self.logo_style {
+                node.push(string_entry(Some("style"), style));
+            }
             nodes.push(node);
         }
         if let Some(before_help) = &self.before_help {

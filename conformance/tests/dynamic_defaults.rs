@@ -15,7 +15,12 @@ fn default_format() -> String {
 }
 
 #[derive(Debug, Cli)]
-#[usage(bin = "serve")]
+#[usage(
+    bin = "serve",
+    // A page asserted line by line is laid out at a width the test knows, rather than at
+    // the one the terminal `cargo test` was started from happens to have.
+    term_width = 80,
+)]
 struct Serve {
     /// Port to listen on
     #[usage(long, default_fn = default_port, default_note = "selected at runtime")]
