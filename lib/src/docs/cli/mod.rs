@@ -1918,8 +1918,11 @@ flag "--verbose" help="Enable verbose output"
 
     #[test]
     fn test_render_help_with_deprecated_command() {
+        // The width is declared because the wrapping is the thing being pinned: a page that
+        // asked the terminal would wrap this snapshot wherever the developer's window ends.
         let spec = crate::spec! { r#"
 bin "testcli"
+term_width 80
 flag "--old" help="Old switch" deprecated="use --new" deprecated_warn_at="6.1" deprecated_remove_at="7.0"
 cmd "old-cmd" help="Do something" deprecated="use new-cmd instead" deprecated_warn_at="6.2" deprecated_remove_at="7.0"
 cmd "new-cmd" help="Do something better"

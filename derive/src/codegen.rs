@@ -1441,8 +1441,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 ///
                 /// The page is coloured on a terminal and plain anywhere else, which is what
                 /// `parse()` prints — a CLI that dispatches help itself should not get a
-                /// duller page than one that does not. Pass a policy to
-                /// [`Self::render_help_styled`] for a page going into a document.
+                /// duller page than one that does not.
+                ///
+                /// This changed in 6.11: the page used to be plain whatever it was printed
+                /// to. A caller that keeps the text rather than printing it — writing it to
+                /// a file, comparing it, embedding it in a document — should ask for
+                /// [`usage_argv::help::Style::PLAIN`] through [`Self::render_help_styled`].
+                /// Without a source change, `NO_COLOR` still forces every page plain.
                 pub fn render_help(
                     cmd: &usage_argv::Command<'_>,
                     long: bool,

@@ -1,0 +1,52 @@
+{
+  "section": "examples",
+  "about": "How a list of worked invocations is spaced. One example reads the same however it is written down, so the thing worth pinning is a list: the blank line between entries, none above the first or below the last, and the same rule on both pages. The short page prints a header and the command; the long page puts the description between them.",
+  "vectors": [
+    {
+      "id": "examples-are-separated-by-a-blank-line",
+      "doc": "Three examples, two of them headed and described and one bare, so the separator is pinned between entries of different heights rather than between two identical ones.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--force\" help=\"Do it anyway\"\nexample \"ex --force\" header=\"Force it\" help=\"Skips the prompt\"\nexample \"ex\" header=\"Ask first\" help=\"The usual way\"\nexample \"ex --force | tee log\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help",
+          "",
+          "Examples:",
+          "  Force it:",
+          "    $ ex --force",
+          "",
+          "  Ask first:",
+          "    $ ex",
+          "",
+          "    $ ex --force | tee log"
+        ],
+        "long_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help",
+          "",
+          "Examples:",
+          "  Force it:",
+          "    Skips the prompt",
+          "    $ ex --force",
+          "",
+          "  Ask first:",
+          "    The usual way",
+          "    $ ex",
+          "",
+          "    $ ex --force | tee log"
+        ]
+      }
+    }
+  ]
+}
