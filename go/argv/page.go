@@ -570,7 +570,13 @@ func examplesSection(out *strings.Builder, examples []Example) {
 		return
 	}
 	out.WriteString("\nExamples:\n")
-	for _, e := range examples {
+	// A blank line between examples, and none above the first or below the last: a
+	// list of twenty commands with no separation is a wall rather than a list. The
+	// twins of this are usage-argv's examplesSection and the reference templates.
+	for i, e := range examples {
+		if i > 0 {
+			out.WriteString("\n")
+		}
 		if e.Header != "" {
 			out.WriteString("  " + e.Header + ":\n")
 		}

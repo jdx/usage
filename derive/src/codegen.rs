@@ -1438,12 +1438,34 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 /// `parse()` already evaluates computed `name` / `bin` when it prints help;
                 /// this is the same overlay for a `parse_from` caller that handles
                 /// [`usage_argv::Error::Help`] itself.
+                ///
+                /// The page is coloured on a terminal and plain anywhere else, which is what
+                /// `parse()` prints — a CLI that dispatches help itself should not get a
+                /// duller page than one that does not.
+                ///
+                /// This changed in 6.11: the page used to be plain whatever it was printed
+                /// to. A caller that keeps the text rather than printing it — writing it to
+                /// a file, comparing it, embedding it in a document — should ask for
+                /// [`usage_argv::help::Style::PLAIN`] through [`Self::render_help_styled`].
+                /// Without a source change, `NO_COLOR` still forces every page plain.
                 pub fn render_help(
                     cmd: &usage_argv::Command<'_>,
                     long: bool,
                 ) -> ::std::option::Option<::std::string::String> {
+                    Self::render_help_styled(cmd, long, usage_argv::help::Style::auto())
+                }
+
+                /// Render a help page with an explicit colour policy.
+                ///
+                /// [`usage_argv::help::Style::PLAIN`] for a snapshot, a generated document, or
+                /// anywhere the escapes would be the output rather than how it looks.
+                pub fn render_help_styled(
+                    cmd: &usage_argv::Command<'_>,
+                    long: bool,
+                    style: usage_argv::help::Style,
+                ) -> ::std::option::Option<::std::string::String> {
                     #effective_spec
-                    usage_argv::help::render(__usage_spec, cmd, long)
+                    usage_argv::help::render_styled(__usage_spec, cmd, long, style)
                 }
 
                 /// Render a parse failure using this CLI's process identity.

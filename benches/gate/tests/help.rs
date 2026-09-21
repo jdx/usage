@@ -174,8 +174,8 @@ fn every_short_help_matches_the_reference() {
 fn every_long_help_matches_the_reference() {
     // `--help`: the same content through the wider layout — help aligned into a column and
     // wrapped, long descriptions preferred, annotations on their own lines. Both sides read
-    // `COLUMNS` the same way and fall back to the same 80, so they agree about where a line
-    // ends whatever the environment says.
+    // the terminal the same way and fall back to the same 80, so they agree about where a
+    // line ends whatever the environment says.
     let spec = mise_spec();
     let root = shadow_mise::Cli::spec();
 

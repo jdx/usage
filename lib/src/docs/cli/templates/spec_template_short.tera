@@ -219,6 +219,8 @@ Global flags:
 
 Examples:
 {%- for example in cmd.examples %}
+{%- if not loop.first %}
+{% endif %}
 {%- if example.header %}
   {{ example.header }}:
 {%- endif %}
@@ -228,6 +230,8 @@ Examples:
 
 Examples:
 {%- for example in spec.examples %}
+{%- if not loop.first %}
+{% endif %}
 {%- if example.header %}
   {{ example.header }}:
 {%- endif %}

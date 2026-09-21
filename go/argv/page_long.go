@@ -15,9 +15,18 @@ import (
 // text indented under the usage rather than beside it — there is no column that
 // keeps a line the author already broke readable.
 
-// helpWidth is the width the long page wraps to. usage-lib reads the terminal and
-// falls back to 80; a page rendered into a test, a file or a pipe has no terminal,
-// so 80 is what both sides use and what keeps the two comparable.
+// helpWidth is the width a page is laid out in.
+//
+// A known divergence, written down rather than papered over: usage-lib and usage-argv
+// ask the terminal how wide it is and fall back to 80, and this renderer does not ask
+// anything — it has never read `COLUMNS` either — so every page it produces is 80
+// columns wide. A Go CLI and a Rust CLI generated from one spec therefore wrap
+// differently on a wide terminal.
+//
+// Acceptable for now because usage-go is a development preview (see ../README.md) and
+// nothing ships on it. Closing it means giving this package a terminal probe and
+// threading a width through the renderer in place of this constant, which is not
+// something to do while the package's shape is still moving.
 const helpWidth = 80
 
 // blockIndent is what a page uses where it cannot align to its column.
@@ -164,7 +173,11 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 	out = &sections.afterHelp
 	if examples := pageExamples(meta); len(examples) > 0 {
 		out.WriteString("\nExamples:\n")
-		for _, e := range examples {
+		// Separated as the short page separates them; see its examplesSection.
+		for i, e := range examples {
+			if i > 0 {
+				out.WriteString("\n")
+			}
 			if e.Header != "" {
 				out.WriteString("  " + e.Header + ":\n")
 			}

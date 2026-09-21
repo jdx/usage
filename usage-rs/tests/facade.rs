@@ -235,9 +235,10 @@ fn executable_views_emit_and_dispatch_from_argv0() {
         &error,
         &ViewHost::spec().views[0],
     );
-    assert!(diagnostic.contains("Usage: view-run"), "{diagnostic}");
-    assert!(!diagnostic.contains("view-host run"), "{diagnostic}");
-    assert!(diagnostic.contains("--dry-run"), "{diagnostic}");
+    let plain = strip_ansi(&diagnostic);
+    assert!(plain.contains("Usage: view-run"), "{diagnostic}");
+    assert!(!plain.contains("view-host run"), "{diagnostic}");
+    assert!(plain.contains("--dry-run"), "{diagnostic}");
 
     let omitted_argv = [OsStr::new("view-run"), OsStr::new("--root-token")];
     let omitted_error = match ViewHost::parse_from_argv(&omitted_argv) {
@@ -254,12 +255,13 @@ fn executable_views_emit_and_dispatch_from_argv0() {
     // offers it as a value -- so counting occurrences no longer says what this is about. What
     // must not appear is a *spelling* suggestion: an omitted host global is not a flag this view
     // accepts, and offering it would send the user round in a circle.
+    let omitted_plain = strip_ansi(&omitted_diagnostic);
     assert!(
-        !omitted_diagnostic.contains("a similar argument exists"),
+        !omitted_plain.contains("a similar argument exists"),
         "an omitted host flag must not be suggested by view diagnostics: {omitted_diagnostic}"
     );
     assert!(
-        omitted_diagnostic.contains("Usage: view-run"),
+        omitted_plain.contains("Usage: view-run"),
         "{omitted_diagnostic}"
     );
 
@@ -2762,7 +2764,11 @@ fn parse_from_help_helpers_use_runtime_identity() {
         "Cli::spec() is the portable identity: {from_spec}"
     );
 
-    let from_helper = HostedEx::render_help(HostedEx::command(), true).unwrap();
+    // The plain form, because this is about which identity the page carries and not about
+    // how it looks: `render_help` colours itself on a terminal, and under `cargo test`
+    // standard output is one.
+    let from_helper =
+        HostedEx::render_help_styled(HostedEx::command(), true, usage::help::Style::PLAIN).unwrap();
     assert!(
         from_helper.contains("Usage: hosted-ex"),
         "render_help evaluates computed name/bin: {from_helper}"
@@ -2775,7 +2781,7 @@ fn parse_from_help_helpers_use_runtime_identity() {
     };
     let failure = HostedEx::render_failure(&[OsStr::new("--nope")], &err);
     assert!(
-        failure.contains("Usage: hosted-ex"),
+        strip_ansi(&failure).contains("Usage: hosted-ex"),
         "render_failure evaluates computed name/bin: {failure}"
     );
 }
@@ -3501,4 +3507,28 @@ fn a_collision_does_not_hide_the_one_inside_it() {
         ["right", "two"],
         "{kdl}"
     );
+}
+
+/// The text of a rendered message, without whatever the terminal asked for.
+///
+/// These diagnostics come from `Style::auto()`/`auto_stderr()`, which colour when the
+/// destination is a terminal — and under `cargo test` the harness's streams still are one. A
+/// test that reads words should not pass or fail by whether it was run in a terminal or a
+/// pipe. The same stripper as `conformance/tests/version.rs`'s: every escape this crate emits
+/// is `\x1b[`…`m`.
+fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('\u{1b}') {
+        out.push_str(&rest[..i]);
+        match rest[i..].find('m') {
+            Some(end) => rest = &rest[i + end + 1..],
+            None => {
+                rest = "";
+                break;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }

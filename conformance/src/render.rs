@@ -84,8 +84,8 @@ pub struct Expect {
     /// Every line of `-h`, if the vector pins the whole page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub short_help: Option<Vec<String>>,
-    /// Every line of `--help`, if the vector pins the whole page. Rendered at 80 columns,
-    /// which is what both implementations fall back to when `COLUMNS` is unset.
+    /// Every line of `--help`, if the vector pins the whole page. Rendered at
+    /// [`CORPUS_WIDTH`] columns, which the harness declares on the spec.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub long_help: Option<Vec<String>>,
 }
@@ -187,9 +187,36 @@ fn first_diff(ours: &[String], theirs: &[String]) -> String {
     )
 }
 
+/// The width every vector is rendered at.
+///
+/// Declared on the spec rather than left to the environment. Help asks the terminal how wide
+/// it is when nothing else says, and a test cannot have one: `cargo test` leaves the harness's
+/// standard output attached to the developer's terminal, so a page compared against a pinned
+/// expectation has to be told its width rather than allowed to measure a window.
+const CORPUS_WIDTH: usize = 80;
+
+/// A vector's spec, with the corpus width on every command that did not ask for another.
+///
+/// `term_width` is what both implementations read first, so pinning it here fixes the layout
+/// for usage-lib and for the tables usage-argv is built from in one place. A command that
+/// declares its own width or maximum is left alone: that declaration is the thing under test.
+fn pinned(text: &str) -> Result<Spec, String> {
+    let mut spec: Spec = text.parse().map_err(|e| format!("{e}"))?;
+    fn pin(cmd: &mut usage::SpecCommand) {
+        if cmd.term_width.is_none() && cmd.max_term_width.is_none() {
+            cmd.term_width = Some(CORPUS_WIDTH);
+        }
+        for sub in cmd.subcommands.values_mut() {
+            pin(sub);
+        }
+    }
+    pin(&mut spec.cmd);
+    Ok(spec)
+}
+
 /// Render a vector with usage-lib, the reference.
 pub fn reference(vector: &Vector) -> Outcome {
-    let spec: Spec = match vector.spec.parse() {
+    let spec: Spec = match pinned(&vector.spec) {
         Ok(spec) => spec,
         Err(e) => return Outcome::Bad(format!("the spec would not parse: {e}")),
     };
@@ -211,7 +238,7 @@ pub fn reference(vector: &Vector) -> Outcome {
 
 /// Render a vector with usage-argv, from tables built out of the same spec.
 pub fn argv(vector: &Vector) -> Outcome {
-    let spec: Spec = match vector.spec.parse() {
+    let spec: Spec = match pinned(&vector.spec) {
         Ok(spec) => spec,
         Err(e) => return Outcome::Bad(format!("the spec would not parse: {e}")),
     };

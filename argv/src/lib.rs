@@ -84,7 +84,11 @@
 //!
 //! [the argv grammar]: https://usage.jdx.dev/spec/argv
 
-#![forbid(unsafe_code)]
+// One module opts out: `tty`, which asks the kernel how wide the terminal is. `forbid` would
+// make that opt-out impossible, and the alternative to the opt-out is a dependency — this
+// crate has none, and a CLI that wraps its help at 80 columns on a wide terminal is worse
+// than two dozen lines of reviewed FFI. Everything else in the crate is still refused.
+#![deny(unsafe_code)]
 
 /// Terminate at the compiled CLI entry-point boundary.
 ///
@@ -174,8 +178,12 @@ pub mod help;
 // Behind no feature: two traits and no code, so there is nothing here for a binary that
 // does not dispatch to pay for, and a hand-written CLI on the bare runtime can use them.
 pub mod run;
+// Behind no feature either, and public: an application that lays out its own output beside a
+// help page — a table, a progress line — should not have to work the width out a second way
+// and disagree with the page it sits next to.
 #[cfg(feature = "spec")]
 pub mod spec;
+pub mod tty;
 #[cfg(feature = "spec")]
 pub use spec::{parse_args_from, parse_args_from_argv};
 #[cfg(feature = "spec")]

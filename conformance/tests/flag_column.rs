@@ -21,7 +21,12 @@ use usage_derive::Cli;
 
 /// A tool with one of each shape
 #[derive(Cli)]
-#[usage(bin = "ex")]
+#[usage(
+    bin = "ex",
+    // A page asserted line by line is laid out at a width the test knows, rather than at
+    // the one the terminal `cargo test` was started from happens to have.
+    term_width = 80,
+)]
 struct Ex {
     /// Short only, so nothing to align with
     #[usage(short = 'j')]

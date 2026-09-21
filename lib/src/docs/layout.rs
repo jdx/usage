@@ -1,9 +1,32 @@
-/// Calculate terminal width from environment or use default
+/// How wide the terminal is: `COLUMNS`, then the terminal itself, then 80.
+///
+/// `COLUMNS` comes first because that is how a user or a test says what width to assume, and
+/// the terminal is asked only when nothing has. 80 is for a page that is not going to a
+/// terminal at all — a pipe, a file, a build log.
+///
+/// `COLUMNS` alone used to be the whole rule, and since no POSIX shell exports it that meant
+/// nearly every help page wrapped at 80 columns however wide the terminal was.
 pub fn get_terminal_width() -> usize {
     std::env::var("COLUMNS")
         .ok()
-        .and_then(|s| s.parse().ok())
+        .and_then(|value| value.parse().ok())
+        .filter(|columns| *columns > 0)
+        .or_else(probed_width)
         .unwrap_or(80)
+}
+
+/// The terminal's width — except under this crate's own tests, which have no business
+/// measuring the developer's window.
+///
+/// `cargo test` leaves the harness's standard output attached to the terminal it was started
+/// from, so a page rendered in a test would be laid out for whatever that window happened to
+/// be and would match a pinned expectation only at 80 columns. A test that cares about a
+/// width says so with `term_width`; one that does not gets the same page everywhere.
+fn probed_width() -> Option<usize> {
+    if cfg!(test) {
+        return None;
+    }
+    usage_argv::tty::columns()
 }
 
 /// Minimum useful room for prose beside an entry wider than the shared usage column.
