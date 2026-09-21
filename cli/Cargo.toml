@@ -15,6 +15,10 @@ include = [
     "/README.md",
     "/NOTICE.md",
     "/src/**/*.rs",
+    # The logo the root page prints, which `src/cli/mod.rs` reads with `include_str!`. A
+    # published crate is built from this list alone, so a file the source reads and the list
+    # omits compiles here and fails when the tarball is verified — which is where it failed.
+    "/src/**/*.txt",
     "/assets/**/*",
 ]
 
