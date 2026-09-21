@@ -15,9 +15,9 @@ import (
 // text indented under the usage rather than beside it — there is no column that
 // keeps a line the author already broke readable.
 
-// helpWidth is the width the long page wraps to. usage-lib reads the terminal and
-// falls back to 80; a page rendered into a test, a file or a pipe has no terminal,
-// so 80 is what both sides use and what keeps the two comparable.
+// helpWidth is the width a page is laid out in. usage-lib and usage-argv ask the
+// terminal and fall back to 80; this renderer does not ask, so 80 is what every page
+// it produces uses, and what keeps it comparable with the other two.
 const helpWidth = 80
 
 // blockIndent is what a page uses where it cannot align to its column.
@@ -164,7 +164,11 @@ func longHelpPage(spec HelpSpec, path []string, chain []*Command, help HelpTable
 	out = &sections.afterHelp
 	if examples := pageExamples(meta); len(examples) > 0 {
 		out.WriteString("\nExamples:\n")
-		for _, e := range examples {
+		// Separated as the short page separates them; see its examplesSection.
+		for i, e := range examples {
+			if i > 0 {
+				out.WriteString("\n")
+			}
 			if e.Header != "" {
 				out.WriteString("  " + e.Header + ":\n")
 			}

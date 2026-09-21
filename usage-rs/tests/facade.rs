@@ -2762,7 +2762,11 @@ fn parse_from_help_helpers_use_runtime_identity() {
         "Cli::spec() is the portable identity: {from_spec}"
     );
 
-    let from_helper = HostedEx::render_help(HostedEx::command(), true).unwrap();
+    // The plain form, because this is about which identity the page carries and not about
+    // how it looks: `render_help` colours itself on a terminal, and under `cargo test`
+    // standard output is one.
+    let from_helper =
+        HostedEx::render_help_styled(HostedEx::command(), true, usage::help::Style::PLAIN).unwrap();
     assert!(
         from_helper.contains("Usage: hosted-ex"),
         "render_help evaluates computed name/bin: {from_helper}"

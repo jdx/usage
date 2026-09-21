@@ -1438,12 +1438,29 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 /// `parse()` already evaluates computed `name` / `bin` when it prints help;
                 /// this is the same overlay for a `parse_from` caller that handles
                 /// [`usage_argv::Error::Help`] itself.
+                ///
+                /// The page is coloured on a terminal and plain anywhere else, which is what
+                /// `parse()` prints — a CLI that dispatches help itself should not get a
+                /// duller page than one that does not. Pass a policy to
+                /// [`Self::render_help_styled`] for a page going into a document.
                 pub fn render_help(
                     cmd: &usage_argv::Command<'_>,
                     long: bool,
                 ) -> ::std::option::Option<::std::string::String> {
+                    Self::render_help_styled(cmd, long, usage_argv::help::Style::auto())
+                }
+
+                /// Render a help page with an explicit colour policy.
+                ///
+                /// [`usage_argv::help::Style::PLAIN`] for a snapshot, a generated document, or
+                /// anywhere the escapes would be the output rather than how it looks.
+                pub fn render_help_styled(
+                    cmd: &usage_argv::Command<'_>,
+                    long: bool,
+                    style: usage_argv::help::Style,
+                ) -> ::std::option::Option<::std::string::String> {
                     #effective_spec
-                    usage_argv::help::render(__usage_spec, cmd, long)
+                    usage_argv::help::render_styled(__usage_spec, cmd, long, style)
                 }
 
                 /// Render a parse failure using this CLI's process identity.

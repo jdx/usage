@@ -1799,6 +1799,7 @@ example "testcli" header="Run normally" help="Just runs the tool"
         Examples:
           Run with verbose output:
             $ testcli --verbose
+
           Run normally:
             $ testcli
         ");
@@ -1813,6 +1814,7 @@ example "testcli" header="Run normally" help="Just runs the tool"
         Examples:
           Run with verbose output:
             $ testcli --verbose
+
           Run normally:
             Just runs the tool
             $ testcli

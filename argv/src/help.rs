@@ -2485,12 +2485,21 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     format!("{short:<SHORT_COL$}{after}")
 }
 
+/// A blank line between examples, and none above the first or below the last.
+///
+/// A CLI with a handful of examples reads as a list either way; one with twenty — mise has
+/// that many on its front page — reads as a wall of commands without the separation, and
+/// there is no way to tell where the interesting one is. The same rule applies to both
+/// pages, so `-h` and `--help` do not disagree about how a list is spaced.
 fn examples_section(out: &mut String, examples: &[Example<'_>]) {
     if examples.is_empty() {
         return;
     }
     let _ = writeln!(out, "\nExamples:");
-    for example in examples {
+    for (index, example) in examples.iter().enumerate() {
+        if index > 0 {
+            out.push('\n');
+        }
         if let Some(header) = example.header {
             let _ = writeln!(out, "  {header}:");
         }
@@ -2501,15 +2510,22 @@ fn examples_section(out: &mut String, examples: &[Example<'_>]) {
 /// The width help is wrapped to.
 ///
 /// A fixed width wins over terminal detection and the maximum, as in clap. Zero means
-/// unbounded for either setting. Without a declaration both implementations read `COLUMNS`
-/// and fall back to 80.
+/// unbounded for either setting.
+///
+/// Without a declaration the width is whatever the terminal says it is: `COLUMNS` first,
+/// since that is how a user or a test says what to assume, then the terminal itself through
+/// [`crate::tty::columns`], and 80 only when neither answers — a redirected page, a build
+/// log. `COLUMNS` alone used to be the whole rule, which meant almost every CLI wrapped at
+/// 80 on a terminal twice that wide, because no shell exports it.
 fn terminal_width(meta: &CommandMeta<'_>) -> usize {
     if let Some(width) = meta.term_width {
         return if width == 0 { usize::MAX } else { width };
     }
     let detected = std::env::var("COLUMNS")
         .ok()
-        .and_then(|s| s.parse().ok())
+        .and_then(|value| value.parse().ok())
+        .filter(|columns| *columns > 0)
+        .or_else(crate::tty::columns)
         .unwrap_or(80);
     match meta.max_term_width {
         Some(0) | None => detected,
@@ -2782,7 +2798,11 @@ fn long_sections(
     let examples = meta.examples;
     if !examples.is_empty() {
         let _ = writeln!(out, "\nExamples:");
-        for example in examples {
+        // Separated as the short page separates them; see `examples_section`.
+        for (index, example) in examples.iter().enumerate() {
+            if index > 0 {
+                out.push('\n');
+            }
             if let Some(header) = example.header {
                 let _ = writeln!(out, "  {header}:");
             }

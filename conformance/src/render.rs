@@ -85,7 +85,8 @@ pub struct Expect {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub short_help: Option<Vec<String>>,
     /// Every line of `--help`, if the vector pins the whole page. Rendered at 80 columns,
-    /// which is what both implementations fall back to when `COLUMNS` is unset.
+    /// which `.cargo/config.toml` pins `COLUMNS` to for this workspace — help asks the
+    /// terminal how wide it is when nothing else says, and a test cannot have one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub long_help: Option<Vec<String>>,
 }

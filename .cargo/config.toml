@@ -1,0 +1,13 @@
+# Pin the width every rendered help page in this workspace is compared at.
+#
+# Help rendering now asks the terminal how wide it is when `COLUMNS` does not say, which is
+# what a user wants and what a test cannot have: `cargo test` leaves the harness's standard
+# output attached to the developer's terminal, so without this a page rendered in a test would
+# be laid out for whatever window it happened to run in and match its expectation only on a
+# 80-column one — and pass in CI, where there is no terminal at all, either way.
+#
+# 80 because that is the fallback the three renderers already agreed on, so no expectation
+# changes. Not forced, so `COLUMNS=140 cargo run -p usage-cli -- --help` still shows a page the
+# way a user with a wide terminal sees it.
+[env]
+COLUMNS = "80"
