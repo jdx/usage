@@ -448,11 +448,14 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 	// answer even though it has no state.
 	var ordered []uint64
 	owners := map[uint64]*argv.Command{}
+	requirements := map[uint64]bool{}
 
 	for _, cmd := range path {
+		checkRequirements := cmd == path[len(path)-1] || !cmd.SubcommandNegatesReqs
 		for _, f := range cmd.Flags {
 			ordered = append(ordered, f.Key)
 			owners[f.Key] = cmd
+			requirements[f.Key] = checkRequirements
 			// A flag that lost an override is out of the running rather than
 			// merely absent: it is not filled from `env` or `default`, and the
 			// rules that judge what it *holds* do not apply. A `required` loser
@@ -468,6 +471,7 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 		for _, a := range cmd.Args {
 			ordered = append(ordered, a.Key)
 			owners[a.Key] = cmd
+			requirements[a.Key] = checkRequirements
 			fill(a.Key, true).arg = a
 		}
 	}
@@ -528,7 +532,8 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 		}
 		return argv.RelationshipValues(meta.Lookup(key), r.values, r.source, r.negated)
 	}
-	if err := argv.CheckRelationshipsWithValues(meta, scope, sourceOf, valuesOf); err != nil {
+	if err := argv.CheckRelationshipsWithValuesAndRequirements(meta, scope, sourceOf, valuesOf,
+		func(key uint64) bool { return requirements[key] }); err != nil {
 		return nil, err
 	}
 

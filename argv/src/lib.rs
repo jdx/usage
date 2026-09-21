@@ -1698,6 +1698,8 @@ pub struct Parser<'t, 'a, 'v> {
     /// consuming it. Callers asking this question want to know what the user
     /// wrote, not what state the parser reached.
     separator_seen: bool,
+    /// Whether a root clause separator was consumed, so empty-default routing cannot fire.
+    clause_separator_seen: bool,
     /// Whether the default subcommand has already been taken.
     ///
     /// Once, per parse: a default subcommand that itself declares one would otherwise
@@ -1774,6 +1776,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             positional_arg_found: false,
             flags_stopped: false,
             separator_seen: false,
+            clause_separator_seen: false,
             default_taken: false,
             default_flag_at: None,
             default_bundle_end: 0,
@@ -2048,6 +2051,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             && !self.default_taken
             && !self.positional_arg_found
             && !self.separator_seen
+            && !self.clause_separator_seen
         {
             if let Some(default) = self.cmd.default_subcommand {
                 if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
@@ -2202,6 +2206,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             self.arg_filled = false;
             self.collecting = None;
             self.flags_stopped = false;
+            if self.depth == 0 {
+                self.clause_separator_seen = true;
+            }
             return Some(Ok(Event::ClauseSeparator { clause }));
         }
 
@@ -3968,6 +3975,35 @@ mod tests {
                 value: b"build",
                 delimit: true,
             }))
+        );
+    }
+
+    #[test]
+    fn a_root_clause_separator_does_not_select_empty_default() {
+        static CHILD: Command = Command {
+            name: "run",
+            ..Command::EMPTY
+        };
+        static ROOT: Command = Command {
+            name: "ex",
+            clause: Some(Clause {
+                key: 400,
+                name: "items",
+                separator: Some(b":::"),
+                flags: &[],
+                args: &[],
+            }),
+            subcommands: &[&CHILD],
+            default_subcommand: Some(&CHILD),
+            default_subcommand_on_empty: true,
+            ..Command::EMPTY
+        };
+        let a = argv([":::"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![Event::ClauseSeparator {
+                clause: ROOT.clause.unwrap(),
+            }]
         );
     }
 

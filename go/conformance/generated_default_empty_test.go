@@ -146,11 +146,11 @@ func runGeneratedFixture(t *testing.T, spec, tests, name string) {
 			t.Fatal(err)
 		}
 	}
-	cmd := exec.Command(findUsage(t), "generate", "go", "-f", filepath.Join(dir, "cli.usage.kdl"), "--package", "generated", "-o", filepath.Join(dir, "tables.go"))
+	cmd := exec.CommandContext(t.Context(), findUsage(t), "generate", "go", "-f", filepath.Join(dir, "cli.usage.kdl"), "--package", "generated", "-o", filepath.Join(dir, "tables.go"))
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%s generate: %v\n%s", name, err, out)
 	}
-	cmd = exec.Command("go", "test", "-count=1", "-mod=mod", ".")
+	cmd = exec.CommandContext(t.Context(), "go", "test", "-count=1", "-mod=mod", ".")
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%s generated parser: %v\n%s", name, err, out)

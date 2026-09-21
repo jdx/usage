@@ -84,6 +84,9 @@ type Parser struct {
 	// asking this question want to know what the user wrote, not what state the
 	// parser reached.
 	separatorSeen bool
+	// clauseSeparatorSeen records a root clause separator, which suppresses
+	// empty-default routing without changing the meaning of later separators.
+	clauseSeparatorSeen bool
 	// clauseBoundaryPending emits the implicit boundary after the terminal
 	// positional event, before the next token is read.
 	clauseBoundaryPending bool
@@ -263,7 +266,8 @@ func (p *Parser) Next() bool {
 	ok := p.step()
 	if !ok {
 		if !p.failed && p.depth == 0 && p.cmd.DefaultSubcommandOnEmpty &&
-			!p.defaultTaken && !p.positionalArgFound && !p.separatorSeen && p.cmd.DefaultSubcommand != nil {
+			!p.defaultTaken && !p.positionalArgFound && !p.separatorSeen &&
+			!p.clauseSeparatorSeen && p.cmd.DefaultSubcommand != nil {
 			if p.cmd.ArgsConflictWithSubcommands && p.commandArgFound {
 				return p.fail(Error{Code: CodeSubcommandConflict, Cmd: p.cmd.DefaultSubcommand})
 			}
@@ -474,6 +478,9 @@ func (p *Parser) step() bool {
 			p.argFilled = false
 			p.collecting = nil
 			p.flagsStopped = false
+			if p.depth == 0 {
+				p.clauseSeparatorSeen = true
+			}
 			return p.emit(Event{Kind: KindClauseSeparator, Clause: p.cmd.Clause})
 		}
 

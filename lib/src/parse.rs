@@ -1877,6 +1877,10 @@ fn parse_partial_traced(
     // Args already reported as having been offered a word before the `--` they require, so a
     // variadic one does not report the same violation for every word it is offered.
     let mut double_dash_violations: HashSet<String> = HashSet::new();
+    // A root clause separator is user-supplied syntax, so it must suppress the
+    // empty-input default just like an explicit `--`. This is separate from
+    // `seen_double_dash`, which resets for each clause instance.
+    let mut root_clause_separator_seen = false;
     // Scalar occurrences are scoped to the command level where they were written. Inherited
     // globals may therefore appear once before and once after a subcommand under clap's strict
     // `args_override_self(false)` policy. The bitset also keeps both forms of a negatable flag:
@@ -1952,6 +1956,9 @@ fn parse_partial_traced(
                         .into());
                     }
                     let name = clause.name.clone();
+                    if out.cmds.len() == 1 {
+                        root_clause_separator_seen = true;
+                    }
                     finalize_current_clause(&mut out);
                     out.arg_origins.clear();
                     trace.record(argv, TokenRole::ClauseSeparator { name });
@@ -2802,6 +2809,7 @@ fn parse_partial_traced(
         && out.cmds.len() == 1
         && !root_positional_arg_found
         && !seen_double_dash
+        && !root_clause_separator_seen
         && out.errors.is_empty()
     {
         while try_bind_default_missing(
