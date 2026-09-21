@@ -1,5 +1,28 @@
 # Changelog
 
+## [6.11.0](https://github.com/jdx/usage/compare/v6.10.0..v6.11.0) - 2026-09-21
+
+### 🚀 Features
+
+- **(parse)** select default subcommands on empty invocations by [@zeitlinger](https://github.com/zeitlinger) in [#1458](https://github.com/jdx/usage/pull/1458)
+- **(spec)** put a CLI's logo on its help page by [@jdx](https://github.com/jdx) in [#1455](https://github.com/jdx/usage/pull/1455)
+
+### 🐛 Bug Fixes
+
+- **(cli)** lay help out at the terminal's width, colour a self-dispatched page, and space examples apart by [@jdx](https://github.com/jdx) in [#1454](https://github.com/jdx/usage/pull/1454)
+
+### 🔍 Other Changes
+
+- stop compiling cargo-edit and installing unused tools in CI by [@jdx](https://github.com/jdx) in [#1451](https://github.com/jdx/usage/pull/1451)
+- drop OpenSSL build deps from the Cloud Agent image and fix its libicu package by [@jdx](https://github.com/jdx) in [#1452](https://github.com/jdx/usage/pull/1452)
+- re-pin renovate-config reusable workflows to current main by [@jdx](https://github.com/jdx) in [f7a6aeb](https://github.com/jdx/usage/commit/f7a6aebcee06ea6fb4404dd19d255b1a77282df3)
+
+### 📦️ Dependency Updates
+
+- bump mr-boxington to 1.14.0 and drop the mbx fallback docs by [@jdx](https://github.com/jdx) in [#1449](https://github.com/jdx/usage/pull/1449)
+- drop the stale aube macos-x64 row from mise.lock by [@jdx](https://github.com/jdx) in [#1453](https://github.com/jdx/usage/pull/1453)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1457](https://github.com/jdx/usage/pull/1457)
+
 ## [6.10.0](https://github.com/jdx/usage/compare/v6.9.1..v6.10.0) - 2026-09-19
 
 ### 🚀 Features
