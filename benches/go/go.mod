@@ -15,7 +15,7 @@ require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/jdx/usage/go v0.0.0
 	github.com/spf13/cobra v1.10.2
-	github.com/urfave/cli/v3 v3.11.0
+	github.com/urfave/cli/v3 v3.12.0
 )
 
 require (
