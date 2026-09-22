@@ -148,8 +148,18 @@ func (p *Parser) defaultFlagRoute() int {
 		var valueFlag *Flag
 		var attached string
 		hasAttached := false
-		if strings.HasPrefix(token, "--") {
-			name, value, has := strings.Cut(token[2:], "=")
+		// step reads a single-dash token that names a long as that long, so the
+		// lookahead has to agree or it would route the same word differently.
+		body, isLong := "", strings.HasPrefix(token, "--")
+		if isLong {
+			body = token[2:]
+		} else if p.cmd.SingleDashLong && len(token) > 1 {
+			if f := p.findLongHere(d, longName(token[1:])); f != nil && !f.NoSingleDashLong {
+				body, isLong = token[1:], true
+			}
+		}
+		if isLong {
+			name, value, has := strings.Cut(body, "=")
 			parent := p.findLong(name)
 			if parent == nil {
 				parent = p.findNegation(name)
@@ -373,6 +383,16 @@ func (p *Parser) defaultBundleHasParentFlag(d *Command) bool {
 	if !strings.HasPrefix(token, "-") || strings.HasPrefix(token, "--") {
 		return false
 	}
+	// A single-dash long is one flag rather than a bundle, so it is the parent's or
+	// it is the default command's; either way its letters are not shorts.
+	if p.cmd.SingleDashLong {
+		if p.namesSingleDashLong(token[1:]) {
+			return true
+		}
+		if f := p.findLongHere(d, longName(token[1:])); f != nil && !f.NoSingleDashLong {
+			return false
+		}
+	}
 	for i := 1; i < len(token); i++ {
 		if p.findShort(token[i]) != nil {
 			return true
@@ -524,7 +544,11 @@ func (p *Parser) step() bool {
 		// numbers available as values while allowing clap-compatible spellings such as fd's
 		// `-0` / `--print0` switch.
 		declaredNumericShort := len(token) == 2 && token[1] >= '0' && token[1] <= '9' && p.findShort(token[1]) != nil
-		if isNegativeNumber(token) && !declaredNumericShort {
+		// A declared spelling outranks the numeric shape, as an exact short does:
+		// where SingleDashLong is on and a long is named `1`, `-1` is that long.
+		declaredNumeric := declaredNumericShort ||
+			(p.cmd.SingleDashLong && isNegativeNumber(token) && p.namesSingleDashLong(token[1:]))
+		if isNegativeNumber(token) && !declaredNumeric {
 			if arg := p.nextArg(); arg != nil && arg.AllowNegativeNumbers {
 				return p.word(token)
 			}
@@ -535,7 +559,13 @@ func (p *Parser) step() bool {
 
 		if isFlagLike(token) {
 			if len(token) >= 2 && token[:2] == "--" {
-				return p.longFlag(token)
+				return p.longFlag(token, token[2:])
+			}
+			// getopt_long_only(3) order: the whole name as a long, then the short
+			// rules below. The setting is read first so an opted-out spec looks
+			// nothing up.
+			if p.cmd.SingleDashLong && p.namesSingleDashLong(token[1:]) {
+				return p.longFlag(token, token[1:])
 			}
 			// Check the whole bundle before emitting anything from it. Events go out one
 			// at a time, so discovering an unknown letter half way through would mean the
@@ -557,8 +587,46 @@ func (p *Parser) step() bool {
 	}
 }
 
-func (p *Parser) longFlag(token string) bool {
-	body := token[2:]
+// findLongHere is a long this command or d declares, for the lookahead's shared scope.
+func (p *Parser) findLongHere(d *Command, name string) *Flag {
+	if f := p.findLong(name); f != nil {
+		return f
+	}
+	if f := p.findNegation(name); f != nil {
+		return f
+	}
+	for _, f := range d.Flags {
+		if slices.Contains(f.Longs, name) || (f.Negate != "" && f.Negate == name) {
+			return f
+		}
+	}
+	return nil
+}
+
+// longName is a long token's name: what precedes its `=`, if it has one.
+func longName(body string) string {
+	if before, _, ok := strings.Cut(body, "="); ok {
+		return before
+	}
+	return body
+}
+
+// namesSingleDashLong reports whether body, a token without its single dash, names
+// a long of this command that allows one.
+func (p *Parser) namesSingleDashLong(body string) bool {
+	name := longName(body)
+	flag := p.findLong(name)
+	if flag == nil {
+		flag = p.findNegation(name)
+	}
+	if flag == nil {
+		return false
+	}
+	return !flag.NoSingleDashLong
+}
+
+// longFlag binds a long flag; body is the token without its dashes.
+func (p *Parser) longFlag(token, body string) bool {
 	name := body
 	attached := ""
 	hasAttached := false

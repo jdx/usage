@@ -749,6 +749,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             restart_token,
             // How a command line is read, which no rendered page shows.
             unknown_flags: _,
+            single_dash_long: _,
             external_subcommand: _,
             arg_required_else_help: _,
             dont_delimit_trailing_values: _,

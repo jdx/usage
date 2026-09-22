@@ -253,6 +253,34 @@ pub fn available_flags(chain: &[&SpecCommand]) -> Vec<Arc<SpecFlag>> {
 
 /// Extract the flag key from a flag word for lookup in available_flags map
 /// Handles both long flags (--flag, --flag=value) and short flags (-f)
+/// Whether the nearest command on `path` that states `single_dash_long` turns it on.
+fn single_dash_long(path: &[SpecCommand]) -> bool {
+    path.iter()
+        .rev()
+        .find_map(|cmd| cmd.single_dash_long)
+        .unwrap_or(false)
+}
+
+/// A single-dash token spelled as the long it names, for a command that allows it.
+///
+/// `-shared` becomes `--shared` when `find` answers for that exact name and the flag
+/// does not refuse one dash. Anything else — a short, a bundle, a name no long answers
+/// to — is left for the short-flag rules, which is the order getopt_long_only(3) tries
+/// them in. `find` is the scope to look in: the flags in scope while binding, and the
+/// parent's and default command's together in the default-subcommand lookahead.
+fn single_dash_as_long<'a>(
+    word: &str,
+    find: impl Fn(&str) -> Option<&'a Arc<SpecFlag>>,
+) -> Option<String> {
+    let body = word
+        .strip_prefix('-')
+        .filter(|body| !body.is_empty() && !body.starts_with('-'))?;
+    let name = body.split_once('=').map_or(body, |(name, _)| name);
+    find(&format!("--{name}"))
+        .filter(|flag| flag.single_dash_long.unwrap_or(true))
+        .map(|_| format!("-{word}"))
+}
+
 fn get_flag_key(word: &str) -> &str {
     if word.starts_with("--") {
         // Long flag: strip =value if present
@@ -1337,6 +1365,9 @@ fn default_flag_route(spec: &Spec, root: &SpecCommand, input: &VecDeque<Token>) 
     let parent = gather_flags(root);
     let child = gather_flags(default);
     let path = std::slice::from_ref(root);
+    // Phase 2 reads a single-dash token that names a long as that long, so the lookahead
+    // has to agree or it would route the same word differently.
+    let single_dash = single_dash_long(path) || default.single_dash_long == Some(true);
     let mut at = None;
     let mut i = 0;
     while let Some(token) = input.get(i).map(|t| t.word.as_str()) {
@@ -1361,6 +1392,12 @@ fn default_flag_route(spec: &Spec, root: &SpecCommand, input: &VecDeque<Token>) 
             }
             return at;
         }
+        let respelled = single_dash
+            .then(|| {
+                single_dash_as_long(token, |name| parent.get(name).or_else(|| child.get(name)))
+            })
+            .flatten();
+        let token = respelled.as_deref().unwrap_or(token);
         let mut value_flag = None;
         let mut attached = None;
         if token.starts_with("--") {
@@ -1648,21 +1685,30 @@ fn parse_partial_traced(
                 && !input[idx].word.starts_with("--")
                 && {
                     let child_flags = gather_flags(subcommand);
-                    let mut found = false;
-                    for short in input[idx].word[1..].chars() {
-                        let key = format!("-{short}");
-                        if out.available_flags.contains_key(&key)
-                            || supplied_short(spec, &out.cmds, short).is_some()
-                        {
-                            found = true;
-                            break;
+                    let word = &input[idx].word;
+                    let parent = |name: &str| out.available_flags.get(name);
+                    let either = |name: &str| parent(name).or_else(|| child_flags.get(name));
+                    // A single-dash long is one flag rather than a bundle, so it is the
+                    // parent's or it is the child's; either way its letters are not shorts.
+                    if single_dash_long(&out.cmds) && single_dash_as_long(word, either).is_some() {
+                        single_dash_as_long(word, parent).is_some()
+                    } else {
+                        let mut found = false;
+                        for short in word[1..].chars() {
+                            let key = format!("-{short}");
+                            if out.available_flags.contains_key(&key)
+                                || supplied_short(spec, &out.cmds, short).is_some()
+                            {
+                                found = true;
+                                break;
+                            }
+                            match child_flags.get(&key) {
+                                Some(flag) if flag.arg.is_none() => {}
+                                _ => break,
+                            }
                         }
-                        match child_flags.get(&key) {
-                            Some(flag) if flag.arg.is_none() => {}
-                            _ => break,
-                        }
+                        found
                     }
-                    found
                 };
             if out.cmd.args_conflicts_with_subcommands && (command_arg_found || boundary_has_parent)
             {
@@ -1724,8 +1770,14 @@ fn parse_partial_traced(
         } else if !is_command_word(&input[idx].word)
             || declared_numeric_short(&out.available_flags, &input[idx].word)
         {
-            // Check if this is a known flag
-            let word = input[idx].word.clone();
+            // Check if this is a known flag. A single-dash long is looked up by its
+            // `--` spelling, while the queue keeps the word as the caller typed it.
+            let typed = &input[idx].word;
+            let word = match single_dash_long(&out.cmds) {
+                true => single_dash_as_long(typed, |name| out.available_flags.get(name))
+                    .unwrap_or_else(|| typed.clone()),
+                false => typed.clone(),
+            };
             let flag_key = get_flag_key(&word);
 
             // A short token keys on its first letter, so `-az` would be recorded as
@@ -1886,6 +1938,9 @@ fn parse_partial_traced(
     // `args_override_self(false)` policy. The bitset also keeps both forms of a negatable flag:
     // opposite forms may override one another, while repeating either spelling is an error.
     let mut scalar_occurrences: HashMap<(usize, usize), u8> = HashMap::new();
+    // Phase 1 settled which commands are in scope, so this is asked once rather than
+    // per token; a spec that never declares it looks nothing up below.
+    let single_dash_long = single_dash_long(&out.cmds);
 
     while !input.is_empty() {
         let token = input.pop_front().unwrap();
@@ -1898,6 +1953,37 @@ fn parse_partial_traced(
         // following word; `-i9229` and `-i=9229` still bind. `default_missing` binds
         // only when the value is actually missing, so `-cnever` is still `never`.
         let attached_continuation = grouped_flag;
+        // A bundle's tail and a word owed to a pending value are not tokens of their own,
+        // so they keep their dash. The `--` spelling is what flags are keyed by; `typed`
+        // is what the caller wrote, which is what a diagnostic should quote back.
+        let mut typed = None;
+        if single_dash_long && enable_flags && !grouped_flag && out.flag_awaiting_value.is_empty() {
+            // The flag Phase 1 read this word as comes first: descending drops a
+            // non-global parent flag from the flags in scope, and `ex -verbose child`
+            // would otherwise fall to the short rules once `child` has been entered.
+            let bound = binding.as_ref().map(|(flag, _)| flag);
+            let long = single_dash_as_long(&w, |name| {
+                bound
+                    .filter(|flag| {
+                        name.strip_prefix("--")
+                            .is_some_and(|name| flag.long.iter().any(|long| long == name))
+                            || flag.negate.as_deref() == Some(name)
+                    })
+                    .or_else(|| out.available_flags.get(name))
+            });
+            if let Some(long) = long {
+                typed = Some(std::mem::replace(&mut w, long));
+            }
+        }
+        let spelled = |word: &str| {
+            match &typed {
+                Some(typed) => typed
+                    .split_once('=')
+                    .map_or(typed.as_str(), |(name, _)| name),
+                None => word,
+            }
+            .to_string()
+        };
         // The opt-in lookahead uses declared value arity, so binding must consume
         // the same attached value even after the default changed flag scope.
         // Other specs retain the reference parser's legacy short-bundle rules.
@@ -2126,7 +2212,7 @@ fn parse_partial_traced(
                     argv,
                     TokenRole::Flag {
                         flag: Arc::clone(f),
-                        spelling: word.to_string(),
+                        spelling: spelled(word),
                         negated: f.negate.as_deref() == Some(word),
                     },
                 );
@@ -2144,7 +2230,8 @@ fn parse_partial_traced(
                     &mut out.overridden_flags,
                 );
                 if let Some(pending) = out.flag_awaiting_value.first() {
-                    out.errors.push(render_missing_flag_value(pending, &w));
+                    out.errors
+                        .push(render_missing_flag_value(pending, &spelled(&w)));
                     record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                     return Ok((out, overridden_flags));
                 }

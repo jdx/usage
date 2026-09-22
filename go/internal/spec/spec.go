@@ -124,6 +124,7 @@ type Cmd struct {
 	Flags                       []Flag      `json:"flags"`
 	Mounts                      []Mount     `json:"mounts"`
 	UnknownFlags                *string     `json:"unknown_flags"`
+	SingleDashLong              *bool       `json:"single_dash_long"`
 	ExternalSubcommand          bool        `json:"external_subcommand"`
 	ArgRequiredElseHelp         bool        `json:"arg_required_else_help"`
 	DisableHelpFlag             bool        `json:"disable_help_flag"`
@@ -287,6 +288,7 @@ type Flag struct {
 	RequiresIf        []RequiresIf   `json:"requires_if"`
 	DefaultIf         []DefaultIf    `json:"default_if"`
 	RequireEquals     bool           `json:"require_equals"`
+	SingleDashLong    *bool          `json:"single_dash_long"`
 	ValueOptional     bool           `json:"value_optional"`
 	BoolValue         bool           `json:"bool_value"`
 	// Empty means unset: usage-lib stores Option, and a missing default of "" is
@@ -523,7 +525,7 @@ func (s *Spec) Build() (*argv.Command, argv.Metadata) {
 // pass for the same reason the first two were.
 func (s *Spec) BuildAll() (*argv.Command, argv.Metadata, argv.HelpTable) {
 	b := &builder{complete: s.Complete}
-	root := b.command(&s.Cmd, unknownFlags(s.UnknownFlags, argv.UnknownFlagsValue))
+	root := b.command(&s.Cmd, unknownFlags(s.UnknownFlags, argv.UnknownFlagsValue), false)
 
 	// default_subcommand is a property of the spec rather than of a command, so it
 	// is resolved once, here, against the root's own subcommands. A name that
@@ -705,15 +707,20 @@ func (b *builder) next() uint64 {
 	return b.key
 }
 
-func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
+func (b *builder) command(c *Cmd, inherited argv.UnknownFlags, inheritedSingleDash bool) *argv.Command {
 	unknown := inherited
 	if c.UnknownFlags != nil {
 		unknown = unknownFlags(*c.UnknownFlags, inherited)
+	}
+	singleDash := inheritedSingleDash
+	if c.SingleDashLong != nil {
+		singleDash = *c.SingleDashLong
 	}
 
 	out := &argv.Command{
 		Name:                        c.Name,
 		UnknownFlags:                unknown,
+		SingleDashLong:              singleDash,
 		ExternalSubcommand:          c.ExternalSubcommand,
 		ArgRequiredElseHelp:         c.ArgRequiredElseHelp,
 		DisableHelpFlag:             c.DisableHelpFlag,
@@ -800,7 +807,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	// In scope for everything below, and out of scope again afterwards.
 	b.scope = append(b.scope, out)
 	for i := range c.Subcommands {
-		out.Subcommands = append(out.Subcommands, b.command(&c.Subcommands[i].Cmd, unknown))
+		out.Subcommands = append(out.Subcommands, b.command(&c.Subcommands[i].Cmd, unknown, singleDash))
 	}
 	b.scope = b.scope[:len(b.scope)-1]
 	return out
@@ -1007,6 +1014,7 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		AllowHyphenValues:    f.Arg != nil && strings.EqualFold(f.Arg.DoubleDash, "automatic"),
 		AllowNegativeNumbers: f.Arg != nil && f.Arg.AllowNegativeNumbers,
 		RequireEquals:        f.RequireEquals,
+		NoSingleDashLong:     f.SingleDashLong != nil && !*f.SingleDashLong,
 		ValueOptional:        f.ValueOptional,
 		BoolValue:            f.BoolValue,
 		DefaultMissing:       f.DefaultMissing,

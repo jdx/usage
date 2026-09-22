@@ -743,6 +743,9 @@ impl Spec {
                 "external_subcommand" => {
                     schema.cmd.external_subcommand = node.arg(0)?.ensure_bool()?;
                 }
+                "single_dash_long" => {
+                    schema.cmd.single_dash_long = Some(node.arg(0)?.ensure_bool()?);
+                }
                 "arg_required_else_help" => {
                     schema.cmd.arg_required_else_help = node.arg(0)?.ensure_bool()?;
                 }
@@ -1336,6 +1339,11 @@ impl Display for Spec {
         if self.multicall_set {
             let mut node = KdlNode::new("multicall");
             node.push(KdlEntry::new(self.multicall));
+            nodes.push(node);
+        }
+        if let Some(single_dash_long) = self.cmd.single_dash_long {
+            let mut node = KdlNode::new("single_dash_long");
+            node.push(KdlEntry::new(single_dash_long));
             nodes.push(node);
         }
         if self.cmd.external_subcommand {

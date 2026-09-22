@@ -187,6 +187,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // version resolved it here and wrote `Value` for every silent command, which made the
     // root's declaration reach the root alone.
     let unknown_flags = unknown_flags_tokens(cli);
+    let single_dash_long = option_bool_tokens(cli.single_dash_long);
 
     let default_subcommand = option_str(cli.default_subcommand.as_deref());
     let default_subcommand_flags = cli.default_subcommand_flags;
@@ -1113,6 +1114,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 // `--version` that answers with nothing is worse than one that is not there.
                 version: #has_version,
                 unknown_flags: #unknown_flags,
+                single_dash_long: #single_dash_long,
                 arg_required_else_help: #arg_required_else_help,
                 subcommand_negates_reqs: #subcommand_negates_reqs,
                 args_conflicts_with_subcommands: #args_conflicts_with_subcommands,
@@ -2059,6 +2061,15 @@ fn unknown_flags_tokens(cli: &Cli) -> TokenStream {
     }
 }
 
+/// An inherited `Option<bool>` setting, as the table's `Option`: `None` defers to the
+/// enclosing command, as [`unknown_flags_tokens`] does.
+fn option_bool_tokens(value: Option<bool>) -> TokenStream {
+    match value {
+        Some(on) => quote!(::core::option::Option::Some(#on)),
+        None => quote!(::core::option::Option::None),
+    }
+}
+
 /// The `spec_extra` tail, appended to the emitted document.
 ///
 /// Appended rather than merged: this crate does not parse KDL, so extra nodes join the document
@@ -2411,6 +2422,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         None => quote!(::core::option::Option::None),
     };
     let require_equals = field.require_equals;
+    let single_dash_long = option_bool_tokens(field.single_dash_long);
     let bool_value = field.bool_value;
     // `value_optional` can be a presentation-only declaration for clap/spec
     // compatibility. Only a nested Option can represent a genuinely bare value
@@ -2450,6 +2462,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             allow_negative_numbers: #allow_negative_numbers,
             value_terminator: #value_terminator,
             require_equals: #require_equals,
+            single_dash_long: #single_dash_long,
             value_optional: #value_optional,
             bool_value: #bool_value,
             default_missing: #default_missing,
@@ -6728,6 +6741,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let term_width = option_usize(cli.term_width);
     let max_term_width = option_usize(cli.max_term_width);
     let unknown_flags = unknown_flags_tokens(cli);
+    let single_dash_long = option_bool_tokens(cli.single_dash_long);
     let arg_required_else_help = cli.arg_required_else_help;
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
     let args_override_self = cli.args_override_self;
@@ -7030,6 +7044,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 aliases: &[#(#aliases),*],
                 key: #command_key,
                 unknown_flags: #unknown_flags,
+                single_dash_long: #single_dash_long,
                 arg_required_else_help: #arg_required_else_help,
                 subcommand_negates_reqs: #subcommand_negates_reqs,
                 args_conflicts_with_subcommands: #args_conflicts_with_subcommands,

@@ -140,6 +140,7 @@ pub fn build(
         disable_help_subcommand: cmd.disable_help_subcommand,
         disable_version_flag: cmd.disable_version_flag,
         unknown_flags,
+        single_dash_long: cmd.single_dash_long,
         external_subcommand: cmd.external_subcommand,
         arg_required_else_help: cmd.arg_required_else_help,
         subcommand_negates_reqs: cmd.subcommand_negates_reqs,
@@ -386,6 +387,7 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
             .and_then(|arg| arg.value_terminator.as_deref())
             .map(|value| leak(value).as_bytes()),
         require_equals: f.require_equals,
+        single_dash_long: f.single_dash_long,
         value_optional: f.value_optional,
         bool_value: f.bool_value,
         default_missing: f.default_missing.as_deref().map(|s| leak(s).as_bytes()),

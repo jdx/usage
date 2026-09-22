@@ -95,6 +95,10 @@ type Command struct {
 	// UnknownFlags is what an unrecognized flag-like token means here. Already
 	// resolved: inheritance is a question for whoever builds the tables.
 	UnknownFlags UnknownFlags
+	// SingleDashLong is whether a single-dash token may name a long flag here, so
+	// `-shared` binds `--shared` as getopt_long_only(3) and GNU ld read it. Already
+	// resolved, as UnknownFlags is. A flag may override it; see Flag.SingleDashLong.
+	SingleDashLong bool
 	// Version is whether this command answers to --version and -V.
 	//
 	// Set on the root, and only when the CLI declares a version: a --version that
@@ -207,6 +211,9 @@ type Flag struct {
 	// attached form (`-i9229`, `-i=9229`) still binds: only the following word
 	// is refused.
 	RequireEquals bool
+	// NoSingleDashLong keeps this flag's longs to `--` where Command.SingleDashLong
+	// allows one dash, as GNU ld keeps `-omagic` meaning `-o magic`.
+	NoSingleDashLong bool
 	// DefaultMissing is the value used when the flag is present but no value is
 	// given. Empty means unset: the flag then errors if a value is missing.
 	//

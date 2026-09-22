@@ -488,6 +488,9 @@ impl<'a> Emitter<'a> {
                     "argv.UnknownFlagsError".into(),
                 ));
             }
+            if effective_single_dash_long(commands, i) {
+                lines.push(Line::Field("SingleDashLong".into(), "true".into()));
+            }
 
             if e.cmd.external_subcommand {
                 lines.push(Line::Field("ExternalSubcommand".into(), "true".into()));
@@ -1519,6 +1522,22 @@ fn effective_unknown_flags(spec: &Spec, commands: &[Emitted], at: usize) -> Unkn
     spec.unknown_flags.unwrap_or_default()
 }
 
+/// Whether single-dash longs are on for `commands[at]`, resolved as
+/// [`effective_unknown_flags`] resolves its setting. The root's own setting is the
+/// spec's, so there is no spec-level fallback beyond off.
+fn effective_single_dash_long(commands: &[Emitted], at: usize) -> bool {
+    let path = &commands[at].cmd.full_cmd;
+    for depth in (0..=path.len()).rev() {
+        let ancestor = commands
+            .iter()
+            .find(|e| e.cmd.full_cmd.len() == depth && e.cmd.full_cmd[..] == path[..depth]);
+        if let Some(on) = ancestor.and_then(|e| e.cmd.single_dash_long) {
+            return on;
+        }
+    }
+    false
+}
+
 fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     let mut fields = vec![
         format!("Key: {}", named.key),
@@ -1611,6 +1630,9 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     }
     if flag.require_equals {
         fields.push("RequireEquals: true".to_string());
+    }
+    if flag.single_dash_long == Some(false) {
+        fields.push("NoSingleDashLong: true".to_string());
     }
     if let Some(missing) = &flag.default_missing {
         fields.push(format!("DefaultMissing: {}", go_string(missing)));
@@ -1890,6 +1912,26 @@ cmd "exec" unknown_flags="value" {
 }
 "#);
         insta::assert_snapshot!(out);
+    }
+
+    #[test]
+    fn single_dash_long_is_resolved_per_command_and_flag() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+single_dash_long #true
+flag "--omagic" single_dash_long=#false
+cmd "link" {
+    flag "--shared"
+}
+cmd "strict" single_dash_long=#false {
+    flag "--export"
+}
+"#);
+        // Resolved for the root and inherited by `link`, but not `strict`, which said no.
+        assert_eq!(out.matches("\n\tSingleDashLong: true").count(), 2, "{out}");
+        // A flag can only refuse one dash, so only that is worth a table field.
+        assert_eq!(out.matches("NoSingleDashLong: true").count(), 1, "{out}");
     }
 
     /// mise declares both a `macos-defaults` command and a `macos defaults` path,

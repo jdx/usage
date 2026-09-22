@@ -159,6 +159,9 @@ pub struct Cli {
     /// Whether a flag-like token that names no flag is a value or an error. Unset
     /// means the spec's default, which is `value`.
     pub unknown_flags: Option<String>,
+    /// Whether a single-dash token may name a long flag, as getopt_long_only(3) reads a
+    /// command line. Unset means whatever encloses this command decided.
+    pub single_dash_long: Option<bool>,
     /// The command a bare invocation means: `mise build` is `mise run build`.
     ///
     /// Only the root has one, and it is what mise sets by hand on the emitted spec today.
@@ -457,6 +460,8 @@ pub struct Field {
     pub value_terminator: Option<String>,
     /// Whether the value must be attached with `=`. clap's `require_equals`.
     pub require_equals: bool,
+    /// Whether this flag's longs may be written with one dash, overriding the command.
+    pub single_dash_long: Option<bool>,
     /// Whether a boolean long flag accepts `=true` or `=false`.
     pub bool_value: bool,
     /// Value used when the flag is present but no value is given.
@@ -841,6 +846,7 @@ impl Cli {
             repository: None,
             source_code_link_template: None,
             unknown_flags: None,
+            single_dash_long: None,
             default_subcommand: None,
             default_subcommand_flags: false,
             default_subcommand_on_empty: false,
@@ -1106,6 +1112,7 @@ impl Cli {
                         }
                         cli.unknown_flags = Some(mode);
                     }
+                    "single_dash_long" => cli.single_dash_long = Some(flag_value(&meta)?),
                     "default_subcommand" => {
                         cli.default_subcommand = Some(strip_dashes(&string_value(&meta)?))
                     }
@@ -1223,7 +1230,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `surface`, `available_if`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `surface`, `available_if`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, `single_dash_long`, \
                                  `default_subcommand`, `default_subcommand_flags`, `default_subcommand_on_empty`, `default_subcommand_help`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `logo`, `logo_style`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount`, `example`, `heading`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
@@ -2249,6 +2256,7 @@ impl Field {
             allow_negative_numbers: false,
             value_terminator: None,
             require_equals: false,
+            single_dash_long: None,
             bool_value: false,
             default_missing: None,
             exclusive: false,
@@ -2401,6 +2409,7 @@ impl Field {
             allow_negative_numbers: false,
             value_terminator: None,
             require_equals: false,
+            single_dash_long: None,
             bool_value: false,
             default_missing: None,
             exclusive: false,
@@ -2529,6 +2538,7 @@ impl Field {
             allow_negative_numbers: false,
             value_terminator: None,
             require_equals: false,
+            single_dash_long: None,
             bool_value: false,
             default_missing: None,
             exclusive: false,
@@ -2691,6 +2701,7 @@ impl Field {
             allow_negative_numbers: false,
             value_terminator: None,
             require_equals: false,
+            single_dash_long: None,
             bool_value: false,
             default_missing: None,
             exclusive: false,
@@ -2825,6 +2836,7 @@ impl Field {
             allow_negative_numbers: false,
             value_terminator: None,
             require_equals: false,
+            single_dash_long: None,
             bool_value: false,
             default_missing: None,
             exclusive: false,
@@ -2958,6 +2970,7 @@ impl Field {
         let mut value_terminator = None;
         let mut sigil = None;
         let mut require_equals = false;
+        let mut single_dash_long = None;
         let mut bool_value = false;
         let mut default_missing = None;
         let mut required_if: Vec<String> = Vec::new();
@@ -3150,6 +3163,7 @@ impl Field {
                     "value_terminator" => value_terminator = Some(string_value(&meta)?),
                     "sigil" => sigil = Some(string_value(&meta)?),
                     "require_equals" => require_equals = flag_value(&meta)?,
+                    "single_dash_long" => single_dash_long = Some(flag_value(&meta)?),
                     "bool_value" => bool_value = flag_value(&meta)?,
                     "default_missing" => default_missing = Some(string_value(&meta)?),
                     "default_missing_value" => {
@@ -3284,7 +3298,7 @@ impl Field {
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
                                  `delimiter`, `allow_hyphen_values`, `allow_negative_numbers`, \
-                                 `value_terminator`, `sigil`, `require_equals`, `bool_value`, \
+                                 `value_terminator`, `sigil`, `require_equals`, `single_dash_long`, `bool_value`, \
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
                                  `required_unless`, `required_unless_all`, `help_heading`, `surface`, `available_if`, `select`, `display_order`, `value_name`, `value_names`, `num_args`, \
@@ -4127,6 +4141,12 @@ impl Field {
                 ));
             }
         }
+        if single_dash_long.is_some() && !matches!(kind, Kind::Flag { .. }) {
+            return Err(syn::Error::new(
+                span,
+                "`single_dash_long` is for a flag's longs; a positional has no dashes",
+            ));
+        }
         if bool_value && (!matches!(&kind, Kind::Flag { .. }) || !matches!(&shape, Shape::Bool)) {
             return Err(syn::Error::new_spanned(
                 &ident,
@@ -4308,6 +4328,7 @@ impl Field {
             allow_negative_numbers,
             value_terminator,
             require_equals,
+            single_dash_long,
             bool_value,
             default_missing,
             exclusive,

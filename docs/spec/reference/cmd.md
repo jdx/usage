@@ -315,6 +315,22 @@ child as usual:
 args_conflicts_with_subcommands #true
 ```
 
+## Single-dash long flags
+
+`single_dash_long` lets a single-dash token name a long flag, as GNU ld reads its
+command line: `-shared` is `--shared`, while `-lfoo`, which names no long, is still
+`-l foo`. A flag can keep its longs to two dashes with `single_dash_long=#false`.
+
+```kdl
+single_dash_long #true                    // for the whole CLI
+cmd "strict" single_dash_long=#false      // except here
+flag "-o --output <file>"
+flag "--omagic" single_dash_long=#false   // -omagic stays -o magic
+```
+
+Like `unknown_flags`, this is inherited. See
+[the argv grammar](../argv.md#single-dash-long-flags).
+
 ## Prefer a known subcommand to a variadic value
 
 `subcommand_precedence_over_arg` lets a known child name end a variadic flag

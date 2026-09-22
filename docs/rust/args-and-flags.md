@@ -138,13 +138,14 @@ does have one stable portable spelling.
 
 **Parsing behavior** — how tokens on the line are read:
 
-| Attribute                | Effect                                                                    |
-| ------------------------ | ------------------------------------------------------------------------- |
-| `allow_hyphen_values`    | Detached flag value may look like a flag, including `--`                  |
-| `allow_negative_numbers` | Accept negative numeric tokens without accepting every dash-prefixed word |
-| `require_equals`         | Accept `--flag=value` and refuse `--flag value`                           |
-| `double_dash = "…"`      | `"optional"`, `"required"`, `"preserve"`, or `"automatic"` `--` handling  |
-| `overrides(…)`           | Later occurrence silently overrides the named flag                        |
+| Attribute                  | Effect                                                                    |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `allow_hyphen_values`      | Detached flag value may look like a flag, including `--`                  |
+| `allow_negative_numbers`   | Accept negative numeric tokens without accepting every dash-prefixed word |
+| `require_equals`           | Accept `--flag=value` and refuse `--flag value`                           |
+| `single_dash_long = false` | Keep this flag's longs to `--` where the command allows one dash          |
+| `double_dash = "…"`        | `"optional"`, `"required"`, `"preserve"`, or `"automatic"` `--` handling  |
+| `overrides(…)`             | Later occurrence silently overrides the named flag                        |
 
 **Relationships** — constraints between arguments, checked after parsing:
 
@@ -342,6 +343,7 @@ On the root `#[derive(Cli)]` struct:
 | `usage = "…"`                       | Verbatim synopsis line(s), replacing the generated one                                                                        |
 | `before_help` / `after_help`        | Extra text around the help page (`*_long_help` variants too)                                                                  |
 | `unknown_flags = "value"\|"error"`  | Treat unknown flags as values instead of errors                                                                               |
+| `single_dash_long`                  | Let `-name` name the long `--name`, as GNU ld reads a command line                                                            |
 | `default_subcommand = "run"`        | Command to assume when argv names none                                                                                        |
 | `multicall`                         | Treat argv[0]'s basename as a subcommand (busybox-style)                                                                      |
 | `view("bin", root = "command")`     | Promote a command as another executable surface                                                                               |

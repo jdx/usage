@@ -316,7 +316,14 @@ pub fn diff_specs(old: &Spec, new: &Spec) -> Vec<SpecChange> {
     // value at every command that inherits it: 54 identical findings for one edited node
     // is not a report anybody reads.
     diff_unknown_flags(old.unknown_flags, new.unknown_flags, &root, &mut c);
-    diff_command(&old.cmd, &new.cmd, &root, None, &mut c);
+    diff_command(
+        &old.cmd,
+        &new.cmd,
+        &root,
+        None,
+        Inherited::default(),
+        &mut c,
+    );
     diff_config(&old.config, &new.config, &root, &mut c);
 
     // Stable: `sort_by_key` keeps the walk order inside each category, so a reader
@@ -334,15 +341,16 @@ fn diff_command(
     new: &SpecCommand,
     path: &str,
     renamed_from: Option<&str>,
+    inherited: Inherited,
     c: &mut Changes,
 ) {
     diff_names(old, new, path, renamed_from, c);
-    diff_command_props(old, new, path, c);
+    diff_command_props(old, new, path, inherited, c);
     diff_flags(old, new, path, c);
     diff_args(&old.args, &new.args, path, c);
     diff_groups(&old.groups, &new.groups, path, c);
     diff_mounts(old, new, path, c);
-    diff_subcommands(old, new, path, c);
+    diff_subcommands(old, new, path, inherited.below(old, new), c);
 }
 
 fn diff_names(
@@ -390,7 +398,32 @@ fn diff_names(
     }
 }
 
-fn diff_command_props(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes) {
+/// What a command inherits from the commands above it, for the settings whose meaning
+/// depends on them. Held per side, since the two trees may inherit differently.
+#[derive(Clone, Copy, Default)]
+struct Inherited {
+    single_dash_long: (bool, bool),
+}
+
+impl Inherited {
+    /// What the commands below `old` and `new` inherit from them.
+    fn below(self, old: &SpecCommand, new: &SpecCommand) -> Self {
+        Self {
+            single_dash_long: (
+                old.single_dash_long.unwrap_or(self.single_dash_long.0),
+                new.single_dash_long.unwrap_or(self.single_dash_long.1),
+            ),
+        }
+    }
+}
+
+fn diff_command_props(
+    old: &SpecCommand,
+    new: &SpecCommand,
+    path: &str,
+    inherited: Inherited,
+    c: &mut Changes,
+) {
     if !old.subcommand_required && new.subcommand_required {
         c.breaking(
             "subcommand-now-required",
@@ -495,6 +528,7 @@ fn diff_command_props(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut 
     }
 
     diff_unknown_flags(old.unknown_flags, new.unknown_flags, path, c);
+    diff_single_dash_long(old, new, path, inherited, c);
 
     if !old.args_conflicts_with_subcommands && new.args_conflicts_with_subcommands {
         c.breaking(
@@ -799,6 +833,23 @@ fn diff_flag(old: &SpecFlag, new: &SpecFlag, path: &str, c: &mut Changes) {
             "require-equals-removed",
             path,
             format!("{subject} now accepts a detached value"),
+        );
+    }
+
+    // Only a refusal changes how this flag is read, since it cannot grant one dash.
+    if (old.single_dash_long == Some(false)) != (new.single_dash_long == Some(false)) {
+        let refused = new.single_dash_long == Some(false);
+        c.breaking(
+            "single-dash-long-changed",
+            path,
+            format!(
+                "{subject} {} a single dash where the command allows one",
+                if refused {
+                    "no longer accepts"
+                } else {
+                    "now accepts"
+                }
+            ),
         );
     }
 
@@ -1535,7 +1586,13 @@ fn diff_mounts(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes
     }
 }
 
-fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes) {
+fn diff_subcommands(
+    old: &SpecCommand,
+    new: &SpecCommand,
+    path: &str,
+    inherited: Inherited,
+    c: &mut Changes,
+) {
     // The commands that turned out to be somewhere an old name went. Reported as renames
     // below and skipped by the addition loop: a command reachable by the word that always
     // reached it is not something the interface gained.
@@ -1543,7 +1600,7 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
     for (name, was) in &old.subcommands {
         let child = format!("{path} {name}");
         match new.subcommands.get(name) {
-            Some(now) => diff_command(was, now, &child, None, c),
+            Some(now) => diff_command(was, now, &child, None, inherited, c),
             None => {
                 // A word that now selects some other command still works: rustup's
                 // `install` reaching `toolchain install` is a rename, not a removal.
@@ -1561,7 +1618,7 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
                         // may have happened to it. Located under the *old* name: what a
                         // reader wants to know is what typing `{name}` does now, and the
                         // line above says which command that reaches.
-                        diff_command(was, covering_cmd, &child, Some(name), c);
+                        diff_command(was, covering_cmd, &child, Some(name), inherited, c);
                         covering.insert(covering_cmd.name.clone());
                     }
                     None => {
@@ -2090,6 +2147,40 @@ fn diff_unknown_flags(
             "an undeclared flag is now a value rather than an error".to_string(),
         );
     }
+}
+
+/// One command's effective `single_dash_long` against its counterpart.
+///
+/// Compared as the parser reads it rather than as it is written, so a command that
+/// restates what it already inherited is not a change. Either direction is breaking:
+/// turning it on makes `-shared` a long where it was a bundle or a word, and turning it
+/// off does the reverse to a command line that used to bind.
+fn diff_single_dash_long(
+    old: &SpecCommand,
+    new: &SpecCommand,
+    path: &str,
+    inherited: Inherited,
+    c: &mut Changes,
+) {
+    let (was, is) = (
+        old.single_dash_long.unwrap_or(inherited.single_dash_long.0),
+        new.single_dash_long.unwrap_or(inherited.single_dash_long.1),
+    );
+    if was == is {
+        return;
+    }
+    c.breaking(
+        "single-dash-long-changed",
+        path,
+        format!(
+            "single-dash longs are {} here",
+            if is {
+                "now read as longs"
+            } else {
+                "no longer read as longs"
+            }
+        ),
+    );
 }
 
 /// Where a flag, argument or command sits in help output.
@@ -2897,6 +2988,34 @@ flag "--url <u>" help="url"
         let new = format!("{old}unknown_flags \"error\"\n");
         assert_eq!(codes(old, &new), ["breaking:unknown-flags-strict"]);
         assert_eq!(codes(&new, old), ["compatible:unknown-flags-lax"]);
+    }
+
+    #[test]
+    fn single_dash_long_changes_what_a_token_means() {
+        let old = "name \"ex\"\nbin \"ex\"\nflag \"--shared\" help=\"shared\"\n";
+        let new = format!("{old}single_dash_long #true\n");
+        assert_eq!(codes(old, &new), ["breaking:single-dash-long-changed"]);
+        assert_eq!(codes(&new, old), ["breaking:single-dash-long-changed"]);
+
+        let allowed = format!("{new}flag \"--omagic\" help=\"nmagic\"\n");
+        let refused = format!("{new}flag \"--omagic\" help=\"nmagic\" single_dash_long=#false\n");
+        assert_eq!(
+            codes(&allowed, &refused),
+            ["breaking:single-dash-long-changed"]
+        );
+        // A flag cannot grant one dash, so restating the command's answer is not a change.
+        let restated = format!("{new}flag \"--omagic\" help=\"nmagic\" single_dash_long=#true\n");
+        assert!(codes(&allowed, &restated).is_empty());
+
+        // Nor is a subcommand restating what it already inherited.
+        let parent = format!("{new}cmd \"run\" help=\"run\"\n");
+        let child_restates = format!("{new}cmd \"run\" help=\"run\" single_dash_long=#true\n");
+        let child_refuses = format!("{new}cmd \"run\" help=\"run\" single_dash_long=#false\n");
+        assert!(codes(&parent, &child_restates).is_empty());
+        assert_eq!(
+            codes(&parent, &child_refuses),
+            ["breaking:single-dash-long-changed"]
+        );
     }
 
     #[test]

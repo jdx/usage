@@ -1621,6 +1621,9 @@ impl Spec<'_> {
         if self.root.cmd.unknown_flags == Some(UnknownFlags::Error) {
             prop(out, "unknown_flags", "error")?;
         }
+        if let Some(on) = self.root.cmd.single_dash_long {
+            writeln!(out, "single_dash_long #{on}")?;
+        }
         if let Some(default_subcommand) = self.default_subcommand {
             prop(out, "default_subcommand", default_subcommand)?;
         }
@@ -2214,6 +2217,10 @@ fn write_command<'a>(
             })
         )?;
     }
+    // Written as stated rather than as resolved: the reader inherits it the same way.
+    if let Some(on) = meta.cmd.single_dash_long {
+        write!(out, " single_dash_long=#{on}")?;
+    }
     if let Some(token) = meta.restart_token {
         write!(out, " restart_token={}", quoted(token))?;
     }
@@ -2649,6 +2656,9 @@ fn write_flag(
     }
     if meta.flag.require_equals {
         out.push_str(" require_equals=#true");
+    }
+    if let Some(on) = meta.flag.single_dash_long {
+        write!(out, " single_dash_long=#{on}")?;
     }
     if meta.flag.value_optional {
         out.push_str(" value_optional=#true");

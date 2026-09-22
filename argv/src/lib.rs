@@ -272,6 +272,13 @@ pub struct Command<'a> {
     /// The parser carries the effective value down as it descends, so a command that states
     /// nothing costs nothing.
     pub unknown_flags: ::core::option::Option<UnknownFlags>,
+    /// Whether a single-dash token may name a long flag here, so `-shared` binds
+    /// `--shared` as getopt_long_only(3) and GNU ld read it; `None` keeps whatever the
+    /// enclosing command said, and the root's `None` means off.
+    ///
+    /// Inherited as [`Self::unknown_flags`] is. A flag may override it for its own
+    /// longs; see [`Flag::single_dash_long`].
+    pub single_dash_long: ::core::option::Option<bool>,
     /// Whether this command answers to `--version` and `-V`.
     ///
     /// Set on the root, and only when the CLI declares a version: clap adds the flag exactly
@@ -316,6 +323,7 @@ impl Command<'_> {
         allow_missing_positional: false,
         dont_delimit_trailing_values: false,
         unknown_flags: ::core::option::Option::None,
+        single_dash_long: ::core::option::Option::None,
         version: false,
         disable_help_flag: false,
         disable_help_subcommand: false,
@@ -467,6 +475,10 @@ pub struct Flag<'a> {
     /// attached form (`-i9229`, `-i=9229`) still binds: only the following word
     /// is refused.
     pub require_equals: bool,
+    /// Whether this flag's longs may be written with one dash where
+    /// [`Command::single_dash_long`] allows it: `Some(false)` is how GNU ld keeps
+    /// `-omagic` meaning `-o magic`. It cannot grant what the command withheld.
+    pub single_dash_long: ::core::option::Option<bool>,
     /// Whether this value-taking flag may be present without a value.
     ///
     /// A missing value emits the flag event with `value: None`; bindings such as
@@ -510,6 +522,7 @@ impl Flag<'_> {
         allow_negative_numbers: false,
         value_terminator: ::core::option::Option::None,
         require_equals: false,
+        single_dash_long: ::core::option::Option::None,
         value_optional: false,
         bool_value: false,
         default_missing: ::core::option::Option::None,
@@ -1664,6 +1677,9 @@ pub struct Parser<'t, 'a, 'v> {
     /// nothing keeps what the enclosing one said, and walking back up the ancestors on
     /// every unrecognized token would pay for the inheritance at the wrong moment.
     unknown_flags: UnknownFlags,
+    /// Whether single-dash longs are on in the command in scope, carried down for the
+    /// same reason as `unknown_flags`.
+    single_dash_long: bool,
     /// Effective inherited trailing-delimiter policy.
     dont_delimit_trailing_values: bool,
     /// The chain above `cmd`, used to find inherited global flags. Fixed size so
@@ -1768,6 +1784,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 // Nothing above the root to inherit from, so the default stands.
                 ::core::option::Option::None => UnknownFlags::Value,
             },
+            single_dash_long: matches!(root.single_dash_long, ::core::option::Option::Some(true)),
             dont_delimit_trailing_values: root.dont_delimit_trailing_values,
             ancestors: [None; MAX_DEPTH],
             depth: 0,
@@ -1828,7 +1845,15 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
             let mut value_flag = None;
             let mut attached = None;
-            if let Some(body) = token.strip_prefix(b"--") {
+            // `step` reads a single-dash token that names a long as that long, so the
+            // lookahead has to agree or it would route the same word differently.
+            let long_body = token.strip_prefix(b"--").or_else(|| {
+                let body = token.strip_prefix(b"-").filter(|_| self.single_dash_long)?;
+                self.find_long_here(default, long_name(body))
+                    .filter(|flag| allows_single_dash(flag))
+                    .map(|_| body)
+            });
+            if let Some(body) = long_body {
                 let end = body.iter().position(|b| *b == b'=').unwrap_or(body.len());
                 let name = &body[..end];
                 let parent = self.find_long(name).or_else(|| self.find_negation(name));
@@ -2084,6 +2109,18 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         event
     }
 
+    /// A long this command or `default` declares, for the lookahead's shared scope.
+    fn find_long_here(&self, default: &'t Command<'t>, name: &[u8]) -> Option<&'t Flag<'t>> {
+        self.find_long(name)
+            .or_else(|| self.find_negation(name))
+            .or_else(|| {
+                default.flags.iter().copied().find(|f| {
+                    f.longs.iter().any(|l| l.as_bytes() == name)
+                        || f.negate.is_some_and(|n| n.as_bytes() == name)
+                })
+            })
+    }
+
     /// Count parent flags in the shared boundary token before entering the child.
     fn default_bundle_has_parent_flag(&self, default: &Command<'_>) -> bool {
         let Some(token) = self.argv.get(self.pos).map(bytes) else {
@@ -2091,6 +2128,19 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         };
         if !token.starts_with(b"-") || token.starts_with(b"--") {
             return false;
+        }
+        // A single-dash long is one flag rather than a bundle, so it is the parent's or
+        // it is the default command's; either way its letters are not shorts.
+        if self.single_dash_long {
+            if self.names_single_dash_long(&token[1..]) {
+                return true;
+            }
+            if self
+                .find_long_here(default, long_name(&token[1..]))
+                .is_some_and(|flag| allows_single_dash(flag))
+            {
+                return false;
+            }
         }
         for byte in &token[1..] {
             if self.find_short(*byte).is_some() {
@@ -2270,7 +2320,14 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         let declared_numeric_short = matches!(token, [b'-', short]
             if short.is_ascii_digit() && self.find_short(*short).is_some());
 
-        if !declared_numeric_short
+        // A declared spelling outranks the numeric shape, as an exact short does: where
+        // `single_dash_long` is on and a long is named `1`, `-1` is that long.
+        let declared_numeric = declared_numeric_short
+            || (self.single_dash_long
+                && is_negative_number(token)
+                && self.names_single_dash_long(&token[1..]));
+
+        if !declared_numeric
             && is_negative_number(token)
             && self
                 .next_arg()
@@ -2279,7 +2336,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             return Some(self.word(token));
         }
 
-        if !declared_numeric_short
+        if !declared_numeric
             && is_negative_number(token)
             && self.cmd.external_subcommand
             && !self.arg_filled
@@ -2289,7 +2346,12 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
         if is_flag_like(token) {
             if token.starts_with(b"--") {
-                return Some(self.long_flag(token));
+                return Some(self.long_flag(token, 2));
+            }
+            // getopt_long_only(3) order: the whole name as a long, then the short rules
+            // below. The setting is read first so an opted-out spec looks nothing up.
+            if self.single_dash_long && self.names_single_dash_long(&token[1..]) {
+                return Some(self.long_flag(token, 1));
             }
             // Check the whole bundle before emitting anything from it. Events go
             // out one at a time, so discovering an unknown letter half way
@@ -2311,8 +2373,22 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         Some(self.word(token))
     }
 
-    fn long_flag(&mut self, token: &'v [u8]) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
-        let body = &token[2..];
+    /// Whether `body`, a token without its single dash, names a long of this command
+    /// that allows one.
+    fn names_single_dash_long(&self, body: &[u8]) -> bool {
+        let name = long_name(body);
+        self.find_long(name)
+            .or_else(|| self.find_negation(name))
+            .is_some_and(|flag| allows_single_dash(flag))
+    }
+
+    /// Bind a long flag; `dashes` is how many the token was written with.
+    fn long_flag(
+        &mut self,
+        token: &'v [u8],
+        dashes: usize,
+    ) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
+        let body = &token[dashes..];
         let (name, attached) = match body.iter().position(|&b| b == b'=') {
             Some(i) => (&body[..i], Some(&body[i + 1..])),
             None => (body, None),
@@ -2732,6 +2808,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if let ::core::option::Option::Some(mode) = sub.unknown_flags {
             self.unknown_flags = mode;
         }
+        if let ::core::option::Option::Some(on) = sub.single_dash_long {
+            self.single_dash_long = on;
+        }
         self.dont_delimit_trailing_values |= sub.dont_delimit_trailing_values;
         // Where this command's own words start, which is what lets a completion hand a callback
         // the half-parsed struct of the command it was declared on rather than of the root.
@@ -3006,6 +3085,19 @@ fn values_in(word: &[u8], delimiter: ::core::option::Option<u8>) -> u32 {
 ///
 /// `-` alone is a value, conventionally stdin. Other dash-prefixed tokens are
 /// flag-like; a field may make the narrower negative-number exception.
+/// A long token's name: what precedes its `=`, if it has one.
+fn long_name(body: &[u8]) -> &[u8] {
+    match body.iter().position(|&b| b == b'=') {
+        Some(end) => &body[..end],
+        None => body,
+    }
+}
+
+/// Whether a flag accepts the single-dash spelling its command allows.
+fn allows_single_dash(flag: &Flag<'_>) -> bool {
+    flag.single_dash_long.unwrap_or(true)
+}
+
 fn is_flag_like(token: &[u8]) -> bool {
     matches!(token, [b'-', rest @ ..] if !rest.is_empty())
 }

@@ -135,8 +135,9 @@ At each token, in order:
    value.
 2. If the token is exactly `--`, flag interpretation stops. The token is consumed
    and is not itself a value.
-3. If the token is flag-like, it is matched as a flag ([long](#long-flags) or
-   [short](#short-flags)). If nothing matches, see
+3. If the token is flag-like, it is matched as a flag ([long](#long-flags),
+   [single-dash long](#single-dash-long-flags), or [short](#short-flags)). If
+   nothing matches, see
    [unrecognized flags](#unrecognized-flags).
 4. Otherwise the token is a word: it selects a [subcommand](#subcommands) if one
    matches; otherwise it is forwarded as an [external subcommand](#external-subcommands)
@@ -225,10 +226,41 @@ one value per occurrence and may be repeated, so `--include a --include b`
 collects two. The distinction matters — `--include a b` gives a _repeatable_ flag
 only `a`, leaving `b` to a positional, while a _variadic_ one takes both.
 
+## Single-dash long flags
+
+A command declaring `single_dash_long` also reads a single-dash token as a long,
+the way getopt_long_only(3) does and GNU ld, lld and mold expect. The text after
+the dash, up to the first `=`, is looked up as a long name first, and only a token
+that names no long is read as [short flags](#short-flags):
+
+| token             | with `-l`, `-e`, `-T` and the longs `soname`, `export-dynamic`, `Ttext` |
+| ----------------- | ----------------------------------------------------------------------- |
+| `-soname=x.so`    | the long `soname`, with the value `x.so`                                |
+| `-soname x.so`    | the long `soname`, taking the following token                           |
+| `-export-dynamic` | the long, even though `-e` could take `xport-dynamic` as its value      |
+| `-Ttext=0x1000`   | the long `Ttext`, not `-T` with the value `text=0x1000`                 |
+| `-lfoo`           | no long is called `lfoo`, so `-l` with the value `foo`                  |
+
+Everything the long form does, this does: `=` attaches a value, a detached value
+follows the rules for long flags, and a negated spelling (`-no-as-needed`) negates.
+Names still match exactly, so a prefix of a long is never read as it. Short bundles
+are unchanged: a token that names no long, such as `-sx`, is still `-s -x`.
+
+A flag declaring `single_dash_long=#false` keeps its longs to `--` even where the
+command allows one dash. That is GNU ld's exception for names beginning with `o`,
+which keeps `-omagic` meaning `-o magic` while `--omagic` names the long. A flag
+never grants what its command withheld: where no command declares the setting,
+nothing is looked up and a single-dash token is read exactly as it is today.
+
+Like [unrecognized flags](#unrecognized-flags), the setting is inherited: the
+nearest enclosing command that states a preference wins, and the default is off.
+A word owed to a flag as its value keeps its dash, so `-mllvm -shared` gives
+`mllvm` the value `-shared` when that flag allows hyphen values.
+
 ## Short flags
 
-A token beginning with a single `-` is one or more short flags. Letters are read
-left to right.
+A token beginning with a single `-` is one or more short flags, unless it names a
+[single-dash long](#single-dash-long-flags). Letters are read left to right.
 
 A letter whose flag takes no value simply sets it, and reading continues with the
 next letter — so `-ab` sets both `a` and `b`.

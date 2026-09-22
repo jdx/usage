@@ -314,6 +314,19 @@ the detached form stays refused.
 
 A flag that takes no value cannot declare it.
 
+## `single_dash_long`
+
+Refuses one dash for this flag's longs where its command
+[allows it](./cmd.md#single-dash-long-flags), which is how GNU ld keeps `-omagic`
+meaning `-o magic` while every other long accepts one dash. It cannot grant what
+the command withheld.
+
+```kdl
+single_dash_long #true
+flag "-o --output <file>"
+flag "--omagic" single_dash_long=#false
+```
+
 ## `bool_value`
 
 A boolean switch can opt into explicit attached values. With

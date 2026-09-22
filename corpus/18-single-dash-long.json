@@ -1,0 +1,334 @@
+{
+  "section": "single-dash long flags",
+  "about": "`single_dash_long` lets a single-dash token name a long flag, as getopt_long_only(3) and GNU ld read it: the whole name is tried as a long first, and only a token that names no long falls back to the short-flag rules, bundles included.",
+  "vectors": [
+    {
+      "id": "single-dash-long-switch",
+      "doc": "`-shared` names the long `--shared`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--shared\"\n",
+      "argv": ["-shared"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "shared": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-keeps-double-dash",
+      "doc": "The double-dash spelling still binds.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--shared\"\n",
+      "argv": ["--shared"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "shared": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-value-attached",
+      "doc": "`-soname=libfoo.so` binds the text after the first `=`, as the double-dash form does.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--soname <name>\"\n",
+      "argv": ["-soname=libfoo.so"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "soname": "libfoo.so"
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-value-detached",
+      "doc": "`-soname libfoo.so` takes the following token.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--soname <name>\"\n",
+      "argv": ["-soname", "libfoo.so"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "soname": "libfoo.so"
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-falls-back-to-short-value",
+      "doc": "`-lfoo` names no long, so it is the short `-l` with the attached value `foo`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"-l --library <lib>\"\n",
+      "argv": ["-lfoo"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "library": "foo"
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-prefers-long-to-short-value",
+      "doc": "A long name wins over a short with an attached value: `-export-dynamic` is the long, `-emain` is `-e main`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"-e --entry <sym>\"\nflag \"--export-dynamic\"\n",
+      "argv": ["-export-dynamic", "-emain"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "export-dynamic": true,
+            "entry": "main"
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-matches-whole-name",
+      "doc": "Names match exactly, never as a prefix: `-Ttext=0x1000` is the long `--Ttext`, while `-Tlink.ld` is `-T link.ld`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"-T --script <file>\"\nflag \"--Ttext <addr>\"\n",
+      "argv": ["-Ttext=0x1000", "-Tlink.ld"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "Ttext": "0x1000",
+            "script": "link.ld"
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-flag-can-opt-out",
+      "doc": "A flag declared `single_dash_long=#false` needs `--`, which is how GNU ld keeps `-omagic` meaning `-o magic`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"-o --output <file>\"\nflag \"--omagic\" single_dash_long=#false\n",
+      "argv": ["-omagic"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "output": "magic"
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-opted-out-flag-keeps-double-dash",
+      "doc": "The opted-out flag still binds with two dashes.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"-o --output <file>\"\nflag \"--omagic\" single_dash_long=#false\n",
+      "argv": ["--omagic"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "omagic": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-keeps-short-bundles",
+      "doc": "A token that names no long is read by the short-flag rules, so `-sx` is still a bundle.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"-s --strip-all\"\nflag \"-x --discard-all\"\n",
+      "argv": ["-sx"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "strip-all": true,
+            "discard-all": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-negation",
+      "doc": "A negated spelling is a long too: `-no-as-needed` turns `--as-needed` off.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--as-needed\" negate=\"--no-as-needed\"\n",
+      "argv": ["-as-needed", "-no-as-needed"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "as-needed": false
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-unknown-is-short-rules",
+      "doc": "A single-dash token that names neither a long nor a bundle is an unrecognized flag, as it is without the setting.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nunknown_flags \"error\"\nflag \"--shared\"\n",
+      "argv": ["-sharedd"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "single-dash-long-value-keeps-its-dash",
+      "doc": "A word owed to a flag as its value is not a token of its own, so `-mllvm -shared` gives `mllvm` the value `-shared` rather than respelling it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--mllvm <opt>\" allow_hyphen_values=#true\nflag \"--shared\"\n",
+      "argv": ["-mllvm", "-shared"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "mllvm": "-shared"
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-ends-variadic",
+      "doc": "A single-dash long is flag-like, so it ends a variadic flag's run and binds.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--include <pattern>...\"\nflag \"--shared\"\n",
+      "argv": ["--include", "a", "b", "-shared"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "include": ["a", "b"],
+            "shared": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-stops-at-double-dash",
+      "doc": "After `--` a single-dash token is a value like any other.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--shared\"\narg \"[files]...\"\n",
+      "argv": ["--", "-shared"],
+      "expect": {
+        "ok": {
+          "args": {
+            "files": ["-shared"]
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-is-off-by-default",
+      "doc": "Without the setting a single-dash token is only ever short flags, so `-shared` names nothing.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"--shared\"\n",
+      "argv": ["-shared"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "single-dash-long-flag-cannot-grant-it",
+      "doc": "A flag's own `single_dash_long` refuses one dash where its command allows it, and grants nothing where the command said nothing.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"--shared\" single_dash_long=#true\n",
+      "argv": ["-shared"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "single-dash-long-is-inherited",
+      "doc": "The setting reaches subcommands, like `unknown_flags`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\ncmd \"link\" {\n  flag \"--shared\"\n}\n",
+      "argv": ["link", "-shared"],
+      "expect": {
+        "ok": {
+          "cmd": ["link"],
+          "flags": {
+            "shared": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-command-can-turn-it-off",
+      "doc": "A command may turn the inherited setting off for its own tokens.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nunknown_flags \"error\"\ncmd \"strict\" single_dash_long=#false {\n  flag \"--shared\"\n}\n",
+      "argv": ["strict", "-shared"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "single-dash-long-global-flag",
+      "doc": "An inherited global long is reachable with one dash below the command that declares it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--verbose\" global=#true\ncmd \"link\"\n",
+      "argv": ["link", "-verbose"],
+      "expect": {
+        "ok": {
+          "cmd": ["link"],
+          "flags": {
+            "verbose": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-routes-a-default-subcommand",
+      "doc": "The default-subcommand lookahead reads a single-dash long as one, so `-shared` routes into the command that declares it, as `--shared` does.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\ndefault_subcommand \"run\"\ndefault_subcommand_flags #true\nflag \"-s --strip\"\ncmd \"run\" {\n  flag \"--shared\"\n  arg \"[args]...\"\n}\n",
+      "argv": ["-shared"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "shared": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-boundary-is-not-a-bundle",
+      "doc": "A single-dash long at the default-subcommand boundary is one flag, so its letters are not read as the parent's shorts.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\ndefault_subcommand \"run\"\ndefault_subcommand_flags #true\nargs_conflicts_with_subcommands #true\nflag \"-s --strip\"\ncmd \"run\" {\n  flag \"--shared\"\n  arg \"[args]...\"\n}\n",
+      "argv": ["-shared"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "shared": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-before-a-subcommand",
+      "doc": "A root long spelled with one dash binds before a subcommand word, even though descending drops it from the flags in scope.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--verbose\"\ncmd \"child\"\n",
+      "argv": ["-verbose", "child"],
+      "expect": {
+        "ok": {
+          "cmd": ["child"],
+          "flags": {
+            "verbose": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-value-before-a-subcommand",
+      "doc": "The same for a value-taking long: `-jobs 4 child` keeps the value with the flag.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--jobs <n>\"\ncmd \"child\"\n",
+      "argv": ["-jobs", "4", "child"],
+      "expect": {
+        "ok": {
+          "cmd": ["child"],
+          "flags": {
+            "jobs": "4"
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-outranks-a-negative-number",
+      "doc": "A declared long named `1` is what `-1` names, as an exact declared short outranks the numeric shape.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\nflag \"--1\"\narg \"[n]\" allow_negative_numbers=#true\n",
+      "argv": ["-1"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "1": true
+          }
+        }
+      }
+    },
+    {
+      "id": "single-dash-long-command-opt-out-keeps-the-parent-route",
+      "doc": "Where a default subcommand refuses one dash, a token naming only its long is not routed to it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nsingle_dash_long #true\ndefault_subcommand \"run\"\ndefault_subcommand_flags #true\nunknown_flags \"error\"\nflag \"-s --strip\"\ncmd \"run\" single_dash_long=#false {\n  flag \"--shared\"\n  arg \"[args]...\"\n}\n",
+      "argv": ["-shared"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    }
+  ]
+}

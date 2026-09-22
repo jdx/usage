@@ -91,6 +91,14 @@ pub struct SpecCommand {
     /// because it describes how a command line is read rather than what a command
     /// does, and a CLI that forwards options generally forwards them everywhere.
     pub unknown_flags: Option<UnknownFlags>,
+    /// Whether a single-dash token may name a long flag here, so `-shared` binds
+    /// `--shared` as getopt_long_only(3) and GNU ld read it.
+    ///
+    /// Unset means "whatever encloses this command decided", and failing that off.
+    /// Like [`Self::unknown_flags`] this is inherited: it describes how a command
+    /// line is read.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub single_dash_long: Option<bool>,
     /// Whether to hide this command from help output
     pub hide: bool,
     /// Help section this command appears under in its parent's command list.
@@ -263,6 +271,7 @@ impl Default for SpecCommand {
             deprecated_remove_at: None,
             effect: None,
             unknown_flags: None,
+            single_dash_long: None,
             hide: false,
             help_heading: None,
             surface: None,
@@ -456,6 +465,7 @@ impl SpecCommand {
                 "surface" => cmd.surface = Some(v.ensure_string()?),
                 "available_if" => cmd.available_if = vec![v.ensure_string()?],
                 "display_order" => cmd.display_order = Some(v.ensure_usize()?),
+                "single_dash_long" => cmd.single_dash_long = Some(v.ensure_bool()?),
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
                     match raw.parse() {
@@ -685,6 +695,9 @@ impl SpecCommand {
                         child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
+                "single_dash_long" => {
+                    cmd.single_dash_long = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?)
+                }
                 "effect" => {
                     let arg = child.ensure_arg_len(1..=1)?.arg(0)?;
                     let raw = arg.ensure_string()?;
@@ -962,6 +975,7 @@ impl SpecCommand {
             deprecated_remove_at,
             effect,
             unknown_flags,
+            single_dash_long,
             // Recomputed from the merged command, never carried over.
             full_cmd: _,
             usage: _,
@@ -1099,6 +1113,9 @@ impl SpecCommand {
         }
         if unknown_flags.is_some() {
             self.unknown_flags = unknown_flags;
+        }
+        if single_dash_long.is_some() {
+            self.single_dash_long = single_dash_long;
         }
         if deprecated.is_some() {
             self.deprecated = deprecated;
@@ -1241,6 +1258,7 @@ impl From<&SpecCommand> for KdlNode {
             allow_missing_positional,
             restart_token,
             unknown_flags,
+            single_dash_long,
             aliases,
             hidden_aliases,
             help,
@@ -1450,6 +1468,9 @@ impl From<&SpecCommand> for KdlNode {
         if let Some(unknown_flags) = unknown_flags {
             node.entries_mut()
                 .push(string_entry(Some("unknown_flags"), unknown_flags.as_str()));
+        }
+        if let Some(single_dash_long) = single_dash_long {
+            node.push(KdlEntry::new_prop("single_dash_long", *single_dash_long));
         }
         for flag in flags {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);

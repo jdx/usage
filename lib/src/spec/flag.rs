@@ -262,6 +262,14 @@ pub struct SpecFlag {
     /// is the fleet case.
     #[serde(skip_serializing_if = "is_false")]
     pub require_equals: bool,
+    /// Whether this flag's longs may be written with one dash where its command
+    /// [allows it](crate::SpecCommand::single_dash_long).
+    ///
+    /// `#false` is how GNU ld keeps `-omagic` meaning `-o magic` while every other
+    /// long accepts one dash. Unset means the command decides; it never grants what
+    /// the command withheld.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub single_dash_long: Option<bool>,
     /// Whether a value-taking flag may be present without a value.
     ///
     /// This is executable parser policy, distinct from the nested argument's
@@ -404,6 +412,7 @@ impl SpecFlag {
                 "requires" => flag.requires = vec![v.ensure_string()?],
                 "exclusive" => flag.exclusive = v.ensure_bool()?,
                 "require_equals" => flag.require_equals = v.ensure_bool()?,
+                "single_dash_long" => flag.single_dash_long = Some(v.ensure_bool()?),
                 "value_optional" => flag.value_optional = v.ensure_bool()?,
                 "bool_value" => flag.bool_value = v.ensure_bool()?,
                 "default_missing" => flag.default_missing = Some(v.ensure_string()?),
@@ -660,6 +669,7 @@ impl SpecFlag {
                 }
                 "exclusive" => flag.exclusive = child.arg(0)?.ensure_bool()?,
                 "require_equals" => flag.require_equals = child.arg(0)?.ensure_bool()?,
+                "single_dash_long" => flag.single_dash_long = Some(child.arg(0)?.ensure_bool()?),
                 "value_optional" => flag.value_optional = child.arg(0)?.ensure_bool()?,
                 "bool_value" => flag.bool_value = child.arg(0)?.ensure_bool()?,
                 "default_missing" => {
@@ -1121,6 +1131,9 @@ impl From<&SpecFlag> for KdlNode {
         if flag.require_equals {
             node.push(KdlEntry::new_prop("require_equals", true));
         }
+        if let Some(single_dash_long) = flag.single_dash_long {
+            node.push(KdlEntry::new_prop("single_dash_long", single_dash_long));
+        }
         if flag.value_optional {
             node.push(KdlEntry::new_prop("value_optional", true));
         }
@@ -1483,6 +1496,8 @@ impl From<&clap::Arg> for SpecFlag {
             // This one clap does expose, unlike `requires` just above.
             exclusive: c.is_exclusive_set(),
             require_equals: c.is_require_equals_set(),
+            // clap has no single-dash long spelling.
+            single_dash_long: None,
             value_optional: arg.is_some()
                 && c.get_num_args()
                     .is_some_and(|n| n.min_values() == 0 && n.max_values() > 0),
