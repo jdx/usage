@@ -431,7 +431,20 @@ impl ViewMeta<'_> {
 ///
 /// Matching uses the same path and `.exe` normalization as multicall applets. Both `bin` and
 /// the stable view identifier are accepted so changing the display name cannot break dispatch.
+#[inline]
 pub fn view_for_program<'a>(
+    spec: &'a Spec<'a>,
+    argv0: &std::ffi::OsStr,
+) -> Option<&'a ViewMeta<'a>> {
+    // Inlined so that a CLI declaring no views folds this to `None` at every call site, and the
+    // view-rewriting branches the derive emits beside each call drop out of the binary.
+    if spec.views.is_empty() {
+        return None;
+    }
+    declared_view_for_program(spec, argv0)
+}
+
+fn declared_view_for_program<'a>(
     spec: &'a Spec<'a>,
     argv0: &std::ffi::OsStr,
 ) -> Option<&'a ViewMeta<'a>> {
