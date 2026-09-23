@@ -2,15 +2,16 @@
   <section class="usage-hero" aria-labelledby="usage-title">
     <div class="usage-hero-content">
       <div class="usage-hero-text">
-        <p class="usage-hero-label">The toolkit for command-line interfaces</p>
         <h1 id="usage-title" class="usage-hero-title">
           <span class="accent">--</span>usage
         </h1>
-        <p class="usage-hero-tagline">Define your CLI once.</p>
+        <p class="usage-hero-tagline">
+          Build command-line interfaces and generate their documentation
+        </p>
         <p class="usage-hero-desc">
-          Commands, flags, arguments, and settings in one definition. Build a
-          typed Rust CLI, or bring a KDL spec to generate completions, help,
-          documentation, and client libraries.
+          Define commands, flags, arguments, and settings using the Rust framework
+          or a portable KDL specification. Generate shell completions, reference
+          documentation, and client libraries from that definition.
         </p>
         <div class="usage-hero-actions">
           <a
