@@ -119,6 +119,18 @@ pub fn walk_view<'t>(
     position
 }
 
+/// [`walk`] or [`walk_view`], by whether a view was selected.
+fn walk_for<'t>(
+    root: &'t Command<'t>,
+    words: &[String],
+    view: Option<&'t crate::spec::ViewMeta<'t>>,
+) -> Position<'t> {
+    match view {
+        Some(view) => walk_view(root, words, view),
+        None => walk(root, words),
+    }
+}
+
 fn walk_inner<'t>(
     root: &'t Command<'t>,
     words: &[String],
@@ -247,7 +259,8 @@ fn for_name_at<'a>(
 ) -> Option<Vec<Candidate<'static>>> {
     fn on(meta: &CommandMeta<'_>, name: &str) -> Option<Completer> {
         for arg in meta.args.iter().chain(
-            meta.clause
+            meta.extra
+                .clause
                 .into_iter()
                 .flat_map(|clause| clause.args.iter()),
         ) {
@@ -294,7 +307,8 @@ fn for_name_at<'a>(
                 .args
                 .iter()
                 .chain(
-                    meta.clause
+                    meta.extra
+                        .clause
                         .into_iter()
                         .flat_map(|clause| clause.args.iter()),
                 )
@@ -350,6 +364,52 @@ fn for_name_at<'a>(
     Some(found)
 }
 
+/// Answer a derived CLI's completion request, written the way the asking shell reads it.
+///
+/// The body of the `completion_request` a derive generates, kept here so that each CLI's
+/// expansion is a call rather than its own copy. `view` is the executable view argv0 selected;
+/// `#[inline]` so that a CLI declaring none, whose `view_for_program` is a constant `None`,
+/// loses the view branches along with the call.
+#[doc(hidden)]
+#[inline]
+pub fn __usage_answer_request<'a>(
+    spec: &Spec<'a>,
+    request: &CompletionRequest,
+    view: Option<&'a crate::spec::ViewMeta<'a>>,
+) -> String {
+    let split = &request.split;
+    let answer = match &request.candidates_for {
+        Some(name) => {
+            // Walked here as well, because a `--candidates` request names a completer and says
+            // nothing about where the cursor is — and the completer still wants the words its
+            // own command was given.
+            let position = walk_for(spec.root.cmd, split.argv(), view);
+            let words = split.argv();
+            let path: Vec<(&Command<'_>, &[String])> = position
+                .path
+                .iter()
+                .map(|(cmd, start)| (*cmd, words.get(*start..).unwrap_or(&[])))
+                .collect();
+            let ctx = CompleteCtx {
+                words: &split.words,
+                cword: split.cword,
+                prefix: &split.prefix,
+                command_words: command_words(split, &position),
+                command_path: &path,
+            };
+            // Nothing of that name is an empty answer rather than an error: a spec written
+            // against a newer version of this CLI is a stale script, and a stale script should
+            // complete nothing rather than print a message into the user's prompt.
+            Completions {
+                candidates: for_name_at(spec, name, &ctx, &position, view).unwrap_or_default(),
+                files: None,
+            }
+        }
+        None => complete_inner(spec, split, view),
+    };
+    render_request(&answer, request)
+}
+
 /// The completers one command declares, as the names a `complete` block is written under.
 ///
 /// One command's own, not the tree's: a spec writes the block inside the command that declares
@@ -358,7 +418,8 @@ fn for_name_at<'a>(
 pub fn completers_on(meta: &CommandMeta<'_>) -> Vec<String> {
     let mut out = Vec::new();
     for arg in meta.args.iter().chain(
-        meta.clause
+        meta.extra
+            .clause
             .into_iter()
             .flat_map(|clause| clause.args.iter()),
     ) {
@@ -839,42 +900,46 @@ impl CompletionRequest {
         let mut words: Option<Vec<String>> = None;
         let mut rest = argv[1..].iter();
         while let Some(arg) = rest.next() {
-            match arg.to_str().unwrap_or_default() {
+            let option = arg.to_str().unwrap_or_default();
+            if option == "--words" {
+                words = Some(
+                    rest.map(|word| word.to_string_lossy().into_owned())
+                        .collect(),
+                );
+                break;
+            }
+            if !matches!(
+                option,
+                "--shell"
+                    | "--line"
+                    | "--cursor"
+                    | "--candidates"
+                    | "--bash-word"
+                    | "--bash-wordbreaks"
+            ) {
+                continue;
+            }
+            // Every other option takes the next word, read once here rather than per option.
+            // Lossily for all of them: a number or a shell name that is not UTF-8 is not one
+            // either way.
+            let value = rest
+                .next()
+                .map(|value| value.to_string_lossy().into_owned());
+            match option {
                 "--shell" => {
-                    if let Some(found) = rest
-                        .next()
-                        .and_then(|name| Shell::from_name(&name.to_string_lossy()))
-                    {
+                    if let Some(found) = value.as_deref().and_then(Shell::from_name) {
                         shell = found;
                     }
                 }
                 "--line" => {
-                    if let Some(value) = rest.next() {
-                        line = value.to_string_lossy().into_owned();
+                    if let Some(value) = value {
+                        line = value;
                     }
                 }
-                "--cursor" => {
-                    cursor = rest
-                        .next()
-                        .and_then(|value| value.to_str().and_then(|v| v.parse().ok()));
-                }
-                "--candidates" => {
-                    candidates_for = rest.next().map(|v| v.to_string_lossy().into_owned());
-                }
-                "--bash-word" => {
-                    bash_word = rest.next().map(|v| v.to_string_lossy().into_owned());
-                }
-                "--bash-wordbreaks" => {
-                    bash_wordbreaks = rest.next().map(|v| v.to_string_lossy().into_owned());
-                }
-                "--words" => {
-                    words = Some(
-                        rest.map(|word| word.to_string_lossy().into_owned())
-                            .collect(),
-                    );
-                    break;
-                }
-                _ => {}
+                "--cursor" => cursor = value.and_then(|value| value.parse().ok()),
+                "--candidates" => candidates_for = value,
+                "--bash-word" => bash_word = value,
+                _ => bash_wordbreaks = value,
             }
         }
         let bash_marked_prefix = (shell == Shell::Bash && words.is_none()).then(|| {
@@ -918,45 +983,29 @@ const BASH_NONBREAKING_COLON: char = '\u{1}';
 /// to distinguish `::` from `:\:`. Reusing [`split`] after marking those colons preserves that
 /// distinction without maintaining a second shell-word parser.
 fn mark_bash_nonbreaking_colons(line: &str) -> String {
-    let mut marked = String::with_capacity(line.len());
-    let mut chars = line.chars().peekable();
+    // Bytes rather than chars: every character this looks at is ASCII, and so is the marker, so
+    // replacing one keeps the line valid UTF-8 — and a byte of a multi-byte character is never
+    // one of them, whether it is read here or skipped as the character after an escape.
+    let mut marked = line.as_bytes().to_vec();
     let mut quote = None;
-    while let Some(c) = chars.next() {
+    let mut i = 0;
+    while i < marked.len() {
+        let c = marked[i];
         match quote {
-            Some(q) if c == q => {
-                quote = None;
-                marked.push(c);
-            }
-            Some(_) if c == ':' => marked.push(BASH_NONBREAKING_COLON),
-            Some('"') if c == '\\' => {
-                marked.push(c);
-                if let Some(next) = chars.next() {
-                    marked.push(if next == ':' {
-                        BASH_NONBREAKING_COLON
-                    } else {
-                        next
-                    });
+            Some(q) if c == q => quote = None,
+            Some(_) if c == b':' => marked[i] = BASH_NONBREAKING_COLON as u8,
+            Some(b'"') | None if c == b'\\' => {
+                i += 1;
+                if marked.get(i) == Some(&b':') {
+                    marked[i] = BASH_NONBREAKING_COLON as u8;
                 }
             }
-            Some(_) => marked.push(c),
-            None if c == '\'' || c == '"' => {
-                quote = Some(c);
-                marked.push(c);
-            }
-            None if c == '\\' => {
-                marked.push(c);
-                if let Some(next) = chars.next() {
-                    marked.push(if next == ':' {
-                        BASH_NONBREAKING_COLON
-                    } else {
-                        next
-                    });
-                }
-            }
-            None => marked.push(c),
+            None if c == b'\'' || c == b'"' => quote = Some(c),
+            _ => {}
         }
+        i += 1;
     }
-    marked
+    String::from_utf8(marked).unwrap_or_default()
 }
 
 /// The line a shell reads to mean "paths belong here too".
@@ -1032,83 +1081,62 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
 
     for candidate in &answer.candidates {
         let description = one_line(candidate.description.as_deref().unwrap_or_default());
-        let description = description.as_str();
+        let display = || one_line(candidate.display.as_deref().unwrap_or(&candidate.value));
+        // Every shell but zsh starts with the value to insert; the arms below say what follows.
+        if shell == Shell::Zsh {
+            // Display, then description, then what to type: a candidate containing a space or
+            // a quote has to reach the command line intact.
+            out.push_str(&display());
+            out.push('\t');
+            out.push_str(&description);
+            out.push('\t');
+            out.push_str(&zsh_quote(&candidate.value));
+        } else {
+            out.push_str(&candidate.value);
+        }
         match shell {
-            Shell::Bash => out.push_str(&candidate.value),
-            Shell::Zsh => {
-                // Display, then description, then what to type: a candidate containing a space
-                // or a quote has to reach the command line intact.
-                out.push_str(&one_line(
-                    candidate.display.as_deref().unwrap_or(&candidate.value),
-                ));
+            Shell::Bash | Shell::Zsh => {}
+            Shell::PowerShell | Shell::Elvish => {
                 out.push('\t');
-                out.push_str(description);
+                out.push_str(&description);
                 out.push('\t');
-                out.push_str(&zsh_quote(&candidate.value));
-            }
-            Shell::PowerShell => {
-                out.push_str(&candidate.value);
-                out.push('\t');
-                out.push_str(description);
-                out.push('\t');
-                out.push_str(&one_line(
-                    candidate.display.as_deref().unwrap_or(&candidate.value),
-                ));
-                out.push('\t');
-                out.push_str(match candidate.kind {
-                    CandidateKind::Value => "value",
-                    CandidateKind::Command => "command",
-                    CandidateKind::Flag => "flag",
-                    CandidateKind::File => "file",
-                    CandidateKind::Directory => "directory",
-                });
-            }
-            Shell::Elvish => {
-                out.push_str(&candidate.value);
-                out.push('\t');
-                out.push_str(description);
-                out.push('\t');
-                out.push_str(&one_line(
-                    candidate.display.as_deref().unwrap_or(&candidate.value),
-                ));
+                out.push_str(&display());
+                if shell == Shell::PowerShell {
+                    out.push('\t');
+                    out.push_str(match candidate.kind {
+                        CandidateKind::Value => "value",
+                        CandidateKind::Command => "command",
+                        CandidateKind::Flag => "flag",
+                        CandidateKind::File => "file",
+                        CandidateKind::Directory => "directory",
+                    });
+                }
             }
             Shell::Fish | Shell::Nu => {
-                out.push_str(&candidate.value);
                 if described {
                     out.push('\t');
-                    out.push_str(description);
+                    out.push_str(&description);
                 }
             }
         }
         out.push('\n');
     }
 
-    match &answer.files {
-        Some(Files::Any) => {
-            out.push_str(FILES_MARKER);
-            out.push('\n');
-        }
-        Some(Files::Dirs) => {
-            out.push_str(DIRS_MARKER);
-            out.push('\n');
-        }
-        Some(Files::ExecutablePaths) => {
-            out.push_str(EXECUTABLE_PATHS_MARKER);
-            out.push('\n');
-        }
-        Some(Files::Commands) => {
-            out.push_str(COMMANDS_MARKER);
-            out.push('\n');
-        }
-        Some(Files::Extensions(extensions)) => {
-            out.push_str("\u{1}extensions");
+    if let Some(files) = &answer.files {
+        out.push_str(match files {
+            Files::Any => FILES_MARKER,
+            Files::Dirs => DIRS_MARKER,
+            Files::ExecutablePaths => EXECUTABLE_PATHS_MARKER,
+            Files::Commands => COMMANDS_MARKER,
+            Files::Extensions(_) => "\u{1}extensions",
+        });
+        if let Files::Extensions(extensions) = files {
             for extension in extensions {
                 out.push('\t');
                 out.push_str(extension);
             }
-            out.push('\n');
         }
-        None => {}
+        out.push('\n');
     }
     out
 }
@@ -1165,18 +1193,18 @@ fn zsh_quote(value: &str) -> String {
 /// without a spec saying so. Reimplemented rather than modelled as new vocabulary, because it
 /// is the same rule read off the same names.
 fn files_for(name: &str) -> Option<Files> {
-    // Compared without allocating a lowercased copy: a name is short, and this is a parser.
-    let matches = |want: &str| name.eq_ignore_ascii_case(want);
-    if matches("file") || matches("path") || matches("config_file") {
-        Some(Files::Any)
-    } else if matches("dir") || matches("directory") {
-        Some(Files::Dirs)
-    } else if matches("executable") {
-        Some(Files::ExecutablePaths)
-    } else if matches("command") {
-        Some(Files::Commands)
-    } else {
-        None
+    // Lowercased into a buffer on the stack rather than an allocated copy — a name is short,
+    // and this is a parser — and then matched once, rather than compared name by name.
+    let mut buffer = [0u8; 11];
+    let lower = buffer.get_mut(..name.len())?;
+    lower.copy_from_slice(name.as_bytes());
+    lower.make_ascii_lowercase();
+    match &*lower {
+        b"file" | b"path" | b"config_file" => Some(Files::Any),
+        b"dir" | b"directory" => Some(Files::Dirs),
+        b"executable" => Some(Files::ExecutablePaths),
+        b"command" => Some(Files::Commands),
+        _ => None,
     }
 }
 
@@ -1303,10 +1331,7 @@ fn complete_inner<'a>(
     split: &Split,
     view: Option<&'a crate::spec::ViewMeta<'a>>,
 ) -> Completions<'a> {
-    let position = match view {
-        Some(view) => walk_view(spec.root.cmd, split.argv(), view),
-        None => walk(spec.root.cmd, split.argv()),
-    };
+    let position = walk_for(spec.root.cmd, split.argv(), view);
     // Past an external catch-all the cursor is inside another program's line, and these tables
     // describe none of it. The command that declared the catch-all still has subcommands, flags
     // and an unfilled positional to report, and every one of them would be an answer about the
@@ -1318,10 +1343,16 @@ fn complete_inner<'a>(
             files: None,
         };
     }
-    let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
+    let chain = metadata_chain_on_route(spec, &position);
+    let meta = chain.as_ref().and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
     let attached = attached_long_value(&position, token);
-    let candidates = candidates_inner(spec, split, view);
+    let sigil_cursor = chain
+        .as_deref()
+        .and_then(|chain| sigil_arg_on_chain(chain, &position, split));
+    // From the same walk: a second one would reach the same position, and in a binary this
+    // function is inlined into, every walk is its own copy of the code around it.
+    let candidates = candidates_at(spec, split, &position, meta, sigil_cursor);
 
     // Which argument the cursor is at — the same question `candidates` answers, asked once so
     // that the two halves cannot disagree. Past a restart token it is the first clause argument,
@@ -1329,7 +1360,6 @@ fn complete_inner<'a>(
     // before the token filled. Everything below follows from that: whether paths belong,
     // whether the set is declared, whether a separator is owed.
     let after_restart = restarted(meta, split);
-    let sigil_cursor = sigil_arg_at_cursor(spec, &position, split);
     let at_cursor = if after_restart {
         meta.and_then(restart_arg).map(|m| m.arg)
     } else {
@@ -1674,13 +1704,25 @@ fn sigil_arg_at_cursor<'a, 'p>(
     position: &Position<'_>,
     split: &'p Split,
 ) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>, &'a str, &'p str)> {
-    let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
-    if !position.flags_possible || position.awaiting_value.is_some() || restart_seen(meta, split) {
+    sigil_arg_on_chain(&metadata_chain_on_route(spec, position)?, position, split)
+}
+
+/// [`sigil_arg_at_cursor`] for a caller that already has the position's metadata chain.
+fn sigil_arg_on_chain<'a, 'p>(
+    chain: &[&'a CommandMeta<'a>],
+    position: &Position<'_>,
+    split: &'p Split,
+) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>, &'a str, &'p str)> {
+    if !position.flags_possible
+        || position.awaiting_value.is_some()
+        || restart_seen(chain.last().copied(), split)
+    {
         return None;
     }
     let token = split.prefix.as_str();
-    metadata_chain_on_route(spec, position)?
-        .into_iter()
+    chain
+        .iter()
+        .copied()
         .flat_map(|owner| owner.args.iter().map(move |field| (owner, field)))
         .filter_map(|(owner, field)| {
             let sigil = field
@@ -1721,7 +1763,7 @@ fn arg_meta_owner_on_route<'a>(
             .iter()
             .find(|field| core::ptr::eq(field.arg, arg))
             .or_else(|| {
-                owner.clause.and_then(|clause| {
+                owner.extra.clause.and_then(|clause| {
                     clause
                         .args
                         .iter()
@@ -1755,7 +1797,8 @@ fn first_ordinary_arg<'m, 'a>(meta: &'m CommandMeta<'a>) -> Option<&'m ArgMeta<'
 
 /// The positional target immediately after this command's restart token.
 fn restart_arg<'m, 'a>(meta: &'m CommandMeta<'a>) -> Option<&'m ArgMeta<'a>> {
-    meta.clause
+    meta.extra
+        .clause
         .and_then(|clause| clause.args.first())
         .or_else(|| first_ordinary_arg(meta))
 }
@@ -1784,33 +1827,33 @@ fn metadata_chain_on_route<'a>(
 
 /// Just the candidates this CLI knows about, without the question of paths.
 pub fn candidates<'a>(spec: &Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
-    candidates_inner(spec, split, None)
-}
-
-fn candidates_inner<'a>(
-    spec: &Spec<'a>,
-    split: &Split,
-    view: Option<&'a crate::spec::ViewMeta<'a>>,
-) -> Vec<Candidate<'a>> {
-    let position = match view {
-        Some(view) => walk_view(spec.root.cmd, split.argv(), view),
-        None => walk(spec.root.cmd, split.argv()),
-    };
+    let position = walk(spec.root.cmd, split.argv());
     // See `complete_inner`: nothing these tables hold describes the forwarded program.
     if position.external.is_some() {
         return Vec::new();
     }
-    let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
-    let token = split.prefix.as_str();
-    let sigil_arg = sigil_arg_at_cursor(spec, &position, split);
+    let chain = metadata_chain_on_route(spec, &position);
+    let meta = chain.as_ref().and_then(|chain| chain.last().copied());
+    let sigil_arg = chain
+        .as_deref()
+        .and_then(|chain| sigil_arg_on_chain(chain, &position, split));
+    candidates_at(spec, split, &position, meta, sigil_arg)
+}
 
-    let mut out = if position.flags_possible && token == "-" {
-        // Both forms, because a lone dash says nothing about which was meant.
-        let mut both = short_flags(spec, &position, "");
-        both.extend(long_flags(spec, &position, ""));
-        both
-    } else if position.flags_possible && token.starts_with("--") {
-        match attached_long_value(&position, token) {
+/// The candidates at a position already walked, with the command metadata it reached and the
+/// sigil argument the cursor is in, if any.
+fn candidates_at<'a>(
+    spec: &Spec<'a>,
+    split: &Split,
+    position: &Position<'_>,
+    meta: Option<&'a CommandMeta<'a>>,
+    sigil_arg: Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>, &'a str, &str)>,
+) -> Vec<Candidate<'a>> {
+    let token = split.prefix.as_str();
+
+    let mut out = if position.flags_possible && token.starts_with('-') {
+        // Only a `--flag=` word has a value attached; any other dash-prefixed word is a flag.
+        match attached_long_value(position, token) {
             Some((flag, form, value_prefix)) => flag_meta(spec.root, flag)
                 .map(|meta| {
                     let mut found = declared(
@@ -1818,23 +1861,21 @@ fn candidates_inner<'a>(
                         meta.extra.choice_details,
                         meta.complete,
                         split,
-                        &position,
+                        position,
                         value_prefix,
                     );
                     attach_candidates(&mut found, form);
                     found
                 })
                 .unwrap_or_default(),
-            None => long_flags(spec, &position, token),
+            None => flag_forms(spec, position, token),
         }
-    } else if position.flags_possible && token.starts_with('-') {
-        short_flags(spec, &position, token)
     } else if restarted(meta, split) {
         // Past a restart token — mise's `:::`, which starts a fresh invocation of the same
         // command — the cursor is at its first clause argument, or its first ordinary argument
         // when there is no clause, whatever the words before the token filled.
         meta.and_then(restart_arg)
-            .map(|m| positional(m, &position, split, token))
+            .map(|m| positional(m, position, split, token))
             .unwrap_or_default()
     } else if let Some(flag) = position.awaiting_value {
         flag_meta(spec.root, flag)
@@ -1844,13 +1885,13 @@ fn candidates_inner<'a>(
                     m.extra.choice_details,
                     m.complete,
                     split,
-                    &position,
+                    position,
                     token,
                 )
             })
             .unwrap_or_default()
     } else if let Some((_, arg, sigil, prefix)) = sigil_arg {
-        let mut found = positional(arg, &position, split, prefix);
+        let mut found = positional(arg, position, split, prefix);
         for candidate in &mut found {
             candidate.value.insert_str(0, sigil);
         }
@@ -1859,7 +1900,7 @@ fn candidates_inner<'a>(
         let mut found = Vec::new();
         if let Some(arg) = position.next_arg {
             if let Some(m) = arg_meta(spec.root, arg) {
-                found.extend(positional(m, &position, split, token));
+                found.extend(positional(m, position, split, token));
             }
         }
         if let Some(meta) = meta {
@@ -1869,8 +1910,8 @@ fn candidates_inner<'a>(
         // `mise build` is `mise run build` — so what that command's first argument accepts is
         // a candidate here too. Only its first: the words that would fill the rest have not
         // been typed, since the subcommand name itself was elided.
-        if let Some((_, arg)) = default_subcommand_arg(spec, split, &position) {
-            found.extend(positional(arg, &position, split, token));
+        if let Some((_, arg)) = default_subcommand_arg(spec, split, position) {
+            found.extend(positional(arg, position, split, token));
         }
         found
     };
@@ -1909,14 +1950,14 @@ fn attach_candidates(candidates: &mut [Candidate<'_>], form: &str) {
 /// invocation — so the cursor is back at the first argument rather than wherever the previous
 /// words had reached.
 fn restarted(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
-    let Some(token) = meta.and_then(|m| m.restart_token) else {
+    let Some(token) = meta.and_then(|m| m.extra.restart_token) else {
         return false;
     };
     split.cword > 0 && split.words[split.cword - 1] == token
 }
 
 fn restart_seen(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
-    let Some(token) = meta.and_then(|m| m.restart_token) else {
+    let Some(token) = meta.and_then(|m| m.extra.restart_token) else {
         return false;
     };
     split.words[..split.cword].iter().any(|word| word == token)
@@ -1938,7 +1979,7 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             // old name kept working after a rename. The parse table holds it beside the
             // visible ones because both must be *accepted*; only the metadata says which are
             // meant to be *offered*.
-            if sub.hidden_aliases.contains(name) {
+            if sub.extra.hidden_aliases.contains(name) {
                 continue;
             }
             if name.starts_with(token) {
@@ -1948,9 +1989,9 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
                     display: None,
                     description: deprecated_description(
                         sub.about,
-                        sub.deprecated,
-                        sub.deprecated_warn_at,
-                        sub.deprecated_remove_at,
+                        sub.extra.deprecated,
+                        sub.extra.deprecated_warn_at,
+                        sub.extra.deprecated_remove_at,
                     ),
                 });
             }
@@ -1959,14 +2000,25 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
     out
 }
 
-/// The long forms of every flag in scope, and the negations of those that have one.
-fn long_flags<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
+/// The forms of every flag in scope that a dash-prefixed word could be the start of.
+///
+/// `--…` asks for long forms, and the negations of flags that have one. `-x` asks about the
+/// letter `x`, so only that letter's flag is offered: bundling means anything else would be a
+/// candidate for a different position in the word. A lone `-` says nothing about which was
+/// meant, so it gets both. One loop for the two, since each form needs the same metadata; the
+/// order they are found in does not matter, because the caller sorts.
+fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
+    let longs = token == "-" || token.starts_with("--");
+    let shorts = !token.starts_with("--");
+    let wanted = token.as_bytes().get(1).copied();
     let mut out = Vec::new();
     for flag in &position.flags {
         let meta = flag_meta(spec.root, flag);
         if meta.is_some_and(|m| m.hide) {
             continue;
         }
+        // A negation is a way to write the same flag, so it carries the same help — the
+        // reference leaves it bare, which reads as a flag nobody documented.
         let description = meta.and_then(|m| {
             deprecated_description(
                 m.help,
@@ -1975,75 +2027,47 @@ fn long_flags<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
                 m.extra.deprecated_remove_at,
             )
         });
-        for long in flag.longs {
-            if meta.is_some_and(|m| m.extra.hidden_longs.contains(long)) {
-                continue;
-            }
-            let value = format!("--{long}");
-            if value.starts_with(token) {
-                out.push(Candidate {
-                    value,
-                    kind: CandidateKind::Flag,
-                    display: None,
-                    description: description.clone(),
-                });
-            }
-        }
-        // A negation is a way to write the same flag, so it carries the same help — the
-        // reference leaves it bare, which reads as a flag nobody documented.
-        if let Some(negate) = flag.negate {
-            // The table holds it the way the parser matches it — with the dashes already
-            // taken off — so a candidate has to put them back. Offered bare, it never matched
-            // a `--` the user had typed, and a lone `-` offered a word no shell would accept.
-            let value = format!("--{negate}");
-            if value.starts_with(token) {
-                out.push(Candidate {
-                    value,
-                    kind: CandidateKind::Flag,
-                    display: None,
-                    description: description.clone(),
-                });
+        let mut offer = |value: String| {
+            out.push(Candidate {
+                value,
+                kind: CandidateKind::Flag,
+                display: None,
+                description: description.clone(),
+            });
+        };
+        if shorts {
+            for &short in flag.shorts {
+                if meta.is_some_and(|m| m.extra.hidden_shorts.contains(&short)) {
+                    continue;
+                }
+                // Written out rather than with `is_none_or`, which this crate's MSRV predates.
+                let asked_about = match wanted {
+                    None => true,
+                    Some(letter) => letter == short,
+                };
+                if asked_about {
+                    let mut value = String::from("-");
+                    value.push(short as char);
+                    offer(value);
+                }
             }
         }
-    }
-    out
-}
-
-/// The short forms of every flag in scope.
-///
-/// A token of `-x` is asking about the letter `x`, so only that letter's flag is offered:
-/// bundling means anything else would be a candidate for a different position in the token.
-fn short_flags<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
-    let wanted = token.as_bytes().get(1).copied();
-    let mut out = Vec::new();
-    for flag in &position.flags {
-        let meta = flag_meta(spec.root, flag);
-        if meta.is_some_and(|m| m.hide) {
-            continue;
-        }
-        for &short in flag.shorts {
-            if meta.is_some_and(|m| m.extra.hidden_shorts.contains(&short)) {
-                continue;
-            }
-            // Written out rather than with `is_none_or`, which this crate's MSRV predates.
-            let asked_about = match wanted {
-                None => true,
-                Some(letter) => letter == short,
-            };
-            if asked_about {
-                out.push(Candidate {
-                    value: format!("-{}", short as char),
-                    kind: CandidateKind::Flag,
-                    display: None,
-                    description: meta.and_then(|m| {
-                        deprecated_description(
-                            m.help,
-                            m.extra.deprecated,
-                            m.extra.deprecated_warn_at,
-                            m.extra.deprecated_remove_at,
-                        )
-                    }),
-                });
+        if longs {
+            // No metadata hides a negation: `hidden_longs` names longs.
+            let visible_longs = flag
+                .longs
+                .iter()
+                .filter(|long| !meta.is_some_and(|m| m.extra.hidden_longs.contains(long)));
+            for long in visible_longs.chain(flag.negate.as_ref()) {
+                // The table holds a negation the way the parser matches it — with the dashes
+                // already taken off — so a candidate has to put them back. Offered bare, it
+                // never matched a `--` the user had typed, and a lone `-` offered a word no
+                // shell would accept.
+                let mut value = String::from("--");
+                value.push_str(long);
+                if value.starts_with(token) {
+                    offer(value);
+                }
             }
         }
     }
@@ -2201,7 +2225,8 @@ fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<
         .iter()
         .find(|m| core::ptr::eq(m.arg, arg))
         .or_else(|| {
-            meta.clause
+            meta.extra
+                .clause
                 .and_then(|clause| clause.args.iter().find(|m| core::ptr::eq(m.arg, arg)))
         })
         .or_else(|| meta.subcommands.iter().find_map(|sub| arg_meta(sub, arg)))
@@ -2315,7 +2340,9 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
     // nothing, so that `mise ""` is a word and not a gap between two.
     let mut started = false;
     let mut cword = None;
-    let mut prefix = None;
+    // How much of the word in hand was before the cursor. A length rather than a copy: the word
+    // in hand is the one that lands at `cword`, so the prefix is read off it once, at the end.
+    let mut prefix_len = None;
     // Whether the cursor sat inside a word rather than in the gap before one. A gap is a word
     // the user is about to type, so one has to be made for them.
     let mut cursor_in_word = false;
@@ -2333,9 +2360,9 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
     // instead of the one being typed.
     macro_rules! reached {
         ($idx:expr) => {
-            if $idx == cursor && prefix.is_none() {
+            if $idx == cursor && prefix_len.is_none() {
                 cword = Some(words.len());
-                prefix = Some(word.clone());
+                prefix_len = Some(word.len());
                 cursor_in_word = started;
             }
         };
@@ -2418,9 +2445,9 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
 
     // The cursor at the very end of the line: the loop above only sees positions it reads a
     // character at, and there is no character there.
-    if prefix.is_none() {
+    if prefix_len.is_none() {
         cword = Some(words.len());
-        prefix = Some(word.clone());
+        prefix_len = Some(word.len());
         cursor_in_word = started;
     }
 
@@ -2429,6 +2456,17 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
     }
 
     let cword = cword.unwrap_or(0);
+    // A word not yet started is empty, so a cursor in a gap has nothing before it. A started one
+    // was pushed whole, at the index the cursor recorded.
+    let prefix = if cursor_in_word {
+        words
+            .get(cword)
+            .and_then(|word| word.get(..prefix_len.unwrap_or(0)))
+            .unwrap_or_default()
+            .to_string()
+    } else {
+        String::new()
+    };
     // A cursor in a gap is completing a word that is not in the line yet — at the end of it,
     // or between two that are already there. `mise ⌶use` is asking what can go *before* `use`,
     // and answering about `use` itself would complete the wrong word.
@@ -2438,7 +2476,7 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
     Split {
         words,
         cword,
-        prefix: prefix.unwrap_or_default(),
+        prefix,
     }
 }
 
@@ -2474,6 +2512,7 @@ fn floor_char_boundary(s: &str, index: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::spec::CommandExtra;
     use std::task::{Context, Poll, Waker};
 
     fn run_ready<F: Future>(future: F) -> F::Output {
@@ -2754,7 +2793,6 @@ mod tests {
     static META_SHIP: CommandMeta = CommandMeta {
         cmd: &SHIP,
         about: Some("Ship a file"),
-        restart_token: Some(":::"),
         args: &[
             ArgMeta {
                 arg: &MODE,
@@ -2767,6 +2805,10 @@ mod tests {
                 ..ArgMeta::EMPTY
             },
         ],
+        extra: &CommandExtra {
+            restart_token: Some(":::"),
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static META_PIPE: CommandMeta = CommandMeta {
@@ -2817,7 +2859,6 @@ mod tests {
     static META_TASK: CommandMeta = CommandMeta {
         cmd: &TASK,
         about: Some("Do two things"),
-        restart_token: Some(":::"),
         args: &[
             ArgMeta {
                 arg: &FIRST,
@@ -2830,12 +2871,15 @@ mod tests {
                 ..ArgMeta::EMPTY
             },
         ],
+        extra: &CommandExtra {
+            restart_token: Some(":::"),
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static META_EXEC: CommandMeta = CommandMeta {
         cmd: &EXEC,
         about: Some("Run something"),
-        restart_token: Some(":::"),
         args: &[ArgMeta {
             arg: &FORWARDED,
             help: Some("What to run"),
@@ -2843,6 +2887,10 @@ mod tests {
             complete_type: Some("command_args"),
             ..ArgMeta::EMPTY
         }],
+        extra: &CommandExtra {
+            restart_token: Some(":::"),
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static META_SECRET: CommandMeta = CommandMeta {
@@ -2854,7 +2902,10 @@ mod tests {
     static META_LIST: CommandMeta = CommandMeta {
         cmd: &LIST,
         about: Some("List everything"),
-        hidden_aliases: &["l"],
+        extra: &CommandExtra {
+            hidden_aliases: &["l"],
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static META_ROOT: CommandMeta = CommandMeta {
@@ -2925,7 +2976,6 @@ mod tests {
         };
         static META: CommandMeta = CommandMeta {
             cmd: &COMMAND,
-            restart_token: Some(":::"),
             flags: &[FlagMeta {
                 flag: &JOBS,
                 ..FlagMeta::EMPTY
@@ -2941,6 +2991,10 @@ mod tests {
                     ..ArgMeta::EMPTY
                 },
             ],
+            extra: &CommandExtra {
+                restart_token: Some(":::"),
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         static SIGIL_SPEC: Spec = Spec {
@@ -3797,20 +3851,23 @@ mod tests {
         };
         static META: CommandMeta = CommandMeta {
             cmd: &COMMAND,
-            restart_token: Some(":::"),
-            clause: Some(&crate::spec::ClauseMeta {
-                name: "tasks",
-                separator: Some(":::"),
-                flags: &[],
-                help: None,
-                long_help: None,
-                canonical_selector: |_| None,
-                args: &[ArgMeta {
-                    arg: &TASK_ARG,
-                    choices: &["build", "check"],
-                    ..ArgMeta::EMPTY
-                }],
-            }),
+            extra: &CommandExtra {
+                restart_token: Some(":::"),
+                clause: Some(&crate::spec::ClauseMeta {
+                    name: "tasks",
+                    separator: Some(":::"),
+                    flags: &[],
+                    help: None,
+                    long_help: None,
+                    canonical_selector: |_| None,
+                    args: &[ArgMeta {
+                        arg: &TASK_ARG,
+                        choices: &["build", "check"],
+                        ..ArgMeta::EMPTY
+                    }],
+                }),
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         static ROOT: Command = Command {
@@ -4327,6 +4384,130 @@ mod tests {
             render(&answer, Shell::Zsh),
             "plugins\tManage plugins\tplugins\n"
         );
+    }
+
+    #[test]
+    fn every_shell_writes_every_field_and_path_request_in_its_own_shape() {
+        let answer = Completions {
+            candidates: vec![
+                Candidate::described("it's", "two\nlines")
+                    .displayed("its\tlabel")
+                    .with_kind(CandidateKind::Directory),
+                Candidate::new("plain").with_kind(CandidateKind::Flag),
+            ],
+            files: Some(Files::Extensions(vec!["rs".into(), "toml".into()])),
+        };
+        let extensions = "\u{1}extensions\trs\ttoml\n";
+        assert_eq!(
+            render(&answer, Shell::Bash),
+            format!("it's\nplain\n{extensions}")
+        );
+        assert_eq!(
+            render(&answer, Shell::Zsh),
+            format!("its label\ttwo lines\t'it'\\''s'\nplain\t\tplain\n{extensions}")
+        );
+        for shell in [Shell::Fish, Shell::Nu] {
+            assert_eq!(
+                render(&answer, shell),
+                format!("it's\ttwo lines\nplain\t\n{extensions}")
+            );
+        }
+        assert_eq!(
+            render(&answer, Shell::Elvish),
+            format!("it's\ttwo lines\tits label\nplain\t\tplain\n{extensions}")
+        );
+        assert_eq!(
+            render(&answer, Shell::PowerShell),
+            format!("it's\ttwo lines\tits label\tdirectory\nplain\t\tplain\tflag\n{extensions}")
+        );
+
+        // An answer without descriptions leaves fish and nu their bare values.
+        let bare = |files| Completions {
+            candidates: vec![Candidate::new("plain")],
+            files,
+        };
+        assert_eq!(render(&bare(None), Shell::Nu), "plain\n");
+        for (files, marker) in [
+            (Files::Any, FILES_MARKER),
+            (Files::Dirs, DIRS_MARKER),
+            (Files::ExecutablePaths, EXECUTABLE_PATHS_MARKER),
+            (Files::Commands, COMMANDS_MARKER),
+        ] {
+            assert_eq!(
+                render(&bare(Some(files)), Shell::Fish),
+                format!("plain\n{marker}\n")
+            );
+        }
+    }
+
+    #[test]
+    fn bash_colons_are_marked_only_where_readline_keeps_them_in_the_word() {
+        let marked = |line: &str| mark_bash_nonbreaking_colons(line).replace('\u{1}', "#");
+        assert_eq!(marked("a:b"), "a:b");
+        assert_eq!(marked(r"a\:b"), r"a\#b");
+        assert_eq!(marked("'a:b'c:d"), "'a#b'c:d");
+        assert_eq!(marked(r#""a:\:b\"c:"d:"#), r#""a#\#b\"c#"d:"#);
+        // A backslash is literal in single quotes, so the colon after it is quoted, not escaped,
+        // and the quote after it still closes the string.
+        assert_eq!(marked(r"'a\:b\':c"), r"'a\#b\':c");
+        // An escaped quote opens nothing.
+        assert_eq!(marked(r#"\"a:b"#), r#"\"a:b"#);
+        // Characters outside ASCII pass through whole, escaped or not.
+        assert_eq!(marked("é:'ü:'"), "é:'ü#'");
+        assert_eq!(marked("\\é:\\ü"), "\\é:\\ü");
+        assert_eq!(marked("\\"), "\\");
+    }
+
+    #[test]
+    fn a_request_reads_each_option_and_skips_the_ones_it_does_not_know() {
+        let parse = |argv: &[&str]| {
+            let argv: Vec<OsString> = core::iter::once("__complete_word__")
+                .chain(argv.iter().copied())
+                .map(OsString::from)
+                .collect();
+            CompletionRequest::parse(&argv).expect("a completion request")
+        };
+        let request = parse(&[
+            "--shell",
+            "pwsh",
+            "--from-a-newer-script",
+            "--line",
+            "mise run 'a b' tail",
+            "--cursor",
+            "12",
+            "--candidates",
+            "tool",
+            "--bash-word",
+            "w",
+            "--bash-wordbreaks",
+            ":",
+        ]);
+        assert_eq!(request.shell, Shell::PowerShell);
+        assert_eq!(request.split.words, ["mise", "run", "a b", "tail"]);
+        assert_eq!(
+            (request.split.cword, request.split.prefix.as_str()),
+            (2, "a ")
+        );
+        assert_eq!(request.candidates_for.as_deref(), Some("tool"));
+        assert_eq!(request.bash_word.as_deref(), Some("w"));
+        assert_eq!(request.bash_wordbreaks.as_deref(), Some(":"));
+
+        // An unknown shell keeps the default, and an option left without its value clears
+        // what an earlier one set rather than keeping it.
+        let request = parse(&[
+            "--shell",
+            "tcsh",
+            "--line",
+            "mise ru",
+            "--candidates",
+            "tool",
+            "--cursor",
+            "not a number",
+            "--candidates",
+        ]);
+        assert_eq!(request.shell, Shell::Bash);
+        assert_eq!(request.split.prefix, "ru");
+        assert_eq!(request.candidates_for, None);
     }
 
     #[test]

@@ -1028,35 +1028,6 @@ pub fn emit(cli: &Cli) -> TokenStream {
         }
     });
 
-    // One renderer for every help request. Which page a request becomes — and whether it is the
-    // route the words took or a fallback by address — is decided once, in usage-argv, rather
-    // than three times here in code nobody reads until it is wrong. It is also what lets a test
-    // harness render the page this program would have printed rather than one of its own.
-    let page_of = |style: TokenStream| {
-        quote! {
-            let __usage_page = match __usage_selected_view {
-                ::std::option::Option::Some(view) => usage_argv::help::page_view(
-                    __usage_spec,
-                    Self::command(),
-                    &__usage_all_refs,
-                    cmd,
-                    view,
-                    __usage_want,
-                    #style,
-                ),
-                ::std::option::Option::None => usage_argv::help::page(
-                    __usage_spec,
-                    Self::command(),
-                    &__usage_argv,
-                    cmd,
-                    __usage_want,
-                    #style,
-                ),
-            };
-        }
-    };
-    let render_page = page_of(quote!(usage_argv::help::Style::auto()));
-    let render_page_stderr = page_of(quote!(usage_argv::help::Style::auto_stderr()));
     let runtime_program = cli
         .runtime_bin
         .as_ref()
@@ -1155,54 +1126,49 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
             pub static ROOT_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &ROOT,
-                outputs: #outputs,
-                select: #select,
-                exit_codes: #exit_codes,
                 about: #about,
                 long_about: #long_about,
-                deprecated: #deprecated,
-                deprecated_warn_at: #deprecated_warn_at,
-                deprecated_remove_at: #deprecated_remove_at,
-                surface: #surface,
-                available_if: &[#(#available_if),*],
-                restart_token: #restart_token,
-                subcommand_required: #subcommand_required,
-                subcommand_help_heading: #subcommand_help_heading,
-                subcommand_value_name: #subcommand_value_name,
-                next_line_help: #next_line_help,
-                flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
-                term_width: #term_width,
-                max_term_width: #max_term_width,
                 args_override_self: #args_override_self,
-                mount: #mount,
-                before_help: #before_help,
-                before_long_help: #before_long_help,
-                after_help: #after_help,
-                after_long_help: #after_long_help,
-                examples: #examples,
-                headings: #headings,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
-                clause: #clause_meta,
                 groups: #group_meta_table_ref,
                 flatten_groups: #flatten_group_table_ref,
+                // Built as a constant so `shared` can swap an empty one for the single static
+                // every such command points at, which keeps these fields out of most tables.
+                extra: {
+                    const __USAGE_EXTRA: usage_argv::spec::CommandExtra<'static> =
+                        usage_argv::spec::CommandExtra {
+                            outputs: #outputs,
+                            select: #select,
+                            exit_codes: #exit_codes,
+                            deprecated: #deprecated,
+                            deprecated_warn_at: #deprecated_warn_at,
+                            deprecated_remove_at: #deprecated_remove_at,
+                            surface: #surface,
+                            available_if: &[#(#available_if),*],
+                            restart_token: #restart_token,
+                            subcommand_required: #subcommand_required,
+                            subcommand_help_heading: #subcommand_help_heading,
+                            subcommand_value_name: #subcommand_value_name,
+                            next_line_help: #next_line_help,
+                            flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
+                            term_width: #term_width,
+                            max_term_width: #max_term_width,
+                            mount: #mount,
+                            before_help: #before_help,
+                            before_long_help: #before_long_help,
+                            after_help: #after_help,
+                            after_long_help: #after_long_help,
+                            examples: #examples,
+                            headings: #headings,
+                            clause: #clause_meta,
+                            ..usage_argv::spec::CommandExtra::EMPTY
+                        };
+                    usage_argv::spec::CommandExtra::shared(&__USAGE_EXTRA)
+                },
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };
-
-            // Values arrive as the bytes that were on the command line. This version
-            // holds them as `String`, and converts lossily, which is what mise
-            // already does with its own argv. Rejecting a non-UTF-8 value needs an
-            // error type for value conversion, and that arrives with typed fields.
-            pub fn __usage_text(value: &[u8]) -> ::std::vec::Vec<u8> {
-                value.to_vec()
-            }
-
-            pub fn __usage_value_text(
-                value: ::std::option::Option<&[u8]>,
-            ) -> ::std::vec::Vec<u8> {
-                value.map(__usage_text).unwrap_or_default()
-            }
 
             #partial
             #apply
@@ -1896,89 +1862,36 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         &usage_argv::spec::ViewMeta<'static>,
                     >,
                 ) -> ! {
-                    match __usage_error {
-                        // Not failures: someone asked a question, and the answer goes to stdout.
-                        usage_argv::Error::Version { long } => {
-                            #runtime_program_for_version
-                            let __usage_bin = __usage_selected_view
-                                .map(|view| view.bin)
-                                .unwrap_or(__usage_bin);
-                            let __usage_version = if long {
-                                #output_long_version
-                            } else {
-                                #runtime_version
-                            };
-                            ::std::println!("{__usage_bin} {__usage_version}");
-                            usage_argv::__usage_process_exit(0);
-                        }
-                        usage_argv::Error::Help { cmd, long } => {
-                            #effective_spec
-                            let __usage_want = if long {
-                                usage_argv::help::Page::Long
-                            } else {
-                                usage_argv::help::Page::Short
-                            };
-                            #render_page
-                            match __usage_page {
-                                ::std::option::Option::Some(page) => {
-                                    ::std::print!("{page}");
-                                    usage_argv::__usage_process_exit(0);
-                                }
-                                // Only reachable if the command came from another CLI's tables.
-                                ::std::option::Option::None => usage_argv::__usage_process_exit(0),
-                            }
-                        }
-                        usage_argv::Error::MissingArgsHelp { cmd } => {
-                            #effective_spec
-                            let __usage_want = usage_argv::help::Page::Short;
-                            #render_page_stderr
-                            match __usage_page {
-                                ::std::option::Option::Some(page) => {
-                                    ::std::eprint!("{page}");
-                                    usage_argv::__usage_process_exit(2);
-                                }
-                                ::std::option::Option::None => usage_argv::__usage_process_exit(2),
-                            }
-                        }
-                        usage_argv::Error::HelpAll { cmd } => {
-                            #effective_spec
-                            let __usage_want = usage_argv::help::Page::All;
-                            #render_page
-                            match __usage_page {
-                                ::std::option::Option::Some(page) => {
-                                    ::std::print!("{page}");
-                                    usage_argv::__usage_process_exit(0);
-                                }
-                                ::std::option::Option::None => usage_argv::__usage_process_exit(0),
-                            }
-                        }
-                        e => {
-                            #effective_spec
-                            let __usage_failure = match __usage_selected_view {
-                                ::std::option::Option::Some(view) => {
-                                    usage_argv::render_failure_view(
-                                        __usage_spec,
-                                        &__usage_all_refs,
-                                        &e,
-                                        view,
-                                    )
-                                }
-                                ::std::option::Option::None => {
-                                    usage_argv::render_failure(
-                                        __usage_spec,
-                                        &__usage_argv,
-                                        &e,
-                                    )
-                                }
-                            };
-                            ::std::eprint!(
-                                "{}",
-                                __usage_failure
+                    // Only the version is answered here, because only this expansion knows it.
+                    // Everything else is the same for every CLI and lives in the runtime once,
+                    // handed the spec with any computed identity already applied.
+                    if let usage_argv::Error::Version { long } = __usage_error {
+                        #runtime_program_for_version
+                        // One call per branch rather than one `if` value: a computed long
+                        // version and the short one need not have the same type, only
+                        // `Display`.
+                        if long {
+                            usage_argv::__usage_exit_version(
+                                __usage_bin,
+                                __usage_selected_view,
+                                &(#output_long_version),
                             );
-                            // clap's, so a script that checks for it keeps working.
-                            usage_argv::__usage_process_exit(2);
                         }
+                        usage_argv::__usage_exit_version(
+                            __usage_bin,
+                            __usage_selected_view,
+                            &(#runtime_version),
+                        );
                     }
+                    #effective_spec
+                    usage_argv::__usage_exit_on_error(
+                        __usage_error,
+                        __usage_spec,
+                        Self::command(),
+                        __usage_all_refs,
+                        __usage_argv,
+                        __usage_selected_view,
+                    )
                 }
             }
         };
@@ -2274,73 +2187,18 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             argv: &[::std::ffi::OsString],
         ) -> ::std::option::Option<::std::string::String> {
             let request = usage_argv::complete::CompletionRequest::parse(argv)?;
-            let candidates_for = request.candidates_for.clone();
-            let mut split = request.split.clone();
-            let __usage_selected_view = split.words.first().and_then(|__usage_program| {
-                usage_argv::spec::view_for_program(
-                    Self::spec(),
-                    ::std::ffi::OsStr::new(__usage_program),
-                )
-            });
-            if let ::std::option::Option::Some(name) = candidates_for {
-                // Walked here as well, because a `--candidates` request names a completer and
-                // says nothing about where the cursor is — and the completer still wants the
-                // words its own command was given.
-                let position = match __usage_selected_view {
-                    ::std::option::Option::Some(view) =>
-                        usage_argv::complete::walk_view(
-                            Self::spec().root.cmd,
-                            split.argv(),
-                            view,
-                        ),
-                    ::std::option::Option::None =>
-                        usage_argv::complete::walk(Self::spec().root.cmd, split.argv()),
-                };
-                let __usage_words = split.argv();
-                let __usage_path: ::std::vec::Vec<(
-                    &usage_argv::Command<'_>,
-                    &[::std::string::String],
-                )> = position
-                    .path
-                    .iter()
-                    .map(|(cmd, start)| (*cmd, __usage_words.get(*start..).unwrap_or(&[])))
-                    .collect();
-                let ctx = usage_argv::complete::CompleteCtx {
-                    words: &split.words,
-                    cword: split.cword,
-                    prefix: &split.prefix,
-                    command_words: __usage_words
-                        .get(position.command_start..)
-                        .unwrap_or(&[]),
-                    command_path: &__usage_path,
-                };
-                // Nothing of that name is an empty answer rather than an error: a spec written
-                // against a newer version of this CLI is a stale script, and a stale script
-                // should complete nothing rather than print a message into the user's prompt.
-                let found = match __usage_selected_view {
-                    ::std::option::Option::Some(view) =>
-                        usage_argv::complete::for_name_view(Self::spec(), &name, &ctx, view)
-                            .unwrap_or_default(),
-                    ::std::option::Option::None =>
-                        usage_argv::complete::for_name(Self::spec(), &name, &ctx)
-                            .unwrap_or_default(),
-                };
-                let answer = usage_argv::complete::Completions {
-                    candidates: found,
-                    files: ::std::option::Option::None,
-                };
-                return ::std::option::Option::Some(usage_argv::complete::render_request(
-                    &answer,
-                    &request,
-                ));
-            }
-            let answer = match __usage_selected_view {
-                ::std::option::Option::Some(view) =>
-                    usage_argv::complete::complete_view(Self::spec(), &split, view),
-                ::std::option::Option::None =>
-                    usage_argv::complete::complete(Self::spec(), &split),
-            };
-            ::std::option::Option::Some(usage_argv::complete::render_request(&answer, &request))
+            let __usage_selected_view =
+                request.split.words.first().and_then(|__usage_program| {
+                    usage_argv::spec::view_for_program(
+                        Self::spec(),
+                        ::std::ffi::OsStr::new(__usage_program),
+                    )
+                });
+            ::std::option::Option::Some(usage_argv::complete::__usage_answer_request(
+                Self::spec(),
+                &request,
+                __usage_selected_view,
+            ))
         }
     };
     let intercept = quote! {
@@ -3181,6 +3039,25 @@ fn key_consts(fingerprint: &str, flags: usize, args: usize) -> TokenStream {
     }
 }
 
+/// Route an event to one of `arms`: `_ if` arms, each guarded by the address of the table it
+/// binds.
+///
+/// Identity alone, tested in declaration order, rather than a `match` on the key first. A key
+/// match is a jump in principle, but once a parent inlines every flattened group's `apply`
+/// the optimizer merges all of their `match`es into one binary search over unrelated hashes:
+/// two 64-bit compares per flag before the identity check the arm needed anyway. An address
+/// compare per flag is smaller than that, and at a few dozen flags per command it is no slower
+/// than the search it replaces.
+fn identity_dispatch(arms: TokenStream) -> TokenStream {
+    quote! {
+        match () {
+            #arms
+            // Another declaration's item, left for whoever owns it.
+            _ => false,
+        }
+    }
+}
+
 /// The name of the `const` holding one key.
 fn key_ident(kind: &str, index: Option<usize>) -> proc_macro2::Ident {
     match index {
@@ -3413,7 +3290,6 @@ fn flagset_name(ty: &syn::Type) -> String {
 }
 
 fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
-    let key = key_ident("FLAG", Some(i));
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let direct = mirrored_global_ident(field).map(|mirrored| quote!(partial.#mirrored = false;));
@@ -3465,12 +3341,10 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
     let remember_invalid_choice = remember_invalid_flag_choice(field);
     let table = format_ident!("FLAG_{i}");
     quote! {
-        // The key gets us to the right arm in one jump; the identity check makes a
-        // collision harmless rather than wrong. Two identical declarations in
-        // different modules hash alike — a macro cannot see a module path — and
-        // without this, one command's flag would fill another's field. `static` items
-        // have distinct addresses, so this is exact.
-        #key if ::core::ptr::eq(*flag, &#table) => {
+        // Matched by the table's address rather than its key: `static` items have
+        // distinct addresses, so this is exact, and it is the one comparison the arm
+        // needs — see `identity_dispatch`.
+        _ if ::core::ptr::eq(*flag, &#table) => {
             #duplicate
             #remember_invalid_choice
             #body
@@ -3533,41 +3407,40 @@ fn remember_invalid_flag_choice(field: &Field) -> TokenStream {
         return TokenStream::new();
     }
     let invalid = format_ident!("__invalid_choice_{}", field.ident);
+    let found = invalid_choice_call(field, quote!(value), None);
+    // A repeat of a single-valued flag replaces the word, so it replaces the verdict too; a
+    // collecting flag keeps every word, and so every verdict.
+    if matches!(field.shape, Shape::Many) {
+        quote!(partial.#invalid |= #found;)
+    } else {
+        quote!(partial.#invalid = #found;)
+    }
+}
+
+/// The runtime check for a bound word against a field's choices, as one call.
+///
+/// `delimit` is the argument's own say in whether its delimiter applies this time; a flag's
+/// delimiter always does.
+fn invalid_choice_call(
+    field: &Field,
+    value: TokenStream,
+    delimit: Option<TokenStream>,
+) -> TokenStream {
     let accepted = accepted_choices(field);
     let ignore_case = choice_ignore_case(field);
-    let reset = (!matches!(field.shape, Shape::Many)).then(|| quote!(partial.#invalid = false;));
-    let check = quote! {
-        if let ::std::result::Result::Ok(__usage_choice_text) =
-            ::std::str::from_utf8(__usage_choice_value)
-        {
-            partial.#invalid |= !usage_argv::spec::choice_matches(
-                #accepted,
-                __usage_choice_text,
-                #ignore_case,
-            );
-        }
-    };
-    match field.delimiter {
+    let delimiter = match field.delimiter {
         Some(delimiter) => {
             let byte =
                 u8::try_from(u32::from(delimiter)).expect("the model rejects non-ASCII delimiters");
-            quote! {
-                #reset
-                if let ::std::option::Option::Some(__usage_choice_value) = value {
-                    for __usage_choice_value in
-                        __usage_choice_value.split(|byte| *byte == #byte)
-                    {
-                        #check
-                    }
-                }
+            match delimit {
+                Some(delimit) => quote!(#delimit.then_some(#byte)),
+                None => quote!(::std::option::Option::Some(#byte)),
             }
         }
-        None => quote! {
-            #reset
-            if let ::std::option::Option::Some(__usage_choice_value) = value {
-                #check
-            }
-        },
+        None => quote!(::std::option::Option::None),
+    };
+    quote! {
+        usage_argv::spec::invalid_choice_in(#value, #delimiter, #accepted, #ignore_case)
     }
 }
 
@@ -3596,25 +3469,24 @@ fn flag_binding_body(field: &Field) -> TokenStream {
         // Saturating, because a `u8` field given 256 occurrences would otherwise
         // panic in debug and wrap to zero in release.
         Shape::Count => quote!(partial.#ident = partial.#ident.saturating_add(1);),
+        // The copies are calls rather than expanded here: each is an allocation and the
+        // drop of what the field held, repeated at every value-taking field otherwise.
         Shape::Optional if field.optional_value_type => quote! {
-            partial.#ident = value.map(__usage_text);
+            usage_argv::bind_optional_text(&mut partial.#ident, value);
         },
         Shape::Optional => quote! {
-            partial.#ident = ::std::option::Option::Some(__usage_value_text(value));
+            usage_argv::bind_some_text(&mut partial.#ident, value);
         },
-        Shape::Required => quote!(partial.#ident = __usage_value_text(value);),
+        Shape::Required => quote!(usage_argv::bind_text(&mut partial.#ident, value);),
         Shape::Many => match field.delimiter {
             Some(delimiter) => {
                 let byte = u8::try_from(u32::from(delimiter))
                     .expect("the model rejects non-ASCII delimiters");
                 quote! {
-                    let value = __usage_value_text(value);
-                    for part in value.split(|b| *b == #byte) {
-                        partial.#ident.push(part.to_vec());
-                    }
+                    usage_argv::bind_push_split(&mut partial.#ident, value, #byte);
                 }
             }
-            None => quote!(partial.#ident.push(__usage_value_text(value));),
+            None => quote!(usage_argv::bind_push_text(&mut partial.#ident, value);),
         },
     }
 }
@@ -4014,7 +3886,6 @@ fn is_displaceable(cli: &Cli, field: &Field) -> bool {
 }
 
 fn arg_arm(i: usize, field: &Field) -> TokenStream {
-    let key = key_ident("ARG", Some(i));
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let body = match field.shape {
@@ -4024,66 +3895,46 @@ fn arg_arm(i: usize, field: &Field) -> TokenStream {
                     .expect("the model rejects non-ASCII delimiters");
                 quote! {
                     if delimit {
-                        for part in value.split(|b| *b == #byte) {
-                            partial.#ident.push(__usage_text(part));
-                        }
+                        usage_argv::bind_push_split(
+                            &mut partial.#ident,
+                            ::std::option::Option::Some(value),
+                            #byte,
+                        );
                     } else {
-                        partial.#ident.push(__usage_text(value));
-                    }
-                }
-            }
-            None => quote!(partial.#ident.push(__usage_text(value));),
-        },
-        Shape::Optional => quote! {
-            partial.#ident = ::std::option::Option::Some(__usage_text(value));
-        },
-        _ => quote!(partial.#ident = __usage_text(value);),
-    };
-    let remember_invalid_choice = if tracks_invalid_choice(field) {
-        let invalid = format_ident!("__invalid_choice_{}", field.ident);
-        let accepted = accepted_choices(field);
-        let ignore_case = choice_ignore_case(field);
-        let reset =
-            (!matches!(field.shape, Shape::Many)).then(|| quote!(partial.#invalid = false;));
-        let check = quote! {
-            if let ::std::result::Result::Ok(__usage_choice_text) =
-                ::std::str::from_utf8(__usage_choice_value)
-            {
-                partial.#invalid |= !usage_argv::spec::choice_matches(
-                    #accepted,
-                    __usage_choice_text,
-                    #ignore_case,
-                );
-            }
-        };
-        match field.delimiter {
-            Some(delimiter) => {
-                let byte = u8::try_from(u32::from(delimiter))
-                    .expect("the model rejects non-ASCII delimiters");
-                quote! {
-                    #reset
-                    if delimit {
-                        for __usage_choice_value in value.split(|byte| *byte == #byte) {
-                            #check
-                        }
-                    } else {
-                        let __usage_choice_value = value;
-                        #check
+                        usage_argv::bind_push_text(
+                            &mut partial.#ident,
+                            ::std::option::Option::Some(value),
+                        );
                     }
                 }
             }
             None => quote! {
-                #reset
-                let __usage_choice_value = value;
-                #check
+                usage_argv::bind_push_text(&mut partial.#ident, ::std::option::Option::Some(value));
             },
-        }
-    } else {
-        TokenStream::new()
+        },
+        Shape::Optional => quote! {
+            usage_argv::bind_some_text(&mut partial.#ident, ::std::option::Option::Some(value));
+        },
+        _ => quote! {
+            usage_argv::bind_text(&mut partial.#ident, ::std::option::Option::Some(value));
+        },
     };
+    let remember_invalid_choice = tracks_invalid_choice(field).then(|| {
+        let invalid = format_ident!("__invalid_choice_{}", field.ident);
+        let found = invalid_choice_call(
+            field,
+            quote!(::std::option::Option::Some(value)),
+            Some(quote!(delimit)),
+        );
+        if matches!(field.shape, Shape::Many) {
+            quote!(partial.#invalid |= #found;)
+        } else {
+            quote!(partial.#invalid = #found;)
+        }
+    });
     let table = format_ident!("ARG_{i}");
     quote! {
-        #key if ::core::ptr::eq(*arg, &#table) => {
+        _ if ::core::ptr::eq(*arg, &#table) => {
             #remember_invalid_choice
             #body
             partial.#given = true;
@@ -6368,7 +6219,9 @@ fn apply_fn(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let flag_dispatch = identity_dispatch(quote!(#(#flag_arms)*));
     let arg_arms = args.iter().enumerate().map(|(i, f)| arg_arm(i, f));
+    let arg_dispatch = identity_dispatch(quote!(#(#arg_arms)*));
 
     quote! {
         pub fn apply(
@@ -6387,11 +6240,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                 Event::Flag { flag, value, negated } => {
                     let (value, negated) = (*value, *negated);
                     let _ = (value, negated);
-                    match flag.key {
-                        #(#flag_arms)*
-                        // Another command's flag, left for whoever owns it.
-                        _ => false,
-                    }
+                    #flag_dispatch
                 }
                 Event::Arg {
                     arg,
@@ -6400,10 +6249,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                 } => {
                     let (value, delimit) = (*value, *delimit);
                     let _ = (value, delimit);
-                    match arg.key {
-                        #(#arg_arms)*
-                        _ => false,
-                    }
+                    #arg_dispatch
                 }
                 // Descending is the caller's business: it is what decides which
                 // command's fields the following events belong to. But any command
@@ -7084,53 +6930,52 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
             pub static COMMAND_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &COMMAND,
-                outputs: #outputs,
-                select: #select,
-                exit_codes: #exit_codes,
-                effect: #effect,
                 about: #about,
                 long_about: #long_about,
-                deprecated: #deprecated,
-                deprecated_warn_at: #deprecated_warn_at,
-                deprecated_remove_at: #deprecated_remove_at,
-                surface: #surface,
-                available_if: &[#(#available_if),*],
-                hidden_aliases: &[#(#hidden_aliases),*],
                 hide: #hide,
-                restart_token: #restart_token,
-                subcommand_required: #subcommand_required,
-                subcommand_help_heading: #subcommand_help_heading,
-                subcommand_value_name: #subcommand_value_name,
-                next_line_help: #next_line_help,
-                flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
-                term_width: #term_width,
-                max_term_width: #max_term_width,
                 args_override_self: #args_override_self,
-                mount: #mount,
-                before_help: #before_help,
-                before_long_help: #before_long_help,
-                after_help: #after_help,
-                after_long_help: #after_long_help,
-                examples: #examples,
-                headings: #headings,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
-                clause: #clause_meta,
                 groups: #group_meta_table_ref,
                 flatten_groups: #flatten_group_table_ref,
+                // Built as a constant so `shared` can swap an empty one for the single static
+                // every such command points at, which keeps these fields out of most tables.
+                extra: {
+                    const __USAGE_EXTRA: usage_argv::spec::CommandExtra<'static> =
+                        usage_argv::spec::CommandExtra {
+                            outputs: #outputs,
+                            select: #select,
+                            exit_codes: #exit_codes,
+                            effect: #effect,
+                            deprecated: #deprecated,
+                            deprecated_warn_at: #deprecated_warn_at,
+                            deprecated_remove_at: #deprecated_remove_at,
+                            surface: #surface,
+                            available_if: &[#(#available_if),*],
+                            hidden_aliases: &[#(#hidden_aliases),*],
+                            restart_token: #restart_token,
+                            subcommand_required: #subcommand_required,
+                            subcommand_help_heading: #subcommand_help_heading,
+                            subcommand_value_name: #subcommand_value_name,
+                            next_line_help: #next_line_help,
+                            flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
+                            term_width: #term_width,
+                            max_term_width: #max_term_width,
+                            mount: #mount,
+                            before_help: #before_help,
+                            before_long_help: #before_long_help,
+                            after_help: #after_help,
+                            after_long_help: #after_long_help,
+                            examples: #examples,
+                            headings: #headings,
+                            clause: #clause_meta,
+                            ..usage_argv::spec::CommandExtra::EMPTY
+                        };
+                    usage_argv::spec::CommandExtra::shared(&__USAGE_EXTRA)
+                },
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };
-
-            pub fn __usage_text(value: &[u8]) -> ::std::vec::Vec<u8> {
-                value.to_vec()
-            }
-
-            pub fn __usage_value_text(
-                value: ::std::option::Option<&[u8]>,
-            ) -> ::std::vec::Vec<u8> {
-                value.map(__usage_text).unwrap_or_default()
-            }
 
             #partial
             #apply
@@ -8266,51 +8111,51 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .deprecated
                 .as_deref()
                 .map(|value| option_str(Some(value)))
-                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.deprecated));
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.deprecated));
             let deprecated_warn_at = v
                 .deprecated_warn_at
                 .as_deref()
                 .map(|value| option_str(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.deprecated_warn_at),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.deprecated_warn_at),
                 );
             let deprecated_remove_at = v
                 .deprecated_remove_at
                 .as_deref()
                 .map(|value| option_str(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.deprecated_remove_at),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.deprecated_remove_at),
                 );
             let before_help = v
                 .before_help
                 .as_ref()
                 .map(|value| option_expr(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.before_help),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.before_help),
                 );
             let before_long_help = v
                 .before_long_help
                 .as_ref()
                 .map(|value| option_expr(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.before_long_help),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.before_long_help),
                 );
             let after_help = v
                 .after_help
                 .as_ref()
                 .map(|value| option_expr(Some(value)))
-                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.after_help));
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.after_help));
             let after_long_help = v
                 .after_long_help
                 .as_ref()
                 .map(|value| option_expr(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.after_long_help),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.after_long_help),
                 );
             // A variant that declares examples speaks for the command; one that does not
             // leaves the held type's own standing, as `after_help` does.
             let examples = if v.examples.is_empty() {
-                quote!(<#ty as usage_argv::spec::CommandArgs>::META.examples)
+                quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.examples)
             } else {
                 examples_table(&v.examples)
             };
@@ -8325,9 +8170,9 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .surface
                 .as_deref()
                 .map(|surface| option_str(Some(surface)))
-                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.surface));
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.surface));
             let available_if = if v.available_if.is_empty() {
-                quote!(<#ty as usage_argv::spec::CommandArgs>::META.available_if)
+                quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.available_if)
             } else {
                 let conditions = &v.available_if;
                 quote!(&[#(#conditions),*])
@@ -8335,7 +8180,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             let display_order = option_u32(v.display_order);
             quote! {
                 const #hidden_groups: &[&[&str]] = &[
-                    <#ty as usage_argv::spec::CommandArgs>::META.hidden_aliases,
+                    <#ty as usage_argv::spec::CommandArgs>::META.extra.hidden_aliases,
                     &[#(#hidden),*],
                 ];
                 static #hidden_name: [&str; usage_argv::table_len(#hidden_groups)] =
@@ -8345,20 +8190,29 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         cmd: &#cmd,
                         about: #about,
                         long_about: #long_about,
-                        deprecated: #deprecated,
-                        deprecated_warn_at: #deprecated_warn_at,
-                        deprecated_remove_at: #deprecated_remove_at,
-                        before_help: #before_help,
-                        before_long_help: #before_long_help,
-                        after_help: #after_help,
-                        after_long_help: #after_long_help,
-                        examples: #examples,
                         hide: #hide || <#ty as usage_argv::spec::CommandArgs>::META.hide,
-                        help_heading: #help_heading,
-                        surface: #surface,
-                        available_if: #available_if,
-                        display_order: #display_order,
-                        hidden_aliases: &#hidden_name,
+                        // The held type's extras with the variant's own declarations laid
+                        // over them, shared like any other command's when both are empty.
+                        extra: {
+                            const __USAGE_EXTRA: usage_argv::spec::CommandExtra<'static> =
+                                usage_argv::spec::CommandExtra {
+                                    deprecated: #deprecated,
+                                    deprecated_warn_at: #deprecated_warn_at,
+                                    deprecated_remove_at: #deprecated_remove_at,
+                                    before_help: #before_help,
+                                    before_long_help: #before_long_help,
+                                    after_help: #after_help,
+                                    after_long_help: #after_long_help,
+                                    examples: #examples,
+                                    help_heading: #help_heading,
+                                    surface: #surface,
+                                    available_if: #available_if,
+                                    display_order: #display_order,
+                                    hidden_aliases: &#hidden_name,
+                                    ..*<#ty as usage_argv::spec::CommandArgs>::META.extra
+                                };
+                            usage_argv::spec::CommandExtra::shared(&__USAGE_EXTRA)
+                        },
                         ..*<#ty as usage_argv::spec::CommandArgs>::META
                     };
             }
@@ -8499,15 +8353,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             let meta = format_ident!("META_{i}");
             quote! {
                 ::std::option::Option::Some(#i) => {
-                    if #meta.deprecated.is_some()
-                        || #meta.deprecated_warn_at.is_some()
-                        || #meta.deprecated_remove_at.is_some()
+                    if #meta.extra.deprecated.is_some()
+                        || #meta.extra.deprecated_warn_at.is_some()
+                        || #meta.extra.deprecated_remove_at.is_some()
                     {
                         out.push(usage_argv::warn::Warning::command(
                             #meta.cmd.name,
-                            #meta.deprecated,
-                            #meta.deprecated_warn_at,
-                            #meta.deprecated_remove_at,
+                            #meta.extra.deprecated,
+                            #meta.extra.deprecated_warn_at,
+                            #meta.extra.deprecated_remove_at,
                         ));
                     }
                     if let Partial::#variant(__usage_p) = partial {
@@ -11072,36 +10926,34 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
     });
     let apply_arms = group.variants.iter().enumerate().map(|(i, member)| {
         let table = format_ident!("FLAG_{i}");
-        let key = key_ident("FLAG", Some(i));
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
-        let record = if multiple {
-            if member.value_ty.is_some() {
-                quote!(partial.ordered.push((#i, value.map(<[u8]>::to_vec)));)
+        let body = if member.value_ty.is_some() {
+            let ordered = if multiple {
+                quote!(::std::option::Option::Some(&mut partial.ordered))
             } else {
-                quote!(partial.ordered.push((#i, ::std::option::Option::None));)
-            }
-        } else {
-            quote!()
-        };
-        let assign = if member.value_ty.is_some() {
+                quote!(::std::option::Option::None)
+            };
             quote! {
-                if let ::std::option::Option::Some(value) = value {
-                    partial.#given = ::std::option::Option::Some(value.to_vec());
-                }
+                usage_argv::spec::bind_member_text(#ordered, #i, &mut partial.#given, *value);
             }
         } else {
-            quote!(partial.#given = true;)
+            let record =
+                multiple.then(|| quote!(partial.ordered.push((#i, ::std::option::Option::None));));
+            quote! {
+                #record
+                partial.#given = true;
+            }
         };
         quote! {
             #(#cfg)*
-            #key if ::core::ptr::eq(*flag, &#table) => {
-                #record
-                #assign
+            _ if ::core::ptr::eq(*flag, &#table) => {
+                #body
                 true
             }
         }
     });
+    let apply_dispatch = identity_dispatch(quote!(#(#apply_arms)*));
     let given_arms = group.variants.iter().enumerate().map(|(i, member)| {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
@@ -11510,11 +11362,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                     event: &usage_argv::Event<'_, '_, '_>,
                 ) -> bool {
                     match event {
-                        usage_argv::Event::Flag { flag, value, .. } => match flag.key {
-                            #(#apply_arms)*
-                            // Another declaration's flag, left for whoever owns it.
-                            _ => false,
-                        },
+                        usage_argv::Event::Flag { flag, value, .. } => #apply_dispatch,
                         _ => false,
                     }
                 }

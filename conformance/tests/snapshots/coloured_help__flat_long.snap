@@ -1,0 +1,28 @@
+---
+source: conformance/tests/coloured_help.rs
+expression: "page(TOOL, &[\"flat\"], true)"
+---
+Flattened
+
+␛[1;33mUsage:␛[0m tool flat
+       tool flat one [␛[1;32m--alpha␛[0m ␛[1;35m<a>␛[0m] ␛[1;35m<x>␛[0m
+       tool flat two [␛[1;32m-b␛[0m ␛[1;32m--beta␛[0m]
+
+␛[1;33mFlags:␛[0m
+  ␛[1;32m-h␛[0m, ␛[1;32m--help␛[0m           Print help
+
+␛[1;33mGlobal flags:␛[0m
+  ␛[1;32m-f␛[0m, ␛[1;32m--force␛[0m          Do it ␛[3manyway␛[23m
+      ␛[1;32m--config␛[0m ␛[1;35m<path>␛[0m  Config file
+                       [env: TOOL_CONFIG]
+                       (default: a.toml)
+
+␛[1;33mflat one:␛[0m
+First
+  ␛[1;35m<x>␛[0m  X
+      ␛[1;32m--alpha␛[0m ␛[1;35m<a>␛[0m  Alpha
+
+
+␛[1;33mflat two:␛[0m
+Second
+  ␛[1;32m-b␛[0m, ␛[1;32m--beta␛[0m  Beta

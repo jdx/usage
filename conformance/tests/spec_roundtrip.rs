@@ -13,8 +13,8 @@
 
 use usage::Spec as LibSpec;
 use usage_argv::spec::{
-    ArgMeta, CommandMeta, Effect, Example, ExitCodeMeta, FlagExtra, FlagMeta, Framing, OutputMeta,
-    Spec,
+    ArgMeta, CommandExtra, CommandMeta, Effect, Example, ExitCodeMeta, FlagExtra, FlagMeta,
+    Framing, OutputMeta, Spec,
 };
 use usage_argv::{Arg, Command, DoubleDash, Flag};
 
@@ -181,41 +181,6 @@ static INSTALL_META: CommandMeta = CommandMeta {
     cmd: &INSTALL,
     about: Some("install a tool"),
     long_about: Some("Installs a tool.\n\nTakes a while."),
-    // `i` stays visible; `add` works but is not advertised.
-    hidden_aliases: &["add"],
-    effect: Some(Effect::Write),
-    examples: &[Example {
-        code: "ex install node@20",
-        header: None,
-        help: Some("install a specific version"),
-    }],
-    // A schema with newlines in it, so the raw-multiline path is exercised on the way out
-    // and `usage_lib_can_reserialize_what_we_emit` proves the two writers agree about it.
-    outputs: &[
-        OutputMeta {
-            name: "human",
-            default: true,
-            help: Some("a progress log"),
-            ..OutputMeta::EMPTY
-        },
-        OutputMeta {
-            name: "json",
-            media_type: Some("application/json"),
-            framing: Framing::Json,
-            schema: Some("{\n  \"type\": \"object\"\n}"),
-            ..OutputMeta::EMPTY
-        },
-        OutputMeta {
-            name: "jsonl",
-            framing: Framing::Jsonl,
-            ..OutputMeta::EMPTY
-        },
-    ],
-    select: Some("--format"),
-    exit_codes: &[ExitCodeMeta {
-        code: 3,
-        help: "the tool was not found",
-    }],
     flags: &[
         FlagMeta {
             flag: &FORCE,
@@ -232,28 +197,72 @@ static INSTALL_META: CommandMeta = CommandMeta {
         help: Some("the tool to install"),
         ..ArgMeta::EMPTY
     }],
+    extra: &CommandExtra {
+        // `i` stays visible; `add` works but is not advertised.
+        hidden_aliases: &["add"],
+        effect: Some(Effect::Write),
+        examples: &[Example {
+            code: "ex install node@20",
+            header: None,
+            help: Some("install a specific version"),
+        }],
+        // A schema with newlines in it, so the raw-multiline path is exercised on the way out
+        // and `usage_lib_can_reserialize_what_we_emit` proves the two writers agree about it.
+        outputs: &[
+            OutputMeta {
+                name: "human",
+                default: true,
+                help: Some("a progress log"),
+                ..OutputMeta::EMPTY
+            },
+            OutputMeta {
+                name: "json",
+                media_type: Some("application/json"),
+                framing: Framing::Json,
+                schema: Some("{\n  \"type\": \"object\"\n}"),
+                ..OutputMeta::EMPTY
+            },
+            OutputMeta {
+                name: "jsonl",
+                framing: Framing::Jsonl,
+                ..OutputMeta::EMPTY
+            },
+        ],
+        select: Some("--format"),
+        exit_codes: &[ExitCodeMeta {
+            code: 3,
+            help: "the tool was not found",
+        }],
+        ..CommandExtra::EMPTY
+    },
     ..CommandMeta::EMPTY
 };
 static RUN_META: CommandMeta = CommandMeta {
     cmd: &RUN,
     about: Some("run a task"),
-    mount: Some("ex tasks --usage"),
-    restart_token: Some(":::"),
     args: &[ArgMeta {
         arg: &TASK_ARGS,
         required: false,
         ..ArgMeta::EMPTY
     }],
+    extra: &CommandExtra {
+        mount: Some("ex tasks --usage"),
+        restart_token: Some(":::"),
+        ..CommandExtra::EMPTY
+    },
     ..CommandMeta::EMPTY
 };
 static EXEC_META: CommandMeta = CommandMeta {
     cmd: &EXEC,
     about: Some("run a command"),
-    effect: Some(Effect::Destructive),
     args: &[ArgMeta {
         arg: &PASSTHROUGH,
         ..ArgMeta::EMPTY
     }],
+    extra: &CommandExtra {
+        effect: Some(Effect::Destructive),
+        ..CommandExtra::EMPTY
+    },
     ..CommandMeta::EMPTY
 };
 static WATCH_META: CommandMeta = CommandMeta {
@@ -269,25 +278,6 @@ static WATCH_META: CommandMeta = CommandMeta {
 };
 static ROOT_META: CommandMeta = CommandMeta {
     cmd: &ROOT,
-    // The root's own examples live at the top level of the document rather than
-    // inside a `cmd` block, which is easy to forget when writing it out.
-    examples: &[Example {
-        code: "ex a.txt",
-        header: Some("Basic"),
-        help: Some("the simplest thing"),
-    }],
-    // CLI-wide, and refined per command: `install` says something more specific about 3
-    // without having to restate 0 and 130.
-    exit_codes: &[
-        ExitCodeMeta {
-            code: 0,
-            help: "success",
-        },
-        ExitCodeMeta {
-            code: 130,
-            help: "interrupted",
-        },
-    ],
     flags: &[
         FlagMeta {
             flag: &JOBS,
@@ -383,6 +373,28 @@ static ROOT_META: CommandMeta = CommandMeta {
         &EXEC_META,
         &WATCH_META,
     ],
+    extra: &CommandExtra {
+        // The root's own examples live at the top level of the document rather than
+        // inside a `cmd` block, which is easy to forget when writing it out.
+        examples: &[Example {
+            code: "ex a.txt",
+            header: Some("Basic"),
+            help: Some("the simplest thing"),
+        }],
+        // CLI-wide, and refined per command: `install` says something more specific about 3
+        // without having to restate 0 and 130.
+        exit_codes: &[
+            ExitCodeMeta {
+                code: 0,
+                help: "success",
+            },
+            ExitCodeMeta {
+                code: 130,
+                help: "interrupted",
+            },
+        ],
+        ..CommandExtra::EMPTY
+    },
     ..CommandMeta::EMPTY
 };
 static SPEC: Spec = Spec {

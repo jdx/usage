@@ -29,9 +29,9 @@ use usage::{
     SpecGroup, SpecOutput,
 };
 use usage_argv::spec::{
-    AdmonitionKind, AdmonitionMeta, ArgMeta, ChoiceAliasMeta, ChoiceMeta, ClauseMeta, CommandMeta,
-    DefaultIf, Effect, Example, ExitCodeMeta, FlagExtra, FlagMeta, Framing as ArgvFraming,
-    GroupMeta, HeadingMeta, OutputMeta, RequiredIfEq, RequiresIf,
+    AdmonitionKind, AdmonitionMeta, ArgMeta, ChoiceAliasMeta, ChoiceMeta, ClauseMeta, CommandExtra,
+    CommandMeta, DefaultIf, Effect, Example, ExitCodeMeta, FlagExtra, FlagMeta,
+    Framing as ArgvFraming, GroupMeta, HeadingMeta, OutputMeta, RequiredIfEq, RequiresIf,
 };
 use usage_argv::{Arg, Clause, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -194,44 +194,8 @@ pub fn build(
         cmd: table,
         about: opt(&cmd.help),
         long_about: opt(&cmd.help_long),
-        deprecated: opt(&cmd.deprecated),
-        deprecated_warn_at: opt(&cmd.deprecated_warn_at),
-        deprecated_remove_at: opt(&cmd.deprecated_remove_at),
-        hidden_aliases: Box::leak(
-            cmd.hidden_aliases
-                .iter()
-                .map(|a| leak(a))
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        ),
         hide: cmd.hide,
-        display_order: cmd.display_order.map(saturate_u32),
-        help_heading: opt(&cmd.help_heading),
-        surface: opt(&cmd.surface),
-        available_if: strs(&cmd.available_if),
-        effect: cmd.effect.map(effect),
-        // A command carries at most one mount in the tables; a spec may list several, and the
-        // first is the one the tables can hold.
-        mount: cmd.mounts.first().map(|m| leak(&m.run)),
-        restart_token: opt(&cmd.restart_token),
-        clause: clause_meta.map(|clause| &*Box::leak(Box::new(clause))),
-        subcommand_required: cmd.subcommand_required,
-        subcommand_help_heading: opt(&cmd.subcommand_help_heading),
-        subcommand_value_name: opt(&cmd.subcommand_value_name),
-        next_line_help: cmd.next_line_help,
-        flatten_help: cmd.flatten_help,
-        term_width: cmd.term_width.map(saturate_u16),
-        max_term_width: cmd.max_term_width.map(saturate_u16),
         args_override_self: cmd.args_override_self,
-        before_help: opt(&cmd.before_help),
-        before_long_help: opt(&cmd.before_help_long),
-        after_help: opt(&cmd.after_help),
-        after_long_help: opt(&cmd.after_help_long),
-        examples: examples(&cmd.examples),
-        headings: headings(&cmd.headings),
-        outputs: outputs(&cmd.outputs),
-        select: opt(&cmd.select),
-        exit_codes: exit_codes(&cmd.exit_codes),
         groups: groups(&cmd.groups),
         flags: Box::leak(flag_metas.into_boxed_slice()),
         args: Box::leak(arg_metas.into_boxed_slice()),
@@ -244,6 +208,44 @@ pub fn build(
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
         ),
+        extra: Box::leak(Box::new(CommandExtra {
+            deprecated: opt(&cmd.deprecated),
+            deprecated_warn_at: opt(&cmd.deprecated_warn_at),
+            deprecated_remove_at: opt(&cmd.deprecated_remove_at),
+            hidden_aliases: Box::leak(
+                cmd.hidden_aliases
+                    .iter()
+                    .map(|a| leak(a))
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            ),
+            display_order: cmd.display_order.map(saturate_u32),
+            help_heading: opt(&cmd.help_heading),
+            surface: opt(&cmd.surface),
+            available_if: strs(&cmd.available_if),
+            effect: cmd.effect.map(effect),
+            // A command carries at most one mount in the tables; a spec may list several, and the
+            // first is the one the tables can hold.
+            mount: cmd.mounts.first().map(|m| leak(&m.run)),
+            restart_token: opt(&cmd.restart_token),
+            clause: clause_meta.map(|clause| &*Box::leak(Box::new(clause))),
+            subcommand_required: cmd.subcommand_required,
+            subcommand_help_heading: opt(&cmd.subcommand_help_heading),
+            subcommand_value_name: opt(&cmd.subcommand_value_name),
+            next_line_help: cmd.next_line_help,
+            flatten_help: cmd.flatten_help,
+            term_width: cmd.term_width.map(saturate_u16),
+            max_term_width: cmd.max_term_width.map(saturate_u16),
+            before_help: opt(&cmd.before_help),
+            before_long_help: opt(&cmd.before_help_long),
+            after_help: opt(&cmd.after_help),
+            after_long_help: opt(&cmd.after_help_long),
+            examples: examples(&cmd.examples),
+            headings: headings(&cmd.headings),
+            outputs: outputs(&cmd.outputs),
+            select: opt(&cmd.select),
+            exit_codes: exit_codes(&cmd.exit_codes),
+        })),
     }));
 
     Built { cmd: table, meta }
@@ -278,22 +280,33 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
             .map(|name| usage_argv::find_subcommand(root.cmd.subcommands, name)),
         ..*root.cmd
     }));
-    let mut root_examples = root.meta.examples.to_vec();
+    let mut root_examples = root.meta.extra.examples.to_vec();
     root_examples.extend(spec.examples.iter().map(example));
     let root_meta: &'static CommandMeta<'static> = Box::leak(Box::new(CommandMeta {
         cmd: root_cmd,
-        before_help: root.meta.before_help.or(opt(&spec.before_help)),
-        before_long_help: root.meta.before_long_help.or(opt(&spec.before_help_long)),
-        after_help: root.meta.after_help.or(opt(&spec.after_help)),
-        after_long_help: root.meta.after_long_help.or(opt(&spec.after_help_long)),
-        examples: Box::leak(root_examples.into_boxed_slice()),
-        // The root's own declarations, not a concatenation the way examples are: a spec's
-        // `output` block and its root command's are the same node in the same place, so
-        // `Spec::parse` puts them on the spec and the root `CommandMeta` is where argv
-        // writes them from.
-        outputs: outputs(&spec.outputs),
-        select: opt(&spec.select),
-        exit_codes: exit_codes(&spec.exit_codes),
+        extra: Box::leak(Box::new(CommandExtra {
+            before_help: root.meta.extra.before_help.or(opt(&spec.before_help)),
+            before_long_help: root
+                .meta
+                .extra
+                .before_long_help
+                .or(opt(&spec.before_help_long)),
+            after_help: root.meta.extra.after_help.or(opt(&spec.after_help)),
+            after_long_help: root
+                .meta
+                .extra
+                .after_long_help
+                .or(opt(&spec.after_help_long)),
+            examples: Box::leak(root_examples.into_boxed_slice()),
+            // The root's own declarations, not a concatenation the way examples are: a spec's
+            // `output` block and its root command's are the same node in the same place, so
+            // `Spec::parse` puts them on the spec and the root `CommandMeta` is where argv
+            // writes them from.
+            outputs: outputs(&spec.outputs),
+            select: opt(&spec.select),
+            exit_codes: exit_codes(&spec.exit_codes),
+            ..*root.meta.extra
+        })),
         ..*root.meta
     }));
     Box::leak(Box::new(usage_argv::spec::Spec {
@@ -1039,8 +1052,8 @@ mod tests {
         assert_eq!(root.flags[2].flag.var_max, Some(u32::MAX));
         assert_eq!(root.args[0].var_max, Some(u32::MAX));
         let sub = &root.subcommands[0];
-        assert_eq!(sub.display_order, Some(u32::MAX));
-        assert_eq!(sub.term_width, Some(u16::MAX));
-        assert_eq!(sub.max_term_width, Some(u16::MAX));
+        assert_eq!(sub.extra.display_order, Some(u32::MAX));
+        assert_eq!(sub.extra.term_width, Some(u16::MAX));
+        assert_eq!(sub.extra.max_term_width, Some(u16::MAX));
     }
 }

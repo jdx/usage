@@ -695,7 +695,7 @@ impl<'a> Builder<'a> {
             for command in parent_meta.subcommands {
                 static_forms.insert(command.cmd.name);
                 static_forms.extend(command.cmd.aliases.iter().copied());
-                static_forms.extend(command.hidden_aliases.iter().copied());
+                static_forms.extend(command.extra.hidden_aliases.iter().copied());
             }
             if !parent_meta.cmd.disable_help_subcommand {
                 static_forms.insert("help");
@@ -775,7 +775,7 @@ fn resolve_parent<'a>(
                 || candidate.cmd.aliases.contains(&component)
                 // A hidden alias is one the CLI answers to, and an application naming its own
                 // static command is not "a user" being kept from an old spelling.
-                || candidate.hidden_aliases.contains(&component)
+                || candidate.extra.hidden_aliases.contains(&component)
         }) else {
             return Err(Error::MissingParent(requested.to_owned()));
         };
