@@ -900,8 +900,15 @@ impl CompletionRequest {
         let mut words: Option<Vec<String>> = None;
         let mut rest = argv[1..].iter();
         while let Some(arg) = rest.next() {
-            let option = arg.to_str().unwrap_or_default();
-            if option == "--words" {
+            let arg = arg.to_string_lossy();
+            // `--line=LINE` as well as `--line LINE`: the `run=` a derived CLI writes for a typed
+            // completer passes the line joined, and a request read without it would complete an
+            // empty line.
+            let (option, joined) = match arg.split_once('=') {
+                Some((option, value)) if option.starts_with("--") => (option, Some(value)),
+                _ => (&*arg, None),
+            };
+            if option == "--words" && joined.is_none() {
                 words = Some(
                     rest.map(|word| word.to_string_lossy().into_owned())
                         .collect(),
@@ -919,12 +926,15 @@ impl CompletionRequest {
             ) {
                 continue;
             }
-            // Every other option takes the next word, read once here rather than per option.
-            // Lossily for all of them: a number or a shell name that is not UTF-8 is not one
-            // either way.
-            let value = rest
-                .next()
-                .map(|value| value.to_string_lossy().into_owned());
+            // Every other option takes its joined value or the next word, read once here rather
+            // than per option. Lossily for all of them: a number or a shell name that is not
+            // UTF-8 is not one either way.
+            let value = match joined {
+                Some(value) => Some(value.to_string()),
+                None => rest
+                    .next()
+                    .map(|value| value.to_string_lossy().into_owned()),
+            };
             match option {
                 "--shell" => {
                     if let Some(found) = value.as_deref().and_then(Shell::from_name) {
@@ -4508,6 +4518,30 @@ mod tests {
         assert_eq!(request.shell, Shell::Bash);
         assert_eq!(request.split.prefix, "ru");
         assert_eq!(request.candidates_for, None);
+    }
+
+    #[test]
+    fn a_request_reads_options_joined_to_their_values() {
+        // The form the `run=` of a typed completer passes back.
+        let argv = [
+            "__complete_word__",
+            "--shell=fish",
+            "--candidates",
+            "tool",
+            "--line=mise install actionl",
+            "--cursor=16",
+        ]
+        .map(OsString::from);
+        let request = CompletionRequest::parse(&argv).expect("a completion request");
+        assert_eq!(request.shell, Shell::Fish);
+        assert_eq!(request.candidates_for.as_deref(), Some("tool"));
+        assert_eq!(request.split.words, ["mise", "install", "actionl"]);
+        assert_eq!(request.split.prefix, "act");
+
+        // Only the first `=` separates: the line itself may contain more.
+        let argv = ["__complete_word__", "--line=mise set A=b"].map(OsString::from);
+        let request = CompletionRequest::parse(&argv).expect("a completion request");
+        assert_eq!(request.split.words, ["mise", "set", "A=b"]);
     }
 
     #[test]
