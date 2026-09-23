@@ -1028,35 +1028,6 @@ pub fn emit(cli: &Cli) -> TokenStream {
         }
     });
 
-    // One renderer for every help request. Which page a request becomes — and whether it is the
-    // route the words took or a fallback by address — is decided once, in usage-argv, rather
-    // than three times here in code nobody reads until it is wrong. It is also what lets a test
-    // harness render the page this program would have printed rather than one of its own.
-    let page_of = |style: TokenStream| {
-        quote! {
-            let __usage_page = match __usage_selected_view {
-                ::std::option::Option::Some(view) => usage_argv::help::page_view(
-                    __usage_spec,
-                    Self::command(),
-                    &__usage_all_refs,
-                    cmd,
-                    view,
-                    __usage_want,
-                    #style,
-                ),
-                ::std::option::Option::None => usage_argv::help::page(
-                    __usage_spec,
-                    Self::command(),
-                    &__usage_argv,
-                    cmd,
-                    __usage_want,
-                    #style,
-                ),
-            };
-        }
-    };
-    let render_page = page_of(quote!(usage_argv::help::Style::auto()));
-    let render_page_stderr = page_of(quote!(usage_argv::help::Style::auto_stderr()));
     let runtime_program = cli
         .runtime_bin
         .as_ref()
@@ -1189,20 +1160,6 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };
-
-            // Values arrive as the bytes that were on the command line. This version
-            // holds them as `String`, and converts lossily, which is what mise
-            // already does with its own argv. Rejecting a non-UTF-8 value needs an
-            // error type for value conversion, and that arrives with typed fields.
-            pub fn __usage_text(value: &[u8]) -> ::std::vec::Vec<u8> {
-                value.to_vec()
-            }
-
-            pub fn __usage_value_text(
-                value: ::std::option::Option<&[u8]>,
-            ) -> ::std::vec::Vec<u8> {
-                value.map(__usage_text).unwrap_or_default()
-            }
 
             #partial
             #apply
@@ -1896,89 +1853,31 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         &usage_argv::spec::ViewMeta<'static>,
                     >,
                 ) -> ! {
-                    match __usage_error {
-                        // Not failures: someone asked a question, and the answer goes to stdout.
-                        usage_argv::Error::Version { long } => {
-                            #runtime_program_for_version
-                            let __usage_bin = __usage_selected_view
-                                .map(|view| view.bin)
-                                .unwrap_or(__usage_bin);
-                            let __usage_version = if long {
-                                #output_long_version
-                            } else {
-                                #runtime_version
-                            };
-                            ::std::println!("{__usage_bin} {__usage_version}");
-                            usage_argv::__usage_process_exit(0);
-                        }
-                        usage_argv::Error::Help { cmd, long } => {
-                            #effective_spec
-                            let __usage_want = if long {
-                                usage_argv::help::Page::Long
-                            } else {
-                                usage_argv::help::Page::Short
-                            };
-                            #render_page
-                            match __usage_page {
-                                ::std::option::Option::Some(page) => {
-                                    ::std::print!("{page}");
-                                    usage_argv::__usage_process_exit(0);
-                                }
-                                // Only reachable if the command came from another CLI's tables.
-                                ::std::option::Option::None => usage_argv::__usage_process_exit(0),
-                            }
-                        }
-                        usage_argv::Error::MissingArgsHelp { cmd } => {
-                            #effective_spec
-                            let __usage_want = usage_argv::help::Page::Short;
-                            #render_page_stderr
-                            match __usage_page {
-                                ::std::option::Option::Some(page) => {
-                                    ::std::eprint!("{page}");
-                                    usage_argv::__usage_process_exit(2);
-                                }
-                                ::std::option::Option::None => usage_argv::__usage_process_exit(2),
-                            }
-                        }
-                        usage_argv::Error::HelpAll { cmd } => {
-                            #effective_spec
-                            let __usage_want = usage_argv::help::Page::All;
-                            #render_page
-                            match __usage_page {
-                                ::std::option::Option::Some(page) => {
-                                    ::std::print!("{page}");
-                                    usage_argv::__usage_process_exit(0);
-                                }
-                                ::std::option::Option::None => usage_argv::__usage_process_exit(0),
-                            }
-                        }
-                        e => {
-                            #effective_spec
-                            let __usage_failure = match __usage_selected_view {
-                                ::std::option::Option::Some(view) => {
-                                    usage_argv::render_failure_view(
-                                        __usage_spec,
-                                        &__usage_all_refs,
-                                        &e,
-                                        view,
-                                    )
-                                }
-                                ::std::option::Option::None => {
-                                    usage_argv::render_failure(
-                                        __usage_spec,
-                                        &__usage_argv,
-                                        &e,
-                                    )
-                                }
-                            };
-                            ::std::eprint!(
-                                "{}",
-                                __usage_failure
-                            );
-                            // clap's, so a script that checks for it keeps working.
-                            usage_argv::__usage_process_exit(2);
-                        }
+                    // Only the version is answered here, because only this expansion knows it.
+                    // Everything else is the same for every CLI and lives in the runtime once,
+                    // handed the spec with any computed identity already applied.
+                    if let usage_argv::Error::Version { long } = __usage_error {
+                        #runtime_program_for_version
+                        let __usage_version = if long {
+                            #output_long_version
+                        } else {
+                            #runtime_version
+                        };
+                        usage_argv::__usage_exit_version(
+                            __usage_bin,
+                            __usage_selected_view,
+                            &__usage_version,
+                        );
                     }
+                    #effective_spec
+                    usage_argv::__usage_exit_on_error(
+                        __usage_error,
+                        __usage_spec,
+                        Self::command(),
+                        __usage_all_refs,
+                        __usage_argv,
+                        __usage_selected_view,
+                    )
                 }
             }
         };
@@ -3186,6 +3085,25 @@ fn key_consts(fingerprint: &str, flags: usize, args: usize) -> TokenStream {
     }
 }
 
+/// Route an event to one of `arms`: `_ if` arms, each guarded by the address of the table it
+/// binds.
+///
+/// Identity alone, tested in declaration order, rather than a `match` on the key first. A key
+/// match is a jump in principle, but once a parent inlines every flattened group's `apply`
+/// the optimizer merges all of their `match`es into one binary search over unrelated hashes:
+/// two 64-bit compares per flag before the identity check the arm needed anyway. An address
+/// compare per flag is smaller than that, and at a few dozen flags per command it is no slower
+/// than the search it replaces.
+fn identity_dispatch(arms: TokenStream) -> TokenStream {
+    quote! {
+        match () {
+            #arms
+            // Another declaration's item, left for whoever owns it.
+            _ => false,
+        }
+    }
+}
+
 /// The name of the `const` holding one key.
 fn key_ident(kind: &str, index: Option<usize>) -> proc_macro2::Ident {
     match index {
@@ -3418,7 +3336,6 @@ fn flagset_name(ty: &syn::Type) -> String {
 }
 
 fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
-    let key = key_ident("FLAG", Some(i));
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let direct = mirrored_global_ident(field).map(|mirrored| quote!(partial.#mirrored = false;));
@@ -3470,12 +3387,10 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
     let remember_invalid_choice = remember_invalid_flag_choice(field);
     let table = format_ident!("FLAG_{i}");
     quote! {
-        // The key gets us to the right arm in one jump; the identity check makes a
-        // collision harmless rather than wrong. Two identical declarations in
-        // different modules hash alike — a macro cannot see a module path — and
-        // without this, one command's flag would fill another's field. `static` items
-        // have distinct addresses, so this is exact.
-        #key if ::core::ptr::eq(*flag, &#table) => {
+        // Matched by the table's address rather than its key: `static` items have
+        // distinct addresses, so this is exact, and it is the one comparison the arm
+        // needs — see `identity_dispatch`.
+        _ if ::core::ptr::eq(*flag, &#table) => {
             #duplicate
             #remember_invalid_choice
             #body
@@ -3538,41 +3453,40 @@ fn remember_invalid_flag_choice(field: &Field) -> TokenStream {
         return TokenStream::new();
     }
     let invalid = format_ident!("__invalid_choice_{}", field.ident);
+    let found = invalid_choice_call(field, quote!(value), None);
+    // A repeat of a single-valued flag replaces the word, so it replaces the verdict too; a
+    // collecting flag keeps every word, and so every verdict.
+    if matches!(field.shape, Shape::Many) {
+        quote!(partial.#invalid |= #found;)
+    } else {
+        quote!(partial.#invalid = #found;)
+    }
+}
+
+/// The runtime check for a bound word against a field's choices, as one call.
+///
+/// `delimit` is the argument's own say in whether its delimiter applies this time; a flag's
+/// delimiter always does.
+fn invalid_choice_call(
+    field: &Field,
+    value: TokenStream,
+    delimit: Option<TokenStream>,
+) -> TokenStream {
     let accepted = accepted_choices(field);
     let ignore_case = choice_ignore_case(field);
-    let reset = (!matches!(field.shape, Shape::Many)).then(|| quote!(partial.#invalid = false;));
-    let check = quote! {
-        if let ::std::result::Result::Ok(__usage_choice_text) =
-            ::std::str::from_utf8(__usage_choice_value)
-        {
-            partial.#invalid |= !usage_argv::spec::choice_matches(
-                #accepted,
-                __usage_choice_text,
-                #ignore_case,
-            );
-        }
-    };
-    match field.delimiter {
+    let delimiter = match field.delimiter {
         Some(delimiter) => {
             let byte =
                 u8::try_from(u32::from(delimiter)).expect("the model rejects non-ASCII delimiters");
-            quote! {
-                #reset
-                if let ::std::option::Option::Some(__usage_choice_value) = value {
-                    for __usage_choice_value in
-                        __usage_choice_value.split(|byte| *byte == #byte)
-                    {
-                        #check
-                    }
-                }
+            match delimit {
+                Some(delimit) => quote!(#delimit.then_some(#byte)),
+                None => quote!(::std::option::Option::Some(#byte)),
             }
         }
-        None => quote! {
-            #reset
-            if let ::std::option::Option::Some(__usage_choice_value) = value {
-                #check
-            }
-        },
+        None => quote!(::std::option::Option::None),
+    };
+    quote! {
+        usage_argv::spec::invalid_choice_in(#value, #delimiter, #accepted, #ignore_case)
     }
 }
 
@@ -3601,25 +3515,24 @@ fn flag_binding_body(field: &Field) -> TokenStream {
         // Saturating, because a `u8` field given 256 occurrences would otherwise
         // panic in debug and wrap to zero in release.
         Shape::Count => quote!(partial.#ident = partial.#ident.saturating_add(1);),
+        // The copies are calls rather than expanded here: each is an allocation and the
+        // drop of what the field held, repeated at every value-taking field otherwise.
         Shape::Optional if field.optional_value_type => quote! {
-            partial.#ident = value.map(__usage_text);
+            usage_argv::bind_optional_text(&mut partial.#ident, value);
         },
         Shape::Optional => quote! {
-            partial.#ident = ::std::option::Option::Some(__usage_value_text(value));
+            usage_argv::bind_some_text(&mut partial.#ident, value);
         },
-        Shape::Required => quote!(partial.#ident = __usage_value_text(value);),
+        Shape::Required => quote!(usage_argv::bind_text(&mut partial.#ident, value);),
         Shape::Many => match field.delimiter {
             Some(delimiter) => {
                 let byte = u8::try_from(u32::from(delimiter))
                     .expect("the model rejects non-ASCII delimiters");
                 quote! {
-                    let value = __usage_value_text(value);
-                    for part in value.split(|b| *b == #byte) {
-                        partial.#ident.push(part.to_vec());
-                    }
+                    usage_argv::bind_push_split(&mut partial.#ident, value, #byte);
                 }
             }
-            None => quote!(partial.#ident.push(__usage_value_text(value));),
+            None => quote!(usage_argv::bind_push_text(&mut partial.#ident, value);),
         },
     }
 }
@@ -4019,7 +3932,6 @@ fn is_displaceable(cli: &Cli, field: &Field) -> bool {
 }
 
 fn arg_arm(i: usize, field: &Field) -> TokenStream {
-    let key = key_ident("ARG", Some(i));
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let body = match field.shape {
@@ -4029,66 +3941,46 @@ fn arg_arm(i: usize, field: &Field) -> TokenStream {
                     .expect("the model rejects non-ASCII delimiters");
                 quote! {
                     if delimit {
-                        for part in value.split(|b| *b == #byte) {
-                            partial.#ident.push(__usage_text(part));
-                        }
+                        usage_argv::bind_push_split(
+                            &mut partial.#ident,
+                            ::std::option::Option::Some(value),
+                            #byte,
+                        );
                     } else {
-                        partial.#ident.push(__usage_text(value));
-                    }
-                }
-            }
-            None => quote!(partial.#ident.push(__usage_text(value));),
-        },
-        Shape::Optional => quote! {
-            partial.#ident = ::std::option::Option::Some(__usage_text(value));
-        },
-        _ => quote!(partial.#ident = __usage_text(value);),
-    };
-    let remember_invalid_choice = if tracks_invalid_choice(field) {
-        let invalid = format_ident!("__invalid_choice_{}", field.ident);
-        let accepted = accepted_choices(field);
-        let ignore_case = choice_ignore_case(field);
-        let reset =
-            (!matches!(field.shape, Shape::Many)).then(|| quote!(partial.#invalid = false;));
-        let check = quote! {
-            if let ::std::result::Result::Ok(__usage_choice_text) =
-                ::std::str::from_utf8(__usage_choice_value)
-            {
-                partial.#invalid |= !usage_argv::spec::choice_matches(
-                    #accepted,
-                    __usage_choice_text,
-                    #ignore_case,
-                );
-            }
-        };
-        match field.delimiter {
-            Some(delimiter) => {
-                let byte = u8::try_from(u32::from(delimiter))
-                    .expect("the model rejects non-ASCII delimiters");
-                quote! {
-                    #reset
-                    if delimit {
-                        for __usage_choice_value in value.split(|byte| *byte == #byte) {
-                            #check
-                        }
-                    } else {
-                        let __usage_choice_value = value;
-                        #check
+                        usage_argv::bind_push_text(
+                            &mut partial.#ident,
+                            ::std::option::Option::Some(value),
+                        );
                     }
                 }
             }
             None => quote! {
-                #reset
-                let __usage_choice_value = value;
-                #check
+                usage_argv::bind_push_text(&mut partial.#ident, ::std::option::Option::Some(value));
             },
-        }
-    } else {
-        TokenStream::new()
+        },
+        Shape::Optional => quote! {
+            usage_argv::bind_some_text(&mut partial.#ident, ::std::option::Option::Some(value));
+        },
+        _ => quote! {
+            usage_argv::bind_text(&mut partial.#ident, ::std::option::Option::Some(value));
+        },
     };
+    let remember_invalid_choice = tracks_invalid_choice(field).then(|| {
+        let invalid = format_ident!("__invalid_choice_{}", field.ident);
+        let found = invalid_choice_call(
+            field,
+            quote!(::std::option::Option::Some(value)),
+            Some(quote!(delimit)),
+        );
+        if matches!(field.shape, Shape::Many) {
+            quote!(partial.#invalid |= #found;)
+        } else {
+            quote!(partial.#invalid = #found;)
+        }
+    });
     let table = format_ident!("ARG_{i}");
     quote! {
-        #key if ::core::ptr::eq(*arg, &#table) => {
+        _ if ::core::ptr::eq(*arg, &#table) => {
             #remember_invalid_choice
             #body
             partial.#given = true;
@@ -6352,7 +6244,9 @@ fn apply_fn(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let flag_dispatch = identity_dispatch(quote!(#(#flag_arms)*));
     let arg_arms = args.iter().enumerate().map(|(i, f)| arg_arm(i, f));
+    let arg_dispatch = identity_dispatch(quote!(#(#arg_arms)*));
 
     quote! {
         pub fn apply(
@@ -6371,11 +6265,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                 Event::Flag { flag, value, negated } => {
                     let (value, negated) = (*value, *negated);
                     let _ = (value, negated);
-                    match flag.key {
-                        #(#flag_arms)*
-                        // Another command's flag, left for whoever owns it.
-                        _ => false,
-                    }
+                    #flag_dispatch
                 }
                 Event::Arg {
                     arg,
@@ -6384,10 +6274,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                 } => {
                     let (value, delimit) = (*value, *delimit);
                     let _ = (value, delimit);
-                    match arg.key {
-                        #(#arg_arms)*
-                        _ => false,
-                    }
+                    #arg_dispatch
                 }
                 // Descending is the caller's business: it is what decides which
                 // command's fields the following events belong to. But any command
@@ -7105,16 +6992,6 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };
-
-            pub fn __usage_text(value: &[u8]) -> ::std::vec::Vec<u8> {
-                value.to_vec()
-            }
-
-            pub fn __usage_value_text(
-                value: ::std::option::Option<&[u8]>,
-            ) -> ::std::vec::Vec<u8> {
-                value.map(__usage_text).unwrap_or_default()
-            }
 
             #partial
             #apply
@@ -11056,36 +10933,34 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
     });
     let apply_arms = group.variants.iter().enumerate().map(|(i, member)| {
         let table = format_ident!("FLAG_{i}");
-        let key = key_ident("FLAG", Some(i));
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
-        let record = if multiple {
-            if member.value_ty.is_some() {
-                quote!(partial.ordered.push((#i, value.map(<[u8]>::to_vec)));)
+        let body = if member.value_ty.is_some() {
+            let ordered = if multiple {
+                quote!(::std::option::Option::Some(&mut partial.ordered))
             } else {
-                quote!(partial.ordered.push((#i, ::std::option::Option::None));)
-            }
-        } else {
-            quote!()
-        };
-        let assign = if member.value_ty.is_some() {
+                quote!(::std::option::Option::None)
+            };
             quote! {
-                if let ::std::option::Option::Some(value) = value {
-                    partial.#given = ::std::option::Option::Some(value.to_vec());
-                }
+                usage_argv::spec::bind_member_text(#ordered, #i, &mut partial.#given, *value);
             }
         } else {
-            quote!(partial.#given = true;)
+            let record =
+                multiple.then(|| quote!(partial.ordered.push((#i, ::std::option::Option::None));));
+            quote! {
+                #record
+                partial.#given = true;
+            }
         };
         quote! {
             #(#cfg)*
-            #key if ::core::ptr::eq(*flag, &#table) => {
-                #record
-                #assign
+            _ if ::core::ptr::eq(*flag, &#table) => {
+                #body
                 true
             }
         }
     });
+    let apply_dispatch = identity_dispatch(quote!(#(#apply_arms)*));
     let given_arms = group.variants.iter().enumerate().map(|(i, member)| {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
@@ -11494,11 +11369,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                     event: &usage_argv::Event<'_, '_, '_>,
                 ) -> bool {
                     match event {
-                        usage_argv::Event::Flag { flag, value, .. } => match flag.key {
-                            #(#apply_arms)*
-                            // Another declaration's flag, left for whoever owns it.
-                            _ => false,
-                        },
+                        usage_argv::Event::Flag { flag, value, .. } => #apply_dispatch,
                         _ => false,
                     }
                 }

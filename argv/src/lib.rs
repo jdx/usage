@@ -1141,6 +1141,82 @@ pub fn render_failure_view(
     ::std::format!("error: {error:?}\n")
 }
 
+/// Answer an error from a generated `parse()` the way a command-line program does, and leave.
+///
+/// A help request goes to stdout and exits 0; a request for help because nothing was given goes
+/// to stderr and exits 2; any other failure is rendered to stderr and exits 2, which is clap's
+/// status, so a script that checks for it keeps working. [`Error::Version`] is the caller's to
+/// answer before this, since only the generated code knows the version it prints.
+///
+/// Here rather than expanded into every CLI: the body is the same for all of them, and only the
+/// spec — which carries any computed identity the generated code has already evaluated — and
+/// the tables differ. `all_argv` includes argv0, which a view's route needs; `argv` does not.
+#[cfg(feature = "spec")]
+#[doc(hidden)]
+pub fn __usage_exit_on_error(
+    error: Error<'_, '_>,
+    spec: &spec::Spec<'_>,
+    root: &Command<'_>,
+    all_argv: &[&OsStr],
+    argv: &[&OsStr],
+    view: Option<&spec::ViewMeta<'_>>,
+) -> ! {
+    let (want, to_stderr, cmd) = match error {
+        Error::Help { cmd, long } => {
+            let want = if long {
+                help::Page::Long
+            } else {
+                help::Page::Short
+            };
+            (want, false, cmd)
+        }
+        Error::MissingArgsHelp { cmd } => (help::Page::Short, true, cmd),
+        Error::HelpAll { cmd } => (help::Page::All, false, cmd),
+        error => {
+            let failure = match view {
+                Some(view) => render_failure_view(spec, all_argv, &error, view),
+                None => render_failure(spec, argv, &error),
+            };
+            ::std::eprint!("{failure}");
+            __usage_process_exit(2);
+        }
+    };
+    let style = if to_stderr {
+        help::Style::auto_stderr()
+    } else {
+        help::Style::auto()
+    };
+    let page = match view {
+        Some(view) => help::page_view(spec, root, all_argv, cmd, view, want, style),
+        None => help::page(spec, root, argv, cmd, want, style),
+    };
+    // `None` is only reachable if the command came from another CLI's tables.
+    if let Some(page) = page {
+        if to_stderr {
+            ::std::eprint!("{page}");
+        } else {
+            ::std::print!("{page}");
+        }
+    }
+    __usage_process_exit(if to_stderr { 2 } else { 0 })
+}
+
+/// Print `bin version` for a generated `parse()`, and leave.
+///
+/// The half of [`__usage_exit_on_error`] the generated code answers itself, because the
+/// version is a declaration of that CLI; the printing and the exit are the same everywhere.
+#[cfg(feature = "spec")]
+#[doc(hidden)]
+pub fn __usage_exit_version(
+    bin: &str,
+    view: Option<&spec::ViewMeta<'_>>,
+    version: &dyn std::fmt::Display,
+) -> ! {
+    let bin = view.map_or(bin, |view| view.bin);
+    ::std::println!("{bin} {version}");
+    __usage_process_exit(0)
+}
+
 /// What a caller should print for the deprecations a command line used.
 ///
 /// The same arrangement as [`render_failure`], and for the same reason: whether the coloured
@@ -1640,6 +1716,49 @@ fn os_values_given<'t, 'v, T: From<OsString>>(
         }
     }
     Ok(out)
+}
+
+/// What a generated `apply` stores for a flag that takes one value: the word, or nothing
+/// when the flag arrived without one.
+///
+/// Out of line because the copy is an allocation, a `memcpy`, and the drop of whatever the
+/// field held before — a few dozen instructions that would otherwise be expanded at every
+/// value-taking field of every command.
+#[doc(hidden)]
+#[inline(never)]
+pub fn bind_text(slot: &mut Vec<u8>, value: Option<&[u8]>) {
+    *slot = value.map(<[u8]>::to_vec).unwrap_or_default();
+}
+
+/// [`bind_text`] for an `Option<T>` field, which a flag without a value still fills.
+#[doc(hidden)]
+#[inline(never)]
+pub fn bind_some_text(slot: &mut Option<Vec<u8>>, value: Option<&[u8]>) {
+    *slot = Some(value.map(<[u8]>::to_vec).unwrap_or_default());
+}
+
+/// [`bind_text`] for an `Option<Option<T>>` field, where a flag given without a value is
+/// the inner `None`.
+#[doc(hidden)]
+#[inline(never)]
+pub fn bind_optional_text(slot: &mut Option<Vec<u8>>, value: Option<&[u8]>) {
+    *slot = value.map(<[u8]>::to_vec);
+}
+
+/// [`bind_text`] for a collecting field: one more occurrence, appended.
+#[doc(hidden)]
+#[inline(never)]
+pub fn bind_push_text(slot: &mut Vec<Vec<u8>>, value: Option<&[u8]>) {
+    slot.push(value.map(<[u8]>::to_vec).unwrap_or_default());
+}
+
+/// [`bind_push_text`] for a field with a value delimiter: every part, appended in order.
+#[doc(hidden)]
+#[inline(never)]
+pub fn bind_push_split(slot: &mut Vec<Vec<u8>>, value: Option<&[u8]>, delimiter: u8) {
+    for part in value.unwrap_or_default().split(|b| *b == delimiter) {
+        slot.push(part.to_vec());
+    }
 }
 
 /// A single binding pass over `argv`.
