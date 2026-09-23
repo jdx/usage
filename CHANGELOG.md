@@ -1,5 +1,34 @@
 # Changelog
 
+## [6.11.1](https://github.com/jdx/usage/compare/v6.11.0..v6.11.1) - 2026-09-23
+
+### 🐛 Bug Fixes
+
+- **(help)** colour only the structure the renderer writes by [@jdx](https://github.com/jdx) in [#1480](https://github.com/jdx/usage/pull/1480)
+
+### ⚡ Performance
+
+- shrink the help and completion code usage-rs adds to a binary by [@jdx](https://github.com/jdx) in [#1469](https://github.com/jdx/usage/pull/1469)
+- keep rarely declared flag metadata out of every flag's table by [@jdx](https://github.com/jdx) in [#1470](https://github.com/jdx/usage/pull/1470)
+- write help rows through one renderer for both help pages by [@jdx](https://github.com/jdx) in [#1471](https://github.com/jdx/usage/pull/1471)
+- collect coloured-help structure while the page is written by [@jdx](https://github.com/jdx) in [#1476](https://github.com/jdx/usage/pull/1476)
+- shrink the per-CLI code the derive generates for binding by [@jdx](https://github.com/jdx) in [#1477](https://github.com/jdx/usage/pull/1477)
+- shrink the parse-error renderer usage-rs adds to a binary by [@jdx](https://github.com/jdx) in [#1478](https://github.com/jdx/usage/pull/1478)
+- shrink the shell-completion code a derived CLI carries by [@jdx](https://github.com/jdx) in [#1475](https://github.com/jdx/usage/pull/1475)
+- keep rarely declared command metadata out of every command's table by [@jdx](https://github.com/jdx) in [#1472](https://github.com/jdx/usage/pull/1472)
+- shrink the command and metadata tables a derive emits by [@jdx](https://github.com/jdx) in [#1474](https://github.com/jdx/usage/pull/1474)
+
+### 🔍 Other Changes
+
+- **(ci)** comment on a discussion when the PR implementing it merges by [@jdx](https://github.com/jdx) in [#1460](https://github.com/jdx/usage/pull/1460)
+
+### 📦️ Dependency Updates
+
+- update jdx/packslip action to v1.2.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1466](https://github.com/jdx/usage/pull/1466)
+- update zizmorcore/zizmor-action action to v0.6.4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1465](https://github.com/jdx/usage/pull/1465)
+- update module github.com/urfave/cli/v3 to v3.12.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1467](https://github.com/jdx/usage/pull/1467)
+- update aube to v2.3.0 by [@jdx](https://github.com/jdx) in [#1473](https://github.com/jdx/usage/pull/1473)
+
 ## [6.11.0](https://github.com/jdx/usage/compare/v6.10.0..v6.11.0) - 2026-09-21
 
 ### 🚀 Features
