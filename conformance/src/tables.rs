@@ -123,7 +123,7 @@ pub fn build(
         aliases: Box::leak(aliases.into_boxed_slice()),
         flags: Box::leak(flags.clone().into_boxed_slice()),
         args: Box::leak(args.clone().into_boxed_slice()),
-        clause,
+        clause: clause.map(|clause| &*Box::leak(Box::new(clause))),
         subcommands: Box::leak(
             subs.iter()
                 .map(|s| s.cmd)
@@ -205,7 +205,7 @@ pub fn build(
                 .into_boxed_slice(),
         ),
         hide: cmd.hide,
-        display_order: cmd.display_order,
+        display_order: cmd.display_order.map(saturate_u32),
         help_heading: opt(&cmd.help_heading),
         surface: opt(&cmd.surface),
         available_if: strs(&cmd.available_if),
@@ -214,14 +214,14 @@ pub fn build(
         // first is the one the tables can hold.
         mount: cmd.mounts.first().map(|m| leak(&m.run)),
         restart_token: opt(&cmd.restart_token),
-        clause: clause_meta,
+        clause: clause_meta.map(|clause| &*Box::leak(Box::new(clause))),
         subcommand_required: cmd.subcommand_required,
         subcommand_help_heading: opt(&cmd.subcommand_help_heading),
         subcommand_value_name: opt(&cmd.subcommand_value_name),
         next_line_help: cmd.next_line_help,
         flatten_help: cmd.flatten_help,
-        term_width: cmd.term_width,
-        max_term_width: cmd.max_term_width,
+        term_width: cmd.term_width.map(saturate_u16),
+        max_term_width: cmd.max_term_width.map(saturate_u16),
         args_override_self: cmd.args_override_self,
         before_help: opt(&cmd.before_help),
         before_long_help: opt(&cmd.before_help_long),
@@ -365,9 +365,7 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
             .as_ref()
             .filter(|a| a.var)
             .and_then(|a| a.var_max)
-            // Saturating rather than truncating: `4294967296 as u32` is zero, which would read
-            // as "stop at once" rather than "no real limit".
-            .map(|max| u32::try_from(max).unwrap_or(u32::MAX)),
+            .map(saturate_u32),
         // A bound counts values, and this is what says how many a word carries. ASCII, not
         // "fits in a byte": `§` is one byte as a scalar and two as UTF-8, and matching its
         // low byte would find the continuation bytes inside unrelated characters. The spec
@@ -408,10 +406,7 @@ fn build_arg(a: &SpecArg) -> &'static Arg<'static> {
         required: a.required,
         name: leak(&a.name),
         var: a.var,
-        var_max: a
-            .var_max
-            .filter(|_| a.var)
-            .map(|max| u32::try_from(max).unwrap_or(u32::MAX)),
+        var_max: a.var_max.filter(|_| a.var).map(saturate_u32),
         delimiter: a.delimiter.filter(char::is_ascii).map(|d| d as u8),
         allow_negative_numbers: a.allow_negative_numbers,
         value_terminator: a
@@ -476,10 +471,10 @@ fn flag_meta(
             // The separator as declared, a `char`: the metadata is the cold model and says what
             // the spec said, where the binding table beside it holds the byte binding counts by.
             delimiter: arg.and_then(|a| a.delimiter),
-            var_min: f.var_min,
-            var_max: f.var_max,
-            value_var_min: arg.and_then(|a| a.var_min),
-            value_var_max: arg.and_then(|a| a.var_max),
+            var_min: f.var_min.map(saturate_u32),
+            var_max: f.var_max.map(saturate_u32),
+            value_var_min: arg.and_then(|a| a.var_min).map(saturate_u32),
+            value_var_max: arg.and_then(|a| a.var_max).map(saturate_u32),
             overrides: strs(&f.overrides),
             conflicts: strs(&f.conflicts),
             requires: strs(&f.requires),
@@ -530,7 +525,7 @@ fn flag_meta(
             required_unless_all: strs(&f.required_unless_all),
             surface: opt(&f.surface),
             available_if: strs(&f.available_if),
-            display_order: f.display_order,
+            display_order: f.display_order.map(saturate_u32),
             effect: f.effect.map(effect),
             complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
         })),
@@ -563,7 +558,7 @@ fn arg_meta(
         validate_error: a.validate_error.as_deref().map(leak),
         required: a.required,
         hide: a.hide,
-        display_order: a.display_order,
+        display_order: a.display_order.map(saturate_u32),
         hide_default_value: a.hide_default_value,
         hide_env: a.hide_env,
         hide_env_values: a.hide_env_values,
@@ -596,8 +591,8 @@ fn arg_meta(
         required_unless: strs(&a.required_unless),
         required_unless_all: strs(&a.required_unless_all),
         delimiter: a.delimiter,
-        var_min: a.var_min,
-        var_max: a.var_max,
+        var_min: a.var_min.map(saturate_u32),
+        var_max: a.var_max.map(saturate_u32),
         help_heading: opt(&a.help_heading),
         surface: opt(&a.surface),
         available_if: strs(&a.available_if),
@@ -888,6 +883,20 @@ fn examples(list: &[SpecExample]) -> &'static [Example<'static>] {
             .collect::<Vec<_>>()
             .into_boxed_slice(),
     )
+}
+
+/// A count or position from the spec, in the `u32` the tables hold it in.
+///
+/// Saturating rather than truncating: `4294967296 as u32` is zero, which would read as "stop
+/// at once" rather than "no real limit", and would move a far-last `display_order` to the front.
+fn saturate_u32(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+/// A terminal width from the spec, in the `u16` the tables hold it in. Saturating for the
+/// reason given on [`saturate_u32`]; zero keeps meaning "unlimited".
+fn saturate_u16(value: usize) -> u16 {
+    u16::try_from(value).unwrap_or(u16::MAX)
 }
 
 pub fn leak(s: &str) -> &'static str {

@@ -1669,9 +1669,9 @@ pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
     out
 }
 
-fn exact_arity(min: Option<usize>, max: Option<usize>) -> Option<usize> {
+fn exact_arity(min: Option<u32>, max: Option<u32>) -> Option<usize> {
     match (min, max) {
-        (Some(min), Some(max)) if min == max => Some(min),
+        (Some(min), Some(max)) if min == max => Some(min as usize),
         _ => None,
     }
 }
@@ -2546,7 +2546,10 @@ fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>])
     fn compare(a: &ArgMeta<'_>, b: &ArgMeta<'_>, declared: &[ArgMeta<'_>]) -> core::cmp::Ordering {
         let key = |item: &ArgMeta<'_>| {
             let position = declaration_position(item, declared);
-            (item.display_order.unwrap_or(position), position)
+            (
+                item.display_order.map_or(position, |order| order as usize),
+                position,
+            )
         };
         key(a).cmp(&key(b))
     }
@@ -2561,7 +2564,12 @@ fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a
     ) -> core::cmp::Ordering {
         let key = |item: &FlagMeta<'_>| {
             let position = declaration_position(item, declared);
-            (item.extra.display_order.unwrap_or(position), position)
+            (
+                item.extra
+                    .display_order
+                    .map_or(position, |order| order as usize),
+                position,
+            )
         };
         key(a).cmp(&key(b))
     }
@@ -2760,7 +2768,11 @@ fn examples_section(out: &mut String, examples: &[Example<'_>]) {
 /// 80 on a terminal twice that wide, because no shell exports it.
 fn terminal_width(meta: &CommandMeta<'_>) -> usize {
     if let Some(width) = meta.term_width {
-        return if width == 0 { usize::MAX } else { width };
+        return if width == 0 {
+            usize::MAX
+        } else {
+            usize::from(width)
+        };
     }
     let detected = std::env::var("COLUMNS")
         .ok()
@@ -2770,7 +2782,7 @@ fn terminal_width(meta: &CommandMeta<'_>) -> usize {
         .unwrap_or(80);
     match meta.max_term_width {
         Some(0) | None => detected,
-        Some(max) => detected.min(max),
+        Some(max) => detected.min(usize::from(max)),
     }
 }
 
@@ -3903,7 +3915,12 @@ fn own_and_global<'a>(
                 .iter()
                 .position(|candidate| core::ptr::eq(*candidate, flag))
                 .unwrap_or(usize::MAX);
-            (flag.extra.display_order.unwrap_or(position), position)
+            (
+                flag.extra
+                    .display_order
+                    .map_or(position, |order| order as usize),
+                position,
+            )
         };
         sort_rows(&mut inherited, &mut |a, b| key(a.0).cmp(&key(b.0)));
 
@@ -4684,7 +4701,7 @@ mod style_tests {
         let command = Command {
             name: "run",
             flags: &[&postinstall],
-            clause: Some(Clause {
+            clause: Some(&Clause {
                 key: 0,
                 name: "tasks",
                 separator: Some(b":::"),
@@ -4714,7 +4731,7 @@ mod style_tests {
                 help: Some("Command to run after install"),
                 ..FlagMeta::EMPTY
             }],
-            clause: Some(ClauseMeta {
+            clause: Some(&ClauseMeta {
                 name: "tasks",
                 separator: Some(":::"),
                 flags: &[FlagMeta {

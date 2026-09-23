@@ -214,7 +214,10 @@ pub struct Command<'a> {
     /// Positional arguments, in the order they are filled.
     pub args: &'a [&'a Arg<'a>],
     /// A repeatable group of scoped flags and positional arguments, if this command has one.
-    pub clause: ::core::option::Option<Clause<'a>>,
+    ///
+    /// Behind a reference because hardly any command has one: held inline, the clause's five
+    /// slices were two thirds of every command's table whether it declared one or not.
+    pub clause: ::core::option::Option<&'a Clause<'a>>,
     pub subcommands: &'a [&'a Command<'a>],
     /// Where a word goes when it names no subcommand of this one.
     ///
@@ -1735,7 +1738,7 @@ pub struct Parser<'t, 'a, 'v> {
     /// themselves, so the parser keeps allocating nothing.
     help_span: (usize, usize),
     /// An implicit clause boundary follows the positional event that completed it.
-    pending_clause_boundary: ::core::option::Option<Clause<'t>>,
+    pending_clause_boundary: ::core::option::Option<&'t Clause<'t>>,
 }
 
 impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
@@ -2133,7 +2136,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             self.arg_filled = false;
             self.collecting = None;
             self.flags_stopped = false;
-            return Some(Ok(Event::ClauseSeparator { clause }));
+            return Some(Ok(Event::ClauseSeparator { clause: *clause }));
         }
         // A partly-read short bundle takes priority: its remaining bytes are
         // still part of the token being processed.
@@ -2219,7 +2222,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             if self.depth == 0 {
                 self.clause_separator_seen = true;
             }
-            return Some(Ok(Event::ClauseSeparator { clause }));
+            return Some(Ok(Event::ClauseSeparator { clause: *clause }));
         }
 
         // An automatic trailing argument stops flag interpretation without consuming an
@@ -2519,7 +2522,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         }
     }
 
-    fn clause_separator(&self, token: &[u8]) -> Option<Clause<'t>> {
+    fn clause_separator(&self, token: &[u8]) -> Option<&'t Clause<'t>> {
         (!self.separator_seen)
             .then_some(self.cmd.clause)
             .flatten()
@@ -3094,7 +3097,7 @@ mod tests {
         };
         static ROOT: Command = Command {
             name: "ex",
-            clause: Some(Clause {
+            clause: Some(&Clause {
                 key: 90,
                 name: "tasks",
                 separator: Some(b":::"),
@@ -3149,7 +3152,7 @@ mod tests {
         static ROOT: Command = Command {
             name: "ex",
             flags: &[&POSTINSTALL],
-            clause: Some(Clause {
+            clause: Some(&Clause {
                 key: 95,
                 name: "tools",
                 separator: Some(b":::"),
@@ -3996,7 +3999,7 @@ mod tests {
         };
         static ROOT: Command = Command {
             name: "ex",
-            clause: Some(Clause {
+            clause: Some(&Clause {
                 key: 400,
                 name: "items",
                 separator: Some(b":::"),
@@ -4012,7 +4015,7 @@ mod tests {
         assert_eq!(
             parse(&ROOT, &a).unwrap(),
             vec![Event::ClauseSeparator {
-                clause: ROOT.clause.unwrap(),
+                clause: *ROOT.clause.unwrap(),
             }]
         );
     }

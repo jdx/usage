@@ -208,8 +208,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let subcommand_value_name = option_str(cli.subcommand_value_name.as_deref());
     let next_line_help = cli.next_line_help;
     let flatten_help = cli.flatten_help;
-    let term_width = option_usize(cli.term_width);
-    let max_term_width = option_usize(cli.max_term_width);
+    let term_width = option_u16(cli.term_width);
+    let max_term_width = option_u16(cli.max_term_width);
     let usage = option_str(cli.usage.as_deref());
     let help_template = option_str(cli.help_template.as_deref());
     let logo = option_expr(cli.logo.as_ref());
@@ -269,7 +269,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     quote!(::core::option::Option::Some(#separator))
                 },
             );
-            quote!(::core::option::Option::Some(usage_argv::Clause {
+            quote!(::core::option::Option::Some(&usage_argv::Clause {
                 key: 0,
                 name: #name,
                 separator: #separator,
@@ -282,7 +282,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .map(|(field, ty, separator)| {
             let name = proc_macro2::Literal::string(&field.name);
             let separator = option_str(separator.as_deref());
-            quote!(::core::option::Option::Some(usage_argv::spec::ClauseMeta {
+            quote!(::core::option::Option::Some(&usage_argv::spec::ClauseMeta {
                 name: #name,
                 separator: #separator,
                 help: ::core::option::Option::None,
@@ -2707,7 +2707,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let help_heading = option_str(field.help_heading.as_deref());
     let surface = option_str(field.surface.as_deref());
     let available_if = &field.available_if;
-    let display_order = option_usize(field.display_order);
+    let display_order = option_u32(field.display_order);
     let deprecated = option_str(field.deprecated.as_deref());
     let deprecated_warn_at = option_str(field.deprecated_warn_at.as_deref());
     let deprecated_remove_at = option_str(field.deprecated_remove_at.as_deref());
@@ -2915,7 +2915,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let help_heading = option_str(field.help_heading.as_deref());
     let surface = option_str(field.surface.as_deref());
     let available_if = &field.available_if;
-    let display_order = option_usize(field.display_order);
+    let display_order = option_u32(field.display_order);
     let complete_type = option_str(field.complete_type.as_deref());
     let value_names = &field.value_names;
     let defaults = &field.default;
@@ -3114,20 +3114,15 @@ fn selector_choices<'a>(cli: &'a Cli, field: &Field) -> Option<&'a [crate::model
 
 /// A field's declared bounds, as the metadata holds them.
 fn bounds_tokens(field: &Field) -> (TokenStream, TokenStream) {
-    let render = |bound: Option<usize>| match bound {
-        Some(n) => quote!(::std::option::Option::Some(#n)),
-        None => quote!(::std::option::Option::None),
-    };
-    (render(field.var_min), render(field.var_max))
+    (option_u32(field.var_min), option_u32(field.var_max))
 }
 
 /// Bounds on the values consumed by one flag occurrence.
 fn value_bounds_tokens(field: &Field) -> (TokenStream, TokenStream) {
-    let render = |bound: Option<usize>| match bound {
-        Some(n) => quote!(::std::option::Option::Some(#n)),
-        None => quote!(::std::option::Option::None),
-    };
-    (render(field.value_var_min), render(field.value_var_max))
+    (
+        option_u32(field.value_var_min),
+        option_u32(field.value_var_max),
+    )
 }
 
 /// Which kind of thing a key belongs to, in the bits above its index.
@@ -4245,9 +4240,30 @@ fn option_expr(value: Option<&TokenStream>) -> TokenStream {
     }
 }
 
-fn option_usize(value: Option<usize>) -> TokenStream {
+/// A declared count or position, in the `u32` the metadata holds it in.
+///
+/// Saturating, as the parse table's `var_max` is: `as` would wrap `4294967296` to zero,
+/// turning "no practical bound" into "none allowed" and a far-last `display_order` into
+/// the first. Nothing is declared anywhere near that large, and clamping keeps the order
+/// and the bound pointing the way the author meant.
+fn option_u32(value: Option<usize>) -> TokenStream {
     match value {
-        Some(v) => quote!(::std::option::Option::Some(#v)),
+        Some(v) => {
+            let v = u32::try_from(v).unwrap_or(u32::MAX);
+            quote!(::std::option::Option::Some(#v))
+        }
+        None => quote!(::std::option::Option::None),
+    }
+}
+
+/// A terminal width, in the `u16` the metadata holds it in. Saturating for the reason
+/// given on [`option_u32`]: a width past 65535 columns means "never wrap" either way.
+fn option_u16(value: Option<usize>) -> TokenStream {
+    match value {
+        Some(v) => {
+            let v = u16::try_from(v).unwrap_or(u16::MAX);
+            quote!(::std::option::Option::Some(#v))
+        }
         None => quote!(::std::option::Option::None),
     }
 }
@@ -6734,8 +6750,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let subcommand_value_name = option_str(cli.subcommand_value_name.as_deref());
     let next_line_help = cli.next_line_help;
     let flatten_help = cli.flatten_help;
-    let term_width = option_usize(cli.term_width);
-    let max_term_width = option_usize(cli.max_term_width);
+    let term_width = option_u16(cli.term_width);
+    let max_term_width = option_u16(cli.max_term_width);
     let unknown_flags = unknown_flags_tokens(cli);
     let arg_required_else_help = cli.arg_required_else_help;
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
@@ -6791,7 +6807,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     quote!(::core::option::Option::Some(#value))
                 },
             );
-            quote!(::core::option::Option::Some(usage_argv::Clause {
+            quote!(::core::option::Option::Some(&usage_argv::Clause {
                 key: 0, name: #name, separator: #separator,
                 flags: <#ty as usage_argv::spec::CommandArgs>::COMMAND.flags,
                 args: <#ty as usage_argv::spec::CommandArgs>::COMMAND.args,
@@ -6803,7 +6819,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         |(field, ty, separator)| {
             let name = proc_macro2::Literal::string(&field.name);
             let separator = option_str(separator.as_deref());
-            quote!(::core::option::Option::Some(usage_argv::spec::ClauseMeta {
+            quote!(::core::option::Option::Some(&usage_argv::spec::ClauseMeta {
                 name: #name, separator: #separator, help: ::core::option::Option::None,
                 long_help: ::core::option::Option::None,
                 flags: <#ty as usage_argv::spec::CommandArgs>::META.flags,
@@ -8316,7 +8332,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 let conditions = &v.available_if;
                 quote!(&[#(#conditions),*])
             };
-            let display_order = option_usize(v.display_order);
+            let display_order = option_u32(v.display_order);
             quote! {
                 const #hidden_groups: &[&[&str]] = &[
                     <#ty as usage_argv::spec::CommandArgs>::META.hidden_aliases,
