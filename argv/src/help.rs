@@ -882,7 +882,7 @@ pub const fn __usage_advanced_help(enabled: bool) -> bool {
 }
 
 fn flatten_help(meta: &CommandMeta<'_>) -> bool {
-    __usage_advanced_help(meta.flatten_help)
+    __usage_advanced_help(meta.extra.flatten_help)
 }
 
 fn help_structure(
@@ -896,7 +896,7 @@ fn help_structure(
     let meta = *chain.last().expect("a page is always about some command");
     let mut headings = Vec::new();
     let mut command_usages = Vec::new();
-    if !meta.examples.is_empty() {
+    if !meta.extra.examples.is_empty() {
         headings.push("Examples".to_string());
     }
     if flatten_help(meta) {
@@ -912,7 +912,8 @@ fn help_structure(
             command_usages.push(HELP_SUBCOMMAND.to_string());
         }
         headings.push(
-            meta.subcommand_help_heading
+            meta.extra
+                .subcommand_help_heading
                 .unwrap_or("Commands")
                 .to_string(),
         );
@@ -920,7 +921,7 @@ fn help_structure(
             meta.subcommands
                 .iter()
                 .filter(|sub| !sub.hide)
-                .filter_map(|sub| sub.help_heading)
+                .filter_map(|sub| sub.extra.help_heading)
                 .map(str::to_string),
         );
     }
@@ -1265,11 +1266,11 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
 }
 
 fn positional_args<'a>(meta: &'a CommandMeta<'a>) -> &'a [ArgMeta<'a>] {
-    meta.clause.map_or(meta.args, |clause| clause.args)
+    meta.extra.clause.map_or(meta.args, |clause| clause.args)
 }
 
 fn is_clause_flag(meta: &CommandMeta<'_>, flag: &FlagMeta<'_>) -> bool {
-    meta.clause.is_some_and(|clause| {
+    meta.extra.clause.is_some_and(|clause| {
         clause
             .flags
             .iter()
@@ -1321,7 +1322,7 @@ fn usage_line_with_subcommands(
     let args: usize = positional_args.iter().filter(|a| !a.hide).count();
     if args > 0 {
         let required = positional_args.iter().any(|a| !a.hide && demanded(a));
-        if let Some(clause) = meta.clause {
+        if let Some(clause) = meta.extra.clause {
             let inner = positional_args
                 .iter()
                 .filter(|a| !a.hide)
@@ -1357,8 +1358,8 @@ fn usage_line_with_subcommands(
     }
 
     if include_subcommands && !meta.cmd.subcommands.is_empty() {
-        let name = meta.subcommand_value_name.unwrap_or("SUBCOMMAND");
-        if meta.subcommand_required {
+        let name = meta.extra.subcommand_value_name.unwrap_or("SUBCOMMAND");
+        if meta.extra.subcommand_required {
             let _ = write!(out, " <{name}>");
         } else {
             let _ = write!(out, " [{name}]");
@@ -1389,7 +1390,7 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
     }
     sort_rows(&mut visible, &mut |a, b| compare_names(a, b));
     let mut lines = Vec::new();
-    if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
+    if !meta.extra.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
         lines.push(usage_line_with_subcommands(path, meta, false));
     }
     for sub in visible {
@@ -1740,7 +1741,7 @@ fn short_sections(
 
     // Text the command puts above everything else, and below it. The short form has only the
     // one pair; the long form prefers the long variants.
-    if let Some(before) = meta.before_help {
+    if let Some(before) = meta.extra.before_help {
         write_wrapped_indented(out, before, width, 0);
         out.push('\n');
     }
@@ -1812,7 +1813,7 @@ fn short_sections(
         |_| None,
         |out, a| {
             let usage = arg_usage(a);
-            if meta.next_line_help {
+            if meta.extra.next_line_help {
                 let _ = writeln!(out, "  {usage}");
                 if let Some(help) = a.help.filter(|h| !h.trim().is_empty()) {
                     write_wrapped_block(out, help, width);
@@ -1868,7 +1869,7 @@ fn short_sections(
         .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
     let short_entry = |out: &mut String, f: &FlagMeta<'_>, usage: String| {
-        if meta.next_line_help {
+        if meta.extra.next_line_help {
             let _ = writeln!(out, "  {usage}");
             if let Some(help) = f.help.filter(|h| !h.trim().is_empty()) {
                 write_wrapped_block(out, help, width);
@@ -1964,8 +1965,8 @@ fn short_sections(
             width,
         );
     }
-    examples_section(&mut sections.after_help, meta.examples);
-    if let Some(after) = meta.after_help {
+    examples_section(&mut sections.after_help, meta.extra.examples);
+    if let Some(after) = meta.extra.after_help {
         sections.after_help.push('\n');
         write_wrapped_indented(&mut sections.after_help, after, width, 0);
     }
@@ -2095,9 +2096,10 @@ fn commands_section(
         })
         .collect();
     sort_rows(&mut lines, &mut |a, b| {
-        a.1.display_order
+        a.1.extra
+            .display_order
             .unwrap_or(999)
-            .cmp(&b.1.display_order.unwrap_or(999))
+            .cmp(&b.1.extra.display_order.unwrap_or(999))
             .then_with(|| a.0.cmp(&b.0))
     });
 
@@ -2112,7 +2114,7 @@ fn commands_section(
         .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
 
-    let default_title = meta.subcommand_help_heading.unwrap_or("Commands");
+    let default_title = meta.extra.subcommand_help_heading.unwrap_or("Commands");
     let mut headings = vec![None];
     for (_, sub) in &lines {
         let heading = command_help_section(sub, default_title);
@@ -2141,7 +2143,7 @@ fn commands_section(
                 command_row(sub, default_name == Some(sub.cmd.name)).as_deref(),
                 col,
                 width,
-                meta.next_line_help,
+                meta.extra.next_line_help,
             );
         }
         if heading.is_none() && show_help {
@@ -2151,7 +2153,7 @@ fn commands_section(
                 Some(HELP_SUBCOMMAND_SUMMARY),
                 col,
                 width,
-                meta.next_line_help,
+                meta.extra.next_line_help,
             );
         }
     }
@@ -2173,12 +2175,12 @@ fn command_row<'a>(sub: &'a CommandMeta<'a>, is_default: bool) -> Option<Cow<'a,
         .aliases
         .iter()
         .copied()
-        .filter(|a| !sub.hidden_aliases.contains(a))
+        .filter(|a| !sub.extra.hidden_aliases.contains(a))
         .peekable();
     let label = deprecation_label(
-        sub.deprecated,
-        sub.deprecated_warn_at,
-        sub.deprecated_remove_at,
+        sub.extra.deprecated,
+        sub.extra.deprecated_warn_at,
+        sub.extra.deprecated_remove_at,
     );
     // A summary and nothing else is what almost every row is, and borrowing it there keeps the
     // whole list off the allocator — which `usage --help` notices, since it renders one.
@@ -2255,7 +2257,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
             .unwrap_or(0);
         for arg in args {
             let usage = arg_usage(arg);
-            if meta.next_line_help {
+            if meta.extra.next_line_help {
                 let _ = writeln!(out, "  {usage}");
                 if let Some(help) = arg.help.filter(|help| !help.trim().is_empty()) {
                     write_wrapped_block(out, help, width);
@@ -2314,7 +2316,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
         }
         for flag in flags {
             let usage = column_usage(flag);
-            if meta.next_line_help {
+            if meta.extra.next_line_help {
                 let _ = writeln!(out, "  {usage}");
                 if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
                     write_wrapped_block(out, help, width);
@@ -2424,6 +2426,7 @@ fn flatten_site_heading<'a>(
 /// flattened type that declared the text where it declared the group.
 fn heading_help<'a>(meta: &'a CommandMeta<'a>, title: &str) -> Option<&'a str> {
     if let Some(found) = meta
+        .extra
         .headings
         .iter()
         .find(|heading| heading.title == title)
@@ -2570,16 +2573,19 @@ fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a
 
 fn order_commands(items: &mut Vec<&&CommandMeta<'_>>) {
     fn compare(a: &CommandMeta<'_>, b: &CommandMeta<'_>) -> core::cmp::Ordering {
-        a.display_order
+        a.extra
+            .display_order
             .unwrap_or(999)
-            .cmp(&b.display_order.unwrap_or(999))
+            .cmp(&b.extra.display_order.unwrap_or(999))
             .then_with(|| a.cmd.name.cmp(b.cmd.name))
     }
     sort_rows(items, &mut |a, b| compare(a, b));
 }
 
 fn command_help_section<'a>(sub: &'a CommandMeta<'a>, default_title: &str) -> Option<&'a str> {
-    sub.help_heading.filter(|heading| *heading != default_title)
+    sub.extra
+        .help_heading
+        .filter(|heading| *heading != default_title)
 }
 
 /// The bracketed notes after an entry's help, composed before the narrow layout wraps them.
@@ -2759,7 +2765,7 @@ fn examples_section(out: &mut String, examples: &[Example<'_>]) {
 /// log. `COLUMNS` alone used to be the whole rule, which meant almost every CLI wrapped at
 /// 80 on a terminal twice that wide, because no shell exports it.
 fn terminal_width(meta: &CommandMeta<'_>) -> usize {
-    if let Some(width) = meta.term_width {
+    if let Some(width) = meta.extra.term_width {
         return if width == 0 { usize::MAX } else { width };
     }
     let detected = std::env::var("COLUMNS")
@@ -2768,7 +2774,7 @@ fn terminal_width(meta: &CommandMeta<'_>) -> usize {
         .filter(|columns| *columns > 0)
         .or_else(probed_width)
         .unwrap_or(80);
-    match meta.max_term_width {
+    match meta.extra.max_term_width {
         Some(0) | None => detected,
         Some(max) => detected.min(max),
     }
@@ -2864,7 +2870,7 @@ fn long_sections(
     let mut sections = Sections::default();
     let out = &mut sections.about;
 
-    if let Some(before) = meta.before_long_help.or(meta.before_help) {
+    if let Some(before) = meta.extra.before_long_help.or(meta.extra.before_help) {
         write_wrapped_indented(out, before, width, 0);
         out.push('\n');
     }
@@ -2942,7 +2948,7 @@ fn long_sections(
                 text,
                 arg_col,
                 width,
-                meta.next_line_help,
+                meta.extra.next_line_help,
             );
             admonitions(out, a.admonitions, width);
             long_annotations(
@@ -2989,7 +2995,7 @@ fn long_sections(
                 text,
                 flag_col,
                 width,
-                meta.next_line_help,
+                meta.extra.next_line_help,
             );
             admonitions(out, f.extra.admonitions, width);
             long_annotations(
@@ -3033,7 +3039,7 @@ fn long_sections(
         |_| None,
         |out, (f, usage)| {
             let text = f.long_help.or(f.help);
-            let indent = entry(out, usage, text, flag_col, width, meta.next_line_help);
+            let indent = entry(out, usage, text, flag_col, width, meta.extra.next_line_help);
             admonitions(out, f.extra.admonitions, width);
             long_annotations(
                 out,
@@ -3069,7 +3075,7 @@ fn long_sections(
     }
 
     let out = &mut sections.after_help;
-    let examples = meta.examples;
+    let examples = meta.extra.examples;
     if !examples.is_empty() {
         let _ = writeln!(out, "\nExamples:");
         // Separated as the short page separates them; see `examples_section`.
@@ -3089,7 +3095,7 @@ fn long_sections(
         }
     }
 
-    let after = meta.after_long_help.or(meta.after_help);
+    let after = meta.extra.after_long_help.or(meta.extra.after_help);
     if let Some(after) = after {
         out.push('\n');
         write_wrapped_indented(out, after, width, 0);
@@ -3474,9 +3480,9 @@ fn deprecation_label(
 
 fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, width: usize) {
     if let Some(label) = deprecation_label(
-        meta.deprecated,
-        meta.deprecated_warn_at,
-        meta.deprecated_remove_at,
+        meta.extra.deprecated,
+        meta.extra.deprecated_warn_at,
+        meta.extra.deprecated_remove_at,
     ) {
         write_wrapped_indented(out, &label, width, indent);
     }
@@ -3552,7 +3558,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 arg.long_help.or(arg.help),
                 arg_col,
                 width,
-                meta.next_line_help,
+                meta.extra.next_line_help,
             );
             admonitions(out, arg.admonitions, width);
             long_annotations(
@@ -3587,7 +3593,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 flag.long_help.or(flag.help),
                 flag_col,
                 width,
-                meta.next_line_help,
+                meta.extra.next_line_help,
             );
             admonitions(out, flag.extra.admonitions, width);
             long_annotations(
@@ -4598,7 +4604,8 @@ mod style_tests {
         Palette, Shown, Style,
     };
     use crate::spec::{
-        ArgMeta, ClauseMeta, CommandMeta, Example, FlagExtra, FlagMeta, Spec, ViewMeta,
+        ArgMeta, ClauseMeta, CommandExtra, CommandMeta, Example, FlagExtra, FlagMeta, Spec,
+        ViewMeta,
     };
     use crate::{Arg, ArgAction, Clause, Command, Flag};
 
@@ -4714,20 +4721,23 @@ mod style_tests {
                 help: Some("Command to run after install"),
                 ..FlagMeta::EMPTY
             }],
-            clause: Some(ClauseMeta {
-                name: "tasks",
-                separator: Some(":::"),
-                flags: &[FlagMeta {
-                    flag: &postinstall,
-                    required: true,
-                    help: Some("Command to run after install"),
-                    ..FlagMeta::EMPTY
-                }],
-                help: None,
-                long_help: None,
-                canonical_selector: |_| None,
-                args: &[task_meta, args_meta],
-            }),
+            extra: &CommandExtra {
+                clause: Some(ClauseMeta {
+                    name: "tasks",
+                    separator: Some(":::"),
+                    flags: &[FlagMeta {
+                        flag: &postinstall,
+                        required: true,
+                        help: Some("Command to run after install"),
+                        ..FlagMeta::EMPTY
+                    }],
+                    help: None,
+                    long_help: None,
+                    canonical_selector: |_| None,
+                    args: &[task_meta, args_meta],
+                }),
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         let spec = Spec {
@@ -4788,10 +4798,13 @@ mod style_tests {
         let sub_meta = CommandMeta {
             cmd: &sub_cmd,
             about: Some("run it"),
-            after_help: Some("run after"),
-            after_long_help: Some("run after long"),
-            examples: &sub_examples,
             subcommands: &sub_subcommands,
+            extra: &CommandExtra {
+                after_help: Some("run after"),
+                after_long_help: Some("run after long"),
+                examples: &sub_examples,
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         let root_commands = [&sub_cmd];
@@ -4808,12 +4821,15 @@ mod style_tests {
         }];
         let root_meta = CommandMeta {
             cmd: &root_cmd,
-            before_help: Some("root before"),
-            before_long_help: Some("root before long"),
-            after_help: Some("root after"),
-            after_long_help: Some("root after long"),
-            examples: &examples,
             subcommands: &root_subcommands,
+            extra: &CommandExtra {
+                before_help: Some("root before"),
+                before_long_help: Some("root before long"),
+                after_help: Some("root after"),
+                after_long_help: Some("root after long"),
+                examples: &examples,
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         let spec = Spec {
@@ -4962,8 +4978,11 @@ mod style_tests {
         };
         let subcommands = [&sub_meta];
         let root_meta = CommandMeta {
-            next_line_help: true,
             subcommands: &subcommands,
+            extra: &CommandExtra {
+                next_line_help: true,
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         let mut page = String::new();
@@ -5014,8 +5033,11 @@ mod style_tests {
         };
         let subcommands = [&sub_meta];
         let root_meta = CommandMeta {
-            next_line_help: true,
             subcommands: &subcommands,
+            extra: &CommandExtra {
+                next_line_help: true,
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         let mut page = String::new();
@@ -5089,7 +5111,10 @@ mod style_tests {
         };
         let root = CommandMeta {
             cmd: &command,
-            after_help: Some("More help.\n"),
+            extra: &CommandExtra {
+                after_help: Some("More help.\n"),
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         let spec = Spec {
@@ -5332,9 +5357,12 @@ mod style_tests {
         };
         let root = CommandMeta {
             cmd: &command,
-            after_long_help: Some(
-                "\u{1b}[1m\u{1b}[4mExamples:\u{1b}[22m\u{1b}[24m\n\n    \u{1b}[1mex run\u{1b}[22m",
-            ),
+            extra: &CommandExtra {
+                after_long_help: Some(
+                    "\u{1b}[1m\u{1b}[4mExamples:\u{1b}[22m\u{1b}[24m\n\n    \u{1b}[1mex run\u{1b}[22m",
+                ),
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         let spec = Spec {
@@ -5473,8 +5501,11 @@ mod style_tests {
         };
         let root_meta = CommandMeta {
             cmd: &root_command,
-            flatten_help: true,
             subcommands: &[&run_meta],
+            extra: &CommandExtra {
+                flatten_help: true,
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         let spec = Spec {

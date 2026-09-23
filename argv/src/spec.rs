@@ -859,6 +859,42 @@ pub struct CommandMeta<'a> {
     pub cmd: &'a Command<'a>,
     pub about: Option<&'a str>,
     pub long_about: Option<&'a str>,
+    /// Whether the command is hidden from help and completions.
+    pub hide: bool,
+    /// Whether later single-valued occurrences replace earlier ones.
+    pub args_override_self: bool,
+    /// Metadata for `cmd.flags`, in the same order.
+    pub flags: &'a [FlagMeta<'a>],
+    /// Metadata for `cmd.args`, in the same order.
+    pub args: &'a [ArgMeta<'a>],
+    /// Metadata for `cmd.subcommands`, in the same order.
+    pub subcommands: &'a [&'a CommandMeta<'a>],
+    /// Sets of this command's flags that relate to one another as a set.
+    ///
+    /// Cold like everything else here: a group is checked once the last token has been
+    /// read, by code the derive generates, and a successful parse never reads this.
+    pub groups: &'a [GroupMeta<'a>],
+    /// Which runs of [`Self::flags`] came from a flattened `Args` type.
+    ///
+    /// Only [`Spec::to_kdl`] reads this, and only to write a `flagset` once instead of the
+    /// same flags under every command that flattens the struct. It changes nothing about
+    /// parsing: the flags are in `flags` either way, which is why this is a description of
+    /// where they came from rather than a table anything binds against.
+    pub flatten_groups: &'a [FlattenGroup<'a>],
+    /// Everything a command rarely declares: deprecation, hidden aliases, spec-only
+    /// metadata, help-page prose and layout settings. Shared through [`NO_COMMAND_EXTRA`] by
+    /// every command that declares none of it, which includes nearly every flattened `Args`
+    /// type, so a table pays for these fields once rather than per command.
+    pub extra: &'a CommandExtra<'a>,
+}
+
+/// The rarely declared part of a [`CommandMeta`], behind one pointer.
+///
+/// A typical command has an about line, its flags and arguments, and nothing here. Holding
+/// these inline made every command's metadata, including each flattened `Args` type's,
+/// several hundred bytes of mostly empty fields in the binary.
+#[derive(Debug, Clone, Copy)]
+pub struct CommandExtra<'a> {
     /// Why this command is deprecated, plus optional release milestones.
     pub deprecated: Option<&'a str>,
     pub deprecated_warn_at: Option<&'a str>,
@@ -866,8 +902,6 @@ pub struct CommandMeta<'a> {
     /// Aliases that work but are not shown in help or completions. Everything in
     /// `cmd.aliases` and not here is visible.
     pub hidden_aliases: &'a [&'a str],
-    /// Whether the command is hidden from help and completions.
-    pub hide: bool,
     /// Help section this command appears under in its parent's command list.
     pub help_heading: Option<&'a str>,
     /// Named audience or compatibility surface this command belongs to.
@@ -912,8 +946,6 @@ pub struct CommandMeta<'a> {
     pub term_width: Option<usize>,
     /// Maximum detected terminal width when `term_width` is unset. Zero disables the cap.
     pub max_term_width: Option<usize>,
-    /// Whether later single-valued occurrences replace earlier ones.
-    pub args_override_self: bool,
     /// Text printed above the usage line, and below everything else.
     ///
     /// The spec's `before_help`/`after_help` and their long forms. mise puts an Examples
@@ -932,37 +964,15 @@ pub struct CommandMeta<'a> {
     pub select: Option<&'a str>,
     /// What this command's exit statuses mean.
     pub exit_codes: &'a [ExitCodeMeta<'a>],
-    /// Metadata for `cmd.flags`, in the same order.
-    pub flags: &'a [FlagMeta<'a>],
-    /// Metadata for `cmd.args`, in the same order.
-    pub args: &'a [ArgMeta<'a>],
-    /// Metadata for `cmd.subcommands`, in the same order.
-    pub subcommands: &'a [&'a CommandMeta<'a>],
-    /// Sets of this command's flags that relate to one another as a set.
-    ///
-    /// Cold like everything else here: a group is checked once the last token has been
-    /// read, by code the derive generates, and a successful parse never reads this.
-    pub groups: &'a [GroupMeta<'a>],
-    /// Which runs of [`Self::flags`] came from a flattened `Args` type.
-    ///
-    /// Only [`Spec::to_kdl`] reads this, and only to write a `flagset` once instead of the
-    /// same flags under every command that flattens the struct. It changes nothing about
-    /// parsing: the flags are in `flags` either way, which is why this is a description of
-    /// where they came from rather than a table anything binds against.
-    pub flatten_groups: &'a [FlattenGroup<'a>],
 }
 
-impl CommandMeta<'_> {
-    /// Metadata for a command with nothing declared, for struct update syntax.
-    pub const EMPTY: CommandMeta<'static> = CommandMeta {
-        cmd: &Command::EMPTY,
-        about: None,
-        long_about: None,
+impl CommandExtra<'_> {
+    /// Nothing declared, for struct update syntax.
+    pub const EMPTY: CommandExtra<'static> = CommandExtra {
         deprecated: None,
         deprecated_warn_at: None,
         deprecated_remove_at: None,
         hidden_aliases: &[],
-        hide: false,
         help_heading: None,
         surface: None,
         available_if: &[],
@@ -978,7 +988,6 @@ impl CommandMeta<'_> {
         flatten_help: false,
         term_width: None,
         max_term_width: None,
-        args_override_self: true,
         before_help: None,
         before_long_help: None,
         after_help: None,
@@ -988,11 +997,101 @@ impl CommandMeta<'_> {
         outputs: &[],
         select: None,
         exit_codes: &[],
-        groups: &[],
+    };
+
+    /// `extra` itself, or the shared [`NO_COMMAND_EXTRA`] when it declares nothing.
+    ///
+    /// What derived tables call on each command's extras, so that only a command which
+    /// actually declares something carries its own copy.
+    #[doc(hidden)]
+    pub const fn shared(extra: &'static CommandExtra<'static>) -> &'static CommandExtra<'static> {
+        // Destructured without `..`: a field added to the struct and not to this check would
+        // otherwise be dropped from every command that declares only that field.
+        let CommandExtra {
+            deprecated,
+            deprecated_warn_at,
+            deprecated_remove_at,
+            hidden_aliases,
+            help_heading,
+            surface,
+            available_if,
+            display_order,
+            effect,
+            mount,
+            restart_token,
+            clause,
+            subcommand_required,
+            subcommand_help_heading,
+            subcommand_value_name,
+            next_line_help,
+            flatten_help,
+            term_width,
+            max_term_width,
+            before_help,
+            before_long_help,
+            after_help,
+            after_long_help,
+            examples,
+            headings,
+            outputs,
+            select,
+            exit_codes,
+        } = *extra;
+        let empty = deprecated.is_none()
+            && deprecated_warn_at.is_none()
+            && deprecated_remove_at.is_none()
+            && hidden_aliases.is_empty()
+            && help_heading.is_none()
+            && surface.is_none()
+            && available_if.is_empty()
+            && display_order.is_none()
+            && effect.is_none()
+            && mount.is_none()
+            && restart_token.is_none()
+            && clause.is_none()
+            && !subcommand_required
+            && subcommand_help_heading.is_none()
+            && subcommand_value_name.is_none()
+            && !next_line_help
+            && !flatten_help
+            && term_width.is_none()
+            && max_term_width.is_none()
+            && before_help.is_none()
+            && before_long_help.is_none()
+            && after_help.is_none()
+            && after_long_help.is_none()
+            && examples.is_empty()
+            && headings.is_empty()
+            && outputs.is_empty()
+            && select.is_none()
+            && exit_codes.is_empty();
+        if empty {
+            &NO_COMMAND_EXTRA
+        } else {
+            extra
+        }
+    }
+}
+
+/// The one [`CommandExtra`] every command without extras points at. A `static` rather than a
+/// promoted constant, so they all share one address instead of each table carrying its own
+/// copy.
+pub static NO_COMMAND_EXTRA: CommandExtra<'static> = CommandExtra::EMPTY;
+
+impl CommandMeta<'_> {
+    /// Metadata for a command with nothing declared, for struct update syntax.
+    pub const EMPTY: CommandMeta<'static> = CommandMeta {
+        cmd: &Command::EMPTY,
+        about: None,
+        long_about: None,
+        hide: false,
+        args_override_self: true,
         flags: &[],
         args: &[],
         subcommands: &[],
+        groups: &[],
         flatten_groups: &[],
+        extra: &NO_COMMAND_EXTRA,
     };
 }
 
@@ -1700,13 +1799,13 @@ impl Spec<'_> {
         if let Some(long_about) = self.long_about.or(self.root.long_about) {
             prop(out, "long_about", long_about)?;
         }
-        if let Some(message) = self.root.deprecated {
+        if let Some(message) = self.root.extra.deprecated {
             prop(out, "deprecated", message)?;
         }
-        if let Some(at) = self.root.deprecated_warn_at {
+        if let Some(at) = self.root.extra.deprecated_warn_at {
             prop(out, "deprecated_warn_at", at)?;
         }
-        if let Some(at) = self.root.deprecated_remove_at {
+        if let Some(at) = self.root.extra.deprecated_remove_at {
             prop(out, "deprecated_remove_at", at)?;
         }
         // Before the text around the page, which is where usage-lib writes it, so that a
@@ -1724,10 +1823,10 @@ impl Spec<'_> {
         // preamble out of the spec that docs, manpages and completions read. Written in
         // usage-lib's order, and where usage-lib writes them, so the two documents match.
         for (node, text) in [
-            ("before_help", self.root.before_help),
-            ("after_help", self.root.after_help),
-            ("before_long_help", self.root.before_long_help),
-            ("after_long_help", self.root.after_long_help),
+            ("before_help", self.root.extra.before_help),
+            ("after_help", self.root.extra.after_help),
+            ("before_long_help", self.root.extra.before_long_help),
+            ("after_long_help", self.root.extra.after_long_help),
         ] {
             if let Some(text) = text {
                 prop(out, node, text)?;
@@ -1817,36 +1916,36 @@ impl Spec<'_> {
         // Root metadata is written separately from `write_command`, so keep the required
         // subcommand bit here as well. Without it a required typed enum still parsed correctly,
         // but its emitted portable spec rendered `[COMMAND]` and accepted an empty invocation.
-        if self.root.subcommand_required && !self.root.cmd.subcommands.is_empty() {
+        if self.root.extra.subcommand_required && !self.root.cmd.subcommands.is_empty() {
             writeln!(out, "subcommand_required #true")?;
         }
-        if let Some(heading) = self.root.subcommand_help_heading {
+        if let Some(heading) = self.root.extra.subcommand_help_heading {
             prop(out, "subcommand_help_heading", heading)?;
         }
-        if let Some(name) = self.root.subcommand_value_name {
+        if let Some(name) = self.root.extra.subcommand_value_name {
             prop(out, "subcommand_value_name", name)?;
         }
-        if self.root.next_line_help {
+        if self.root.extra.next_line_help {
             writeln!(out, "next_line_help #true")?;
         }
-        if self.root.flatten_help {
+        if self.root.extra.flatten_help {
             writeln!(out, "flatten_help #true")?;
         }
-        if let Some(surface) = self.root.surface {
+        if let Some(surface) = self.root.extra.surface {
             prop(out, "surface", surface)?;
         }
-        if !self.root.available_if.is_empty() {
+        if !self.root.extra.available_if.is_empty() {
             indent(out, 0)?;
             write!(out, "available_if")?;
-            for condition in self.root.available_if {
+            for condition in self.root.extra.available_if {
                 write!(out, " {}", quoted(condition))?;
             }
             out.push('\n');
         }
-        if let Some(width) = self.root.term_width {
+        if let Some(width) = self.root.extra.term_width {
             writeln!(out, "term_width {width}")?;
         }
-        if let Some(width) = self.root.max_term_width {
+        if let Some(width) = self.root.extra.max_term_width {
             writeln!(out, "max_term_width {width}")?;
         }
         // A `complete` block for every completer this CLI declares, naming the command that
@@ -1864,7 +1963,7 @@ impl Spec<'_> {
         // lossiness this module claims not to have — so it fails loudly in debug
         // builds instead; a root-level mount remains a possible spec extension.
         debug_assert!(
-            self.root.mount.is_none(),
+            self.root.extra.mount.is_none(),
             "a mount on the root command cannot be written: the spec accepts \
              `mount` only inside a `cmd` block"
         );
@@ -1872,11 +1971,11 @@ impl Spec<'_> {
         // one on the root is a mistake, and silently dropping it is the lossiness
         // this module claims not to have.
         debug_assert!(
-            self.root.effect.is_none()
+            self.root.extra.effect.is_none()
                 && !self.root.hide
-                && self.root.restart_token.is_none()
+                && self.root.extra.restart_token.is_none()
                 && self.root.cmd.aliases.is_empty()
-                && self.root.hidden_aliases.is_empty(),
+                && self.root.extra.hidden_aliases.is_empty(),
             "the root command cannot carry an effect, hide, a restart token, or \
              aliases: the spec accepts those only inside a `cmd` block"
         );
@@ -2078,7 +2177,7 @@ fn write_flag_layout_with(
                         .is_some_and(|f| core::ptr::eq(*f, meta.flags[i].flag)),
                     "flag metadata is out of step with the parse table"
                 );
-                let scoped_to_clause = meta.clause.is_some_and(|clause| {
+                let scoped_to_clause = meta.extra.clause.is_some_and(|clause| {
                     clause
                         .flags
                         .iter()
@@ -2090,7 +2189,7 @@ fn write_flag_layout_with(
                         &meta.flags[i],
                         depth,
                         inherited_heading,
-                        meta.clause.map(|clause| clause.canonical_selector),
+                        meta.extra.clause.map(|clause| clause.canonical_selector),
                     )?;
                 }
                 i += 1;
@@ -2123,7 +2222,7 @@ fn write_body<'a>(
         meta.flags.len(),
         "every flag in the parse table needs metadata, or it will not be written"
     );
-    if let (Some(clause), Some(clause_meta)) = (meta.cmd.clause, meta.clause) {
+    if let (Some(clause), Some(clause_meta)) = (meta.cmd.clause, meta.extra.clause) {
         debug_assert_eq!(clause.args.len(), clause_meta.args.len());
         debug_assert_eq!(clause.flags.len(), clause_meta.flags.len());
     } else {
@@ -2158,7 +2257,7 @@ fn write_body<'a>(
             supplied,
             depth,
             None,
-            meta.clause.map(|clause| clause.canonical_selector),
+            meta.extra.clause.map(|clause| clause.canonical_selector),
         )?;
     }
     for (i, arg) in meta.args.iter().enumerate() {
@@ -2171,7 +2270,7 @@ fn write_body<'a>(
         );
         write_arg(out, arg, depth, None)?;
     }
-    if let Some(clause) = meta.clause {
+    if let Some(clause) = meta.extra.clause {
         indent(out, depth)?;
         write!(out, "clause {}", quoted(clause.name))?;
         if let Some(separator) = clause.separator {
@@ -2200,7 +2299,7 @@ fn write_body<'a>(
         write_group(out, group, depth)?;
     }
     if depth == 0 {
-        for example in meta.examples {
+        for example in meta.extra.examples {
             write_example(out, example, depth)?;
         }
         write_headings(out, meta, depth)?;
@@ -2232,7 +2331,8 @@ fn write_completion_types<'a>(
 ) -> core::fmt::Result {
     let mut written: Vec<(String, &'a str)> = Vec::new();
     for arg in meta.args.iter().chain(
-        meta.clause
+        meta.extra
+            .clause
             .into_iter()
             .flat_map(|clause| clause.args.iter()),
     ) {
@@ -2290,35 +2390,35 @@ fn write_command<'a>(
     indent(out, depth)?;
     write!(out, "cmd {}", quoted(meta.cmd.name))?;
     // Before `help`, because usage-lib's writer has it there.
-    if let Some(heading) = meta.help_heading {
+    if let Some(heading) = meta.extra.help_heading {
         write!(out, " help_heading={}", quoted(heading))?;
     }
     if let Some(help) = meta.about {
         write!(out, " help={}", quoted(help))?;
     }
-    if let Some(deprecated) = meta.deprecated {
+    if let Some(deprecated) = meta.extra.deprecated {
         write!(out, " deprecated={}", quoted(deprecated))?;
     }
-    if let Some(at) = meta.deprecated_warn_at {
+    if let Some(at) = meta.extra.deprecated_warn_at {
         write!(out, " deprecated_warn_at={}", quoted(at))?;
     }
-    if let Some(at) = meta.deprecated_remove_at {
+    if let Some(at) = meta.extra.deprecated_remove_at {
         write!(out, " deprecated_remove_at={}", quoted(at))?;
     }
     if meta.hide {
         out.push_str(" hide=#true");
     }
-    if let Some(surface) = meta.surface {
+    if let Some(surface) = meta.extra.surface {
         write!(out, " surface={}", quoted(surface))?;
     }
-    write_single_list(out, "available_if", meta.available_if)?;
+    write_single_list(out, "available_if", meta.extra.available_if)?;
     let effect = w
         .overlays
         .iter()
         .rev()
         .find(|overlay| overlay.command.matches(meta, path))
         .map(|overlay| overlay.effect)
-        .or(meta.effect);
+        .or(meta.extra.effect);
     if let Some(effect) = effect {
         write!(out, " effect={}", quoted(effect.as_str()))?;
     }
@@ -2337,33 +2437,33 @@ fn write_command<'a>(
             })
         )?;
     }
-    if let Some(token) = meta.restart_token {
+    if let Some(token) = meta.extra.restart_token {
         write!(out, " restart_token={}", quoted(token))?;
     }
     // Only where there is something to require. A command with no subcommands cannot
     // demand one, and the spec's own reader treats the pair as a mistake.
-    if meta.subcommand_required && !meta.cmd.subcommands.is_empty() {
+    if meta.extra.subcommand_required && !meta.cmd.subcommands.is_empty() {
         out.push_str(" subcommand_required=#true");
     }
-    if let Some(order) = meta.display_order {
+    if let Some(order) = meta.extra.display_order {
         write!(out, " display_order={order}")?;
     }
-    if let Some(heading) = meta.subcommand_help_heading {
+    if let Some(heading) = meta.extra.subcommand_help_heading {
         write!(out, " subcommand_help_heading={}", quoted(heading))?;
     }
-    if let Some(name) = meta.subcommand_value_name {
+    if let Some(name) = meta.extra.subcommand_value_name {
         write!(out, " subcommand_value_name={}", quoted(name))?;
     }
-    if meta.next_line_help {
+    if meta.extra.next_line_help {
         out.push_str(" next_line_help=#true");
     }
-    if meta.flatten_help {
+    if meta.extra.flatten_help {
         out.push_str(" flatten_help=#true");
     }
-    if let Some(width) = meta.term_width {
+    if let Some(width) = meta.extra.term_width {
         write!(out, " term_width={width}")?;
     }
-    if let Some(width) = meta.max_term_width {
+    if let Some(width) = meta.extra.max_term_width {
         write!(out, " max_term_width={width}")?;
     }
     if meta.cmd.external_subcommand {
@@ -2402,11 +2502,11 @@ fn write_command<'a>(
     out.push_str(" {\n");
 
     let inner = depth + 1;
-    write_many_list(out, "available_if", meta.available_if, inner)?;
+    write_many_list(out, "available_if", meta.extra.available_if, inner)?;
     for alias in meta.cmd.aliases {
         indent(out, inner)?;
         write!(out, "alias {}", quoted(alias))?;
-        if meta.hidden_aliases.contains(alias) {
+        if meta.extra.hidden_aliases.contains(alias) {
             out.push_str(" hide=#true");
         }
         out.push('\n');
@@ -2418,17 +2518,17 @@ fn write_command<'a>(
     // Text around the rest of the page. Written in the spec's order so a round trip reads the
     // same way it was written.
     for (node, text) in [
-        ("before_help", meta.before_help),
-        ("before_long_help", meta.before_long_help),
-        ("after_help", meta.after_help),
-        ("after_long_help", meta.after_long_help),
+        ("before_help", meta.extra.before_help),
+        ("before_long_help", meta.extra.before_long_help),
+        ("after_help", meta.extra.after_help),
+        ("after_long_help", meta.extra.after_long_help),
     ] {
         if let Some(text) = text {
             indent(out, inner)?;
             writeln!(out, "{node} {}", quoted(text))?;
         }
     }
-    if let Some(mount) = meta.mount {
+    if let Some(mount) = meta.extra.mount {
         indent(out, inner)?;
         writeln!(out, "mount run={}", quoted(mount))?;
     }
@@ -2443,7 +2543,7 @@ fn write_command<'a>(
     )?;
     // After the body, because usage-lib's writer puts these after the flags, args and
     // subcommands, and `canonical_kdl` compares the two documents byte for byte.
-    for example in meta.examples {
+    for example in meta.extra.examples {
         write_example(out, example, inner)?;
     }
     write_headings(out, meta, inner)?;
@@ -2491,7 +2591,7 @@ fn write_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core
 }
 
 fn write_output_decls(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
-    for output in meta.outputs {
+    for output in meta.extra.outputs {
         indent(out, depth)?;
         write!(out, "output {}", quoted(output.name))?;
         if let Some(media_type) = output.media_type {
@@ -2530,7 +2630,7 @@ fn write_output_decls(out: &mut String, meta: &CommandMeta<'_>, depth: usize) ->
 }
 
 fn write_selects(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
-    if let Some(select) = meta.select {
+    if let Some(select) = meta.extra.select {
         indent(out, depth)?;
         writeln!(out, "select {}", quoted_arg(select))?;
     }
@@ -2541,7 +2641,7 @@ fn write_selects(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core
 }
 
 fn write_exit_codes(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
-    for exit_code in meta.exit_codes {
+    for exit_code in meta.extra.exit_codes {
         indent(out, depth)?;
         writeln!(
             out,
@@ -2577,7 +2677,7 @@ fn write_headings(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> cor
 }
 
 fn collect_headings<'a>(titles: &mut Vec<&'a str>, meta: &CommandMeta<'a>) {
-    for heading in meta.headings {
+    for heading in meta.extra.headings {
         titles.push(heading.title);
     }
     for group in meta.flatten_groups {
@@ -2587,6 +2687,7 @@ fn collect_headings<'a>(titles: &mut Vec<&'a str>, meta: &CommandMeta<'a>) {
 
 fn heading_help_of<'a>(meta: &CommandMeta<'a>, title: &str) -> Option<&'a str> {
     if let Some(help) = meta
+        .extra
         .headings
         .iter()
         .find(|heading| heading.title == title)
@@ -5248,6 +5349,36 @@ mod tests {
         // Anything declared, even a lone `bool`, keeps the flag's own copy.
         for declared in [&DEPRECATED, &HIDDEN_VALUES] {
             assert!(core::ptr::eq(FlagExtra::shared(declared), declared));
+        }
+    }
+
+    #[test]
+    fn commands_without_extras_share_one_instance() {
+        const NOTHING: CommandExtra<'static> = CommandExtra::EMPTY;
+        const DEPRECATED: CommandExtra<'static> = CommandExtra {
+            deprecated: Some("use `new`"),
+            ..CommandExtra::EMPTY
+        };
+        const REQUIRED: CommandExtra<'static> = CommandExtra {
+            subcommand_required: true,
+            ..CommandExtra::EMPTY
+        };
+        const EXAMPLES: CommandExtra<'static> = CommandExtra {
+            examples: &[Example {
+                code: "tool run",
+                header: None,
+                help: None,
+            }],
+            ..CommandExtra::EMPTY
+        };
+        assert!(core::ptr::eq(
+            CommandExtra::shared(&NOTHING),
+            &NO_COMMAND_EXTRA
+        ));
+        assert!(core::ptr::eq(CommandMeta::EMPTY.extra, &NO_COMMAND_EXTRA));
+        // Anything declared, even a lone `bool`, keeps the command's own copy.
+        for declared in [&DEPRECATED, &REQUIRED, &EXAMPLES] {
+            assert!(core::ptr::eq(CommandExtra::shared(declared), declared));
         }
     }
 

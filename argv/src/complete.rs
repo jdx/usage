@@ -247,7 +247,8 @@ fn for_name_at<'a>(
 ) -> Option<Vec<Candidate<'static>>> {
     fn on(meta: &CommandMeta<'_>, name: &str) -> Option<Completer> {
         for arg in meta.args.iter().chain(
-            meta.clause
+            meta.extra
+                .clause
                 .into_iter()
                 .flat_map(|clause| clause.args.iter()),
         ) {
@@ -294,7 +295,8 @@ fn for_name_at<'a>(
                 .args
                 .iter()
                 .chain(
-                    meta.clause
+                    meta.extra
+                        .clause
                         .into_iter()
                         .flat_map(|clause| clause.args.iter()),
                 )
@@ -358,7 +360,8 @@ fn for_name_at<'a>(
 pub fn completers_on(meta: &CommandMeta<'_>) -> Vec<String> {
     let mut out = Vec::new();
     for arg in meta.args.iter().chain(
-        meta.clause
+        meta.extra
+            .clause
             .into_iter()
             .flat_map(|clause| clause.args.iter()),
     ) {
@@ -1721,7 +1724,7 @@ fn arg_meta_owner_on_route<'a>(
             .iter()
             .find(|field| core::ptr::eq(field.arg, arg))
             .or_else(|| {
-                owner.clause.and_then(|clause| {
+                owner.extra.clause.and_then(|clause| {
                     clause
                         .args
                         .iter()
@@ -1755,7 +1758,8 @@ fn first_ordinary_arg<'m, 'a>(meta: &'m CommandMeta<'a>) -> Option<&'m ArgMeta<'
 
 /// The positional target immediately after this command's restart token.
 fn restart_arg<'m, 'a>(meta: &'m CommandMeta<'a>) -> Option<&'m ArgMeta<'a>> {
-    meta.clause
+    meta.extra
+        .clause
         .and_then(|clause| clause.args.first())
         .or_else(|| first_ordinary_arg(meta))
 }
@@ -1909,14 +1913,14 @@ fn attach_candidates(candidates: &mut [Candidate<'_>], form: &str) {
 /// invocation — so the cursor is back at the first argument rather than wherever the previous
 /// words had reached.
 fn restarted(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
-    let Some(token) = meta.and_then(|m| m.restart_token) else {
+    let Some(token) = meta.and_then(|m| m.extra.restart_token) else {
         return false;
     };
     split.cword > 0 && split.words[split.cword - 1] == token
 }
 
 fn restart_seen(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
-    let Some(token) = meta.and_then(|m| m.restart_token) else {
+    let Some(token) = meta.and_then(|m| m.extra.restart_token) else {
         return false;
     };
     split.words[..split.cword].iter().any(|word| word == token)
@@ -1938,7 +1942,7 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             // old name kept working after a rename. The parse table holds it beside the
             // visible ones because both must be *accepted*; only the metadata says which are
             // meant to be *offered*.
-            if sub.hidden_aliases.contains(name) {
+            if sub.extra.hidden_aliases.contains(name) {
                 continue;
             }
             if name.starts_with(token) {
@@ -1948,9 +1952,9 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
                     display: None,
                     description: deprecated_description(
                         sub.about,
-                        sub.deprecated,
-                        sub.deprecated_warn_at,
-                        sub.deprecated_remove_at,
+                        sub.extra.deprecated,
+                        sub.extra.deprecated_warn_at,
+                        sub.extra.deprecated_remove_at,
                     ),
                 });
             }
@@ -2201,7 +2205,8 @@ fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<
         .iter()
         .find(|m| core::ptr::eq(m.arg, arg))
         .or_else(|| {
-            meta.clause
+            meta.extra
+                .clause
                 .and_then(|clause| clause.args.iter().find(|m| core::ptr::eq(m.arg, arg)))
         })
         .or_else(|| meta.subcommands.iter().find_map(|sub| arg_meta(sub, arg)))
@@ -2474,6 +2479,7 @@ fn floor_char_boundary(s: &str, index: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::spec::CommandExtra;
     use std::task::{Context, Poll, Waker};
 
     fn run_ready<F: Future>(future: F) -> F::Output {
@@ -2754,7 +2760,6 @@ mod tests {
     static META_SHIP: CommandMeta = CommandMeta {
         cmd: &SHIP,
         about: Some("Ship a file"),
-        restart_token: Some(":::"),
         args: &[
             ArgMeta {
                 arg: &MODE,
@@ -2767,6 +2772,10 @@ mod tests {
                 ..ArgMeta::EMPTY
             },
         ],
+        extra: &CommandExtra {
+            restart_token: Some(":::"),
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static META_PIPE: CommandMeta = CommandMeta {
@@ -2817,7 +2826,6 @@ mod tests {
     static META_TASK: CommandMeta = CommandMeta {
         cmd: &TASK,
         about: Some("Do two things"),
-        restart_token: Some(":::"),
         args: &[
             ArgMeta {
                 arg: &FIRST,
@@ -2830,12 +2838,15 @@ mod tests {
                 ..ArgMeta::EMPTY
             },
         ],
+        extra: &CommandExtra {
+            restart_token: Some(":::"),
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static META_EXEC: CommandMeta = CommandMeta {
         cmd: &EXEC,
         about: Some("Run something"),
-        restart_token: Some(":::"),
         args: &[ArgMeta {
             arg: &FORWARDED,
             help: Some("What to run"),
@@ -2843,6 +2854,10 @@ mod tests {
             complete_type: Some("command_args"),
             ..ArgMeta::EMPTY
         }],
+        extra: &CommandExtra {
+            restart_token: Some(":::"),
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static META_SECRET: CommandMeta = CommandMeta {
@@ -2854,7 +2869,10 @@ mod tests {
     static META_LIST: CommandMeta = CommandMeta {
         cmd: &LIST,
         about: Some("List everything"),
-        hidden_aliases: &["l"],
+        extra: &CommandExtra {
+            hidden_aliases: &["l"],
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static META_ROOT: CommandMeta = CommandMeta {
@@ -2925,7 +2943,6 @@ mod tests {
         };
         static META: CommandMeta = CommandMeta {
             cmd: &COMMAND,
-            restart_token: Some(":::"),
             flags: &[FlagMeta {
                 flag: &JOBS,
                 ..FlagMeta::EMPTY
@@ -2941,6 +2958,10 @@ mod tests {
                     ..ArgMeta::EMPTY
                 },
             ],
+            extra: &CommandExtra {
+                restart_token: Some(":::"),
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         static SIGIL_SPEC: Spec = Spec {
@@ -3797,20 +3818,23 @@ mod tests {
         };
         static META: CommandMeta = CommandMeta {
             cmd: &COMMAND,
-            restart_token: Some(":::"),
-            clause: Some(crate::spec::ClauseMeta {
-                name: "tasks",
-                separator: Some(":::"),
-                flags: &[],
-                help: None,
-                long_help: None,
-                canonical_selector: |_| None,
-                args: &[ArgMeta {
-                    arg: &TASK_ARG,
-                    choices: &["build", "check"],
-                    ..ArgMeta::EMPTY
-                }],
-            }),
+            extra: &CommandExtra {
+                restart_token: Some(":::"),
+                clause: Some(crate::spec::ClauseMeta {
+                    name: "tasks",
+                    separator: Some(":::"),
+                    flags: &[],
+                    help: None,
+                    long_help: None,
+                    canonical_selector: |_| None,
+                    args: &[ArgMeta {
+                        arg: &TASK_ARG,
+                        choices: &["build", "check"],
+                        ..ArgMeta::EMPTY
+                    }],
+                }),
+                ..CommandExtra::EMPTY
+            },
             ..CommandMeta::EMPTY
         };
         static ROOT: Command = Command {

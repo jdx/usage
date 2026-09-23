@@ -1155,37 +1155,46 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
             pub static ROOT_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &ROOT,
-                outputs: #outputs,
-                select: #select,
-                exit_codes: #exit_codes,
                 about: #about,
                 long_about: #long_about,
-                deprecated: #deprecated,
-                deprecated_warn_at: #deprecated_warn_at,
-                deprecated_remove_at: #deprecated_remove_at,
-                surface: #surface,
-                available_if: &[#(#available_if),*],
-                restart_token: #restart_token,
-                subcommand_required: #subcommand_required,
-                subcommand_help_heading: #subcommand_help_heading,
-                subcommand_value_name: #subcommand_value_name,
-                next_line_help: #next_line_help,
-                flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
-                term_width: #term_width,
-                max_term_width: #max_term_width,
                 args_override_self: #args_override_self,
-                mount: #mount,
-                before_help: #before_help,
-                before_long_help: #before_long_help,
-                after_help: #after_help,
-                after_long_help: #after_long_help,
-                examples: #examples,
-                headings: #headings,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
-                clause: #clause_meta,
                 groups: #group_meta_table_ref,
                 flatten_groups: #flatten_group_table_ref,
+                // Built as a constant so `shared` can swap an empty one for the single static
+                // every such command points at, which keeps these fields out of most tables.
+                extra: {
+                    const __USAGE_EXTRA: usage_argv::spec::CommandExtra<'static> =
+                        usage_argv::spec::CommandExtra {
+                            outputs: #outputs,
+                            select: #select,
+                            exit_codes: #exit_codes,
+                            deprecated: #deprecated,
+                            deprecated_warn_at: #deprecated_warn_at,
+                            deprecated_remove_at: #deprecated_remove_at,
+                            surface: #surface,
+                            available_if: &[#(#available_if),*],
+                            restart_token: #restart_token,
+                            subcommand_required: #subcommand_required,
+                            subcommand_help_heading: #subcommand_help_heading,
+                            subcommand_value_name: #subcommand_value_name,
+                            next_line_help: #next_line_help,
+                            flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
+                            term_width: #term_width,
+                            max_term_width: #max_term_width,
+                            mount: #mount,
+                            before_help: #before_help,
+                            before_long_help: #before_long_help,
+                            after_help: #after_help,
+                            after_long_help: #after_long_help,
+                            examples: #examples,
+                            headings: #headings,
+                            clause: #clause_meta,
+                            ..usage_argv::spec::CommandExtra::EMPTY
+                        };
+                    usage_argv::spec::CommandExtra::shared(&__USAGE_EXTRA)
+                },
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };
@@ -7068,40 +7077,49 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
             pub static COMMAND_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &COMMAND,
-                outputs: #outputs,
-                select: #select,
-                exit_codes: #exit_codes,
-                effect: #effect,
                 about: #about,
                 long_about: #long_about,
-                deprecated: #deprecated,
-                deprecated_warn_at: #deprecated_warn_at,
-                deprecated_remove_at: #deprecated_remove_at,
-                surface: #surface,
-                available_if: &[#(#available_if),*],
-                hidden_aliases: &[#(#hidden_aliases),*],
                 hide: #hide,
-                restart_token: #restart_token,
-                subcommand_required: #subcommand_required,
-                subcommand_help_heading: #subcommand_help_heading,
-                subcommand_value_name: #subcommand_value_name,
-                next_line_help: #next_line_help,
-                flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
-                term_width: #term_width,
-                max_term_width: #max_term_width,
                 args_override_self: #args_override_self,
-                mount: #mount,
-                before_help: #before_help,
-                before_long_help: #before_long_help,
-                after_help: #after_help,
-                after_long_help: #after_long_help,
-                examples: #examples,
-                headings: #headings,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
-                clause: #clause_meta,
                 groups: #group_meta_table_ref,
                 flatten_groups: #flatten_group_table_ref,
+                // Built as a constant so `shared` can swap an empty one for the single static
+                // every such command points at, which keeps these fields out of most tables.
+                extra: {
+                    const __USAGE_EXTRA: usage_argv::spec::CommandExtra<'static> =
+                        usage_argv::spec::CommandExtra {
+                            outputs: #outputs,
+                            select: #select,
+                            exit_codes: #exit_codes,
+                            effect: #effect,
+                            deprecated: #deprecated,
+                            deprecated_warn_at: #deprecated_warn_at,
+                            deprecated_remove_at: #deprecated_remove_at,
+                            surface: #surface,
+                            available_if: &[#(#available_if),*],
+                            hidden_aliases: &[#(#hidden_aliases),*],
+                            restart_token: #restart_token,
+                            subcommand_required: #subcommand_required,
+                            subcommand_help_heading: #subcommand_help_heading,
+                            subcommand_value_name: #subcommand_value_name,
+                            next_line_help: #next_line_help,
+                            flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
+                            term_width: #term_width,
+                            max_term_width: #max_term_width,
+                            mount: #mount,
+                            before_help: #before_help,
+                            before_long_help: #before_long_help,
+                            after_help: #after_help,
+                            after_long_help: #after_long_help,
+                            examples: #examples,
+                            headings: #headings,
+                            clause: #clause_meta,
+                            ..usage_argv::spec::CommandExtra::EMPTY
+                        };
+                    usage_argv::spec::CommandExtra::shared(&__USAGE_EXTRA)
+                },
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };
@@ -8250,51 +8268,51 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .deprecated
                 .as_deref()
                 .map(|value| option_str(Some(value)))
-                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.deprecated));
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.deprecated));
             let deprecated_warn_at = v
                 .deprecated_warn_at
                 .as_deref()
                 .map(|value| option_str(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.deprecated_warn_at),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.deprecated_warn_at),
                 );
             let deprecated_remove_at = v
                 .deprecated_remove_at
                 .as_deref()
                 .map(|value| option_str(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.deprecated_remove_at),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.deprecated_remove_at),
                 );
             let before_help = v
                 .before_help
                 .as_ref()
                 .map(|value| option_expr(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.before_help),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.before_help),
                 );
             let before_long_help = v
                 .before_long_help
                 .as_ref()
                 .map(|value| option_expr(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.before_long_help),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.before_long_help),
                 );
             let after_help = v
                 .after_help
                 .as_ref()
                 .map(|value| option_expr(Some(value)))
-                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.after_help));
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.after_help));
             let after_long_help = v
                 .after_long_help
                 .as_ref()
                 .map(|value| option_expr(Some(value)))
                 .unwrap_or_else(
-                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.after_long_help),
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.after_long_help),
                 );
             // A variant that declares examples speaks for the command; one that does not
             // leaves the held type's own standing, as `after_help` does.
             let examples = if v.examples.is_empty() {
-                quote!(<#ty as usage_argv::spec::CommandArgs>::META.examples)
+                quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.examples)
             } else {
                 examples_table(&v.examples)
             };
@@ -8309,9 +8327,9 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .surface
                 .as_deref()
                 .map(|surface| option_str(Some(surface)))
-                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.surface));
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.surface));
             let available_if = if v.available_if.is_empty() {
-                quote!(<#ty as usage_argv::spec::CommandArgs>::META.available_if)
+                quote!(<#ty as usage_argv::spec::CommandArgs>::META.extra.available_if)
             } else {
                 let conditions = &v.available_if;
                 quote!(&[#(#conditions),*])
@@ -8319,7 +8337,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             let display_order = option_usize(v.display_order);
             quote! {
                 const #hidden_groups: &[&[&str]] = &[
-                    <#ty as usage_argv::spec::CommandArgs>::META.hidden_aliases,
+                    <#ty as usage_argv::spec::CommandArgs>::META.extra.hidden_aliases,
                     &[#(#hidden),*],
                 ];
                 static #hidden_name: [&str; usage_argv::table_len(#hidden_groups)] =
@@ -8329,20 +8347,29 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         cmd: &#cmd,
                         about: #about,
                         long_about: #long_about,
-                        deprecated: #deprecated,
-                        deprecated_warn_at: #deprecated_warn_at,
-                        deprecated_remove_at: #deprecated_remove_at,
-                        before_help: #before_help,
-                        before_long_help: #before_long_help,
-                        after_help: #after_help,
-                        after_long_help: #after_long_help,
-                        examples: #examples,
                         hide: #hide || <#ty as usage_argv::spec::CommandArgs>::META.hide,
-                        help_heading: #help_heading,
-                        surface: #surface,
-                        available_if: #available_if,
-                        display_order: #display_order,
-                        hidden_aliases: &#hidden_name,
+                        // The held type's extras with the variant's own declarations laid
+                        // over them, shared like any other command's when both are empty.
+                        extra: {
+                            const __USAGE_EXTRA: usage_argv::spec::CommandExtra<'static> =
+                                usage_argv::spec::CommandExtra {
+                                    deprecated: #deprecated,
+                                    deprecated_warn_at: #deprecated_warn_at,
+                                    deprecated_remove_at: #deprecated_remove_at,
+                                    before_help: #before_help,
+                                    before_long_help: #before_long_help,
+                                    after_help: #after_help,
+                                    after_long_help: #after_long_help,
+                                    examples: #examples,
+                                    help_heading: #help_heading,
+                                    surface: #surface,
+                                    available_if: #available_if,
+                                    display_order: #display_order,
+                                    hidden_aliases: &#hidden_name,
+                                    ..*<#ty as usage_argv::spec::CommandArgs>::META.extra
+                                };
+                            usage_argv::spec::CommandExtra::shared(&__USAGE_EXTRA)
+                        },
                         ..*<#ty as usage_argv::spec::CommandArgs>::META
                     };
             }
@@ -8483,15 +8510,15 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             let meta = format_ident!("META_{i}");
             quote! {
                 ::std::option::Option::Some(#i) => {
-                    if #meta.deprecated.is_some()
-                        || #meta.deprecated_warn_at.is_some()
-                        || #meta.deprecated_remove_at.is_some()
+                    if #meta.extra.deprecated.is_some()
+                        || #meta.extra.deprecated_warn_at.is_some()
+                        || #meta.extra.deprecated_remove_at.is_some()
                     {
                         out.push(usage_argv::warn::Warning::command(
                             #meta.cmd.name,
-                            #meta.deprecated,
-                            #meta.deprecated_warn_at,
-                            #meta.deprecated_remove_at,
+                            #meta.extra.deprecated,
+                            #meta.extra.deprecated_warn_at,
+                            #meta.extra.deprecated_remove_at,
                         ));
                     }
                     if let Partial::#variant(__usage_p) = partial {
