@@ -253,8 +253,13 @@ pub fn available_flags(chain: &[&SpecCommand]) -> Vec<Arc<SpecFlag>> {
 }
 
 /// A plus token split into one spelling per letter, or `None` when a letter names no plus
-/// spelling in scope. A value-taking letter ends the bundle, and the rest of the token
-/// follows it as its value.
+/// spelling in scope.
+///
+/// A value-taking letter ends the bundle and keeps the rest of the token as its attached
+/// value, written `+o=value` whether or not the caller spelled the `=` — the form the
+/// long-flag arm below binds, and the one `require_equals` accepts. Splitting it off as a
+/// word of its own would have offered it back to the parser as a detached value, which
+/// `require_equals` refuses and which `+o=--force` would have read as a flag.
 fn split_plus_bundle<'a>(
     find: impl Fn(&str) -> Option<&'a Arc<SpecFlag>>,
     token: &str,
@@ -265,18 +270,39 @@ fn split_plus_bundle<'a>(
         let spelling = format!("+{letter}");
         let flag = find(&spelling)?;
         let takes_value = flag.arg.is_some() && flag.negate.as_deref() != Some(&spelling);
-        out.push(spelling);
         let rest = &letters[i + letter.len_utf8()..];
+        if takes_value && !rest.is_empty() {
+            out.push(format!(
+                "{spelling}={}",
+                rest.strip_prefix('=').unwrap_or(rest)
+            ));
+            break;
+        }
+        out.push(spelling);
         if takes_value {
-            // Everything after the letter is the value, less one separating `=`, which is
-            // how a short spells the same thing.
-            if !rest.is_empty() {
-                out.push(rest.strip_prefix('=').unwrap_or(rest).to_string());
-            }
             break;
         }
     }
     Some(out)
+}
+
+/// Whether a plus bundle's last spelling still needs the word after the token.
+///
+/// `+xo` leaves `+o` wanting a value, while `+opipefail` already carries one. Phase 1 asks
+/// so that it looks for a subcommand in the right place, and phase 2 never sees the
+/// difference because the value is attached by then.
+fn plus_bundle_wants_next_word<'a>(
+    find: impl Fn(&str) -> Option<&'a Arc<SpecFlag>>,
+    token: &str,
+) -> bool {
+    split_plus_bundle(&find, token).is_some_and(|spellings| {
+        spellings.last().is_some_and(|last| {
+            !last.contains('=')
+                && find(last).is_some_and(|flag| {
+                    flag.arg.is_some() && flag.negate.as_deref() != Some(last.as_str())
+                })
+        })
+    })
 }
 
 /// Extract the flag key from a flag word for lookup in available_flags map
@@ -1788,8 +1814,16 @@ fn parse_partial_traced(
 
                 // Only consume next word if flag takes an argument AND value isn't embedded
                 // Example: "--dir foo" consumes "foo", but "--dir=foo" or "--verbose" do not
-                if f.arg.is_some()
-                    && !word.contains('=')
+                //
+                // A plus bundle answers for its last letter rather than its first, which is
+                // the one `f` names: `+xo` leaves `+o` wanting the next word, and
+                // `+opipefail` already has its value even though the token carries no `=`.
+                let wants_next_word = if word.starts_with('+') {
+                    plus_bundle_wants_next_word(|key| flags.get(key), &word)
+                } else {
+                    f.arg.is_some() && !word.contains('=')
+                };
+                if wants_next_word
                     && idx < input.len()
                     && accepts_detached_flag_value(&f, &input[idx].word)
                 {
@@ -1944,6 +1978,7 @@ fn parse_partial_traced(
             if bind_pending_flag_value(
                 spec,
                 &out.cmd,
+                &out.available_flags,
                 &mut out.errors,
                 &mut out.flags,
                 &mut out.flag_awaiting_value,
@@ -2048,6 +2083,7 @@ fn parse_partial_traced(
             let should_return = bind_pending_flag_value(
                 spec,
                 &out.cmd,
+                &out.available_flags,
                 &mut out.errors,
                 &mut out.flags,
                 &mut out.flag_awaiting_value,
@@ -2182,15 +2218,19 @@ fn parse_partial_traced(
                 None => {}
             }
         }
-        // One plus letter, which the bundle split above has already reduced a token to. The
-        // long arm binds it, negation included; `contains_key` is what says it is a spelling.
-        let plus_spelling = w.starts_with('+')
-            && w.len() == 2
-            && out.flag_awaiting_value.is_empty()
-            && (out.available_flags.contains_key(&w)
-                || binding
-                    .as_ref()
-                    .is_some_and(|(flag, _)| flag_spells_plus(flag, &w)));
+        // One plus letter, with or without the value the split above attached to it. The long
+        // arm binds it from here, negation and `=` handling included.
+        let plus_form = w
+            .starts_with('+')
+            .then(|| w.split_once('=').map_or(w.as_str(), |(form, _)| form))
+            .filter(|form| form.chars().count() == 2);
+        let plus_spelling = out.flag_awaiting_value.is_empty()
+            && plus_form.is_some_and(|form| {
+                out.available_flags.contains_key(form)
+                    || binding
+                        .as_ref()
+                        .is_some_and(|(flag, _)| flag_spells_plus(flag, form))
+            });
 
         // long flags
         if enable_flags && (w.starts_with("--") || plus_spelling) {
@@ -2266,6 +2306,7 @@ fn parse_partial_traced(
                         let should_return = bind_pending_flag_value(
                             spec,
                             &out.cmd,
+                            &out.available_flags,
                             &mut out.errors,
                             &mut out.flags,
                             &mut out.flag_awaiting_value,
@@ -2573,16 +2614,21 @@ fn parse_partial_traced(
         if enable_flags
             && !out.flag_awaiting_value.is_empty()
             && (attached_continuation
-                || out
+                || (out
                     .flag_awaiting_value
                     .last()
-                    .is_some_and(|flag| accepts_detached_flag_value(flag, &w)))
+                    .is_some_and(|flag| accepts_detached_flag_value(flag, &w))
+                    // A plus token the command reads as flags is one, so a flag still
+                    // wanting a value stops at it, as it stops at a dash flag. An
+                    // unrecognized `+` word is not one: `--include a +glob` keeps its glob.
+                    && !names_plus_spelling(&out.available_flags, &w)))
         {
             // Held before the drain pops it: a flag whose argument is variadic keeps
             // taking values after this first one.
             let should_return = bind_pending_flag_value(
                 spec,
                 &out.cmd,
+                &out.available_flags,
                 &mut out.errors,
                 &mut out.flags,
                 &mut out.flag_awaiting_value,
@@ -4834,6 +4880,7 @@ fn is_number(rest: &str) -> bool {
 fn bind_pending_flag_value(
     spec: &Spec,
     cmd: &SpecCommand,
+    available_flags: &BTreeMap<String, Arc<SpecFlag>>,
     errors: &mut Vec<UsageErr>,
     flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
     flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
@@ -4888,6 +4935,7 @@ fn bind_pending_flag_value(
     collect_variadic_flag_values(
         spec,
         cmd,
+        available_flags,
         errors,
         flags,
         flag_awaiting_value,
@@ -4915,6 +4963,7 @@ fn bind_pending_flag_value(
 fn collect_variadic_flag_values(
     spec: &Spec,
     cmd: &SpecCommand,
+    available_flags: &BTreeMap<String, Arc<SpecFlag>>,
     errors: &mut Vec<UsageErr>,
     flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
     flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
@@ -4963,6 +5012,9 @@ fn collect_variadic_flag_values(
                     .as_ref()
                     .is_some_and(|arg| arg.allow_negative_numbers)
                     && is_negative_number(next)))
+            // A plus token the command reads as flags stops the run, as a dash flag does.
+            // An unrecognized `+` word is not one and is still a value.
+            || names_plus_spelling(available_flags, next)
         {
             break;
         }

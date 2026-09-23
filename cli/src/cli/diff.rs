@@ -495,6 +495,7 @@ fn diff_command_props(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut 
     }
 
     diff_unknown_flags(old.unknown_flags, new.unknown_flags, path, c);
+    diff_plus_scope(old, new, path, c);
 
     if !old.args_conflicts_with_subcommands && new.args_conflicts_with_subcommands {
         c.breaking(
@@ -2063,6 +2064,29 @@ fn diff_relaxing(
     }
 }
 
+/// Whether this command started reading `+` words as flags.
+///
+/// The first plus spelling changes what every other `+` word means here, not just the one
+/// declared: a word that reached a positional now names a flag, or, under
+/// `unknown_flags "error"`, is refused. `diff_flags` sees only the spelling that was
+/// added, so without this the change was reported as compatible. Losing the last one is
+/// reported by the flag that went with it.
+fn diff_plus_scope(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes) {
+    let reads_plus = |cmd: &SpecCommand| {
+        cmd.flags.iter().any(|flag| {
+            !flag.plus_short.is_empty()
+                || flag.negate.as_deref().is_some_and(|n| n.starts_with('+'))
+        })
+    };
+    if !reads_plus(old) && reads_plus(new) {
+        c.breaking(
+            "plus-scope-added",
+            path,
+            "`+` words are now read as flags here, where they used to be values".to_string(),
+        );
+    }
+}
+
 /// One `unknown_flags` declaration against its counterpart.
 ///
 /// Compared where it is written — the spec root, or the command that overrides it —
@@ -2899,6 +2923,19 @@ flag "--url <u>" help="url"
         let new = format!("{old}unknown_flags \"error\"\n");
         assert_eq!(codes(old, &new), ["breaking:unknown-flags-strict"]);
         assert_eq!(codes(&new, old), ["compatible:unknown-flags-lax"]);
+    }
+
+    #[test]
+    fn the_first_plus_spelling_changes_what_plus_words_mean() {
+        let old = "name \"ex\"\nbin \"ex\"\narg \"[words]\" help=\"words\" var=#true\n";
+        let new = format!("{old}flag \"unset-option: +o <option>\"\n");
+        assert_eq!(
+            codes(old, &new),
+            ["breaking:plus-scope-added", "compatible:flag-added"]
+        );
+        // A second one changes nothing: `+` words were already flags here.
+        let third = format!("{new}flag \"other: +p\"\n");
+        assert_eq!(codes(&new, &third), ["compatible:flag-added"]);
     }
 
     #[test]

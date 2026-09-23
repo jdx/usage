@@ -1261,6 +1261,11 @@ impl FromStr for SpecFlag {
                     }
                     flag.short.push(short.chars().next().unwrap());
                     true
+                } else if let Some(plus) = form.strip_prefix('+') {
+                    // `+o=<option>` is what `usage()` writes for a plus spelling that requires
+                    // its `=`, so the declaration it renders has to read back.
+                    flag.plus_short.push(plus_letter(plus, &input)?);
+                    true
                 } else {
                     false
                 };
@@ -1297,6 +1302,11 @@ impl FromStr for SpecFlag {
                         });
                     }
                     flag.short.push(short.chars().next().unwrap());
+                    true
+                } else if let Some(plus) = form.strip_prefix('+') {
+                    // `+o=<option>` is what `usage()` writes for a plus spelling that requires
+                    // its `=`, so the declaration it renders has to read back.
+                    flag.plus_short.push(plus_letter(plus, &input)?);
                     true
                 } else {
                     false
@@ -1337,15 +1347,7 @@ impl FromStr for SpecFlag {
                 }
                 flag.short.push(short.chars().next().unwrap());
             } else if let Some(plus) = part.strip_prefix('+') {
-                if plus.chars().count() != 1 {
-                    return Err(InvalidFlag {
-                        token: format!("+{plus}"),
-                        reason: "a plus spelling is a single character, like a short".to_string(),
-                        span: (0, input.len()).into(),
-                        input: input.to_string(),
-                    });
-                }
-                flag.plus_short.push(plus.chars().next().unwrap());
+                flag.plus_short.push(plus_letter(plus, &input)?);
             } else if part == "…" {
                 if let Some(arg) = &mut flag.arg {
                     arg.var = true;
@@ -1634,6 +1636,35 @@ impl Hash for SpecFlag {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
     }
+}
+
+/// One plus letter, or the error that says why it is not one.
+///
+/// ASCII, like a short: a plus bundle is walked one byte at a time, so a multi-byte
+/// letter could never be matched, and the remainder after a value-taking one — which
+/// becomes its value — would begin in the middle of a character.
+fn plus_letter(plus: &str, input: &str) -> Result<char> {
+    let reject = |reason: &str| InvalidFlag {
+        token: format!("+{plus}"),
+        reason: reason.to_string(),
+        span: (0, input.len()).into(),
+        input: input.to_string(),
+    };
+    let mut letters = plus.chars();
+    let letter = match (letters.next(), letters.next()) {
+        (Some(letter), None) => letter,
+        _ => {
+            return Err(reject(
+                "a plus spelling is a single character, like a short",
+            ))
+        }
+    };
+    if !letter.is_ascii() {
+        return Err(reject(
+            "a plus spelling bundles as a short does, so it has to be ASCII",
+        ));
+    }
+    Ok(letter)
 }
 
 /// The name a flag spelled only with a `+` answers to.

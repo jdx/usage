@@ -327,6 +327,9 @@ func spelling(f *Flag) string {
 	if len(f.Short) > 0 && f.Short[0] != "" {
 		return "-" + f.Short[0]
 	}
+	if len(f.PlusShort) > 0 && f.PlusShort[0] != "" {
+		return "+" + f.PlusShort[0]
+	}
 	return ""
 }
 
@@ -952,13 +955,17 @@ func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (
 
 	// The form is part of the name: `--q` does not reach the short `-q`, and
 	// `-color` does not reach the long `--color`. usage-lib resolves neither.
-	long, short, bare := "", byte(0), ""
+	long, short, plus, bare := "", byte(0), byte(0), ""
 	switch {
 	case strings.HasPrefix(name, "--"):
 		long = name[2:]
 	case strings.HasPrefix(name, "-") && len(name) == 2:
 		short = name[1]
-	case !strings.HasPrefix(name, "-"):
+	case strings.HasPrefix(name, "+") && len(name) == 2:
+		// A plus spelling names its flag as a short does, and for a flag spelled only
+		// with a `+` it is the only name there is.
+		plus = name[1]
+	case !strings.HasPrefix(name, "-") && !strings.HasPrefix(name, "+"):
 		// Undashed, which is the name the spec gives the flag rather than a form
 		// it can be typed as.
 		bare = name
@@ -978,6 +985,11 @@ func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (
 		}
 		if short != 0 {
 			if slices.Contains(f.Shorts, short) {
+				return f.Key, true
+			}
+		}
+		if plus != 0 {
+			if slices.Contains(f.PlusShorts, plus) {
 				return f.Key, true
 			}
 		}

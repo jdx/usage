@@ -396,6 +396,28 @@ fn lint_command(
                 seen_flags.insert(key, flag);
             }
         }
+        // `+o` collides with `+o` and not with `-o`: a shell spells two different options
+        // that way, which is why the two are separate keys here.
+        for plus in flag
+            .plus_short
+            .iter()
+            .map(|plus| format!("+{plus}"))
+            .chain(flag.negate.iter().filter(|n| n.starts_with('+')).cloned())
+        {
+            if let Some(existing) = seen_flags.get(&plus) {
+                issues.push(LintIssue {
+                    severity: Severity::Error,
+                    code: "duplicate-flag".to_string(),
+                    message: format!(
+                        "Flag '{}' is defined multiple times (also defined as '{}')",
+                        plus, existing.name
+                    ),
+                    location: Some(format!("cmd {}", cmd_path)),
+                });
+            } else {
+                seen_flags.insert(plus, flag);
+            }
+        }
     }
 
     // Lint individual flags
@@ -525,8 +547,8 @@ fn lint_sorted(cmd: &SpecCommand, cmd_path: &str, issues: &mut Vec<LintIssue>) {
         });
     }
 
-    // A flag with neither a short nor a long is already reported as `flag-no-option`;
-    // there is no name here to sort it by, so it takes no part in the ordering.
+    // A flag with no long has no name here to sort it by, so it takes no part in the
+    // ordering — whether it is spelled with a short, a `+o`, or nothing at all.
     let long_only: Vec<&SpecFlag> = cmd
         .flags
         .iter()
@@ -571,8 +593,9 @@ fn short_cmp(a: char, b: char) -> Ordering {
 }
 
 fn lint_flag(flag: &SpecFlag, cmd_path: &str, issues: &mut Vec<LintIssue>) {
-    // Check for flags with no short or long
-    if flag.short.is_empty() && flag.long.is_empty() {
+    // Check for flags with no spelling at all. A `+o` is one, so a flag that has only
+    // that is spellable and not reported.
+    if flag.short.is_empty() && flag.long.is_empty() && flag.plus_short.is_empty() {
         issues.push(LintIssue {
             severity: Severity::Error,
             code: "flag-no-option".to_string(),

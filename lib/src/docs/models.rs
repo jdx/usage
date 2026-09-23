@@ -1260,6 +1260,14 @@ impl SpecFlag {
             .iter()
             .skip(1)
             .map(|short| format!("-{short}"))
+            // `reference_usage` lists the first plus spelling; the rest belong here, as a
+            // second short does.
+            .chain(
+                self.plus_short
+                    .iter()
+                    .skip(1)
+                    .map(|plus| format!("+{plus}")),
+            )
             .chain(self.long.iter().skip(1).map(|long| format!("--{long}")))
             .collect();
     }

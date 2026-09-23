@@ -121,16 +121,12 @@
       }
     },
     {
-      "id": "plus-value-can-be-a-plus-word",
-      "doc": "A plus token owed to a flag as its value is that value.",
+      "id": "plus-spelling-is-not-a-detached-value",
+      "doc": "A plus token the command reads as flags stops a flag wanting a value, as a dash flag does.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
       "argv": ["-o", "+x"],
       "expect": {
-        "ok": {
-          "flags": {
-            "o": ["+x"]
-          }
-        }
+        "error": "missing_flag_value"
       }
     },
     {
@@ -314,6 +310,100 @@
       "argv": ["+o"],
       "expect": {
         "error": "missing_flag_value"
+      }
+    },
+    {
+      "id": "unknown-plus-word-is-still-a-value",
+      "doc": "A `+` word that names no spelling is an ordinary value, so a flag still takes it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["-o", "+glob"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "o": ["+glob"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-spelling-ends-a-variadic-run",
+      "doc": "A variadic flag stops at a plus bundle and lets it bind.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pat>...\"\nflag \"-e\" negate=\"+e\"\narg \"[args]...\"\n",
+      "argv": ["--include", "a", "+e"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "include": ["a"],
+            "e": false
+          }
+        }
+      }
+    },
+    {
+      "id": "unknown-plus-word-continues-a-variadic-run",
+      "doc": "An unrecognized `+` word is a value, so the run keeps it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--include <pat>...\"\nflag \"-e\" negate=\"+e\"\narg \"[args]...\"\n",
+      "argv": ["--include", "a", "+glob"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "include": ["a", "+glob"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-bundle-keeps-its-attached-value",
+      "doc": "`+o=pipefail` binds attached, which `require_equals` accepts and a detached value would not.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"unset-option: +o <option>\" require_equals=#true\narg \"[args]...\"\n",
+      "argv": ["+o=pipefail"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "unset-option": "pipefail"
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-attached-value-can-look-like-a-flag",
+      "doc": "An attached value stays one: `+o=--force` is a value, not the `--force` flag.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"unset-option: +o <option>\"\nflag \"--force\"\narg \"[args]...\"\n",
+      "argv": ["+o=--force"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "unset-option": "--force"
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-bundle-with-an-attached-value-leaves-the-next-word",
+      "doc": "`+opipefail` carries its value, so the word after it can still name a subcommand.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"unset-option: +o <option>\"\nflag \"-x\" negate=\"+x\"\ncmd \"run\" {\n    arg \"[args]...\"\n}\n",
+      "argv": ["+opipefail", "run"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "unset-option": "pipefail"
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-bundle-wanting-a-value-takes-the-next-word",
+      "doc": "`+xo` leaves `+o` wanting a value, which the following word supplies even where a subcommand has that name.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"unset-option: +o <option>\"\nflag \"-x\" negate=\"+x\"\ncmd \"run\" {\n    arg \"[args]...\"\n}\n",
+      "argv": ["+xo", "run"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "x": false,
+            "unset-option": "run"
+          }
+        }
       }
     }
   ]

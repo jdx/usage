@@ -215,7 +215,7 @@ func (p *Parser) defaultFlagRoute() int {
 			}
 			if !hasAttached && !f.RequireEquals && i < len(p.argv) {
 				next := p.argv[i]
-				if !isSeparator(next) && (f.AllowHyphenValues || !isFlagLike(next) || (f.AllowNegativeNumbers && isNegativeNumber(next))) {
+				if !isSeparator(next) && !(p.isPlusBundle(next) && !f.AllowHyphenValues) && (f.AllowHyphenValues || !isFlagLike(next) || (f.AllowNegativeNumbers && isNegativeNumber(next))) {
 					attached, hasAttached = next, true
 					i++
 				}
@@ -239,7 +239,7 @@ func (p *Parser) defaultFlagRoute() int {
 						}
 						break
 					}
-					if isFlagLike(next) && (!f.AllowNegativeNumbers || !isNegativeNumber(next)) {
+					if (isFlagLike(next) && (!f.AllowNegativeNumbers || !isNegativeNumber(next))) || p.isPlusBundle(next) {
 						break
 					}
 					if p.cmd.SubcommandPrecedenceOverArg && p.findSubcommand(next) != nil {
@@ -449,7 +449,7 @@ func (p *Parser) step() bool {
 					p.collecting = nil
 					continue
 				}
-				if (!isFlagLike(next) || (flag.AllowNegativeNumbers && isNegativeNumber(next))) && !p.isClauseSeparator(next) && next != "--" {
+				if (!isFlagLike(next) || (flag.AllowNegativeNumbers && isNegativeNumber(next))) && !p.isPlusBundle(next) && !p.isClauseSeparator(next) && next != "--" {
 					p.pos++
 					p.collected += valuesIn(next, flag.Delimiter)
 					// Same rule as a positional: a bounded occurrence takes that many and
@@ -572,6 +572,13 @@ func (p *Parser) step() bool {
 
 		return p.word(token)
 	}
+}
+
+// isPlusBundle reports whether a token is a plus bundle this command would read as
+// flags. A variadic flag stops at one, as it stops at a dash flag. An unrecognized `+`
+// word is not one, and stays collectible: `--include a +glob` keeps its glob.
+func (p *Parser) isPlusBundle(token string) bool {
+	return len(token) > 1 && token[0] == '+' && p.hasPlusSpellings() && p.plusBundleKnown(token[1:])
 }
 
 func (p *Parser) hasPlusSpellings() bool {
@@ -792,7 +799,7 @@ func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string,
 	if flag.RequireEquals {
 		return p.missingOrDefault(flag, long, short)
 	}
-	if p.pos < len(p.argv) && !p.isClauseSeparator(p.argv[p.pos]) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos]) || (flag.AllowNegativeNumbers && isNegativeNumber(p.argv[p.pos]))) {
+	if p.pos < len(p.argv) && !p.isClauseSeparator(p.argv[p.pos]) && !(p.isPlusBundle(p.argv[p.pos]) && !flag.AllowHyphenValues) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos]) || (flag.AllowNegativeNumbers && isNegativeNumber(p.argv[p.pos]))) {
 		v := p.argv[p.pos]
 		p.pos++
 		return v, true, true

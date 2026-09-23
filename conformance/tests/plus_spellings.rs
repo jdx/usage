@@ -74,3 +74,32 @@ fn the_plus_form_turns_the_switch_off() {
     let typed = Shell::parse_from(&[OsStr::new("-x"), OsStr::new("+x")]).expect("both spellings");
     assert!(!typed.xtrace);
 }
+
+#[derive(Debug, Cli)]
+#[usage(bin = "sh2")]
+struct Related {
+    /// Set a shell option.
+    #[usage(short = 'o', var, conflicts = "+o")]
+    option: Vec<String>,
+    /// Unset a shell option.
+    #[usage(plus_short = 'o', var)]
+    unset_option: Vec<String>,
+}
+
+#[test]
+fn a_relationship_can_name_a_flag_by_its_plus_spelling() {
+    let spec: LibSpec = Related::to_kdl().parse().expect("derived KDL is valid");
+    let option = spec.cmd.flags.iter().find(|f| f.name == "o").unwrap();
+    assert_eq!(option.conflicts, ["+o"]);
+
+    let argv = [
+        OsStr::new("-o"),
+        OsStr::new("errexit"),
+        OsStr::new("+o"),
+        OsStr::new("pipefail"),
+    ];
+    assert!(
+        Related::parse_from(&argv).is_err(),
+        "the two spellings were declared to conflict"
+    );
+}

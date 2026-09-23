@@ -1665,24 +1665,37 @@ impl Cli {
                 Kind::Flag {
                     longs,
                     shorts,
+                    plus_shorts,
                     negate,
                     ..
-                } => match selector.strip_prefix("--") {
-                    Some(long) => longs.iter().chain(negate.iter()).any(|l| l == long),
-                    // A short is one character; `-abc` is three flags rather than a name.
-                    None => selector
-                        .strip_prefix('-')
-                        .and_then(|rest| {
-                            let mut chars = rest.chars();
-                            chars.next().filter(|_| chars.next().is_none())
-                        })
-                        .is_some_and(|short| shorts.contains(&short)),
-                },
+                } => {
+                    // One character; `-abc` is three flags rather than a name, and `+eux`
+                    // likewise.
+                    let letter = |rest: &str| {
+                        let mut chars = rest.chars();
+                        chars.next().filter(|_| chars.next().is_none())
+                    };
+                    match selector.strip_prefix("--") {
+                        Some(long) => longs.iter().chain(negate.iter()).any(|l| l == long),
+                        None => match selector.strip_prefix('+') {
+                            // A flag is named by any spelling it answers to, and for one
+                            // spelled only with a `+` that is the only spelling there is.
+                            Some(rest) => letter(rest).is_some_and(|plus| {
+                                plus_shorts.contains(&plus)
+                                    || negate.as_deref() == Some(&format!("+{plus}"))
+                            }),
+                            None => selector
+                                .strip_prefix('-')
+                                .and_then(letter)
+                                .is_some_and(|short| shorts.contains(&short)),
+                        },
+                    }
+                }
                 Kind::Arg { .. } => selector == field.name,
                 _ => false,
             }
         };
-        if selector.starts_with('-') {
+        if selector.starts_with('-') || selector.starts_with('+') {
             return self.fields.iter().find(matches);
         }
 
@@ -1729,6 +1742,9 @@ impl Cli {
         }
         let mut seen_long: Vec<(&str, Span)> = Vec::new();
         let mut seen_short: Vec<(char, Span)> = Vec::new();
+        // Kept apart from `seen_short`: `-o` and `+o` are two different options in a shell,
+        // and apart from `seen_long` so that a collision reads `+x` rather than `--+x`.
+        let mut seen_plus: Vec<(char, Span)> = Vec::new();
         let mut seen_sigils: Vec<(&str, Span)> = Vec::new();
         let mut variadic_arg: Option<Span> = None;
         // A variadic that only takes what follows a `--`, which is the end of the line in
@@ -1742,14 +1758,22 @@ impl Cli {
                 Kind::Flag {
                     longs,
                     shorts,
+                    plus_shorts,
                     negate,
                     ..
                 } => {
+                    let (negate_long, negate_plus) = match negate.as_deref() {
+                        Some(negate) => match negate.strip_prefix('+') {
+                            Some(plus) => (None, plus.chars().next()),
+                            None => (Some(negate), None),
+                        },
+                        None => (None, None),
+                    };
                     // A negation is another long form, so it collides like one. Left
                     // unchecked, two flags could answer to the same token and only
                     // the first would ever be reached.
-                    for long in longs.iter().chain(negate.iter()) {
-                        if let Some((_, first)) = seen_long.iter().find(|(l, _)| l == long) {
+                    for long in longs.iter().map(String::as_str).chain(negate_long) {
+                        if let Some((_, first)) = seen_long.iter().find(|(l, _)| *l == long) {
                             return Err(dup(
                                 field.span,
                                 *first,
@@ -1767,6 +1791,16 @@ impl Cli {
                             ));
                         }
                         seen_short.push((*short, field.span));
+                    }
+                    for plus in plus_shorts.iter().copied().chain(negate_plus) {
+                        if let Some((_, first)) = seen_plus.iter().find(|(p, _)| *p == plus) {
+                            return Err(dup(
+                                field.span,
+                                *first,
+                                &format!("+{plus} is declared twice"),
+                            ));
+                        }
+                        seen_plus.push((plus, field.span));
                     }
                 }
                 // Nothing to check here: the flattened struct's own derive checked its
@@ -2059,8 +2093,8 @@ impl Cli {
                             field.span,
                             format!(
                                 "`{option} = \"{selector}\"` names no argument on this \
-                                 command; use `--long` or `-s` for a flag, or the bare \
-                                 name for a positional"
+                                 command; use `--long`, `-s` or `+s` for a flag, or the \
+                                 bare name for a positional"
                             ),
                         ));
                     };

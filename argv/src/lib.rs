@@ -2029,6 +2029,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                         .map(bytes)
                         .filter(|next| {
                             !is_separator(next)
+                                && !(self.is_plus_bundle(next) && !flag.allow_hyphen_values)
                                 && (flag.allow_hyphen_values
                                     || !is_flag_like(next)
                                     || (flag.allow_negative_numbers && is_negative_number(next)))
@@ -2055,8 +2056,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                             }
                             break;
                         }
-                        if is_flag_like(next)
-                            && !(flag.allow_negative_numbers && is_negative_number(next))
+                        if (is_flag_like(next)
+                            && !(flag.allow_negative_numbers && is_negative_number(next)))
+                            || self.is_plus_bundle(next)
                         {
                             break;
                         }
@@ -2302,6 +2304,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 Some(next)
                     if (!is_flag_like(bytes(next))
                         || (flag.allow_negative_numbers && is_negative_number(bytes(next))))
+                        && !self.is_plus_bundle(bytes(next))
                         && self.clause_separator(bytes(next)).is_none()
                         && bytes(next) != b"--" =>
                 {
@@ -2459,6 +2462,17 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         }
 
         Some(self.word(token))
+    }
+
+    /// Whether a token is a plus bundle this command would read as flags.
+    ///
+    /// A variadic flag stops at one, as it stops at a dash flag. An unrecognized `+` word
+    /// is not one, and stays collectible: `--include a +glob` keeps its glob.
+    fn is_plus_bundle(&self, token: &[u8]) -> bool {
+        token.len() > 1
+            && token[0] == b'+'
+            && self.has_plus_spellings()
+            && self.check_plus_bundle(&token[1..])
     }
 
     fn has_plus_spellings(&self) -> bool {
@@ -2692,6 +2706,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         match self.argv.get(self.pos) {
             Some(next)
                 if self.clause_separator(bytes(next)).is_none()
+                    && !(self.is_plus_bundle(bytes(next)) && !flag.allow_hyphen_values)
                     && (flag.allow_hyphen_values
                         || !is_flag_like(bytes(next))
                         || (flag.allow_negative_numbers && is_negative_number(bytes(next)))) =>

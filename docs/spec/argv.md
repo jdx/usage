@@ -266,15 +266,20 @@ The shells spell some options with `+`: `set +x` turns tracing off, and
 `+o pipefail` unsets a named option. A switch declares its plus spelling as its
 negation, `negate="+x"`, and a flag may be spelled with `+` outright,
 `flag "unset-option: +o <option>"`. Plus letters bundle as dash letters do, in a
-token of their own: `+eux` turns off `e`, `u` and `x`, and a value-taking letter
-ends the bundle, so `+xo pipefail` turns off `x` and gives `+o` its value.
+token of their own: `+eux` turns off `e`, `u` and `x`. A value-taking letter ends
+the bundle and takes the rest of the token as its value, `=` or no `=`, so
+`+opipefail` and `+o=pipefail` say the same thing and `+xo pipefail` turns off
+`x` and gives `+o` the following word.
 
 A command reads a plus token this way only where some plus spelling is in scope;
 elsewhere `+x` is an ordinary word, which keeps existing specs and
 [sigil](./reference/sigils.md) arguments unchanged. A plus token with a letter no
 plus spelling names is not a bundle and becomes a word, or an `unknown_flag`
-under `unknown_flags "error"`. A plus token owed to a flag as its value is that
-value, and after `--` it is a value like any other.
+under `unknown_flags "error"`.
+
+A bundle the command reads as flags **is** a flag, so a flag still wanting a
+value stops at one just as it stops at `-x`: `--include a +e` leaves `+e` to bind
+and `--include a +glob` keeps the glob. After `--`, every `+` token is a value.
 
 ## Unrecognized flags
 
