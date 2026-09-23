@@ -2253,6 +2253,18 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         let Some(token) = self.argv.get(self.pos).map(bytes) else {
             return false;
         };
+        if token.starts_with(b"+") {
+            for byte in &token[1..] {
+                if self.find_plus(*byte).is_some() {
+                    return true;
+                }
+                match default_plus(default, *byte) {
+                    Some((flag, negated)) if negated || !flag.takes_value => {}
+                    _ => break,
+                }
+            }
+            return false;
+        }
         if !token.starts_with(b"-") || token.starts_with(b"--") {
             return false;
         }
@@ -2281,7 +2293,8 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 }
                 if self.argv.get(self.pos).is_some_and(|word| {
                     let token = bytes(word);
-                    token.starts_with(b"-") && !token.starts_with(b"--")
+                    (token.starts_with(b"-") && !token.starts_with(b"--"))
+                        || token.starts_with(b"+")
                 }) {
                     self.default_bundle_end = self.pos + 1;
                 }
@@ -2509,6 +2522,13 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
     /// The flag a plus letter names, and whether it is a switch's negation.
     fn find_plus(&self, byte: u8) -> Option<(&'t Flag<'t>, bool)> {
+        // Only the boundary token is shared, as for `find_short`: `+ex` selects the default
+        // command on its `+x` while `+e` still belongs to the parent that declared it.
+        if self.default_taken && self.pos == self.default_bundle_end {
+            if let Some(found) = self.ancestors[0].and_then(|parent| default_plus(parent, byte)) {
+                return Some(found);
+            }
+        }
         self.in_scope()
             .find(|f| f.plus_shorts.contains(&byte))
             .map(|f| (f, false))

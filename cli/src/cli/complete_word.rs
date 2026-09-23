@@ -129,11 +129,23 @@ pub fn answer(
     .complete_word_answer(spec)
 }
 
-/// Whether any flag in scope is spelled with a `+`.
+/// Whether `token` is a `+` word this command would read as flags.
 ///
-/// The map is keyed by spelling, so this covers both a `+o` form and a `+x` negation.
-fn plus_spellings_declared(flags: &BTreeMap<String, Arc<SpecFlag>>) -> bool {
-    flags.keys().any(|key| key.starts_with('+'))
+/// The letters have to name plus spellings, not merely exist somewhere in the command: a
+/// spec that declares `+x` and takes `+node@22` as a sigil argument still completes the
+/// argument, because `+n` names no flag. A bare `+` asks about every plus spelling there
+/// is. The map is keyed by spelling, so a `+o` form and a `+x` negation both count.
+fn plus_token(flags: &BTreeMap<String, Arc<SpecFlag>>, token: &str, sigil_claims_it: bool) -> bool {
+    match token.strip_prefix('+') {
+        None => false,
+        // A bare `+` could become either. Where a positional claims the sigil, that is
+        // the likelier one, and a letter that names a flag still reaches it below.
+        Some("") => !sigil_claims_it && flags.keys().any(|key| key.starts_with('+')),
+        // The word is still being typed, so only the letters present can be asked about.
+        Some(letters) => letters
+            .chars()
+            .all(|letter| flags.contains_key(&format!("+{letter}"))),
+    }
 }
 
 impl CompleteWord {
@@ -315,7 +327,7 @@ impl CompleteWord {
             }
         } else if flags_possible && ctoken.starts_with('-') {
             self.complete_short_flag_names(&flags, &ctoken)
-        } else if flags_possible && ctoken.starts_with('+') && plus_spellings_declared(&flags) {
+        } else if flags_possible && plus_token(&flags, &ctoken, sigil_arg.is_some()) {
             self.complete_plus_flag_names(&flags, &ctoken)
         } else if after_restart_token {
             // After a restart_token, complete from the first ordinary arg of the current command
@@ -411,8 +423,7 @@ impl CompleteWord {
         // flag. Past a `--` a dash-prefixed word is not a flag but a value, so a path like
         // `-input` still gets completed there.
         let looks_like_a_flag = flags_possible
-            && (ctoken.starts_with('-')
-                || (ctoken.starts_with('+') && plus_spellings_declared(&flags)));
+            && (ctoken.starts_with('-') || plus_token(&flags, &ctoken, sigil_arg.is_some()));
         let files = used_file_fallback
             || (choices.is_empty() && !looks_like_a_flag && !has_explicit_choices);
         if files && choices.is_empty() {

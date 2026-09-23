@@ -403,6 +403,18 @@ func (p *Parser) defaultBundleHasParentFlag(d *Command) bool {
 		return false
 	}
 	token := p.argv[p.pos]
+	if strings.HasPrefix(token, "+") {
+		for i := 1; i < len(token); i++ {
+			if f, _ := p.findPlus(token[i]); f != nil {
+				return true
+			}
+			f, negated := defaultPlus(d, token[i])
+			if f == nil || (f.TakesValue && !negated) {
+				break
+			}
+		}
+		return false
+	}
 	if !strings.HasPrefix(token, "-") || strings.HasPrefix(token, "--") {
 		return false
 	}
@@ -431,7 +443,7 @@ func (p *Parser) step() bool {
 			if p.cmd.ArgsConflictWithSubcommands && (p.commandArgFound || p.defaultBundleHasParentFlag(d)) {
 				return p.fail(Error{Code: CodeSubcommandConflict, Cmd: p.cmd})
 			}
-			if p.pos < len(p.argv) && strings.HasPrefix(p.argv[p.pos], "-") && !strings.HasPrefix(p.argv[p.pos], "--") {
+			if p.pos < len(p.argv) && ((strings.HasPrefix(p.argv[p.pos], "-") && !strings.HasPrefix(p.argv[p.pos], "--")) || strings.HasPrefix(p.argv[p.pos], "+")) {
 				p.defaultBundleEnd = p.pos + 1
 			}
 			p.defaultTaken = true
@@ -635,6 +647,13 @@ func (p *Parser) hasPlusSpellings() bool {
 
 // findPlus is the flag a plus letter names, and whether it is a switch's negation.
 func (p *Parser) findPlus(b byte) (*Flag, bool) {
+	// Only the boundary token is shared, as for findShort: `+ex` selects the default
+	// command on its `+x` while `+e` still belongs to the parent that declared it.
+	if p.defaultTaken && p.pos == p.defaultBundleEnd && p.ancestors[0] != nil {
+		if f, negated := defaultPlus(p.ancestors[0], b); f != nil {
+			return f, negated
+		}
+	}
 	if f := p.eachInScope(func(f *Flag) bool { return slices.Contains(f.PlusShorts, b) }); f != nil {
 		return f, false
 	}

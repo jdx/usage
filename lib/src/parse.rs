@@ -1286,8 +1286,11 @@ struct Token {
     ///
     /// The level matters to strict parsing: clap permits an inherited global once on each
     /// side of a subcommand boundary.
-    binding: Option<(Arc<SpecFlag>, usize)>,
+    binding: Option<Binding>,
 }
+
+/// The flag a word was read as, and the command level that declared it.
+type Binding = (Arc<SpecFlag>, usize);
 
 /// Flag scope for the one token straddling an implicit default-command boundary.
 struct DefaultBundle {
@@ -1298,7 +1301,7 @@ struct DefaultBundle {
 
 impl DefaultBundle {
     /// Preserve the declaration and command level when a short tail is requeued.
-    fn binding(&self, key: &str) -> Option<(Arc<SpecFlag>, usize)> {
+    fn binding(&self, key: &str) -> Option<Binding> {
         self.flags.get(key).map(|flag| {
             (
                 Arc::clone(flag),
@@ -1404,7 +1407,14 @@ fn default_flag_route(spec: &Spec, root: &SpecCommand, input: &VecDeque<Token>) 
         {
             return at;
         }
-        if !is_flag_like(token) {
+        // A `+` token is flag-like where a plus spelling answers for its first letter, here
+        // or in the default command — which is the command this lookahead exists to find.
+        let plus_bundle = token.starts_with('+')
+            && token.chars().nth(1).is_some_and(|letter| {
+                let key = format!("+{letter}");
+                parent.contains_key(&key) || child.contains_key(&key)
+            });
+        if !is_flag_like(token) && !plus_bundle {
             if at.is_none()
                 && (root.find_subcommand(token).is_some()
                     || (token == "help"
@@ -1437,6 +1447,25 @@ fn default_flag_route(spec: &Spec, root: &SpecCommand, input: &VecDeque<Token>) 
             if flag.arg.is_some() && flag.negate.as_deref() != Some(name) {
                 value_flag = Some(flag);
                 attached = value;
+            }
+        } else if plus_bundle {
+            // The same walk as the short bundle below, against the plus spellings. A
+            // negated letter takes no value however its flag is declared.
+            for (offset, letter) in token.char_indices().skip(1) {
+                let key = format!("+{letter}");
+                let flag = parent.get(&key).or_else(|| child.get(&key));
+                let Some(flag) = flag else {
+                    return at;
+                };
+                if !parent.contains_key(&key) {
+                    at.get_or_insert(i);
+                }
+                if flag.arg.is_some() && flag.negate.as_deref() != Some(&key) {
+                    value_flag = Some(flag);
+                    let rest = &token[offset + letter.len_utf8()..];
+                    attached = (!rest.is_empty()).then_some(rest.strip_prefix('=').unwrap_or(rest));
+                    break;
+                }
             }
         } else {
             for (offset, letter) in token.char_indices().skip(1) {
@@ -1726,9 +1755,11 @@ fn parse_partial_traced(
                     subcommand.name
                 );
             }
+            // The boundary token is shared: `-ex` selects the default command on its `-x`
+            // while `-e` still belongs to the parent that declared it, and `+ex` likewise.
             let boundary_parent = (implicit_default
-                && input[idx].word.starts_with('-')
-                && !input[idx].word.starts_with("--"))
+                && ((input[idx].word.starts_with('-') && !input[idx].word.starts_with("--"))
+                    || input[idx].word.starts_with('+')))
             .then(|| out.available_flags.clone());
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
@@ -1778,7 +1809,16 @@ fn parse_partial_traced(
             // After remove(), idx now points to the next element
         } else if !is_command_word(&input[idx].word)
             || declared_numeric_short(&out.available_flags, &input[idx].word)
-            || names_plus_spelling(&out.available_flags, &input[idx].word)
+            // The boundary token is shared with the command just descended into, and its
+            // parent letters live only in that bundle: after the descent `out.available_flags`
+            // no longer holds them, so asking it would call `+ex` a word.
+            || names_plus_spelling(
+                default_bundle
+                    .as_ref()
+                    .filter(|bundle| bundle.argv == input[idx].argv)
+                    .map_or(&out.available_flags, |bundle| &bundle.flags),
+                &input[idx].word,
+            )
         {
             // Check if this is a known flag
             let word = input[idx].word.clone();
@@ -1796,6 +1836,34 @@ fn parse_partial_traced(
             let is_bundle = word.starts_with("--")
                 || names_plus_spelling(flags, &word)
                 || short_bundle_is_known(spec, &out.cmds, flags, &word);
+            // A plus bundle on the *boundary* token is split here rather than in phase 2:
+            // its letters can belong to either side, and once the descent has happened the
+            // parent's own flags are no longer in `available_flags` for phase 2 to find.
+            // Each spelling keeps the binding that says which command it came from.
+            if boundary.is_some() && word.starts_with('+') && word.chars().count() > 2 {
+                if let Some(spellings) = split_plus_bundle(|key| flags.get(key), &word) {
+                    let bound: Vec<(String, Option<Binding>)> = spellings
+                        .iter()
+                        .map(|spelling| {
+                            let key = spelling.split_once('=').map_or(&spelling[..], |(k, _)| k);
+                            let binding =
+                                boundary.and_then(|bundle| bundle.binding(key)).or_else(|| {
+                                    flags.get(key).map(|f| (Arc::clone(f), out.cmds.len() - 1))
+                                });
+                            (spelling.clone(), binding)
+                        })
+                        .collect();
+                    let argv = input[idx].argv;
+                    input.remove(idx);
+                    // Inserted back to front, so they end up in the order they were written.
+                    for (spelling, binding) in bound.into_iter().rev() {
+                        let mut token = Token::new(spelling, argv);
+                        token.binding = binding;
+                        input.insert(idx, token);
+                    }
+                    continue;
+                }
+            }
             if let Some(f) = flags.get(flag_key).cloned().filter(|_| is_bundle) {
                 command_arg_found = true;
                 variadic_flag_active = f.arg.as_ref().is_some_and(|arg| arg.var);

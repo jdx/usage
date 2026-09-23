@@ -1372,7 +1372,7 @@ fn complete_inner<'a>(
     // suppresses its own listing there for the same reason.
     let flag_like = attached.is_none()
         && position.flags_possible
-        && (token.starts_with('-') || (token.starts_with('+') && plus_in_scope(&position)));
+        && (token.starts_with('-') || plus_token(&position, token, sigil_cursor.is_some()));
 
     // The name a value here would have, which is what says whether paths belong, and whether
     // that value declares its own set.
@@ -1853,7 +1853,7 @@ fn candidates_at<'a>(
 ) -> Vec<Candidate<'a>> {
     let token = split.prefix.as_str();
 
-    let mut out = if position.flags_possible && token.starts_with('+') && plus_in_scope(position) {
+    let mut out = if position.flags_possible && plus_token(position, token, sigil_arg.is_some()) {
         flag_forms(spec, position, token)
     } else if position.flags_possible && token.starts_with('-') {
         // Only a `--flag=` word has a value attached; any other dash-prefixed word is a flag.
@@ -2011,13 +2011,33 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
 /// candidate for a different position in the word. A lone `-` says nothing about which was
 /// meant, so it gets both. One loop for the two, since each form needs the same metadata; the
 /// order they are found in does not matter, because the caller sorts.
-/// Whether any flag here is spelled with a `+`, which is what makes a `+` word a flag
-/// rather than an ordinary one.
-fn plus_in_scope(position: &Position<'_>) -> bool {
-    position
-        .flags
-        .iter()
-        .any(|flag| !flag.plus_shorts.is_empty() || flag.negate_plus.is_some())
+/// Whether `token` is a `+` word this command would read as flags.
+///
+/// The letters have to name plus spellings, not merely exist somewhere in the command: a
+/// spec that declares `+x` and takes `+node@22` as a [sigil](../../docs/spec/reference/sigils.md)
+/// argument still completes the argument, because `+n` names no flag. A bare `+` asks
+/// about every plus spelling there is.
+fn plus_token(position: &Position<'_>, token: &str, sigil_claims_it: bool) -> bool {
+    let names = |letter: u8| {
+        position
+            .flags
+            .iter()
+            .any(|flag| flag.plus_shorts.contains(&letter) || flag.negate_plus == Some(letter))
+    };
+    match token.strip_prefix('+') {
+        None => false,
+        // A bare `+` could become either. Where a positional claims the sigil, that is the
+        // likelier one, and a letter that names a flag still reaches it below.
+        Some("") => {
+            !sigil_claims_it
+                && position
+                    .flags
+                    .iter()
+                    .any(|flag| !flag.plus_shorts.is_empty() || flag.negate_plus.is_some())
+        }
+        // The word is still being typed, so only the letters present can be asked about.
+        Some(letters) => letters.bytes().all(names),
+    }
 }
 
 fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {

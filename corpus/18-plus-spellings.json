@@ -462,6 +462,36 @@
           }
         }
       }
+    },
+    {
+      "id": "a-mixed-plus-bundle-keeps-its-parent-letters",
+      "doc": "`+ex` selects the default command on its `+x` while `+e` still belongs to the parent, as `-ex` does.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ndefault_subcommand \"run\"\ndefault_subcommand_flags #true\nflag \"-e\" negate=\"+e\"\ncmd \"run\" {\n    flag \"-x\" negate=\"+x\"\n    arg \"[args]...\"\n}\n",
+      "argv": ["+ex"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "e": false,
+            "x": false
+          }
+        }
+      }
+    },
+    {
+      "id": "a-mixed-plus-bundle-binds-the-parent-letter-last",
+      "doc": "Order within the token does not change who owns each letter.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ndefault_subcommand \"run\"\ndefault_subcommand_flags #true\nflag \"-e\" negate=\"+e\"\ncmd \"run\" {\n    flag \"-x\" negate=\"+x\"\n    arg \"[args]...\"\n}\n",
+      "argv": ["+xe"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "e": false,
+            "x": false
+          }
+        }
+      }
     }
   ]
 }
