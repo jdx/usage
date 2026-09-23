@@ -405,6 +405,63 @@
           }
         }
       }
+    },
+    {
+      "id": "a-default-only-plus-flag-takes-the-route",
+      "doc": "`+o` belongs to the default subcommand, so the route is taken even though the parent has a plus spelling of its own.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ndefault_subcommand \"run\"\ndefault_subcommand_flags #true\nflag \"-e\" negate=\"+e\"\ncmd \"run\" {\n    flag \"unset-option: +o <option>\"\n    arg \"[args]...\"\n}\n",
+      "argv": ["+o", "pipefail"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "unset-option": "pipefail"
+          }
+        }
+      }
+    },
+    {
+      "id": "a-default-only-plus-switch-takes-the-route",
+      "doc": "The same for a switch's negated spelling.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ndefault_subcommand \"run\"\ndefault_subcommand_flags #true\nflag \"-e\" negate=\"+e\"\ncmd \"run\" {\n    flag \"-x\" negate=\"+x\"\n    arg \"[args]...\"\n}\n",
+      "argv": ["+x"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "x": false
+          }
+        }
+      }
+    },
+    {
+      "id": "a-default-only-plus-flag-routes-with-no-parent-plus-spelling",
+      "doc": "The parent declares no plus spelling at all, and the route is still taken.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ndefault_subcommand \"run\"\ndefault_subcommand_flags #true\ncmd \"run\" {\n    flag \"unset-option: +o <option>\"\n    arg \"[args]...\"\n}\n",
+      "argv": ["+o", "pipefail"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "unset-option": "pipefail"
+          }
+        }
+      }
+    },
+    {
+      "id": "a-parent-plus-flag-binds-before-the-route",
+      "doc": "A parent spelling binds on the parent, and a default-only one still routes after it.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\ndefault_subcommand \"run\"\ndefault_subcommand_flags #true\nflag \"-e\" negate=\"+e\"\ncmd \"run\" {\n    flag \"-x\" negate=\"+x\"\n    arg \"[args]...\"\n}\n",
+      "argv": ["+e", "+x"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "e": false,
+            "x": false
+          }
+        }
+      }
     }
   ]
 }

@@ -1949,7 +1949,14 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             {
                 return at;
             }
-            if !is_flag_like(token) {
+            // A `+` token is flag-like where a plus spelling answers for its first letter,
+            // here or in the default command — which is the command this lookahead exists
+            // to find. Without this the token read as a word and the route was never taken.
+            let plus_bundle = token.len() > 1
+                && token[0] == b'+'
+                && (self.find_plus(token[1]).is_some()
+                    || default_plus(default, token[1]).is_some());
+            if !is_flag_like(token) && !plus_bundle {
                 // A sibling name before any default-only flag stays on the parent.
                 // After one, later words are the default command's args (`-u pkg`
                 // when `pkg` is also a command).
@@ -1991,6 +1998,26 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 if flag.takes_value && flag.negate.is_none_or(|n| n.as_bytes() != name) {
                     value_flag = Some(flag);
                     attached = (end < body.len()).then(|| &body[end + 1..]);
+                }
+            } else if plus_bundle {
+                // The same walk as the short bundle below, against the plus spellings. A
+                // negated letter takes no value however its flag is declared.
+                for (offset, byte) in token[1..].iter().enumerate() {
+                    let parent = self.find_plus(*byte);
+                    let Some((flag, negated)) = parent.or_else(|| default_plus(default, *byte))
+                    else {
+                        return at;
+                    };
+                    if parent.is_none() {
+                        at.get_or_insert(i);
+                    }
+                    if flag.takes_value && !negated {
+                        value_flag = Some(flag);
+                        let rest = &token[offset + 2..];
+                        attached =
+                            (!rest.is_empty()).then_some(rest.strip_prefix(b"=").unwrap_or(rest));
+                        break;
+                    }
                 }
             } else {
                 for (offset, byte) in token[1..].iter().enumerate() {
@@ -3215,6 +3242,24 @@ fn values_in(word: &[u8], delimiter: ::core::option::Option<u8>) -> u32 {
 ///
 /// `-` alone is a value, conventionally stdin. Other dash-prefixed tokens are
 /// flag-like; a field may make the narrower negative-number exception.
+/// The flag a plus letter names in one command's own declarations, and whether it is a
+/// negation. The default-subcommand lookahead asks about a command it has not entered, so
+/// it cannot use the parser's scope-walking [`Parser::find_plus`].
+fn default_plus<'t>(cmd: &'t Command<'t>, byte: u8) -> Option<(&'t Flag<'t>, bool)> {
+    cmd.flags
+        .iter()
+        .copied()
+        .find(|f| f.plus_shorts.contains(&byte))
+        .map(|flag| (flag, false))
+        .or_else(|| {
+            cmd.flags
+                .iter()
+                .copied()
+                .find(|f| f.negate_plus == Some(byte))
+                .map(|flag| (flag, true))
+        })
+}
+
 fn is_flag_like(token: &[u8]) -> bool {
     matches!(token, [b'-', rest @ ..] if !rest.is_empty())
 }

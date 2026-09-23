@@ -215,6 +215,7 @@ impl CompleteWord {
                         .iter()
                         .map(|name| format!("--{name}"))
                         .chain(flag.short.iter().map(|name| format!("-{name}")))
+                        .chain(flag.plus_short.iter().map(|name| format!("+{name}")))
                         .chain(flag.negate.iter().cloned())
                     {
                         flags.entry(key).or_insert_with(|| Arc::clone(&flag));

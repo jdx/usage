@@ -141,7 +141,16 @@ func (p *Parser) defaultFlagRoute() int {
 		if token == "--" || token == "-" || (scope.Clause != nil && scope.Clause.Separator != "" && scope.Clause.Separator == token) {
 			return at
 		}
-		if !isFlagLike(token) {
+		// A `+` token is flag-like where a plus spelling answers for its first letter,
+		// here or in the default command — which is the command this lookahead exists to
+		// find. Without this the token read as a word and the route was never taken.
+		plusBundle := false
+		if len(token) > 1 && token[0] == '+' {
+			f, _ := p.findPlus(token[1])
+			g, _ := defaultPlus(d, token[1])
+			plusBundle = f != nil || g != nil
+		}
+		if !isFlagLike(token) && !plusBundle {
 			if at < 0 && (p.findSubcommand(token) != nil || (token == "help" && !p.cmd.DisableHelpSubcommand)) {
 				return -1
 			}
@@ -177,6 +186,28 @@ func (p *Parser) defaultFlagRoute() int {
 			}
 			if flag.TakesValue && flag.Negate != name {
 				valueFlag, attached, hasAttached = flag, value, has
+			}
+		} else if plusBundle {
+			// The same walk as the short bundle below, against the plus spellings. A
+			// negated letter takes no value however its flag is declared.
+			for j := 1; j < len(token); j++ {
+				parent, negated := p.findPlus(token[j])
+				flag := parent
+				if flag == nil {
+					flag, negated = defaultPlus(d, token[j])
+				}
+				if flag == nil {
+					return at
+				}
+				if parent == nil && at < 0 {
+					at = i
+				}
+				if flag.TakesValue && !negated {
+					valueFlag = flag
+					attached = strings.TrimPrefix(token[j+1:], "=")
+					hasAttached = j+1 < len(token)
+					break
+				}
 			}
 		} else {
 			for j := 1; j < len(token); j++ {
@@ -574,6 +605,23 @@ func (p *Parser) step() bool {
 	}
 }
 
+// defaultPlus is the flag a plus letter names in one command's own declarations, and
+// whether it is a negation. The default-subcommand lookahead asks about a command it has
+// not entered, so it cannot use the scope-walking findPlus.
+func defaultPlus(cmd *Command, b byte) (*Flag, bool) {
+	for _, f := range cmd.Flags {
+		if slices.Contains(f.PlusShorts, b) {
+			return f, false
+		}
+	}
+	for _, f := range cmd.Flags {
+		if f.NegatePlus == b {
+			return f, true
+		}
+	}
+	return nil, false
+}
+
 // isPlusBundle reports whether a token is a plus bundle this command would read as
 // flags. A variadic flag stops at one, as it stops at a dash flag. An unrecognized `+`
 // word is not one, and stays collectible: `--include a +glob` keeps its glob.
@@ -835,7 +883,13 @@ func (p *Parser) missingOrDefault(flag *Flag, long string, short byte) (string, 
 	// is the hot path that must not allocate.
 	typed := long
 	if typed == "" && short != 0 {
-		typed = "-" + string(short)
+		// The sigil the letter was written with: `+o` and `-o` can be two different
+		// flags, so reporting the wrong one would name a flag they did not type.
+		sigil := "-"
+		if p.bundlePlus {
+			sigil = "+"
+		}
+		typed = sigil + string(short)
 	}
 	p.fail(Error{Code: CodeMissingFlagValue, Flag: flag, Token: typed})
 	return "", false, false

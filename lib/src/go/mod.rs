@@ -970,16 +970,20 @@ fn match_flag(cmd: &Emitted, name: &str, globals_only: bool) -> Option<String> {
 
     // The form is part of the name: `--q` does not reach the short `-q`, and
     // `-color` does not reach the long `--color`. usage-lib resolves neither.
-    let (long, short, bare) = if let Some(rest) = name.strip_prefix("--") {
-        (Some(rest), None, None)
-    } else if let Some(rest) = name.strip_prefix('-') {
+    let letter = |rest: &str| {
         let mut chars = rest.chars();
-        match (chars.next(), chars.next()) {
-            (Some(c), None) => (None, Some(c), None),
-            _ => (None, None, None),
-        }
+        chars.next().filter(|_| chars.next().is_none())
+    };
+    let (long, short, plus, bare) = if let Some(rest) = name.strip_prefix("--") {
+        (Some(rest), None, None, None)
+    } else if let Some(rest) = name.strip_prefix('-') {
+        (None, letter(rest), None, None)
+    } else if let Some(rest) = name.strip_prefix('+') {
+        // A plus spelling names its flag as a short does, and for a flag spelled only
+        // with a `+` it is the only name there is.
+        (None, None, letter(rest), None)
     } else {
-        (None, None, Some(name))
+        (None, None, None, Some(name))
     };
 
     let ordinary = cmd.flags.iter().chain(&cmd.clause_flags).find(|(flag, _)| {
@@ -991,6 +995,9 @@ fn match_flag(cmd: &Emitted, name: &str, globals_only: bool) -> Option<String> {
         }
         if let Some(long) = long {
             return flag.long.iter().any(|l| l == long);
+        }
+        if let Some(plus) = plus {
+            return flag.plus_short.contains(&plus);
         }
         short.is_some_and(|c| flag.short.contains(&c))
     });
