@@ -21,8 +21,6 @@
 //! worse than one that disagrees with clap. And which errors carry a usage block follows clap:
 //! the ones about the shape of the command line do, the ones about a single value do not.
 
-use core::fmt::Write as _;
-
 use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
 use crate::{Command, DoubleDash, Error};
 
@@ -550,7 +548,7 @@ fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String 
     });
     let found = meta.flags.iter().find(|flag| {
         long.is_some_and(|long| flag.flag.longs.contains(&long) || flag.flag.negate == Some(long))
-            || short.is_some_and(|short| flag.flag.shorts.iter().any(|c| *c == short))
+            || short.is_some_and(|short| flag.flag.shorts.contains(&short))
     });
     let Some(flag) = found else {
         return selector.to_string();
@@ -1155,7 +1153,7 @@ fn describe(
                 ],
             );
         }
-        Error::MissingRequired { name } => {
+        Error::MissingRequired { .. } => {
             error_line(
                 &mut out,
                 style,
@@ -1163,7 +1161,7 @@ fn describe(
             );
             listed_line(&mut out, style, &named);
         }
-        Error::DuplicateFlag { name } => {
+        Error::DuplicateFlag { .. } => {
             error_line(
                 &mut out,
                 style,
@@ -1307,7 +1305,7 @@ fn describe(
                 listed_line(&mut out, style, &group_member_shown(here, member));
             }
         }
-        Error::ConflictingFlags { name, other } => {
+        Error::ConflictingFlags { other, .. } => {
             // Spelled by `help`, like every other name in this module — and like clap, which
             // writes `the argument '--force' cannot be used with '--jobs <JOBS>'`.
             error_line(
@@ -1323,14 +1321,10 @@ fn describe(
             );
         }
         Error::VarTooFew {
-            name,
-            min: count,
-            got,
+            min: count, got, ..
         }
         | Error::VarTooMany {
-            name,
-            max: count,
-            got,
+            max: count, got, ..
         } => {
             with_usage = false;
             let bound = if matches!(error, Error::VarTooFew { .. }) {
@@ -1351,7 +1345,7 @@ fn describe(
                 ],
             );
         }
-        Error::ArgRequiresDoubleDash { arg } => {
+        Error::ArgRequiresDoubleDash { .. } => {
             error_line(
                 &mut out,
                 style,
