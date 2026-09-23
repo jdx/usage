@@ -593,9 +593,14 @@ fn short_cmp(a: char, b: char) -> Ordering {
 }
 
 fn lint_flag(flag: &SpecFlag, cmd_path: &str, issues: &mut Vec<LintIssue>) {
-    // Check for flags with no spelling at all. A `+o` is one, so a flag that has only
-    // that is spellable and not reported.
-    if flag.short.is_empty() && flag.long.is_empty() && flag.plus_short.is_empty() {
+    // Check for flags with no spelling at all. A `+o` is one, and so is a negation —
+    // clap's `SetFalse` and tak's `--no-credit` are flags whose only spelling is the
+    // negative one, which `reference_usage` already documents as legitimate.
+    if flag.short.is_empty()
+        && flag.long.is_empty()
+        && flag.plus_short.is_empty()
+        && flag.negate.is_none()
+    {
         issues.push(LintIssue {
             severity: Severity::Error,
             code: "flag-no-option".to_string(),
@@ -1527,6 +1532,21 @@ cmd "run" help="run"
 
         let issues = lint_spec(&spec, LintOptions::default());
         assert!(!issues.iter().any(|i| i.code == "duplicate-subcommand"));
+    }
+
+    #[test]
+    fn a_flag_spelled_only_by_its_negation_is_spellable() {
+        for negate in ["+x", "--no-x"] {
+            let spec: Spec =
+                format!("name \"test\"\nflag \"off:\" negate=\"{negate}\" help=\"h\"\n")
+                    .parse()
+                    .unwrap();
+            let issues = lint_spec(&spec, LintOptions::default());
+            assert!(
+                !issues.iter().any(|i| i.code == "flag-no-option"),
+                "negate={negate} is the spelling this flag is typed as"
+            );
+        }
     }
 
     #[test]
