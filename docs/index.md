@@ -7,9 +7,8 @@ description: Build a typed Rust CLI or describe an existing tool in KDL. Generat
 <div class="usage-home-content">
 
 <div class="usage-home-heading">
-<p class="usage-section-label">Choose your starting point</p>
 
-## Built around the CLI you want to ship.
+## Choose how to define your CLI
 
 </div>
 
@@ -51,12 +50,12 @@ Declare arguments and flags in comments. Usage validates the input, handles
 
 <div class="usage-toolkit">
 <div>
-<p class="usage-section-label">One definition, every artifact</p>
 
-## Spend less time keeping things in sync.
+## Generate docs, completions, and clients
 
-Use the same commands, descriptions, choices, and defaults across the tools your
-users see. Regenerate the artifacts as your interface evolves.
+The specification supplies the commands, descriptions, choices, and defaults for
+each generator. When your interface changes, regenerate the outputs from the
+updated specification.
 
 [Install the Usage CLI →](/cli/#installation)
 
