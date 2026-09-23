@@ -2,7 +2,7 @@
 source: conformance/tests/coloured_help.rs
 expression: "page(TOOL, &[], true)"
 ---
-␛[1;33mFlags:␛[0m                                                                    ␛[36m  /\␛[0m
+Flags:                                                                    ␛[36m  /\␛[0m
 -f, --force mentioned in prose                                            ␛[36m /  \␛[0m
 build Build it                                                            ␛[36m/____\␛[0m
 
@@ -42,7 +42,7 @@ A ␛[1mtool␛[22m with ␛[36mcode␛[39m and ␛[3memphasis␛[23m
 
 Examples:
 -f, --force again
-␛[1;33mArguments:␛[0m
+Arguments:
 $ not styled *x*
 
 Author: Someone

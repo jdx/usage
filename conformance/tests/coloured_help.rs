@@ -1,12 +1,11 @@
 //! Coloured help, pinned byte for byte on the pages the plain corpus cannot speak for.
 //!
 //! The rendering corpus compares plain pages with the reference; colour is this crate's alone,
-//! and is laid over a page by recognising what the page wrote — its headings, the usage that
-//! starts each row, the synopsis. These fixtures reach the places that recognition has to cover
-//! and a CLI rarely combines: global flags, a flattened page, next-line help, a logo in the
-//! margin, a help template that repeats and reorders sections, and author prose that happens to
-//! read like a heading or a row. The last is pinned as it is today rather than as it ideally
-//! would be: a change to it should be a decision, not a side effect.
+//! and is written by the section writers as they write the structure — headings, the synopsis,
+//! the usage or command name that starts each row. These fixtures reach the places that has to
+//! cover and a CLI rarely combines: global flags, a flattened page, next-line help, a logo in
+//! the margin, a help template that repeats and reorders sections, and author prose that happens
+//! to read like a heading or a row, which stays prose.
 
 use usage_argv::help::{render_styled, Style};
 use usage_argv::spec::CommandMeta;
@@ -125,4 +124,47 @@ fn next_line_help() {
 fn a_template_page() {
     insta::assert_snapshot!("laid_short", page(LAID, &[], false));
     insta::assert_snapshot!("laid_flat_long", page(LAID, &["flatp"], true));
+}
+
+/// Author text that reads like structure is not coloured as structure.
+///
+/// Colour used to be laid over a finished page by matching its lines against the headings and
+/// usages it contained, so a `Flags:` line in `after_help` came out as a heading, and section
+/// prose starting with a flag's usage came out as that flag's row. Only what the renderer
+/// itself writes is structure now; the author's text keeps its emphasis and nothing more.
+#[test]
+fn author_text_that_looks_like_structure_stays_prose() {
+    const LOOKALIKE: &str = r#"
+name "ex"
+bin "ex"
+heading "Options" help="-f, --force overrides the *lock*"
+after_help "Flags:\n  -f, --force  mentioned, not listed"
+flag "-f --force" help="Do it anyway"
+flag "--mode <mode>" help="Mode" help_heading="Options"
+"#;
+    let page = page(LOOKALIKE, &[], true);
+    let lines: Vec<&str> = page.lines().collect();
+
+    // The real headings and rows are coloured.
+    assert!(lines.contains(&"␛[1;33mFlags:␛[0m"), "{page}");
+    assert!(lines.contains(&"␛[1;33mOptions:␛[0m"), "{page}");
+    assert!(
+        lines.contains(&"  ␛[1;32m-f␛[0m, ␛[1;32m--force␛[0m        Do it anyway"),
+        "{page}"
+    );
+    assert!(
+        lines.contains(&"      ␛[1;32m--mode␛[0m ␛[1;35m<mode>␛[0m  Mode"),
+        "{page}"
+    );
+
+    // The author's look-alikes are not, though their emphasis still is.
+    assert!(
+        lines.contains(&"  -f, --force overrides the ␛[3mlock␛[23m"),
+        "{page}"
+    );
+    assert!(lines.contains(&"Flags:"), "{page}");
+    assert!(
+        lines.contains(&"-f, --force mentioned, not listed"),
+        "{page}"
+    );
 }
