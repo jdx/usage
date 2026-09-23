@@ -1015,4 +1015,32 @@ mod tests {
             .expect("valid spec");
         build_spec(&spec);
     }
+
+    /// A spec's integers are parsed as `usize`, so a value past what the tables' `u32` and
+    /// `u16` hold is reachable. It saturates: `4294967296 as u32` is zero, which would read as
+    /// "no values allowed" and move a far-last `display_order` to the front.
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    fn oversized_counts_and_widths_saturate_rather_than_wrap() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\n\
+             flag \"--ordered\" display_order=4294967296\n\
+             flag \"--repeated <X>\" var=#true var_max=4294967296\n\
+             flag \"--spread <X>\" {\n  arg \"<X>\" var=#true var_max=4294967296\n}\n\
+             arg \"<rest>...\" var_max=4294967296\n\
+             cmd \"sub\" display_order=4294967296 term_width=70000 max_term_width=65536\n"
+            .parse()
+            .expect("valid spec");
+        let built = build_spec(&spec);
+        let root = built.root;
+
+        assert_eq!(root.flags[0].extra.display_order, Some(u32::MAX));
+        assert_eq!(root.flags[1].extra.var_max, Some(u32::MAX));
+        assert_eq!(root.flags[2].extra.value_var_max, Some(u32::MAX));
+        assert_eq!(root.flags[2].flag.var_max, Some(u32::MAX));
+        assert_eq!(root.args[0].var_max, Some(u32::MAX));
+        let sub = &root.subcommands[0];
+        assert_eq!(sub.display_order, Some(u32::MAX));
+        assert_eq!(sub.term_width, Some(u16::MAX));
+        assert_eq!(sub.max_term_width, Some(u16::MAX));
+    }
 }
