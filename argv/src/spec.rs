@@ -3777,6 +3777,57 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
         .any(|choice| *choice == value || ignore_case && choice.eq_ignore_ascii_case(value))
 }
 
+/// What a generated [`ArgGroup`] `apply` records for a member that takes a value: its place
+/// in the order members arrived, when the group keeps one, and the member's latest word.
+///
+/// Out of line for the reason [`crate::bind_text`] is: two copies of the word per member
+/// would otherwise be expanded at every member of every group.
+/// Each member that arrived, by its index, with the word it was given if it takes one.
+type MemberOrder = Vec<(usize, Option<Vec<u8>>)>;
+
+#[doc(hidden)]
+#[inline(never)]
+pub fn bind_member_text(
+    ordered: Option<&mut MemberOrder>,
+    index: usize,
+    given: &mut Option<Vec<u8>>,
+    value: Option<&[u8]>,
+) {
+    if let Some(ordered) = ordered {
+        ordered.push((index, value.map(<[u8]>::to_vec)));
+    }
+    if let Some(value) = value {
+        *given = Some(value.to_vec());
+    }
+}
+
+/// Whether a value a generated `apply` just bound holds a word that is not one of `choices`,
+/// split on `delimiter` first when there is one.
+///
+/// Remembered at the token rather than judged after the parse, since a later `overrides` can
+/// put the field back to its default and leave nothing to look at. Bytes that are not UTF-8
+/// are passed over: they are not a word, and `build` reports them with the value in hand.
+/// Out of line so that each field with choices costs a call rather than the loop.
+#[doc(hidden)]
+#[inline(never)]
+pub fn invalid_choice_in(
+    value: Option<&[u8]>,
+    delimiter: Option<u8>,
+    choices: &[&str],
+    ignore_case: bool,
+) -> bool {
+    let Some(value) = value else {
+        return false;
+    };
+    let invalid = |part: &[u8]| {
+        std::str::from_utf8(part).is_ok_and(|text| !choice_matches(choices, text, ignore_case))
+    };
+    match delimiter {
+        Some(delimiter) => value.split(|byte| *byte == delimiter).any(invalid),
+        None => invalid(value),
+    }
+}
+
 /// An enum whose variants are one command's related flags.
 ///
 /// What a CLI spells `--json` or `--yaml` and holds as a `Mode`, rather than as one `bool` per
