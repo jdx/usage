@@ -108,10 +108,10 @@ mod tests {
         let md = find("generate markdown").unwrap();
         assert_eq!(md.effect, Some(Effect::Read));
         let flag = |name: &str| md.flags.iter().find(|f| f.flag.name == name).unwrap();
-        assert_eq!(flag("out-file").effect, Some(Effect::Write));
-        assert_eq!(flag("out-dir").effect, Some(Effect::Write));
+        assert_eq!(flag("out-file").extra.effect, Some(Effect::Write));
+        assert_eq!(flag("out-dir").extra.effect, Some(Effect::Write));
         // A flag that changes only the rendering stays unset.
-        assert_eq!(flag("html-encode").effect, None);
+        assert_eq!(flag("html-encode").extra.effect, None);
     }
 
     #[test]
@@ -131,7 +131,11 @@ mod tests {
                 .iter()
                 .find(|f| f.flag.name == "out-file")
                 .unwrap_or_else(|| panic!("{path} has no --out-file"));
-            assert_eq!(out_file.effect, Some(Effect::Write), "{path} --out-file");
+            assert_eq!(
+                out_file.extra.effect,
+                Some(Effect::Write),
+                "{path} --out-file"
+            );
         }
     }
 
@@ -151,10 +155,10 @@ mod tests {
                 .find(|f| f.flag.name == name)
                 .unwrap_or_else(|| panic!("generate completion has no --{name}"))
         };
-        assert_eq!(flag("install").effect, Some(Effect::Write));
+        assert_eq!(flag("install").extra.effect, Some(Effect::Write));
         // `--force` only widens which file an install may replace, so it writes for the same
         // reason rather than for one of its own.
-        assert_eq!(flag("force").effect, Some(Effect::Write));
+        assert_eq!(flag("force").extra.effect, Some(Effect::Write));
     }
 
     #[test]

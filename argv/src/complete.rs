@@ -1247,7 +1247,7 @@ fn declared_files_at_cursor(
         let meta = flag_meta(spec.root, flag);
         (
             meta.and_then(|m| m.value_name).or(Some(flag.name)),
-            meta.and_then(|m| m.complete_type),
+            meta.and_then(|m| m.extra.complete_type),
         )
     } else if let Some(arg) = at_cursor {
         let meta = arg_meta(spec.root, arg);
@@ -1352,7 +1352,7 @@ fn complete_inner<'a>(
         (
             meta.and_then(|m| m.value_name).or(Some(flag.name)),
             meta.is_some_and(|m| !m.choices.is_empty() || !m.accepted_choices.is_empty()),
-            meta.and_then(|m| m.complete_type),
+            meta.and_then(|m| m.extra.complete_type),
         )
     } else if let Some(arg) = at_cursor {
         let meta = arg_meta(spec.root, arg);
@@ -1815,7 +1815,7 @@ fn candidates_inner<'a>(
                 .map(|meta| {
                     let mut found = declared(
                         meta.choices,
-                        meta.choice_details,
+                        meta.extra.choice_details,
                         meta.complete,
                         split,
                         &position,
@@ -1841,7 +1841,7 @@ fn candidates_inner<'a>(
             .map(|m| {
                 declared(
                     m.choices,
-                    m.choice_details,
+                    m.extra.choice_details,
                     m.complete,
                     split,
                     &position,
@@ -1970,13 +1970,13 @@ fn long_flags<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
         let description = meta.and_then(|m| {
             deprecated_description(
                 m.help,
-                m.deprecated,
-                m.deprecated_warn_at,
-                m.deprecated_remove_at,
+                m.extra.deprecated,
+                m.extra.deprecated_warn_at,
+                m.extra.deprecated_remove_at,
             )
         });
         for long in flag.longs {
-            if meta.is_some_and(|m| m.hidden_longs.contains(long)) {
+            if meta.is_some_and(|m| m.extra.hidden_longs.contains(long)) {
                 continue;
             }
             let value = format!("--{long}");
@@ -2022,7 +2022,7 @@ fn short_flags<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec
             continue;
         }
         for &short in flag.shorts {
-            if meta.is_some_and(|m| m.hidden_shorts.contains(&short)) {
+            if meta.is_some_and(|m| m.extra.hidden_shorts.contains(&short)) {
                 continue;
             }
             // Written out rather than with `is_none_or`, which this crate's MSRV predates.
@@ -2038,9 +2038,9 @@ fn short_flags<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec
                     description: meta.and_then(|m| {
                         deprecated_description(
                             m.help,
-                            m.deprecated,
-                            m.deprecated_warn_at,
-                            m.deprecated_remove_at,
+                            m.extra.deprecated,
+                            m.extra.deprecated_warn_at,
+                            m.extra.deprecated_remove_at,
                         )
                     }),
                 });
@@ -2663,12 +2663,15 @@ mod tests {
             flag: &JOBS,
             help: Some("How many at once"),
             choices: &["1", "2", "4"],
-            choice_details: &[crate::spec::ChoiceMeta {
-                value: "2",
-                help: Some("Two workers"),
-                hide: false,
-                aliases: &[],
-            }],
+            extra: &crate::spec::FlagExtra {
+                choice_details: &[crate::spec::ChoiceMeta {
+                    value: "2",
+                    help: Some("Two workers"),
+                    hide: false,
+                    aliases: &[],
+                }],
+                ..crate::spec::FlagExtra::EMPTY
+            },
             ..FlagMeta::EMPTY
         }],
         args: &[ArgMeta {

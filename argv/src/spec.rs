@@ -1057,44 +1057,20 @@ pub struct FlagMeta<'a> {
     /// It belongs in flag listings and completions, but not in the command synopsis where the
     /// runtime's implicit help and version flags have never appeared.
     pub builtin: bool,
-    /// Explicit placement within its help section.
-    pub display_order: Option<usize>,
-    /// Short forms accepted by the parser but omitted from help and completion.
-    pub hidden_shorts: &'a [u8],
-    /// Long forms accepted by the parser but omitted from help and completion.
-    pub hidden_longs: &'a [&'a str],
     /// Short help, shown by `-h`.
     pub help: Option<&'a str>,
     /// Long help, shown by `--help`.
     pub long_help: Option<&'a str>,
-    /// Notes and warnings shown after the extended help text.
-    pub admonitions: &'a [AdmonitionMeta<'a>],
-    /// Why this flag is deprecated, plus optional release milestones.
-    pub deprecated: Option<&'a str>,
-    pub deprecated_warn_at: Option<&'a str>,
-    pub deprecated_remove_at: Option<&'a str>,
     /// The placeholder for the flag's value, such as `n` in `--jobs <n>`.
     pub value_name: Option<&'a str>,
-    /// Ordered placeholders for one fixed-arity occurrence.
-    pub value_names: &'a [&'a str],
     pub env: Option<&'a str>,
-    pub env_fallback: &'a [&'a str],
-    pub deprecated_env: &'a [&'a str],
     pub default: &'a [&'a str],
     /// Canonical choices plus aliases accepted by the value type.
     pub accepted_choices: &'a [&'a str],
     pub choices: &'a [&'a str],
-    /// Canonical-to-alias pairs used when emitting a lossless spec.
-    pub choice_aliases: &'a [(&'a str, &'a str)],
-    /// Per-canonical presentation metadata used when emitting a lossless spec.
-    pub choice_details: &'a [ChoiceMeta<'a>],
     pub ignore_case: bool,
     /// Accept values outside `choices` while retaining the list for help and completion.
     pub allow_unknown_choices: bool,
-    /// Portable expr expression evaluated for each raw value.
-    pub validate: Option<&'a str>,
-    /// Message reported when validation returns false.
-    pub validate_error: Option<&'a str>,
     pub required: bool,
     /// Whether the flag's value may be left off, as in `--bump` or `--bump 5`.
     ///
@@ -1106,7 +1082,6 @@ pub struct FlagMeta<'a> {
     pub hide: bool,
     pub hide_default_value: bool,
     pub hide_env: bool,
-    pub hide_env_values: bool,
     pub hide_possible_values: bool,
     pub hide_short_help: bool,
     pub hide_long_help: bool,
@@ -1118,11 +1093,51 @@ pub struct FlagMeta<'a> {
     /// that asks *this binary*, so a spec stays complete for every other consumer while the
     /// binary answers itself.
     pub complete: Option<Completer>,
-    /// A built-in completion class such as `path` or `dir`.
-    pub complete_type: Option<&'a str>,
     /// Whether the flag may be given more than once. Distinct from
     /// [`Flag::variadic`], which is one occurrence taking several values.
     pub repeatable: bool,
+    /// Heading to list this flag under in help output. Presentational: it groups
+    /// a long flag list into sections and changes nothing about parsing.
+    pub help_heading: Option<&'a str>,
+    /// Everything a flag rarely declares: relations to other flags, deprecation, validation,
+    /// bounds, and spec-only metadata. Shared through [`NO_FLAG_EXTRA`] by every flag that
+    /// declares none of it, so a table pays for these fields once rather than per flag.
+    pub extra: &'a FlagExtra<'a>,
+}
+
+/// The rarely declared part of a [`FlagMeta`], behind one pointer.
+///
+/// Most flags have help, maybe a default and a heading, and nothing here. Holding these inline
+/// made every flag's metadata several hundred bytes of mostly empty fields in the binary.
+#[derive(Debug, Clone, Copy)]
+pub struct FlagExtra<'a> {
+    /// Explicit placement within its help section.
+    pub display_order: Option<usize>,
+    /// Short forms accepted by the parser but omitted from help and completion.
+    pub hidden_shorts: &'a [u8],
+    /// Long forms accepted by the parser but omitted from help and completion.
+    pub hidden_longs: &'a [&'a str],
+    /// Notes and warnings shown after the extended help text.
+    pub admonitions: &'a [AdmonitionMeta<'a>],
+    /// Why this flag is deprecated, plus optional release milestones.
+    pub deprecated: Option<&'a str>,
+    pub deprecated_warn_at: Option<&'a str>,
+    pub deprecated_remove_at: Option<&'a str>,
+    /// Ordered placeholders for one fixed-arity occurrence.
+    pub value_names: &'a [&'a str],
+    pub env_fallback: &'a [&'a str],
+    pub deprecated_env: &'a [&'a str],
+    /// Canonical-to-alias pairs used when emitting a lossless spec.
+    pub choice_aliases: &'a [(&'a str, &'a str)],
+    /// Per-canonical presentation metadata used when emitting a lossless spec.
+    pub choice_details: &'a [ChoiceMeta<'a>],
+    /// Portable expr expression evaluated for each raw value.
+    pub validate: Option<&'a str>,
+    /// Message reported when validation returns false.
+    pub validate_error: Option<&'a str>,
+    pub hide_env_values: bool,
+    /// A built-in completion class such as `path` or `dir`.
+    pub complete_type: Option<&'a str>,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
     /// Bounds on values consumed by one occurrence, distinct from the
@@ -1165,9 +1180,6 @@ pub struct FlagMeta<'a> {
     pub required_unless: &'a [&'a str],
     /// All selectors must be present to make this unnecessary.
     pub required_unless_all: &'a [&'a str],
-    /// Heading to list this flag under in help output. Presentational: it groups
-    /// a long flag list into sections and changes nothing about parsing.
-    pub help_heading: Option<&'a str>,
     /// Named audience or compatibility surface this flag belongs to.
     pub surface: Option<&'a str>,
     /// Descriptive availability conditions; they do not affect parsing.
@@ -1175,47 +1187,25 @@ pub struct FlagMeta<'a> {
     pub effect: Option<Effect>,
 }
 
-impl FlagMeta<'_> {
-    /// Metadata for a flag with nothing declared, for struct update syntax.
-    pub const EMPTY: FlagMeta<'static> = FlagMeta {
-        complete: None,
+impl FlagExtra<'_> {
+    /// Nothing declared, for struct update syntax.
+    pub const EMPTY: FlagExtra<'static> = FlagExtra {
         complete_type: None,
-        flag: &Flag::BOOL,
-        builtin: false,
         display_order: None,
         hidden_shorts: &[],
         hidden_longs: &[],
-        help: None,
-        long_help: None,
         admonitions: &[],
         deprecated: None,
         deprecated_warn_at: None,
         deprecated_remove_at: None,
-        value_name: None,
         value_names: &[],
-        env: None,
         env_fallback: &[],
         deprecated_env: &[],
-        default: &[],
-        accepted_choices: &[],
-        choices: &[],
         choice_aliases: &[],
         choice_details: &[],
-        ignore_case: false,
-        allow_unknown_choices: false,
         validate: None,
         validate_error: None,
-        required: false,
-        value_optional: false,
-        hide: false,
-        hide_default_value: false,
-        hide_env: false,
         hide_env_values: false,
-        hide_possible_values: false,
-        hide_short_help: false,
-        hide_long_help: false,
-        count: false,
-        repeatable: false,
         var_min: None,
         var_max: None,
         value_var_min: None,
@@ -1232,10 +1222,130 @@ impl FlagMeta<'_> {
         required_if_eq_all: &[],
         required_unless: &[],
         required_unless_all: &[],
-        help_heading: None,
         surface: None,
         available_if: &[],
         effect: None,
+    };
+
+    /// `extra` itself, or the shared [`NO_FLAG_EXTRA`] when it declares nothing.
+    ///
+    /// What derived tables call on each flag's extras, so that only a flag which actually
+    /// declares something carries its own copy.
+    #[doc(hidden)]
+    pub const fn shared(extra: &'static FlagExtra<'static>) -> &'static FlagExtra<'static> {
+        // Destructured without `..`: a field added to the struct and not to this check would
+        // otherwise be dropped from every flag that declares only that field.
+        let FlagExtra {
+            complete_type,
+            display_order,
+            hidden_shorts,
+            hidden_longs,
+            admonitions,
+            deprecated,
+            deprecated_warn_at,
+            deprecated_remove_at,
+            value_names,
+            env_fallback,
+            deprecated_env,
+            choice_aliases,
+            choice_details,
+            validate,
+            validate_error,
+            hide_env_values,
+            var_min,
+            var_max,
+            value_var_min,
+            value_var_max,
+            overrides,
+            conflicts,
+            delimiter,
+            exclusive,
+            requires,
+            requires_if,
+            default_if,
+            required_if,
+            required_if_eq,
+            required_if_eq_all,
+            required_unless,
+            required_unless_all,
+            surface,
+            available_if,
+            effect,
+        } = *extra;
+        let empty = complete_type.is_none()
+            && display_order.is_none()
+            && hidden_shorts.is_empty()
+            && hidden_longs.is_empty()
+            && admonitions.is_empty()
+            && deprecated.is_none()
+            && deprecated_warn_at.is_none()
+            && deprecated_remove_at.is_none()
+            && value_names.is_empty()
+            && env_fallback.is_empty()
+            && deprecated_env.is_empty()
+            && choice_aliases.is_empty()
+            && choice_details.is_empty()
+            && validate.is_none()
+            && validate_error.is_none()
+            && !hide_env_values
+            && var_min.is_none()
+            && var_max.is_none()
+            && value_var_min.is_none()
+            && value_var_max.is_none()
+            && overrides.is_empty()
+            && conflicts.is_empty()
+            && delimiter.is_none()
+            && !exclusive
+            && requires.is_empty()
+            && requires_if.is_empty()
+            && default_if.is_empty()
+            && required_if.is_empty()
+            && required_if_eq.is_empty()
+            && required_if_eq_all.is_empty()
+            && required_unless.is_empty()
+            && required_unless_all.is_empty()
+            && surface.is_none()
+            && available_if.is_empty()
+            && effect.is_none();
+        if empty {
+            &NO_FLAG_EXTRA
+        } else {
+            extra
+        }
+    }
+}
+
+/// The one [`FlagExtra`] every flag without extras points at. A `static` rather than a promoted
+/// constant, so they all share one address instead of each table carrying its own copy.
+pub static NO_FLAG_EXTRA: FlagExtra<'static> = FlagExtra::EMPTY;
+
+impl FlagMeta<'_> {
+    /// Metadata for a flag with nothing declared, for struct update syntax.
+    pub const EMPTY: FlagMeta<'static> = FlagMeta {
+        complete: None,
+        flag: &Flag::BOOL,
+        builtin: false,
+        help: None,
+        long_help: None,
+        value_name: None,
+        env: None,
+        default: &[],
+        accepted_choices: &[],
+        choices: &[],
+        ignore_case: false,
+        allow_unknown_choices: false,
+        required: false,
+        value_optional: false,
+        hide: false,
+        hide_default_value: false,
+        hide_env: false,
+        hide_possible_values: false,
+        hide_short_help: false,
+        hide_long_help: false,
+        count: false,
+        repeatable: false,
+        help_heading: None,
+        extra: &NO_FLAG_EXTRA,
     };
 }
 
@@ -2137,7 +2247,7 @@ fn write_completion_types<'a>(
         }
     }
     for flag in meta.flags {
-        if let Some(type_) = flag.complete_type {
+        if let Some(type_) = flag.extra.complete_type {
             let name = flag
                 .value_name
                 .unwrap_or(flag.flag.name)
@@ -2559,13 +2669,13 @@ fn write_flag(
     if let Some(help) = meta.help {
         write!(out, " help={}", quoted(help))?;
     }
-    if let Some(deprecated) = meta.deprecated {
+    if let Some(deprecated) = meta.extra.deprecated {
         write!(out, " deprecated={}", quoted(deprecated))?;
     }
-    if let Some(at) = meta.deprecated_warn_at {
+    if let Some(at) = meta.extra.deprecated_warn_at {
         write!(out, " deprecated_warn_at={}", quoted(at))?;
     }
-    if let Some(at) = meta.deprecated_remove_at {
+    if let Some(at) = meta.extra.deprecated_remove_at {
         write!(out, " deprecated_remove_at={}", quoted(at))?;
     }
     if meta.required {
@@ -2581,7 +2691,7 @@ fn write_flag(
         out,
         meta.hide_default_value,
         meta.hide_env,
-        meta.hide_env_values,
+        meta.extra.hide_env_values,
         meta.hide_possible_values,
         meta.hide_short_help,
         meta.hide_long_help,
@@ -2609,10 +2719,10 @@ fn write_flag(
     if meta.repeatable {
         out.push_str(" var=#true");
     }
-    if let Some(min) = meta.var_min {
+    if let Some(min) = meta.extra.var_min {
         write!(out, " var_min={min}")?;
     }
-    if let Some(max) = meta.var_max {
+    if let Some(max) = meta.extra.var_max {
         write!(out, " var_max={max}")?;
     }
     if let Some(negate) = meta.flag.negate {
@@ -2623,28 +2733,28 @@ fn write_flag(
     if let Some(heading) = meta.help_heading.or(inherited_heading) {
         write!(out, " help_heading={}", quoted(heading))?;
     }
-    if let Some(surface) = meta.surface {
+    if let Some(surface) = meta.extra.surface {
         write!(out, " surface={}", quoted(surface))?;
     }
-    write_single_list(out, "available_if", meta.available_if)?;
-    if let Some(order) = meta.display_order {
+    write_single_list(out, "available_if", meta.extra.available_if)?;
+    if let Some(order) = meta.extra.display_order {
         write!(out, " display_order={order}")?;
     }
-    if let Some(effect) = meta.effect {
+    if let Some(effect) = meta.extra.effect {
         write!(out, " effect={}", quoted(effect.as_str()))?;
     }
     if let Some(env) = meta.env {
         write!(out, " env={}", quoted(env))?;
     }
-    write_single_list(out, "env_fallback", meta.env_fallback)?;
-    write_single_list(out, "deprecated_env", meta.deprecated_env)?;
+    write_single_list(out, "env_fallback", meta.extra.env_fallback)?;
+    write_single_list(out, "deprecated_env", meta.extra.deprecated_env)?;
     write_single_default(out, meta.default)?;
-    write_single_selectors(out, "overrides", meta.overrides, canonical)?;
-    write_single_selectors(out, "conflicts", meta.conflicts, canonical)?;
-    if meta.exclusive {
+    write_single_selectors(out, "overrides", meta.extra.overrides, canonical)?;
+    write_single_selectors(out, "conflicts", meta.extra.conflicts, canonical)?;
+    if meta.extra.exclusive {
         out.push_str(" exclusive=#true");
     }
-    if let Some(delimiter) = meta.delimiter {
+    if let Some(delimiter) = meta.extra.delimiter {
         write!(out, " delimiter={}", quoted(&delimiter.to_string()))?;
     }
     if meta.flag.allow_hyphen_values {
@@ -2676,36 +2786,41 @@ fn write_flag(
             quoted(::core::str::from_utf8(missing).unwrap_or_default())
         )?;
     }
-    write_single_selectors(out, "requires", meta.requires, canonical)?;
-    write_single_selectors(out, "required_if", meta.required_if, canonical)?;
-    write_single_selectors(out, "required_unless", meta.required_unless, canonical)?;
+    write_single_selectors(out, "requires", meta.extra.requires, canonical)?;
+    write_single_selectors(out, "required_if", meta.extra.required_if, canonical)?;
+    write_single_selectors(
+        out,
+        "required_unless",
+        meta.extra.required_unless,
+        canonical,
+    )?;
     write_single_selectors(
         out,
         "required_unless_all",
-        meta.required_unless_all,
+        meta.extra.required_unless_all,
         canonical,
     )?;
 
     let has_children = meta.long_help.is_some()
-        || !meta.admonitions.is_empty()
-        || !meta.hidden_shorts.is_empty()
-        || !meta.hidden_longs.is_empty()
+        || !meta.extra.admonitions.is_empty()
+        || !meta.extra.hidden_shorts.is_empty()
+        || !meta.extra.hidden_longs.is_empty()
         || meta.flag.takes_value
         || !meta.choices.is_empty()
         || meta.default.len() > 1
-        || meta.overrides.len() > 1
-        || meta.conflicts.len() > 1
-        || meta.requires.len() > 1
-        || !meta.requires_if.is_empty()
-        || !meta.default_if.is_empty()
-        || !meta.required_if_eq.is_empty()
-        || !meta.required_if_eq_all.is_empty()
-        || meta.required_if.len() > 1
-        || meta.required_unless.len() > 1
-        || meta.required_unless_all.len() > 1
-        || meta.env_fallback.len() > 1
-        || meta.deprecated_env.len() > 1;
-    let has_children = has_children || meta.available_if.len() > 1;
+        || meta.extra.overrides.len() > 1
+        || meta.extra.conflicts.len() > 1
+        || meta.extra.requires.len() > 1
+        || !meta.extra.requires_if.is_empty()
+        || !meta.extra.default_if.is_empty()
+        || !meta.extra.required_if_eq.is_empty()
+        || !meta.extra.required_if_eq_all.is_empty()
+        || meta.extra.required_if.len() > 1
+        || meta.extra.required_unless.len() > 1
+        || meta.extra.required_unless_all.len() > 1
+        || meta.extra.env_fallback.len() > 1
+        || meta.extra.deprecated_env.len() > 1;
+    let has_children = has_children || meta.extra.available_if.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -2717,7 +2832,7 @@ fn write_flag(
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
     }
-    for admonition in meta.admonitions {
+    for admonition in meta.extra.admonitions {
         indent(out, inner)?;
         let kind = match admonition.kind {
             AdmonitionKind::Note => "note",
@@ -2725,22 +2840,22 @@ fn write_flag(
         };
         writeln!(out, "{kind} {}", quoted(admonition.text))?;
     }
-    if !meta.hidden_shorts.is_empty() || !meta.hidden_longs.is_empty() {
+    if !meta.extra.hidden_shorts.is_empty() || !meta.extra.hidden_longs.is_empty() {
         indent(out, inner)?;
         out.push_str("alias");
-        for alias in meta.hidden_shorts {
+        for alias in meta.extra.hidden_shorts {
             write!(out, " {}", quoted(&format!("-{}", *alias as char)))?;
         }
-        for alias in meta.hidden_longs {
+        for alias in meta.extra.hidden_longs {
             write!(out, " {}", quoted(&format!("--{alias}")))?;
         }
         out.push_str(" hide=#true\n");
     }
     write_many_defaults(out, meta.default, inner)?;
-    write_many_selectors(out, "overrides", meta.overrides, inner, canonical)?;
-    write_many_selectors(out, "conflicts", meta.conflicts, inner, canonical)?;
-    write_many_selectors(out, "requires", meta.requires, inner, canonical)?;
-    for condition in meta.requires_if {
+    write_many_selectors(out, "overrides", meta.extra.overrides, inner, canonical)?;
+    write_many_selectors(out, "conflicts", meta.extra.conflicts, inner, canonical)?;
+    write_many_selectors(out, "requires", meta.extra.requires, inner, canonical)?;
+    for condition in meta.extra.requires_if {
         indent(out, inner)?;
         writeln!(
             out,
@@ -2749,7 +2864,7 @@ fn write_flag(
             quoted(portable_selector(condition.requires, canonical))
         )?;
     }
-    for condition in meta.default_if {
+    for condition in meta.extra.default_if {
         indent(out, inner)?;
         match condition.when {
             None => writeln!(
@@ -2767,7 +2882,7 @@ fn write_flag(
             )?,
         }
     }
-    for condition in meta.required_if_eq {
+    for condition in meta.extra.required_if_eq {
         indent(out, inner)?;
         writeln!(
             out,
@@ -2776,10 +2891,10 @@ fn write_flag(
             quoted(condition.value)
         )?;
     }
-    if !meta.required_if_eq_all.is_empty() {
+    if !meta.extra.required_if_eq_all.is_empty() {
         indent(out, inner)?;
         out.push_str("required_if_eq_all");
-        for condition in meta.required_if_eq_all {
+        for condition in meta.extra.required_if_eq_all {
             write!(
                 out,
                 " {} {}",
@@ -2789,29 +2904,30 @@ fn write_flag(
         }
         out.push('\n');
     }
-    write_many_selectors(out, "required_if", meta.required_if, inner, canonical)?;
+    write_many_selectors(out, "required_if", meta.extra.required_if, inner, canonical)?;
     write_many_selectors(
         out,
         "required_unless",
-        meta.required_unless,
+        meta.extra.required_unless,
         inner,
         canonical,
     )?;
     write_many_selectors(
         out,
         "required_unless_all",
-        meta.required_unless_all,
+        meta.extra.required_unless_all,
         inner,
         canonical,
     )?;
-    write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
-    write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
-    write_many_list(out, "available_if", meta.available_if, inner)?;
+    write_many_list(out, "env_fallback", meta.extra.env_fallback, inner)?;
+    write_many_list(out, "deprecated_env", meta.extra.deprecated_env, inner)?;
+    write_many_list(out, "available_if", meta.extra.available_if, inner)?;
     if meta.flag.takes_value {
         indent(out, inner)?;
-        let exact = exact_arity(meta.value_var_min, meta.value_var_max);
-        let rendered = if meta.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
+        let exact = exact_arity(meta.extra.value_var_min, meta.extra.value_var_max);
+        let rendered = if meta.extra.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
             let name = meta
+                .extra
                 .value_names
                 .first()
                 .copied()
@@ -2821,8 +2937,9 @@ fn write_flag(
                 .map(|_| placeholder(name, false, meta.value_optional))
                 .collect::<Vec<_>>()
                 .join(" ")
-        } else if meta.value_names.len() <= 1 {
+        } else if meta.extra.value_names.len() <= 1 {
             let name = meta
+                .extra
                 .value_names
                 .first()
                 .copied()
@@ -2830,17 +2947,18 @@ fn write_flag(
                 .unwrap_or(meta.flag.name);
             placeholder(name, meta.flag.variadic, meta.value_optional)
         } else {
-            meta.value_names
+            meta.extra
+                .value_names
                 .iter()
                 .map(|name| placeholder(name, false, meta.value_optional))
                 .collect::<Vec<_>>()
                 .join(" ")
         };
         write!(out, "arg {}", quoted(&rendered))?;
-        if let Some(min) = meta.value_var_min {
+        if let Some(min) = meta.extra.value_var_min {
             write!(out, " var_min={min}")?;
         }
-        if let Some(max) = meta.value_var_max {
+        if let Some(max) = meta.extra.value_var_max {
             write!(out, " var_max={max}")?;
         }
         // Square brackets alone would round-trip as required, since usage-lib reads the
@@ -2848,17 +2966,17 @@ fn write_flag(
         if meta.value_optional {
             out.push_str(" required=#false");
         }
-        if let Some(validate) = meta.validate {
+        if let Some(validate) = meta.extra.validate {
             write!(out, " validate={}", quoted(validate))?;
         }
-        if meta.validate.is_some() {
-            if let Some(error) = meta.validate_error {
+        if meta.extra.validate.is_some() {
+            if let Some(error) = meta.extra.validate_error {
                 write!(out, " validate_error={}", quoted(error))?;
             }
         }
         if meta.choices.is_empty()
             && meta.accepted_choices.is_empty()
-            && meta.choice_details.is_empty()
+            && meta.extra.choice_details.is_empty()
         {
             out.push('\n');
         } else {
@@ -2867,8 +2985,8 @@ fn write_flag(
                 out,
                 meta.choices,
                 meta.accepted_choices,
-                meta.choice_aliases,
-                meta.choice_details,
+                meta.extra.choice_aliases,
+                meta.extra.choice_details,
                 (meta.ignore_case, meta.allow_unknown_choices),
                 inner + 1,
             )?;
@@ -2877,14 +2995,14 @@ fn write_flag(
         }
     } else if !meta.choices.is_empty()
         || !meta.accepted_choices.is_empty()
-        || !meta.choice_details.is_empty()
+        || !meta.extra.choice_details.is_empty()
     {
         write_choices(
             out,
             meta.choices,
             meta.accepted_choices,
-            meta.choice_aliases,
-            meta.choice_details,
+            meta.extra.choice_aliases,
+            meta.extra.choice_details,
             (meta.ignore_case, meta.allow_unknown_choices),
             inner,
         )?;
@@ -3361,7 +3479,7 @@ fn flag_forms(meta: &FlagMeta<'_>) -> String {
     let flag = meta.flag;
     let mut forms = String::new();
     for short in flag.shorts {
-        if meta.hidden_shorts.contains(short) {
+        if meta.extra.hidden_shorts.contains(short) {
             continue;
         }
         if !forms.is_empty() {
@@ -3373,7 +3491,7 @@ fn flag_forms(meta: &FlagMeta<'_>) -> String {
         forms.push(*short as char);
     }
     for long in flag.longs {
-        if meta.hidden_longs.contains(long) {
+        if meta.extra.hidden_longs.contains(long) {
             continue;
         }
         if !forms.is_empty() {
@@ -5103,12 +5221,34 @@ mod tests {
         assert_eq!(
             flag_forms(&FlagMeta {
                 flag: &F,
-                hidden_shorts: b"w",
-                hidden_longs: &["workers"],
+                extra: &FlagExtra {
+                    hidden_shorts: b"w",
+                    hidden_longs: &["workers"],
+                    ..FlagExtra::EMPTY
+                },
                 ..FlagMeta::EMPTY
             }),
             "-j --jobs"
         );
+    }
+
+    #[test]
+    fn flags_without_extras_share_one_instance() {
+        const NOTHING: FlagExtra<'static> = FlagExtra::EMPTY;
+        const DEPRECATED: FlagExtra<'static> = FlagExtra {
+            deprecated: Some("use --new"),
+            ..FlagExtra::EMPTY
+        };
+        const HIDDEN_VALUES: FlagExtra<'static> = FlagExtra {
+            hide_env_values: true,
+            ..FlagExtra::EMPTY
+        };
+        assert!(core::ptr::eq(FlagExtra::shared(&NOTHING), &NO_FLAG_EXTRA));
+        assert!(core::ptr::eq(FlagMeta::EMPTY.extra, &NO_FLAG_EXTRA));
+        // Anything declared, even a lone `bool`, keeps the flag's own copy.
+        for declared in [&DEPRECATED, &HIDDEN_VALUES] {
+            assert!(core::ptr::eq(FlagExtra::shared(declared), declared));
+        }
     }
 
     #[test]

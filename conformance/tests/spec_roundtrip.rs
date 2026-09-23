@@ -13,7 +13,8 @@
 
 use usage::Spec as LibSpec;
 use usage_argv::spec::{
-    ArgMeta, CommandMeta, Effect, Example, ExitCodeMeta, FlagMeta, Framing, OutputMeta, Spec,
+    ArgMeta, CommandMeta, Effect, Example, ExitCodeMeta, FlagExtra, FlagMeta, Framing, OutputMeta,
+    Spec,
 };
 use usage_argv::{Arg, Command, DoubleDash, Flag};
 
@@ -315,19 +316,25 @@ static ROOT_META: CommandMeta = CommandMeta {
             help: Some("patterns to include"),
             value_name: Some("pattern"),
             repeatable: true,
-            var_min: Some(1),
-            var_max: Some(5),
-            overrides: &["--exclude"],
-            // One target, which the writer puts on the node as a property.
-            required_if: &["--verbose"],
+            extra: &FlagExtra {
+                var_min: Some(1),
+                var_max: Some(5),
+                overrides: &["--exclude"],
+                // One target, which the writer puts on the node as a property.
+                required_if: &["--verbose"],
+                ..FlagExtra::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
         FlagMeta {
             flag: &SHELL,
             required: true,
-            // Two of them, which cannot be written as repeated properties.
-            required_unless: &["--jobs", "--color"],
             choices: &["bash", "zsh", "fish"],
+            extra: &FlagExtra {
+                // Two of them, which cannot be written as repeated properties.
+                required_unless: &["--jobs", "--color"],
+                ..FlagExtra::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
         // A flag that destroys something: the effect belongs on the flag, not
@@ -338,9 +345,12 @@ static ROOT_META: CommandMeta = CommandMeta {
             // A control character, which KDL will not take literally. Help text
             // really does contain these: ANSI-colored help has an escape in it.
             long_help: Some("Deletes things.\u{1b}[0m Carefully."),
-            effect: Some(Effect::Destructive),
-            overrides: &["--keep", "--dry-run"],
-            conflicts: &["--force"],
+            extra: &FlagExtra {
+                effect: Some(Effect::Destructive),
+                overrides: &["--keep", "--dry-run"],
+                conflicts: &["--force"],
+                ..FlagExtra::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
         // More than one default, which cannot be written as a property. Neither can
@@ -349,8 +359,11 @@ static ROOT_META: CommandMeta = CommandMeta {
             flag: &PATHS,
             value_name: Some("path"),
             default: &["/usr/bin", "/usr/local/bin"],
-            conflicts: &["--include", "--prune"],
-            required_if: &["--force", "--prune"],
+            extra: &FlagExtra {
+                conflicts: &["--include", "--prune"],
+                required_if: &["--force", "--prune"],
+                ..FlagExtra::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
     ],
