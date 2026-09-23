@@ -101,6 +101,27 @@ pub fn __usage_process_exit(status: i32) -> ! {
     std::process::exit(status)
 }
 
+/// Print a generated entry point's output to stdout, ignoring a failed write.
+///
+/// `print!` panics when the write fails, and the usual failure is a reader that has gone
+/// away: `cli --help | head -1`, a pager quit early, or a completion the shell cancelled while
+/// typing. Every caller is about to leave (or has finished a successful parse), so there is
+/// nobody left to tell, and a panic only turns that into a crash — an abort with a core dump
+/// in a `panic = "abort"` build. The exit status stays the one the caller chose.
+#[doc(hidden)]
+pub fn __usage_print(output: std::fmt::Arguments<'_>) {
+    use std::io::Write;
+    let mut stdout = std::io::stdout().lock();
+    let _ = stdout.write_fmt(output).and_then(|()| stdout.flush());
+}
+
+/// [`__usage_print`] for stderr: help and failures that go there, and deprecation warnings.
+#[doc(hidden)]
+pub fn __usage_eprint(output: std::fmt::Arguments<'_>) {
+    use std::io::Write;
+    let _ = std::io::stderr().lock().write_fmt(output);
+}
+
 use std::ffi::{OsStr, OsString};
 
 /// A value's shell-native completion class for `#[usage(value_hint = ...)]`.
@@ -1180,7 +1201,7 @@ pub fn __usage_exit_on_error(
                 Some(view) => render_failure_view(spec, all_argv, &error, view),
                 None => render_failure(spec, argv, &error),
             };
-            ::std::eprint!("{failure}");
+            __usage_eprint(format_args!("{failure}"));
             __usage_process_exit(2);
         }
     };
@@ -1196,9 +1217,9 @@ pub fn __usage_exit_on_error(
     // `None` is only reachable if the command came from another CLI's tables.
     if let Some(page) = page {
         if to_stderr {
-            ::std::eprint!("{page}");
+            __usage_eprint(format_args!("{page}"));
         } else {
-            ::std::print!("{page}");
+            __usage_print(format_args!("{page}"));
         }
     }
     __usage_process_exit(if to_stderr { 2 } else { 0 })
@@ -1216,7 +1237,7 @@ pub fn __usage_exit_version(
     version: &dyn std::fmt::Display,
 ) -> ! {
     let bin = view.map_or(bin, |view| view.bin);
-    ::std::println!("{bin} {version}");
+    __usage_print(format_args!("{bin} {version}\n"));
     __usage_process_exit(0)
 }
 
