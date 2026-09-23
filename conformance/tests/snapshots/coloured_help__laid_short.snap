@@ -1,0 +1,31 @@
+---
+source: conformance/tests/coloured_help.rs
+expression: "page(LAID, &[], false)"
+---
+␛[1mTop␛[0m
+laid 0.1.0
+
+␛[1;33mUsage:␛[0m laid [␛[1;32m--force␛[0m] [␛[1;32m--name␛[0m ␛[1;35m<n>␛[0m] ␛[1;35m<in>␛[0m [␛[1;35mout␛[0m] [␛[1;35mSUBCOMMAND␛[0m]
+
+␛[1;33mFlags:␛[0m
+      ␛[1;32m--force␛[0m     Force ␛[3mit␛[23m
+  ␛[1;32m-h␛[0m, ␛[1;32m--help␛[0m      Print help
+  ␛[1;32m-V␛[0m, ␛[1;32m--version␛[0m   Print version
+
+␛[1;33mNaming:␛[0m
+      ␛[1;32m--name␛[0m ␛[1;35m<n>␛[0m  Name
+
+␛[1;33mOutputs:␛[0m
+  [␛[1;35mout␛[0m]  Output
+
+␛[1;33mArguments:␛[0m
+  ␛[1;35m<in>␛[0m   Input
+
+␛[1;33mCommands:␛[0m
+  ␛[1;32mflatp␛[0m  Flat
+  ␛[1;32mgo␛[0m     Go
+  ␛[1;32mhelp␛[0m   Print this message or the help of the given subcommand(s)
+
+␛[1;33mFlags:␛[0m
+--force prose
+␛[1;33mEnd␛[0m
