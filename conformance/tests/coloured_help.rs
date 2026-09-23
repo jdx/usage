@@ -162,9 +162,26 @@ flag "--mode <mode>" help="Mode" help_heading="Options"
         lines.contains(&"  -f, --force overrides the ␛[3mlock␛[23m"),
         "{page}"
     );
-    assert!(lines.contains(&"Flags:"), "{page}");
     assert!(
         lines.contains(&"-f, --force mentioned, not listed"),
+        "{page}"
+    );
+
+    // Each `Flags:` once, and in its own place: the coloured one is the section heading ahead
+    // of the `Options` section, the plain one is the author's, in `after_help` at the end. Only
+    // checking that both forms exist would pass with the two swapped.
+    let at = |line: &str| {
+        let found: Vec<usize> = (0..lines.len()).filter(|&i| lines[i] == line).collect();
+        assert_eq!(found.len(), 1, "{line:?} once in:\n{page}");
+        found[0]
+    };
+    let heading = at("␛[1;33mFlags:␛[0m");
+    let options = at("␛[1;33mOptions:␛[0m");
+    let authored = at("Flags:");
+    assert!(heading < options && options < authored, "{page}");
+    assert_eq!(
+        lines[authored + 1],
+        "-f, --force mentioned, not listed",
         "{page}"
     );
 }
