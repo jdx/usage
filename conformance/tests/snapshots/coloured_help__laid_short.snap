@@ -28,4 +28,12 @@ laid 0.1.0
 
 ␛[1;33mFlags:␛[0m
 --force prose
+
+␛[1;33mNaming:␛[0m
+      ␛[1;32m--name␛[0m ␛[1;35m<n>␛[0m  Name
+
+␛[1;33mCommands:␛[0m
+  ␛[1;32mflatp␛[0m  Flat
+  ␛[1;32mgo␛[0m     Go
+  ␛[1;32mhelp␛[0m   Print this message or the help of the given subcommand(s)
 ␛[1;33mEnd␛[0m

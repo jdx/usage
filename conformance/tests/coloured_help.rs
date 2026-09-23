@@ -49,12 +49,13 @@ cmd "nl" help="Next line" next_line_help=#true {
 }
 "#;
 
-/// A template that places every section, some twice, around styled text of its own.
+/// A template that places every section, puts the grouped flags and the commands a second time
+/// after the author's prose, and wraps it all in styled text of its own.
 const LAID: &str = r#"
 name "laid"
 bin "laid"
 version "0.1.0"
-help_template "{$bold}Top{/$}\n{{about}}\n\n{{usage}}\n\n{{ungrouped_flags}}\n\n{{grouped_flags}}\n\n{{grouped_args}}\n\n{{ungrouped_args}}\n\n{{commands}}\n\n{{after_help}}\n{$heading}End{/$}"
+help_template "{$bold}Top{/$}\n{{about}}\n\n{{usage}}\n\n{{ungrouped_flags}}\n\n{{grouped_flags}}\n\n{{grouped_args}}\n\n{{ungrouped_args}}\n\n{{commands}}\n\n{{after_help}}\n\n{{grouped_flags}}\n\n{{commands}}\n{$heading}End{/$}"
 after_help "Flags:\n  --force  prose"
 flag "--force" help="Force *it*" global=#true
 flag "--name <n>" help="Name" help_heading="Naming"
