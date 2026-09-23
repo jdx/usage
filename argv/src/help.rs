@@ -1151,11 +1151,14 @@ fn rendered_page(
     inherit_version_actions: bool,
     suppress_global: bool,
 ) -> String {
-    let sections = if long {
-        long_sections(spec, path, chain, inherit_version_actions, suppress_global)
-    } else {
-        short_sections(spec, path, chain, inherit_version_actions, suppress_global)
-    };
+    let sections = page_sections(
+        spec,
+        path,
+        chain,
+        long,
+        inherit_version_actions,
+        suppress_global,
+    );
     // Plain output never reads the spellings used to recognize colored spans.
     let structure = if style.coloured {
         help_structure(
@@ -1706,15 +1709,28 @@ fn short_help_with(
         spec,
         path,
         chain,
-        &short_sections(spec, path, chain, inherit_version_actions, false),
+        &page_sections(spec, path, chain, false, inherit_version_actions, false),
         Style::PLAIN,
     )
 }
 
-fn short_sections(
+/// Whether an entry is left off this page: `-h` and `--help` each have their own opt-out.
+fn hidden_on(long: bool, hide_short_help: bool, hide_long_help: bool) -> bool {
+    if long {
+        hide_long_help
+    } else {
+        hide_short_help
+    }
+}
+
+/// Both pages, in one body: `-h` and `--help` lay out the same sections in the same order,
+/// and differ only in which text they choose and how much of it they show. One function
+/// rather than two near copies, so a binary carries the section logic once.
+fn page_sections(
     spec: &Spec<'_>,
     path: &[&str],
     chain: &[&CommandMeta<'_>],
+    long: bool,
     inherit_version_actions: bool,
     suppress_global: bool,
 ) -> Sections {
@@ -1722,14 +1738,14 @@ fn short_sections(
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
     let own: Vec<_> = own
         .into_iter()
-        .filter(|flag| !flag.hide_short_help)
+        .filter(|flag| !hidden_on(long, flag.hide_short_help, flag.hide_long_help))
         .collect();
     let inherited: Vec<_> = if suppress_global {
         Vec::new()
     } else {
         inherited
             .into_iter()
-            .filter(|(flag, _)| !flag.hide_short_help)
+            .filter(|(flag, _)| !hidden_on(long, flag.hide_short_help, flag.hide_long_help))
             .collect()
     };
     let mut sections = Sections::default();
@@ -1741,14 +1757,22 @@ fn short_sections(
 
     // Text the command puts above everything else, and below it. The short form has only the
     // one pair; the long form prefers the long variants.
-    if let Some(before) = meta.extra.before_help {
+    let before = if long {
+        meta.extra.before_long_help.or(meta.extra.before_help)
+    } else {
+        meta.extra.before_help
+    };
+    if let Some(before) = before {
         write_wrapped_indented(out, before, width, 0);
         out.push('\n');
     }
 
-    // The program, then what it is for — on the program's own page. A subcommand's page says
-    // what the subcommand does; see the long form for why. usage-lib prints the name when the
-    // spec gives one and the binary otherwise, and only when there is a version beside it.
+    // The banner and the program's own description belong to the program's page. A
+    // subcommand's page describes the subcommand: `communique generate --help` said
+    // "Editorialized release notes powered by AI" and never once said what `generate` does,
+    // which is the question that was asked. clap prints the command's own description here.
+    // usage-lib prints the name when the spec gives one and the binary otherwise, and only
+    // when there is a version beside it.
     let root = path.len() <= 1;
     if root {
         if let Some(version) = spec.version {
@@ -1760,7 +1784,12 @@ fn short_sections(
             let _ = writeln!(out, "{name} {version}");
         }
     }
-    let about = if root { spec.about } else { meta.about };
+    let about = match (root, long) {
+        (true, true) => spec.long_about.or(spec.about),
+        (true, false) => spec.about,
+        (false, true) => meta.long_about.or(meta.about),
+        (false, false) => meta.about,
+    };
     if let Some(about) = about {
         // Trimmed for the same reason the entries below are: the blank line after the
         // description is written here, so one already in the text doubles it.
@@ -1778,19 +1807,18 @@ fn short_sections(
             &path[1.min(path.len())..],
             meta,
             width,
-            false,
+            long,
             root_default_command_name(spec, path, meta),
         );
     }
 
-    // The short page lines its columns up too. It did not: every description began directly
-    // after the name it belonged to, so nothing in `-h` lined up with anything — and `-h` is
-    // the form most people type. One column per section over its visible entries, which is
-    // the rule the long page already follows.
+    // One column width per section, over its visible entries — the same two the reference
+    // computes, and separately, so a long flag does not push the arguments out. The short
+    // page lines its columns up too: it did not, and nothing in `-h` lined up with anything.
     let positional_args = positional_args(meta);
     let mut args: Vec<&ArgMeta<'_>> = positional_args
         .iter()
-        .filter(|a| !a.hide && !a.hide_short_help)
+        .filter(|a| !a.hide && !hidden_on(long, a.hide_short_help, a.hide_long_help))
         .collect();
     order_args(&mut args, positional_args);
     let arg_col = args
@@ -1799,6 +1827,21 @@ fn short_sections(
         .max()
         .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
+    // Section prose belongs to the long page, like an entry's admonitions.
+    let prose_of = |title: &str| {
+        if long {
+            heading_help(meta, title)
+        } else {
+            None
+        }
+    };
+    let layout = RowLayout {
+        col: arg_col,
+        width,
+        next_line: meta.extra.next_line_help,
+        long,
+        aligned: true,
+    };
     split_groups_section(
         SectionSink {
             page: &mut sections.args,
@@ -1809,56 +1852,10 @@ fn short_sections(
         width,
         &args,
         |a| a.help_heading,
-        // Section prose belongs to the long page, like an entry's admonitions.
-        |_| None,
-        |out, a| {
-            let usage = arg_usage(a);
-            if meta.extra.next_line_help {
-                let _ = writeln!(out, "  {usage}");
-                if let Some(help) = a.help.filter(|h| !h.trim().is_empty()) {
-                    write_wrapped_block(out, help, width);
-                }
-                long_annotations(
-                    out,
-                    if a.hide_possible_values {
-                        &[]
-                    } else {
-                        a.choices
-                    },
-                    if a.hide_env { None } else { a.env },
-                    if a.hide_env { &[] } else { a.env_fallback },
-                    if a.hide_env { &[] } else { a.deprecated_env },
-                    if a.hide_default_value { &[] } else { a.default },
-                    AnnotationLayout {
-                        indent: BLOCK_INDENT,
-                        width,
-                    },
-                );
-                return;
-            }
-            let environment =
-                inline_environment_notes(a.hide_env, a.env_fallback, a.deprecated_env);
-            let notes = inline_annotations(
-                if a.hide_possible_values {
-                    &[]
-                } else {
-                    a.choices
-                },
-                if a.hide_env { None } else { a.env },
-                environment.as_deref(),
-                if a.hide_default_value { &[] } else { a.default },
-                None,
-            );
-            entry(
-                out,
-                &usage,
-                with_annotations(a.help, notes).as_deref(),
-                arg_col,
-                width,
-                false,
-            );
-        },
+        prose_of,
+        |out, a| write_row(out, &Row::arg(a, &arg_usage(a)), layout),
     );
+
     // One column over *both* lists, so the two sections read as one table with a rule through
     // it rather than two tables that happen to be adjacent.
     let flag_col = own
@@ -1868,65 +1865,9 @@ fn short_sections(
         .max()
         .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
-    let short_entry = |out: &mut String, f: &FlagMeta<'_>, usage: String| {
-        if meta.extra.next_line_help {
-            let _ = writeln!(out, "  {usage}");
-            if let Some(help) = f.help.filter(|h| !h.trim().is_empty()) {
-                write_wrapped_block(out, help, width);
-            }
-            long_annotations(
-                out,
-                if f.hide_possible_values {
-                    &[]
-                } else {
-                    f.choices
-                },
-                if f.hide_env { None } else { f.env },
-                if f.hide_env {
-                    &[]
-                } else {
-                    f.extra.env_fallback
-                },
-                if f.hide_env {
-                    &[]
-                } else {
-                    f.extra.deprecated_env
-                },
-                if f.hide_default_value { &[] } else { f.default },
-                AnnotationLayout {
-                    indent: BLOCK_INDENT,
-                    width,
-                },
-            );
-            flag_notes(out, f, BLOCK_INDENT, width);
-            return;
-        }
-        let deprecation = deprecation_label(
-            f.extra.deprecated,
-            f.extra.deprecated_warn_at,
-            f.extra.deprecated_remove_at,
-        );
-        let environment =
-            inline_environment_notes(f.hide_env, f.extra.env_fallback, f.extra.deprecated_env);
-        let notes = inline_annotations(
-            if f.hide_possible_values {
-                &[]
-            } else {
-                f.choices
-            },
-            if f.hide_env { None } else { f.env },
-            environment.as_deref(),
-            if f.hide_default_value { &[] } else { f.default },
-            deprecation.as_deref(),
-        );
-        entry(
-            out,
-            &usage,
-            with_annotations(f.help, notes).as_deref(),
-            flag_col,
-            width,
-            false,
-        );
+    let layout = RowLayout {
+        col: flag_col,
+        ..layout
     };
     split_groups_section(
         SectionSink {
@@ -1938,12 +1879,14 @@ fn short_sections(
         width,
         &own,
         |f| flag_help_heading(meta, f),
-        |_| None,
-        |out, f| short_entry(out, f, column_usage(f)),
+        prose_of,
+        |out, f| write_row(out, &Row::flag(f, &column_usage(f)), layout),
     );
     // After the command's own, and under a heading that says where they came from: `--config`
     // belongs to the program, not to this command, and a reader should be able to see that.
     // The text is precomputed, since a spelling a descendant claimed is left out of it.
+    // Not grouped by `help_heading` — an ancestor's headings describe that command's page, and
+    // borrowing them here would put a section title on flags that are only visiting.
     split_groups_section(
         SectionSink {
             page: &mut sections.flags,
@@ -1955,23 +1898,223 @@ fn short_sections(
         &inherited,
         |_| None,
         |_| None,
-        |out, (f, usage)| short_entry(out, f, usage.clone()),
+        |out, (f, usage)| write_row(out, &Row::flag(f, usage), layout),
     );
     if flatten_help(meta) {
-        flat_commands_short(
+        flat_commands(
             &mut sections.flattened,
             &path[1.min(path.len())..],
             meta,
             width,
+            long,
         );
     }
-    examples_section(&mut sections.after_help, meta.extra.examples);
-    if let Some(after) = meta.extra.after_help {
-        sections.after_help.push('\n');
-        write_wrapped_indented(&mut sections.after_help, after, width, 0);
+
+    let out = &mut sections.after_help;
+    examples_section(out, meta.extra.examples, long);
+    let after = if long {
+        meta.extra.after_long_help.or(meta.extra.after_help)
+    } else {
+        meta.extra.after_help
+    };
+    if let Some(after) = after {
+        out.push('\n');
+        write_wrapped_indented(out, after, width, 0);
+    }
+    if long && root && (spec.author.is_some() || spec.license.is_some()) {
+        // The reference template starts the footer in a new paragraph without trimming the
+        // configured trailing help. A newline deliberately present in `after_help` therefore
+        // remains an additional blank line before package metadata.
+        out.push('\n');
+        if let Some(author) = spec.author {
+            let _ = writeln!(out, "Author: {author}");
+        }
+        if let Some(license) = spec.license {
+            let _ = writeln!(out, "License: {license}");
+        }
     }
 
     sections
+}
+
+/// One argument or flag, as a help page lists it: what the row is spelled as, and everything
+/// that may be written under or beside it.
+///
+/// Arguments and flags keep these in different places — a flag's rarer fields sit behind
+/// [`FlagMeta::extra`] — so each is read into this once, with the fields its `hide_*` switches
+/// turn off already empty. That lets one non-generic [`write_row`] serve every list on both
+/// pages, the flattened bodies included, instead of each carrying its own copy.
+struct Row<'a> {
+    usage: &'a str,
+    help: Option<&'a str>,
+    long_help: Option<&'a str>,
+    choices: &'a [&'a str],
+    env: Option<&'a str>,
+    env_fallback: &'a [&'a str],
+    deprecated_env: &'a [&'a str],
+    default: &'a [&'a str],
+    admonitions: &'a [AdmonitionMeta<'a>],
+    deprecated: Option<&'a str>,
+    deprecated_warn_at: Option<&'a str>,
+    deprecated_remove_at: Option<&'a str>,
+}
+
+impl<'a> Row<'a> {
+    fn arg(meta: &'a ArgMeta<'a>, usage: &'a str) -> Self {
+        Row {
+            usage,
+            help: meta.help,
+            long_help: meta.long_help,
+            choices: if meta.hide_possible_values {
+                &[]
+            } else {
+                meta.choices
+            },
+            env: if meta.hide_env { None } else { meta.env },
+            env_fallback: if meta.hide_env {
+                &[]
+            } else {
+                meta.env_fallback
+            },
+            deprecated_env: if meta.hide_env {
+                &[]
+            } else {
+                meta.deprecated_env
+            },
+            default: if meta.hide_default_value {
+                &[]
+            } else {
+                meta.default
+            },
+            admonitions: meta.admonitions,
+            deprecated: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
+        }
+    }
+
+    fn flag(meta: &'a FlagMeta<'a>, usage: &'a str) -> Self {
+        let extra = meta.extra;
+        Row {
+            usage,
+            help: meta.help,
+            long_help: meta.long_help,
+            choices: if meta.hide_possible_values {
+                &[]
+            } else {
+                meta.choices
+            },
+            env: if meta.hide_env { None } else { meta.env },
+            env_fallback: if meta.hide_env {
+                &[]
+            } else {
+                extra.env_fallback
+            },
+            deprecated_env: if meta.hide_env {
+                &[]
+            } else {
+                extra.deprecated_env
+            },
+            default: if meta.hide_default_value {
+                &[]
+            } else {
+                meta.default
+            },
+            admonitions: extra.admonitions,
+            deprecated: extra.deprecated,
+            deprecated_warn_at: extra.deprecated_warn_at,
+            deprecated_remove_at: extra.deprecated_remove_at,
+        }
+    }
+
+    fn deprecation(&self) -> Option<String> {
+        deprecation_label(
+            self.deprecated,
+            self.deprecated_warn_at,
+            self.deprecated_remove_at,
+        )
+    }
+}
+
+/// Where a row goes, and which page it is on.
+#[derive(Clone, Copy)]
+struct RowLayout {
+    col: usize,
+    width: usize,
+    next_line: bool,
+    long: bool,
+    /// Whether the long page's notes line up under the row's help. A flattened body puts them
+    /// at the block indent instead.
+    aligned: bool,
+}
+
+/// Write one argument or flag row.
+///
+/// The long page gives each annotation a line of its own under the help, after the entry's
+/// admonitions. The short page has no room for that: its annotations ride along with the
+/// summary — unless the command asked for help on the next line, which leaves room for them
+/// again at the block indent.
+#[inline(never)]
+fn write_row(out: &mut String, row: &Row<'_>, layout: RowLayout) {
+    let RowLayout {
+        col,
+        width,
+        next_line,
+        long,
+        aligned,
+    } = layout;
+    let notes_at = if long {
+        let indent = entry(
+            out,
+            row.usage,
+            row.long_help.or(row.help),
+            col,
+            width,
+            next_line,
+        );
+        admonitions(out, row.admonitions, width);
+        if aligned {
+            indent
+        } else {
+            BLOCK_INDENT
+        }
+    } else if next_line {
+        let _ = writeln!(out, "  {}", row.usage);
+        if let Some(help) = row.help.filter(|h| !h.trim().is_empty()) {
+            write_wrapped_block(out, help, width);
+        }
+        BLOCK_INDENT
+    } else {
+        let deprecation = row.deprecation();
+        let environment = inline_environment_notes(row.env_fallback, row.deprecated_env);
+        let notes = inline_annotations(
+            row.choices,
+            row.env,
+            environment.as_deref(),
+            row.default,
+            deprecation.as_deref(),
+        );
+        entry(
+            out,
+            row.usage,
+            with_annotations(row.help, notes).as_deref(),
+            col,
+            width,
+            false,
+        );
+        return;
+    };
+    long_annotations(
+        out,
+        row,
+        AnnotationLayout {
+            indent: notes_at,
+            width,
+        },
+    );
+    if let Some(label) = row.deprecation() {
+        write_wrapped_indented(out, &label, width, notes_at);
+    }
 }
 
 /// The list of subcommands, and the `help` command every CLI with subcommands has.
@@ -2219,14 +2362,30 @@ fn command_row<'a>(sub: &'a CommandMeta<'a>, is_default: bool) -> Option<Cow<'a,
     Some(Cow::Owned(row))
 }
 
-fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, width: usize) {
+/// The bodies of a `flatten_help` command's subcommands, in place of its command list.
+///
+/// Each one's rows are written by [`write_row`] like the page's own, except that the long
+/// page's notes sit at the block indent rather than under a column: every subcommand has its
+/// own columns, and notes aligned to one of them would wander from body to body.
+fn flat_commands(
+    out: &mut String,
+    path: &[&str],
+    meta: &CommandMeta<'_>,
+    width: usize,
+    long: bool,
+) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
     order_commands(&mut visible);
     for sub in visible {
         let mut sub_path = path.to_vec();
         sub_path.push(sub.cmd.name);
         let _ = writeln!(out, "\n{}:", sub_path.join(" "));
-        if let Some(about) = sub.about.filter(|about| !about.trim().is_empty()) {
+        let about = if long {
+            sub.long_about.or(sub.about)
+        } else {
+            sub.about
+        };
+        if let Some(about) = about.filter(|about| !about.trim().is_empty()) {
             write_wrapped_indented(out, about.trim_end(), width, 0);
         }
         command_deprecation(out, sub, 0, width);
@@ -2234,13 +2393,17 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
         let positional_args = positional_args(sub);
         let mut args: Vec<_> = positional_args
             .iter()
-            .filter(|arg| !arg.hide && !arg.hide_short_help)
+            .filter(|arg| !arg.hide && !hidden_on(long, arg.hide_short_help, arg.hide_long_help))
             .collect();
         order_args(&mut args, positional_args);
         let mut flags: Vec<&FlagMeta<'_>> = sub
             .flags
             .iter()
-            .filter(|flag| !flag.flag.global && !flag.hide && !flag.hide_short_help)
+            .filter(|flag| {
+                !flag.flag.global
+                    && !flag.hide
+                    && !hidden_on(long, flag.hide_short_help, flag.hide_long_help)
+            })
             .collect();
         order_flags(&mut flags, sub.flags);
         let arg_col = args
@@ -2255,139 +2418,25 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
             .max()
             .map(|longest| usage_column_width(longest, width))
             .unwrap_or(0);
+        let layout = RowLayout {
+            col: arg_col,
+            width,
+            next_line: meta.extra.next_line_help,
+            long,
+            aligned: false,
+        };
         for arg in args {
-            let usage = arg_usage(arg);
-            if meta.extra.next_line_help {
-                let _ = writeln!(out, "  {usage}");
-                if let Some(help) = arg.help.filter(|help| !help.trim().is_empty()) {
-                    write_wrapped_block(out, help, width);
-                }
-                long_annotations(
-                    out,
-                    if arg.hide_possible_values {
-                        &[]
-                    } else {
-                        arg.choices
-                    },
-                    if arg.hide_env { None } else { arg.env },
-                    if arg.hide_env { &[] } else { arg.env_fallback },
-                    if arg.hide_env {
-                        &[]
-                    } else {
-                        arg.deprecated_env
-                    },
-                    if arg.hide_default_value {
-                        &[]
-                    } else {
-                        arg.default
-                    },
-                    AnnotationLayout {
-                        indent: BLOCK_INDENT,
-                        width,
-                    },
-                );
-                continue;
-            }
-            let environment =
-                inline_environment_notes(arg.hide_env, arg.env_fallback, arg.deprecated_env);
-            let notes = inline_annotations(
-                if arg.hide_possible_values {
-                    &[]
-                } else {
-                    arg.choices
-                },
-                if arg.hide_env { None } else { arg.env },
-                environment.as_deref(),
-                if arg.hide_default_value {
-                    &[]
-                } else {
-                    arg.default
-                },
-                None,
-            );
-            entry(
-                out,
-                &usage,
-                with_annotations(arg.help, notes).as_deref(),
-                arg_col,
-                width,
-                false,
-            );
+            write_row(out, &Row::arg(arg, &arg_usage(arg)), layout);
         }
+        let layout = RowLayout {
+            col: flag_col,
+            ..layout
+        };
         for flag in flags {
-            let usage = column_usage(flag);
-            if meta.extra.next_line_help {
-                let _ = writeln!(out, "  {usage}");
-                if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
-                    write_wrapped_block(out, help, width);
-                }
-                long_annotations(
-                    out,
-                    if flag.hide_possible_values {
-                        &[]
-                    } else {
-                        flag.choices
-                    },
-                    if flag.hide_env { None } else { flag.env },
-                    if flag.hide_env {
-                        &[]
-                    } else {
-                        flag.extra.env_fallback
-                    },
-                    if flag.hide_env {
-                        &[]
-                    } else {
-                        flag.extra.deprecated_env
-                    },
-                    if flag.hide_default_value {
-                        &[]
-                    } else {
-                        flag.default
-                    },
-                    AnnotationLayout {
-                        indent: BLOCK_INDENT,
-                        width,
-                    },
-                );
-                flag_notes(out, flag, BLOCK_INDENT, width);
-                continue;
-            }
-            let deprecation = deprecation_label(
-                flag.extra.deprecated,
-                flag.extra.deprecated_warn_at,
-                flag.extra.deprecated_remove_at,
-            );
-            let environment = inline_environment_notes(
-                flag.hide_env,
-                flag.extra.env_fallback,
-                flag.extra.deprecated_env,
-            );
-            let notes = inline_annotations(
-                if flag.hide_possible_values {
-                    &[]
-                } else {
-                    flag.choices
-                },
-                if flag.hide_env { None } else { flag.env },
-                environment.as_deref(),
-                if flag.hide_default_value {
-                    &[]
-                } else {
-                    flag.default
-                },
-                deprecation.as_deref(),
-            );
-            entry(
-                out,
-                &usage,
-                with_annotations(flag.help, notes).as_deref(),
-                flag_col,
-                width,
-                false,
-            );
+            write_row(out, &Row::flag(flag, &column_usage(flag)), layout);
         }
         if flatten_help(sub) {
-            flat_commands_short(out, &sub_path, sub, width);
+            flat_commands(out, &sub_path, sub, width, long);
         }
         out.push('\n');
     }
@@ -2738,7 +2787,7 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
 /// that many on its front page — reads as a wall of commands without the separation, and
 /// there is no way to tell where the interesting one is. The same rule applies to both
 /// pages, so `-h` and `--help` do not disagree about how a list is spaced.
-fn examples_section(out: &mut String, examples: &[Example<'_>]) {
+fn examples_section(out: &mut String, examples: &[Example<'_>], long: bool) {
     if examples.is_empty() {
         return;
     }
@@ -2749,6 +2798,11 @@ fn examples_section(out: &mut String, examples: &[Example<'_>]) {
         }
         if let Some(header) = example.header {
             let _ = writeln!(out, "  {header}:");
+        }
+        // The long page describes the command before it, which is the order the reference
+        // prints them in: the description introduces the line rather than commenting on it.
+        if let Some(help) = example.help.filter(|_| long) {
+            let _ = writeln!(out, "    {help}");
         }
         let _ = writeln!(out, "    $ {}", example.code);
     }
@@ -2839,281 +2893,9 @@ fn long_help_with(
         spec,
         path,
         chain,
-        &long_sections(spec, path, chain, inherit_version_actions, false),
+        &page_sections(spec, path, chain, true, inherit_version_actions, false),
         Style::PLAIN,
     )
-}
-
-fn long_sections(
-    spec: &Spec<'_>,
-    path: &[&str],
-    chain: &[&CommandMeta<'_>],
-    inherit_version_actions: bool,
-    suppress_global: bool,
-) -> Sections {
-    let meta = *chain.last().expect("a page is always about some command");
-    let (own, inherited) = own_and_global(chain, inherit_version_actions);
-    let own: Vec<_> = own
-        .into_iter()
-        .filter(|flag| !flag.hide_long_help)
-        .collect();
-    let inherited: Vec<_> = if suppress_global {
-        Vec::new()
-    } else {
-        inherited
-            .into_iter()
-            .filter(|(flag, _)| !flag.hide_long_help)
-            .collect()
-    };
-    // Less the logo's margin, when the root page is reserving one; see `logo_margin`.
-    let width = page_width(spec, path, meta);
-    let mut sections = Sections::default();
-    let out = &mut sections.about;
-
-    if let Some(before) = meta.extra.before_long_help.or(meta.extra.before_help) {
-        write_wrapped_indented(out, before, width, 0);
-        out.push('\n');
-    }
-
-    // The banner and the program's own description belong to the program's page. A
-    // subcommand's page describes the subcommand: `communique generate --help` said
-    // "Editorialized release notes powered by AI" and never once said what `generate` does,
-    // which is the question that was asked. clap prints the command's own description here.
-    let root = path.len() <= 1;
-    if root {
-        if let Some(version) = spec.version {
-            let name = if spec.name.is_empty() {
-                spec.bin.unwrap_or_default()
-            } else {
-                spec.name
-            };
-            let _ = writeln!(out, "{name} {version}");
-        }
-    }
-    let about = if root {
-        spec.long_about.or(spec.about)
-    } else {
-        meta.long_about.or(meta.about)
-    };
-    if let Some(about) = about {
-        // Trimmed for the same reason the entries below are: the blank line after the
-        // description is written here, so one already in the text doubles it.
-        write_wrapped_indented(out, about.trim_end(), width, 0);
-        out.push('\n');
-    }
-    command_deprecation(out, meta, 0, width);
-    usage_section(&mut sections.usage, spec, path, meta);
-
-    if !flatten_help(meta) {
-        commands_section(
-            &mut sections.commands,
-            &path[1.min(path.len())..],
-            meta,
-            width,
-            true,
-            root_default_command_name(spec, path, meta),
-        );
-    }
-
-    // One column width per section, over its visible entries — the same two the reference
-    // computes, and separately, so a long flag does not push the arguments out.
-    let positional_args = positional_args(meta);
-    let mut args: Vec<&ArgMeta<'_>> = positional_args
-        .iter()
-        .filter(|a| !a.hide && !a.hide_long_help)
-        .collect();
-    order_args(&mut args, positional_args);
-    let arg_col = args
-        .iter()
-        .map(|a| arg_usage(a).chars().count())
-        .max()
-        .map(|longest| usage_column_width(longest, width))
-        .unwrap_or(0);
-    split_groups_section(
-        SectionSink {
-            page: &mut sections.args,
-            ungrouped: &mut sections.ungrouped_args,
-            grouped: &mut sections.grouped_args,
-        },
-        "Arguments",
-        width,
-        &args,
-        |a| a.help_heading,
-        |title| heading_help(meta, title),
-        |out, a| {
-            let text = a.long_help.or(a.help);
-            let indent = entry(
-                out,
-                &arg_usage(a),
-                text,
-                arg_col,
-                width,
-                meta.extra.next_line_help,
-            );
-            admonitions(out, a.admonitions, width);
-            long_annotations(
-                out,
-                if a.hide_possible_values {
-                    &[]
-                } else {
-                    a.choices
-                },
-                if a.hide_env { None } else { a.env },
-                if a.hide_env { &[] } else { a.env_fallback },
-                if a.hide_env { &[] } else { a.deprecated_env },
-                if a.hide_default_value { &[] } else { a.default },
-                AnnotationLayout { indent, width },
-            );
-        },
-    );
-
-    // One column over *both* lists, so the two sections read as one table with a rule through
-    // it rather than two tables that happen to be adjacent.
-    let flag_col = own
-        .iter()
-        .map(|f| column_usage(f).chars().count())
-        .chain(inherited.iter().map(|(_, u)| u.chars().count()))
-        .max()
-        .map(|longest| usage_column_width(longest, width))
-        .unwrap_or(0);
-    split_groups_section(
-        SectionSink {
-            page: &mut sections.flags,
-            ungrouped: &mut sections.ungrouped_flags,
-            grouped: &mut sections.grouped_flags,
-        },
-        "Flags",
-        width,
-        &own,
-        |f| flag_help_heading(meta, f),
-        |title| heading_help(meta, title),
-        |out, f| {
-            let text = f.long_help.or(f.help);
-            let indent = entry(
-                out,
-                &column_usage(f),
-                text,
-                flag_col,
-                width,
-                meta.extra.next_line_help,
-            );
-            admonitions(out, f.extra.admonitions, width);
-            long_annotations(
-                out,
-                if f.hide_possible_values {
-                    &[]
-                } else {
-                    f.choices
-                },
-                if f.hide_env { None } else { f.env },
-                if f.hide_env {
-                    &[]
-                } else {
-                    f.extra.env_fallback
-                },
-                if f.hide_env {
-                    &[]
-                } else {
-                    f.extra.deprecated_env
-                },
-                if f.hide_default_value { &[] } else { f.default },
-                AnnotationLayout { indent, width },
-            );
-            flag_notes(out, f, indent, width);
-        },
-    );
-    // After the command's own, and under a heading that says where they came from: `--config`
-    // belongs to the program, not to this command, and a reader should be able to see that.
-    // Not grouped by `help_heading` — an ancestor's headings describe that command's page, and
-    // borrowing them here would put a section title on flags that are only visiting.
-    split_groups_section(
-        SectionSink {
-            page: &mut sections.flags,
-            ungrouped: &mut sections.ungrouped_flags,
-            grouped: &mut sections.grouped_flags,
-        },
-        "Global flags",
-        width,
-        &inherited,
-        |_| None,
-        |_| None,
-        |out, (f, usage)| {
-            let text = f.long_help.or(f.help);
-            let indent = entry(out, usage, text, flag_col, width, meta.extra.next_line_help);
-            admonitions(out, f.extra.admonitions, width);
-            long_annotations(
-                out,
-                if f.hide_possible_values {
-                    &[]
-                } else {
-                    f.choices
-                },
-                if f.hide_env { None } else { f.env },
-                if f.hide_env {
-                    &[]
-                } else {
-                    f.extra.env_fallback
-                },
-                if f.hide_env {
-                    &[]
-                } else {
-                    f.extra.deprecated_env
-                },
-                if f.hide_default_value { &[] } else { f.default },
-                AnnotationLayout { indent, width },
-            );
-            flag_notes(out, f, indent, width);
-        },
-    );
-    if flatten_help(meta) {
-        flat_commands_long(
-            &mut sections.flattened,
-            &path[1.min(path.len())..],
-            meta,
-            width,
-        );
-    }
-
-    let out = &mut sections.after_help;
-    let examples = meta.extra.examples;
-    if !examples.is_empty() {
-        let _ = writeln!(out, "\nExamples:");
-        // Separated as the short page separates them; see `examples_section`.
-        for (index, example) in examples.iter().enumerate() {
-            if index > 0 {
-                out.push('\n');
-            }
-            if let Some(header) = example.header {
-                let _ = writeln!(out, "  {header}:");
-            }
-            // The description comes *before* the command, which is the order the reference
-            // prints them in: it introduces the line rather than commenting on it.
-            if let Some(help) = example.help {
-                let _ = writeln!(out, "    {help}");
-            }
-            let _ = writeln!(out, "    $ {}", example.code);
-        }
-    }
-
-    let after = meta.extra.after_long_help.or(meta.extra.after_help);
-    if let Some(after) = after {
-        out.push('\n');
-        write_wrapped_indented(out, after, width, 0);
-    }
-    if root && (spec.author.is_some() || spec.license.is_some()) {
-        // The reference template starts the footer in a new paragraph without trimming the
-        // configured trailing help. A newline deliberately present in `after_help` therefore
-        // remains an additional blank line before package metadata.
-        out.push('\n');
-        if let Some(author) = spec.author {
-            let _ = writeln!(out, "Author: {author}");
-        }
-        if let Some(license) = spec.license {
-            let _ = writeln!(out, "License: {license}");
-        }
-    }
-
-    sections
 }
 
 /// Write text with every line indented, leaving blank lines blank.
@@ -3372,16 +3154,16 @@ fn list_prefix(line: &str) -> Option<(&str, &str)> {
 /// description reached it, and [`BLOCK_INDENT`] when it did not. An annotation is a note about
 /// the same entry, so it belongs under the text it qualifies rather than in the gutter beside a
 /// column it is ignoring.
-fn long_annotations(
-    out: &mut String,
-    choices: &[&str],
-    env: Option<&str>,
-    env_fallback: &[&str],
-    deprecated_env: &[&str],
-    default: &[&str],
-    layout: AnnotationLayout,
-) {
+fn long_annotations(out: &mut String, row: &Row<'_>, layout: AnnotationLayout) {
     let AnnotationLayout { indent, width } = layout;
+    let Row {
+        choices,
+        env,
+        env_fallback,
+        deprecated_env,
+        default,
+        ..
+    } = *row;
     // Most entries annotate nothing, and this is called for every one of them — so the indent
     // is not built until there is a line to put it on.
     if choices.is_empty()
@@ -3488,149 +3270,17 @@ fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, 
     }
 }
 
-fn inline_environment_notes(hide: bool, fallbacks: &[&str], deprecated: &[&str]) -> Option<String> {
+/// A row's other environment names, for the short page. A hidden environment arrives here
+/// already empty: see [`Row`].
+fn inline_environment_notes(fallbacks: &[&str], deprecated: &[&str]) -> Option<String> {
     let mut notes = Vec::new();
-    if !hide {
-        notes.extend(fallbacks.iter().map(|env| format!("[env fallback: {env}]")));
-        notes.extend(
-            deprecated
-                .iter()
-                .map(|env| format!("[deprecated env: {env}]")),
-        );
-    }
+    notes.extend(fallbacks.iter().map(|env| format!("[env fallback: {env}]")));
+    notes.extend(
+        deprecated
+            .iter()
+            .map(|env| format!("[deprecated env: {env}]")),
+    );
     (!notes.is_empty()).then(|| notes.join(" "))
-}
-
-fn flag_notes(out: &mut String, meta: &FlagMeta<'_>, indent: usize, width: usize) {
-    if let Some(label) = deprecation_label(
-        meta.extra.deprecated,
-        meta.extra.deprecated_warn_at,
-        meta.extra.deprecated_remove_at,
-    ) {
-        write_wrapped_indented(out, &label, width, indent);
-    }
-}
-
-fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, width: usize) {
-    let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    order_commands(&mut visible);
-    for sub in visible {
-        let mut sub_path = path.to_vec();
-        sub_path.push(sub.cmd.name);
-        let _ = writeln!(out, "\n{}:", sub_path.join(" "));
-        if let Some(about) = sub
-            .long_about
-            .or(sub.about)
-            .filter(|about| !about.trim().is_empty())
-        {
-            write_wrapped_indented(out, about.trim_end(), width, 0);
-        }
-        command_deprecation(out, sub, 0, width);
-
-        let positional_args = positional_args(sub);
-        let mut args: Vec<_> = positional_args
-            .iter()
-            .filter(|arg| !arg.hide && !arg.hide_long_help)
-            .collect();
-        order_args(&mut args, positional_args);
-        let mut flags: Vec<&FlagMeta<'_>> = sub
-            .flags
-            .iter()
-            .filter(|flag| !flag.flag.global && !flag.hide && !flag.hide_long_help)
-            .collect();
-        order_flags(&mut flags, sub.flags);
-        let arg_col = args
-            .iter()
-            .map(|arg| arg_usage(arg).chars().count())
-            .max()
-            .map(|longest| usage_column_width(longest, width))
-            .unwrap_or(0);
-        let flag_col = flags
-            .iter()
-            .map(|flag| column_usage(flag).chars().count())
-            .max()
-            .map(|longest| usage_column_width(longest, width))
-            .unwrap_or(0);
-        for arg in args {
-            entry(
-                out,
-                &arg_usage(arg),
-                arg.long_help.or(arg.help),
-                arg_col,
-                width,
-                meta.extra.next_line_help,
-            );
-            admonitions(out, arg.admonitions, width);
-            long_annotations(
-                out,
-                if arg.hide_possible_values {
-                    &[]
-                } else {
-                    arg.choices
-                },
-                if arg.hide_env { None } else { arg.env },
-                if arg.hide_env { &[] } else { arg.env_fallback },
-                if arg.hide_env {
-                    &[]
-                } else {
-                    arg.deprecated_env
-                },
-                if arg.hide_default_value {
-                    &[]
-                } else {
-                    arg.default
-                },
-                AnnotationLayout {
-                    indent: BLOCK_INDENT,
-                    width,
-                },
-            );
-        }
-        for flag in flags {
-            entry(
-                out,
-                &column_usage(flag),
-                flag.long_help.or(flag.help),
-                flag_col,
-                width,
-                meta.extra.next_line_help,
-            );
-            admonitions(out, flag.extra.admonitions, width);
-            long_annotations(
-                out,
-                if flag.hide_possible_values {
-                    &[]
-                } else {
-                    flag.choices
-                },
-                if flag.hide_env { None } else { flag.env },
-                if flag.hide_env {
-                    &[]
-                } else {
-                    flag.extra.env_fallback
-                },
-                if flag.hide_env {
-                    &[]
-                } else {
-                    flag.extra.deprecated_env
-                },
-                if flag.hide_default_value {
-                    &[]
-                } else {
-                    flag.default
-                },
-                AnnotationLayout {
-                    indent: BLOCK_INDENT,
-                    width,
-                },
-            );
-            flag_notes(out, flag, BLOCK_INDENT, width);
-        }
-        if flatten_help(sub) {
-            flat_commands_long(out, &sub_path, sub, width);
-        }
-        out.push('\n');
-    }
 }
 
 /// The path and metadata for a command, found by identity within a spec.
@@ -4053,11 +3703,7 @@ fn topics_with_blocks(
     long: bool,
 ) -> Option<Vec<(Topic, String)>> {
     let (path, chain) = find(spec, cmd)?;
-    let sections = if long {
-        long_sections(spec, &path, &chain, false, false)
-    } else {
-        short_sections(spec, &path, &chain, false, false)
-    };
+    let sections = page_sections(spec, &path, &chain, long, false, false);
     let mut used = Vec::<String>::new();
     Some(
         topic_blocks(&sections, |title| heading_help(chain.last()?, title))
@@ -4598,10 +4244,10 @@ fn recursive_help<'a>(
 #[cfg(test)]
 mod style_tests {
     use super::{
-        commands_section, default_visible_child, display_usage_masked, flag_notes, flag_usage,
-        flat_commands_short, inline_environment_notes, long_help, render, render_styled,
+        commands_section, default_visible_child, display_usage_masked, flag_usage, flat_commands,
+        inline_environment_notes, long_annotations, long_help, render, render_styled,
         render_view_at_styled, styled_flag_usage, styled_help, styled_inline, usage_line, wrap,
-        Palette, Shown, Style,
+        AnnotationLayout, Palette, Row, Shown, Style,
     };
     use crate::spec::{
         ArgMeta, ClauseMeta, CommandExtra, CommandMeta, Example, FlagExtra, FlagMeta, Spec,
@@ -4987,7 +4633,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        flat_commands_short(&mut page, &["tool"], &root_meta, 80);
+        flat_commands(&mut page, &["tool"], &root_meta, 80, false);
 
         assert!(
             page.contains("    Use the old mode\n    [deprecated: use --new]"),
@@ -5042,7 +4688,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        flat_commands_short(&mut page, &["tool"], &root_meta, 80);
+        flat_commands(&mut page, &["tool"], &root_meta, 80, false);
 
         assert!(page.contains("--old\n"), "{page}");
         assert!(page.contains("[deprecated: use --new]\n"), "{page}");
@@ -5066,17 +4712,25 @@ mod style_tests {
             },
             ..FlagMeta::EMPTY
         };
+        let row = Row::flag(&meta, "--token");
         let mut page = String::new();
 
-        flag_notes(&mut page, &meta, 4, 80);
+        long_annotations(
+            &mut page,
+            &row,
+            AnnotationLayout {
+                indent: 4,
+                width: 80,
+            },
+        );
 
         assert!(page.is_empty());
+        assert!(inline_environment_notes(row.env_fallback, row.deprecated_env).is_none());
 
-        let visible = inline_environment_notes(false, &["OLD_TOKEN"], &["LEGACY_TOKEN"])
+        let visible = inline_environment_notes(&["OLD_TOKEN"], &["LEGACY_TOKEN"])
             .expect("visible environment notes");
         assert!(visible.contains("[env fallback: OLD_TOKEN]"));
         assert!(visible.contains("[deprecated env: LEGACY_TOKEN]"));
-        assert!(inline_environment_notes(true, &["OLD_TOKEN"], &["LEGACY_TOKEN"]).is_none());
     }
 
     #[test]
