@@ -6,19 +6,16 @@ _.path = ["./target/debug"]
 
 [tools]
 mr-boxington = { version = "latest", minimum_release_age = "0s" }
-# Pinned rather than "latest" because tak is the measuring instrument: an
-# upgrade that changes how it samples would land in the series as a step change
-# in usage's numbers, indistinguishable from a real regression. Bump deliberately.
 tak = { version = "latest", minimum_release_age = "0s" }
 aube = { version = "latest", minimum_release_age = "0s" }
 communique = { version = "latest", minimum_release_age = "0s" }
 gh = "latest"
 hk = { version = "latest", minimum_release_age = "0s" }
-"aqua:mitsuhiko/insta" = "latest"
-"github:crate-ci/cargo-release" = "latest"
+cargo-insta = "latest"
+cargo-release = "latest"
 "github:obi1kenobi/cargo-semver-checks" = "latest"
-"aqua:orhun/git-cliff" = "latest"
-"npm:prettier" = "latest"
+git-cliff = "latest"
+prettier = "latest"
 shellcheck = "latest"
 go = "1.27.1"
 gofumpt = "0.12.0"
