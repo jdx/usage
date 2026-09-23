@@ -102,12 +102,6 @@ checksum = "sha256:717638c2fb87e3230d84c548ee9509f3dd880966744702c3e0d0345f1937c
 url = "https://github.com/aubepkg/aube/releases/download/v2.3.0/aube-v2.3.0-aarch64-apple-darwin.tar.gz"
 signer = "sigstore-oidc:https://github.com/aubepkg/aube/.github/workflows/release-plz.yml"
 
-[tools.aube."platforms.macos-x64"]
-checksum = "sha256:78dd12ce4344d3576b48a437337d702a7d45256efb1e637380191b693e5f97ed"
-url = "https://github.com/aubepkg/aube/releases/download/v2.2.17/libaube-x86_64-apple-darwin.dylib"
-url_api = "https://api.github.com/repos/aubepkg/aube/releases/assets/566074380"
-provenance = "github-attestations"
-
 [tools.aube."platforms.windows-x64"]
 checksum = "sha256:a6b88d0ea8e364619adeb7b280fa2594e69fabe7362087ba0219113ba6af1e7e"
 url = "https://github.com/aubepkg/aube/releases/download/v2.3.0/aube-v2.3.0-x86_64-pc-windows-msvc.zip"
