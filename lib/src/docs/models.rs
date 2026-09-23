@@ -156,6 +156,9 @@ pub struct SpecFlag {
     pub admonitions: Vec<SpecAdmonition>,
     pub help_first_line: Option<String>,
     pub short: Vec<char>,
+    /// Short forms written with `+`, as the shells' `+o pipefail` is.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plus_short: Vec<char>,
     pub long: Vec<String>,
     pub required: bool,
     pub deprecated: Option<String>,
@@ -1002,6 +1005,12 @@ fn reference_usage(flag: &crate::SpecFlag) -> String {
         .take(1)
         .map(|short| format!("-{short}"))
         .chain(
+            flag.plus_short
+                .iter()
+                .take(1)
+                .map(|plus| format!("+{plus}")),
+        )
+        .chain(
             flag.long
                 .iter()
                 .filter(|long| !flag.hidden_aliases.contains(long))
@@ -1053,6 +1062,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
                 .filter(|short| !flag.hidden_short_aliases.contains(short))
                 .copied()
                 .collect(),
+            plus_short: flag.plus_short.clone(),
             long: flag
                 .long
                 .iter()

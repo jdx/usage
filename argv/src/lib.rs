@@ -423,6 +423,12 @@ pub struct Flag<'a> {
     /// it. Nothing is unsound if it does not: the value would simply be cut in a place that
     /// makes no sense, and on Windows would then fail to convert.
     pub shorts: &'a [u8],
+    /// Short forms written with `+` rather than `-`, as the shells' `+o pipefail` is.
+    /// They bundle as shorts do, in a token of their own: `+xo pipefail`.
+    pub plus_shorts: &'a [u8],
+    /// The `+x` that turns this switch off, as [`Self::negate`] is the long that does.
+    /// It bundles with other plus letters: `+eux`.
+    pub negate_plus: ::core::option::Option<u8>,
     /// A long form that sets the flag to false, written without the `--`.
     pub negate: Option<&'a str>,
     /// Whether the flag takes a value.
@@ -506,6 +512,8 @@ impl Flag<'_> {
         name: "",
         longs: &[],
         shorts: &[],
+        plus_shorts: &[],
+        negate_plus: ::core::option::Option::None,
         negate: None,
         takes_value: false,
         variadic: false,
@@ -1799,6 +1807,8 @@ pub struct Parser<'t, 'a, 'v> {
     /// The whole token the current bundle came from, so an error raised part way
     /// through it can still name what the user typed.
     bundle_token: &'v [u8],
+    /// Whether the bundle being read is a plus token, whose letters are plus spellings.
+    bundle_plus: bool,
     /// A variadic flag that is still collecting values.
     collecting: Option<&'t Flag<'t>>,
     /// Where the command in scope began, as an index into `argv`.
@@ -1897,6 +1907,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             depth: 0,
             bundle: &[],
             bundle_token: &[],
+            bundle_plus: false,
             collecting: None,
             cmd_start: 0,
             starts: [0; MAX_DEPTH],
@@ -2429,10 +2440,55 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
             self.bundle = &token[1..];
             self.bundle_token = token;
+            self.bundle_plus = false;
             return Some(self.short_flag());
         }
 
+        // A plus token is read by the plus spellings in scope, and only where some are:
+        // elsewhere `+x` is an ordinary word.
+        if token.len() > 1 && token[0] == b'+' && self.has_plus_spellings() {
+            if self.check_plus_bundle(&token[1..]) {
+                self.bundle = &token[1..];
+                self.bundle_token = token;
+                self.bundle_plus = true;
+                return Some(self.short_flag());
+            }
+            if self.unknown_flags == UnknownFlags::Error {
+                return Some(Err(Error::UnknownFlag { token }));
+            }
+        }
+
         Some(self.word(token))
+    }
+
+    fn has_plus_spellings(&self) -> bool {
+        self.in_scope()
+            .any(|f| !f.plus_shorts.is_empty() || f.negate_plus.is_some())
+    }
+
+    /// The flag a plus letter names, and whether it is a switch's negation.
+    fn find_plus(&self, byte: u8) -> Option<(&'t Flag<'t>, bool)> {
+        self.in_scope()
+            .find(|f| f.plus_shorts.contains(&byte))
+            .map(|f| (f, false))
+            .or_else(|| {
+                self.in_scope()
+                    .find(|f| f.negate_plus == Some(byte))
+                    .map(|f| (f, true))
+            })
+    }
+
+    /// Whether every letter of a plus bundle names a plus spelling, up to the first that
+    /// takes a value, as [`Self::check_bundle`] asks of a dash bundle.
+    fn check_plus_bundle(&self, letters: &[u8]) -> bool {
+        for &byte in letters {
+            match self.find_plus(byte) {
+                None => return false,
+                Some((flag, false)) if flag.takes_value => return true,
+                Some(_) => {}
+            }
+        }
+        true
     }
 
     fn long_flag(&mut self, token: &'v [u8]) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
@@ -2529,7 +2585,21 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         let byte = self.bundle[0];
         let rest = &self.bundle[1..];
 
-        let Some(flag) = self.find_short(byte) else {
+        let found = if self.bundle_plus {
+            self.find_plus(byte)
+        } else {
+            self.find_short(byte).map(|flag| (flag, false))
+        };
+        if let Some((flag, true)) = found {
+            // A plus letter that turns a switch off.
+            self.bundle = rest;
+            return Ok(Event::Flag {
+                flag,
+                value: None,
+                negated: true,
+            });
+        }
+        let Some(flag) = found.map(|(flag, _)| flag) else {
             // check_bundle already rejected any token containing an unrecognized
             // letter, so this is unreachable — but a parser should report rather
             // than panic if that ever stops being true.

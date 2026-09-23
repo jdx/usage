@@ -132,6 +132,10 @@ pub struct SpecFlag {
     pub help_first_line: Option<String>,
     /// Short flag characters (e.g., 'v' for -v)
     pub short: Vec<char>,
+    /// Short spellings written with `+` rather than `-`, as the shells' `+o pipefail`
+    /// is. A switch's `+x` that turns it off is its [`negate`](Self::negate) instead.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub plus_short: Vec<char>,
     /// Short aliases accepted by parsing but omitted from help and completion.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub hidden_short_aliases: Vec<char>,
@@ -871,7 +875,9 @@ impl SpecFlag {
 
     pub fn usage(&self) -> String {
         let mut parts = vec![];
-        let name = get_name_from_short_and_long(&self.short, &self.long).unwrap_or_default();
+        let name = get_name_from_short_and_long(&self.short, &self.long)
+            .or_else(|| self.plus_short.first().map(plus_name))
+            .unwrap_or_default();
         // A flag whose only spelling is its negation — clap's `SetFalse`, tak's
         // `--no-credit` — is named after that spelling, so the `name:` prefix would repeat
         // it and the spelling a reader has to type would appear nowhere.
@@ -888,6 +894,9 @@ impl SpecFlag {
         }
         if let Some(short) = self.short.first() {
             parts.push(format!("-{short}"));
+        }
+        if let Some(plus) = self.plus_short.first() {
+            parts.push(format!("+{plus}"));
         }
         if let Some(long) = self.long.first() {
             parts.push(format!("--{long}"));
@@ -939,9 +948,16 @@ impl From<&SpecFlag> for KdlNode {
                 && visible_shorts
                     .clone()
                     .next()
-                    .is_some_and(|short| short.to_string() == flag.name));
+                    .is_some_and(|short| short.to_string() == flag.name))
+            || (visible_longs.clone().next().is_none()
+                && visible_shorts.clone().next().is_none()
+                && flag
+                    .plus_short
+                    .first()
+                    .is_some_and(|plus| plus_name(plus) == flag.name));
         let forms = visible_shorts
             .map(|c| format!("-{c}"))
+            .chain(flag.plus_short.iter().map(|c| format!("+{c}")))
             .chain(visible_longs.map(|s| format!("--{s}")))
             .collect_vec()
             .join(" ");
@@ -1320,6 +1336,16 @@ impl FromStr for SpecFlag {
                     });
                 }
                 flag.short.push(short.chars().next().unwrap());
+            } else if let Some(plus) = part.strip_prefix('+') {
+                if plus.chars().count() != 1 {
+                    return Err(InvalidFlag {
+                        token: format!("+{plus}"),
+                        reason: "a plus spelling is a single character, like a short".to_string(),
+                        span: (0, input.len()).into(),
+                        input: input.to_string(),
+                    });
+                }
+                flag.plus_short.push(plus.chars().next().unwrap());
             } else if part == "…" {
                 if let Some(arg) = &mut flag.arg {
                     arg.var = true;
@@ -1343,7 +1369,9 @@ impl FromStr for SpecFlag {
             }
         }
         if flag.name.is_empty() {
-            flag.name = get_name_from_short_and_long(&flag.short, &flag.long).unwrap_or_default();
+            flag.name = get_name_from_short_and_long(&flag.short, &flag.long)
+                .or_else(|| flag.plus_short.first().map(plus_name))
+                .unwrap_or_default();
         }
         flag.usage = flag.usage();
         Ok(flag)
@@ -1483,6 +1511,8 @@ impl From<&clap::Arg> for SpecFlag {
             // This one clap does expose, unlike `requires` just above.
             exclusive: c.is_exclusive_set(),
             require_equals: c.is_require_equals_set(),
+            // clap has no plus spellings.
+            plus_short: vec![],
             value_optional: arg.is_some()
                 && c.get_num_args()
                     .is_some_and(|n| n.min_values() == 0 && n.max_values() > 0),
@@ -1604,6 +1634,16 @@ impl Hash for SpecFlag {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
     }
+}
+
+/// The name a flag spelled only with a `+` answers to.
+///
+/// Prefixed rather than bare, because `-o` and `+o` are two different options in the
+/// shells that spell flags this way, and both would otherwise be called `o` — one
+/// name for two flags, whose values then merged. A spec that wants a better name
+/// still writes one: `flag "unset-option: +o <option>"`.
+fn plus_name(plus: &char) -> String {
+    format!("plus-{plus}")
 }
 
 fn get_name_from_short_and_long(short: &[char], long: &[String]) -> Option<String> {

@@ -129,6 +129,13 @@ pub fn answer(
     .complete_word_answer(spec)
 }
 
+/// Whether any flag in scope is spelled with a `+`.
+///
+/// The map is keyed by spelling, so this covers both a `+o` form and a `+x` negation.
+fn plus_spellings_declared(flags: &BTreeMap<String, Arc<SpecFlag>>) -> bool {
+    flags.keys().any(|key| key.starts_with('+'))
+}
+
 impl CompleteWord {
     pub fn complete_word(&self, spec: &Spec) -> usage::miette::Result<Vec<(String, String)>> {
         Ok(self.complete_word_answer(spec)?.candidates)
@@ -307,6 +314,8 @@ impl CompleteWord {
             }
         } else if flags_possible && ctoken.starts_with('-') {
             self.complete_short_flag_names(&flags, &ctoken)
+        } else if flags_possible && ctoken.starts_with('+') && plus_spellings_declared(&flags) {
+            self.complete_plus_flag_names(&flags, &ctoken)
         } else if after_restart_token {
             // After a restart_token, complete from the first ordinary arg of the current command
             // This must be checked after flag checks (to allow --flag after :::)
@@ -400,7 +409,9 @@ impl CompleteWord {
         // Fallback to file completions if nothing is known about this argument and it's not a
         // flag. Past a `--` a dash-prefixed word is not a flag but a value, so a path like
         // `-input` still gets completed there.
-        let looks_like_a_flag = flags_possible && ctoken.starts_with('-');
+        let looks_like_a_flag = flags_possible
+            && (ctoken.starts_with('-')
+                || (ctoken.starts_with('+') && plus_spellings_declared(&flags)));
         let files = used_file_fallback
             || (choices.is_empty() && !looks_like_a_flag && !has_explicit_choices);
         if files && choices.is_empty() {
@@ -459,9 +470,39 @@ impl CompleteWord {
                 }
                 flags
             })
+            // A `+x` negation is not a long, and a bare `-` asks for every dash form: without
+            // this it offered plus spellings that could never match the word on the line.
+            .filter(|(f, _)| f.starts_with('-'))
             .unique_by(|(f, _)| f.to_string())
             .filter(|(f, _)| f.starts_with(ctoken))
             // TODO: get flag description
+            .sorted()
+            .collect()
+    }
+
+    /// The `+x` spellings, which only a `+` word can be completed to.
+    ///
+    /// Nothing else here reads a `+` word as a flag, so a spec that declares no plus
+    /// spelling leaves `+node` to the [sigil](../../../docs/spec/reference/sigils.md)
+    /// argument that claims it.
+    fn complete_plus_flag_names(
+        &self,
+        flags: &BTreeMap<String, Arc<SpecFlag>>,
+        ctoken: &str,
+    ) -> Vec<(String, String)> {
+        flags
+            .values()
+            .filter(|f| !f.hide)
+            .flat_map(|f| {
+                f.plus_short
+                    .iter()
+                    .map(|plus| format!("+{plus}"))
+                    .chain(f.negate.iter().filter(|n| n.starts_with('+')).cloned())
+                    .map(|spelling| (spelling, f.help.clone().unwrap_or_default()))
+                    .collect::<Vec<_>>()
+            })
+            .unique_by(|(f, _)| f.to_string())
+            .filter(|(f, _)| f.starts_with(ctoken))
             .sorted()
             .collect()
     }

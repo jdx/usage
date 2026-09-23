@@ -363,8 +363,32 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
         name: leak(&f.name),
         longs: Box::leak(longs.into_boxed_slice()),
         shorts: Box::leak(shorts.into_boxed_slice()),
-        // usage-lib stores the negation with its dashes; the table wants the bare name.
-        negate: f.negate.as_ref().map(|n| leak(n.trim_start_matches('-'))),
+        // usage-lib stores the negation with its dashes; the table wants the bare name. A
+        // plus negation is a letter of its own, for plus bundles.
+        negate: f
+            .negate
+            .as_ref()
+            .filter(|n| !n.starts_with('+'))
+            .map(|n| leak(n.trim_start_matches('-'))),
+        negate_plus: f
+            .negate
+            .as_deref()
+            .and_then(|n| n.strip_prefix('+'))
+            .filter(|letter| letter.len() == 1)
+            .map(|letter| letter.as_bytes()[0]),
+        plus_shorts: Box::leak(
+            f.plus_short
+                .iter()
+                .map(|c| {
+                    assert!(
+                        c.is_ascii(),
+                        "a plus spelling must be ASCII, and `+{c}` is not"
+                    );
+                    *c as u8
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
         takes_value: f.arg.is_some(),
         // Only a variadic *argument* is greedy. A `var` flag with a single-value argument is
         // repeatable instead: one value per occurrence, which the parser gets by not

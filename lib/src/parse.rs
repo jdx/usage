@@ -182,6 +182,7 @@ fn flag_keys(flag: &SpecFlag) -> Vec<String> {
         .iter()
         .map(|l| format!("--{l}"))
         .chain(flag.short.iter().map(|s| format!("-{s}")))
+        .chain(flag.plus_short.iter().map(|s| format!("+{s}")))
         .collect();
     if let Some(negate) = &flag.negate {
         keys.push(negate.clone());
@@ -249,6 +250,33 @@ pub fn available_flags(chain: &[&SpecCommand]) -> Vec<Arc<SpecFlag>> {
         .filter(|f| seen_names.insert(f.name.clone()))
         .cloned()
         .collect()
+}
+
+/// A plus token split into one spelling per letter, or `None` when a letter names no plus
+/// spelling in scope. A value-taking letter ends the bundle, and the rest of the token
+/// follows it as its value.
+fn split_plus_bundle<'a>(
+    find: impl Fn(&str) -> Option<&'a Arc<SpecFlag>>,
+    token: &str,
+) -> Option<Vec<String>> {
+    let letters = token.strip_prefix('+')?;
+    let mut out = vec![];
+    for (i, letter) in letters.char_indices() {
+        let spelling = format!("+{letter}");
+        let flag = find(&spelling)?;
+        let takes_value = flag.arg.is_some() && flag.negate.as_deref() != Some(&spelling);
+        out.push(spelling);
+        let rest = &letters[i + letter.len_utf8()..];
+        if takes_value {
+            // Everything after the letter is the value, less one separating `=`, which is
+            // how a short spells the same thing.
+            if !rest.is_empty() {
+                out.push(rest.strip_prefix('=').unwrap_or(rest).to_string());
+            }
+            break;
+        }
+    }
+    Some(out)
 }
 
 /// Extract the flag key from a flag word for lookup in available_flags map
@@ -1617,6 +1645,7 @@ fn parse_partial_traced(
             && !default_catches_it
             && is_command_word(&input[idx].word)
             && !is_negative_number(&input[idx].word)
+            && !names_plus_spelling(&out.available_flags, &input[idx].word)
             && out.cmd.find_subcommand(&input[idx].word).is_none()
         {
             mounts_resolved = true;
@@ -1723,6 +1752,7 @@ fn parse_partial_traced(
             // After remove(), idx now points to the next element
         } else if !is_command_word(&input[idx].word)
             || declared_numeric_short(&out.available_flags, &input[idx].word)
+            || names_plus_spelling(&out.available_flags, &input[idx].word)
         {
             // Check if this is a known flag
             let word = input[idx].word.clone();
@@ -1737,8 +1767,9 @@ fn parse_partial_traced(
                 .as_ref()
                 .filter(|bundle| bundle.argv == input[idx].argv);
             let flags = boundary.map_or(&out.available_flags, |bundle| &bundle.flags);
-            let is_bundle =
-                word.starts_with("--") || short_bundle_is_known(spec, &out.cmds, flags, &word);
+            let is_bundle = word.starts_with("--")
+                || names_plus_spelling(flags, &word)
+                || short_bundle_is_known(spec, &out.cmds, flags, &word);
             if let Some(f) = flags.get(flag_key).cloned().filter(|_| is_bundle) {
                 command_arg_found = true;
                 variadic_flag_active = f.arg.as_ref().is_some_and(|arg| arg.var);
@@ -2102,8 +2133,67 @@ fn parse_partial_traced(
             }
         }
 
+        // Plus spellings. A bundle is split into one spelling per letter, which the long-flag
+        // arm below binds whole, negation included: `+eux` is `+e +u +x`. A value-taking
+        // letter ends the bundle, and whatever follows it is its value. A word owed to a
+        // pending flag is that flag's value however it is spelled. The token's shape is
+        // tested first, so a word that does not start with `+` costs one comparison.
+        if w.starts_with('+')
+            && w.len() > 1
+            && enable_flags
+            && !grouped_flag
+            && out.flag_awaiting_value.is_empty()
+            && binding
+                .as_ref()
+                .is_none_or(|(flag, _)| flag_spells_plus(flag, &w))
+        {
+            // Phase 1 removed the subcommand words, so phase 2 may already be inside the
+            // command below the one that declared the flag; the binding it recorded is then
+            // the only place that flag can still be found.
+            let bound = binding.as_ref().map(|(flag, _)| flag);
+            let find = |spelling: &str| {
+                bound
+                    .filter(|flag| flag_spells_plus(flag, spelling))
+                    .or_else(|| out.available_flags.get(spelling))
+            };
+            match split_plus_bundle(find, &w) {
+                Some(mut spellings) => {
+                    w = spellings.remove(0);
+                    for spelling in spellings.into_iter().rev() {
+                        input.push_front(Token::new(spelling, argv));
+                    }
+                }
+                // Not a bundle, so a word — unless this command refuses what it cannot read.
+                // Only where plus spellings exist: elsewhere `+x` was never flag-like, and
+                // refusing it would make a word an error in specs that have no such notion.
+                None if out.available_flags.keys().any(|key| key.starts_with('+'))
+                    && effective_unknown_flags(spec, &out.cmds) == UnknownFlags::Error =>
+                {
+                    trace.record(argv, TokenRole::UnknownFlag { bound_as: None });
+                    trace.close(&input);
+                    return Err(UsageErr::InvalidFlag {
+                        token: w.clone(),
+                        reason: "no such flag".to_string(),
+                        span: (0, 0).into(),
+                        input: w.clone(),
+                    }
+                    .into());
+                }
+                None => {}
+            }
+        }
+        // One plus letter, which the bundle split above has already reduced a token to. The
+        // long arm binds it, negation included; `contains_key` is what says it is a spelling.
+        let plus_spelling = w.starts_with('+')
+            && w.len() == 2
+            && out.flag_awaiting_value.is_empty()
+            && (out.available_flags.contains_key(&w)
+                || binding
+                    .as_ref()
+                    .is_some_and(|(flag, _)| flag_spells_plus(flag, &w)));
+
         // long flags
-        if enable_flags && w.starts_with("--") {
+        if enable_flags && (w.starts_with("--") || plus_spelling) {
             grouped_flag = false;
             // `Some` only when an `=` was actually written, so `--jobs=` can supply
             // an empty value while `--jobs` supplies none. Collapsing the two lost
@@ -4650,6 +4740,27 @@ fn record_scalar_flag_occurrence(
 /// so it was never a candidate to *select* anything either. usage-argv uses the
 /// same rule; without it, `-1` skipped the external-subcommand path because Phase 1
 /// treated every token that `starts_with('-')` as a flag.
+/// Whether a `+` token names the plus spellings in scope.
+///
+/// Phase 1 asks before it treats the token as a word: a plus spelling is a flag, and
+/// reading it as a word ended the search for the subcommand behind it.
+fn names_plus_spelling(flags: &BTreeMap<String, Arc<SpecFlag>>, token: &str) -> bool {
+    token.starts_with('+')
+        && token.len() > 1
+        && split_plus_bundle(|k| flags.get(k), token).is_some()
+}
+
+/// Whether `flag` is the one a plus token's first letter names.
+///
+/// Phase 1 records a flag on the word it read, both for a flag's own token and for a word
+/// it took as a value. Phase 2 splits a plus bundle only in the first case; the second is
+/// a value that happens to look like one.
+fn flag_spells_plus(flag: &SpecFlag, token: &str) -> bool {
+    token.chars().nth(1).is_some_and(|letter| {
+        flag.plus_short.contains(&letter) || flag.negate.as_deref() == Some(&format!("+{letter}"))
+    })
+}
+
 fn is_command_word(token: &str) -> bool {
     (!is_flag_like(token) || is_negative_number(token)) && token != "-"
 }

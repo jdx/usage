@@ -1,0 +1,320 @@
+{
+  "section": "plus spellings",
+  "about": "A switch may declare a plus spelling as its negation (`negate=\"+x\"`) and a flag may be spelled with `+` (`flag \"+o <option>\"`), as the shells' `set +x` and `+o pipefail` are. Plus letters bundle as dash letters do.",
+  "vectors": [
+    {
+      "id": "plus-negates-a-switch",
+      "doc": "`+x` is the negated spelling a switch declares with `negate=\"+x\"`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["+x"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "x": false
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-last-occurrence-wins",
+      "doc": "`-x +x` leaves the switch off, and `+x -x` on.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["-x", "+x", "-e", "+e", "-e"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "x": false,
+            "e": true
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-bundle",
+      "doc": "`+eux` negates each letter in turn, as `-eux` sets them.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["-eux", "+eux"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "e": false,
+            "u": false,
+            "x": false
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-value-flag-detached",
+      "doc": "A value-taking flag spelled with `+` takes the following word: `+o pipefail`.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["-o", "errexit", "+o", "pipefail"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "o": ["errexit"],
+            "unset-option": ["pipefail"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-value-flag-ends-bundle",
+      "doc": "A value-taking letter ends a plus bundle, as it ends a dash bundle.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["+xo", "pipefail"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "x": false,
+            "unset-option": ["pipefail"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-unknown-letter-is-not-a-bundle",
+      "doc": "A plus token containing a letter nothing declares is not a bundle, and becomes a word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["+xq"],
+      "expect": {
+        "ok": {
+          "args": {
+            "args": ["+xq"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-unknown-can-be-refused",
+      "doc": "Under `unknown_flags \"error\"` an unrecognized plus token in a command with plus spellings is refused.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"-x\" negate=\"+x\"\n",
+      "argv": ["+q"],
+      "expect": {
+        "error": "unknown_flag"
+      }
+    },
+    {
+      "id": "plus-is-a-word-without-plus-spellings",
+      "doc": "A command that declares no plus spelling reads `+x` as an ordinary word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"-x\"\narg \"[args]...\"\n",
+      "argv": ["+x"],
+      "expect": {
+        "ok": {
+          "args": {
+            "args": ["+x"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-stops-at-double-dash",
+      "doc": "After `--` a plus token is a value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["--", "+x"],
+      "expect": {
+        "ok": {
+          "args": {
+            "args": ["+x"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-value-can-be-a-plus-word",
+      "doc": "A plus token owed to a flag as its value is that value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["-o", "+x"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "o": ["+x"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-routes-to-a-default-subcommand",
+      "doc": "A plus spelling the default subcommand declares routes there, as a dash one does.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\ncmd \"run\" {\n    flag \"-x\" negate=\"+x\"\n    arg \"[args]...\"\n}\n",
+      "argv": ["+x"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "x": false
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-declared-only-by-a-child-is-a-word",
+      "doc": "No plus spelling is in scope at the root, so the token is an ordinary word there.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[args]...\"\ncmd \"run\" {\n    flag \"-x\" negate=\"+x\"\n}\n",
+      "argv": ["+x"],
+      "expect": {
+        "ok": {
+          "args": {
+            "args": ["+x"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-leaves-a-sigil-argument-alone",
+      "doc": "A `+` word that names no plus spelling still reaches a positional that claims the sigil.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-x\" negate=\"+x\"\narg \"[tag]\" sigil=\"+\"\n",
+      "argv": ["+tag"],
+      "expect": {
+        "ok": {
+          "args": {
+            "tag": "tag"
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-flag-outranks-a-sigil-argument",
+      "doc": "A flag is read before a positional, whichever sigil the positional claims.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-x\" negate=\"+x\"\narg \"[tag]\" sigil=\"+\"\n",
+      "argv": ["+x"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "x": false
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-alone-is-a-word",
+      "doc": "A lone `+` names no letter, so it is a word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["+"],
+      "expect": {
+        "ok": {
+          "args": {
+            "args": ["+"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-takes-an-attached-value",
+      "doc": "A value-taking plus letter takes the rest of the token, as a short does.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["+opipefail"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "unset-option": ["pipefail"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-takes-a-value-after-equals",
+      "doc": "`=` separates a plus spelling from its value, as it does a short's.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["+o=pipefail"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "unset-option": ["pipefail"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-value-letter-swallows-the-rest-of-the-bundle",
+      "doc": "Once a letter takes a value the bundle is over, so the remaining letters are that value.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["+oqz"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "unset-option": ["qz"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-bundle-with-an-unknown-letter-is-a-word",
+      "doc": "A bundle is all-or-nothing, as a dash bundle is: one unknown letter makes the token a word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"value\"\nflag \"-e\" negate=\"+e\"\nflag \"-x\" negate=\"+x\"\narg \"[args]...\"\n",
+      "argv": ["+exq"],
+      "expect": {
+        "ok": {
+          "args": {
+            "args": ["+exq"]
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-and-dash-can-name-different-flags",
+      "doc": "`+x` is not tied to `-x`: a flag may be spelled with `+` alone.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-x\"\nflag \"trace-off: +x\"\narg \"[args]...\"\n",
+      "argv": ["-x", "+x"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "x": true,
+            "trace-off": true
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-before-a-subcommand",
+      "doc": "A plus spelling binds where it is written, before the subcommand it precedes.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-x\" negate=\"+x\"\ncmd \"run\" {\n    arg \"[args]...\"\n}\n",
+      "argv": ["+x", "run"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "x": false
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-global-after-a-subcommand",
+      "doc": "A global plus spelling binds after the subcommand too.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-x\" negate=\"+x\" global=#true\ncmd \"run\" {\n    arg \"[args]...\"\n}\n",
+      "argv": ["run", "+x"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "flags": {
+            "x": false
+          }
+        }
+      }
+    },
+    {
+      "id": "plus-past-an-external-subcommand-is-its-own",
+      "doc": "Everything past an external subcommand's name belongs to it, plus words included.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-x\" negate=\"+x\"\nexternal_subcommand #true\narg \"[args]...\"\n",
+      "argv": ["+x", "sub", "+y"],
+      "expect": {
+        "ok": {
+          "flags": {
+            "x": false
+          },
+          "external": ["sub", "+y"]
+        }
+      }
+    },
+    {
+      "id": "plus-without-its-value-is-an-error",
+      "doc": "A plus spelling that takes a value needs one, as a short does.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"-e\" negate=\"+e\"\nflag \"-u\" negate=\"+u\"\nflag \"-x\" negate=\"+x\"\nflag \"-o <option>\" var=#true\nflag \"unset-option: +o <option>\" var=#true\narg \"[args]...\"\n",
+      "argv": ["+o"],
+      "expect": {
+        "error": "missing_flag_value"
+      }
+    }
+  ]
+}

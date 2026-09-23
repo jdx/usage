@@ -66,9 +66,11 @@ The tables below cover the attributes most CLIs need.
 | ------------------------ | --------------------------------------------------------------- |
 | `long` / `long = "name"` | `--name` flag (defaults to the kebab-cased field name)          |
 | `short` / `short = 'x'`  | `-x` flag (defaults to the field name's first letter)           |
+| `plus_short = 'o'`       | `+o` flag, as the shells' `set +o pipefail` is                  |
 | `name = "…"`             | Override the arg/flag name used in help and the spec            |
 | `arg`                    | Force the field to be a positional argument                     |
 | `negate = "--no-x"`      | A negation flag that sets a `bool` back to false                |
+| `negate = "+x"`          | The same, spelled with a `+`: `set -x` / `set +x`               |
 | `count`                  | Count occurrences into an integer field                         |
 | `global`                 | Usable on any subcommand below this one                         |
 | `required`               | Explicit required-ness (for `Vec` fields)                       |

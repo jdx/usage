@@ -238,6 +238,7 @@ type Flag struct {
 	Name               string   `json:"name"`
 	Long               []string `json:"long"`
 	Short              []string `json:"short"`
+	PlusShort          []string `json:"plus_short"`
 	HiddenAliases      []string `json:"hidden_aliases"`
 	HiddenShortAliases []string `json:"hidden_short_aliases"`
 	// Negate arrives with its dashes, as usage-lib stores it. The table wants the
@@ -1017,6 +1018,16 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		out.Delimiter = f.Arg.Delimiter[0]
 	}
 	b.recordNegation(out.Key, f.Negate)
+	for _, s := range f.PlusShort {
+		if s != "" {
+			out.PlusShorts = append(out.PlusShorts, s[0])
+		}
+	}
+	// A plus negation is a letter of its own, for plus bundles, not a long.
+	if len(f.Negate) == 2 && f.Negate[0] == '+' {
+		out.NegatePlus = f.Negate[1]
+		out.Negate = ""
+	}
 	for _, s := range f.Short {
 		if s != "" {
 			// One byte: a cluster is walked a byte at a time, so a multi-byte short

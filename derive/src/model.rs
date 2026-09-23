@@ -661,6 +661,9 @@ pub enum Kind {
         /// Long aliases accepted by the parser but omitted from help and completion.
         hidden_longs: Vec<String>,
         shorts: Vec<char>,
+        /// Short forms written with `+` rather than `-`, as the shells' `+o pipefail`
+        /// is. A switch's `+x` that turns it off is `negate` instead.
+        plus_shorts: Vec<char>,
         negate: Option<String>,
         global: bool,
         /// One occurrence keeps taking values, as `--include <pattern>...` does in
@@ -2893,6 +2896,7 @@ impl Field {
         let mut bare_longs = 0usize;
         let mut shorts: Vec<char> = Vec::new();
         let mut bare_shorts = 0usize;
+        let mut plus_shorts: Vec<char> = Vec::new();
         let mut negate = None;
         let mut global = false;
         let mut repeatable = false;
@@ -3012,6 +3016,7 @@ impl Field {
                         Meta::Path(_) => bare_shorts += 1,
                         _ => shorts.push(char_value(&meta)?),
                     },
+                    "plus_short" => plus_shorts.push(char_value(&meta)?),
                     "negate" => negate = Some(strip_dashes(&string_value(&meta)?)),
                     "global" => global = flag_value(&meta)?,
                     "select" => select = flag_value(&meta)?,
@@ -3276,7 +3281,7 @@ impl Field {
                             path,
                             format!(
                                 "unknown option `{other}`; a field takes `name`, `long`, \
-                                 `short`, `negate`, `global`, `var`, `variadic`, \
+                                 `short`, `plus_short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `action`, `hide`, `hide_default_value`, `hide_env`, `hide_env_values`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, \
                                  `hide_possible_values`, `hide_short_help`, `hide_long_help`, \
                                  `arg`, `env`, `env_fallback`, `deprecated_env`, `default`, `default_value_t`, `default_fn`, `default_note`, `choices`, `validate`, \
@@ -3380,13 +3385,46 @@ impl Field {
             ));
         }
 
+        let negate_plus = negate
+            .as_deref()
+            .and_then(|negate| negate.strip_prefix('+'));
+        if let Some(letter) = negate_plus {
+            if letter.chars().count() != 1 {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "`negate = \"+{letter}\"` names a plus spelling, which is one character"
+                    ),
+                ));
+            }
+        }
+        // A plus letter is matched a byte at a time inside a bundle, so a multi-byte one
+        // could never be found, and the remainder after a value-taking letter would begin
+        // in the middle of a character.
+        for plus in plus_shorts
+            .iter()
+            .copied()
+            .chain(negate_plus.into_iter().flat_map(str::chars))
+        {
+            if !plus.is_ascii() {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "a plus spelling bundles as a short does, so `+{plus}` has to be ASCII"
+                    ),
+                ));
+            }
+        }
+
         let ValueKind {
             shape,
             ty: value_ty,
             optional_collection,
             optional_value_type,
         } = ValueKind::from_type(&field.ty, count, span)?;
-        let is_flag = !longs.is_empty() || !shorts.is_empty();
+        // A `+o` spelling makes a field a flag on its own, as a `-o` does: the shells'
+        // `+o pipefail` has no dash form to pair with.
+        let is_flag = !longs.is_empty() || !shorts.is_empty() || !plus_shorts.is_empty();
         if !is_flag && (trailing_var_arg || matches!(double_dash, DoubleDash::Required)) {
             if trailing_var_arg {
                 double_dash = DoubleDash::Automatic;
@@ -3920,6 +3958,7 @@ impl Field {
                 longs,
                 hidden_longs,
                 shorts,
+                plus_shorts,
                 negate,
                 global,
                 variadic,

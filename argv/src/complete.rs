@@ -1370,7 +1370,9 @@ fn complete_inner<'a>(
 
     // A dash-prefixed word is a flag or nothing: no path starts with one, and the reference
     // suppresses its own listing there for the same reason.
-    let flag_like = attached.is_none() && position.flags_possible && token.starts_with('-');
+    let flag_like = attached.is_none()
+        && position.flags_possible
+        && (token.starts_with('-') || (token.starts_with('+') && plus_in_scope(&position)));
 
     // The name a value here would have, which is what says whether paths belong, and whether
     // that value declares its own set.
@@ -1851,7 +1853,9 @@ fn candidates_at<'a>(
 ) -> Vec<Candidate<'a>> {
     let token = split.prefix.as_str();
 
-    let mut out = if position.flags_possible && token.starts_with('-') {
+    let mut out = if position.flags_possible && token.starts_with('+') && plus_in_scope(position) {
+        flag_forms(spec, position, token)
+    } else if position.flags_possible && token.starts_with('-') {
         // Only a `--flag=` word has a value attached; any other dash-prefixed word is a flag.
         match attached_long_value(position, token) {
             Some((flag, form, value_prefix)) => flag_meta(spec.root, flag)
@@ -2007,9 +2011,21 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
 /// candidate for a different position in the word. A lone `-` says nothing about which was
 /// meant, so it gets both. One loop for the two, since each form needs the same metadata; the
 /// order they are found in does not matter, because the caller sorts.
+/// Whether any flag here is spelled with a `+`, which is what makes a `+` word a flag
+/// rather than an ordinary one.
+fn plus_in_scope(position: &Position<'_>) -> bool {
+    position
+        .flags
+        .iter()
+        .any(|flag| !flag.plus_shorts.is_empty() || flag.negate_plus.is_some())
+}
+
 fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
-    let longs = token == "-" || token.starts_with("--");
-    let shorts = !token.starts_with("--");
+    // A `+` word offers the plus spellings alone: a dash form completed there would never
+    // match what the shell has on the line.
+    let plus = token.starts_with('+');
+    let longs = !plus && (token == "-" || token.starts_with("--"));
+    let shorts = !plus && !token.starts_with("--");
     let wanted = token.as_bytes().get(1).copied();
     let mut out = Vec::new();
     for flag in &position.flags {
@@ -2048,6 +2064,19 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
                 if asked_about {
                     let mut value = String::from("-");
                     value.push(short as char);
+                    offer(value);
+                }
+            }
+        }
+        if plus {
+            for &letter in flag.plus_shorts.iter().chain(flag.negate_plus.iter()) {
+                let asked_about = match wanted {
+                    None => true,
+                    Some(typed) => typed == letter,
+                };
+                if asked_about {
+                    let mut value = String::from("+");
+                    value.push(letter as char);
                     offer(value);
                 }
             }

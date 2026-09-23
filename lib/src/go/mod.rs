@@ -1557,13 +1557,33 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
             .join(", ");
         fields.push(format!("HiddenShorts: []byte{{{shorts}}}"));
     }
-    if let Some(negate) = &flag.negate {
-        // The spec stores the negation with its dashes; the table wants the bare
-        // name, since that is what the parser has after stripping the `--`.
-        fields.push(format!(
-            "Negate: {}",
-            go_string(negate.trim_start_matches('-'))
-        ));
+    if !flag.plus_short.is_empty() {
+        let shorts = flag
+            .plus_short
+            .iter()
+            .map(|c| go_byte(*c))
+            .collect::<Vec<_>>()
+            .join(", ");
+        fields.push(format!("PlusShorts: []byte{{{shorts}}}"));
+    }
+    match flag.negate.as_deref().and_then(|n| n.strip_prefix('+')) {
+        // A plus negation is a letter of its own, for plus bundles.
+        Some(letter) if letter.chars().count() == 1 => {
+            fields.push(format!(
+                "NegatePlus: {}",
+                go_byte(letter.chars().next().unwrap())
+            ));
+        }
+        _ => {
+            if let Some(negate) = &flag.negate {
+                // The spec stores the negation with its dashes; the table wants the bare
+                // name, since that is what the parser has after stripping the `--`.
+                fields.push(format!(
+                    "Negate: {}",
+                    go_string(negate.trim_start_matches('-'))
+                ));
+            }
+        }
     }
     if flag.arg.is_some() {
         fields.push("TakesValue: true".to_string());
@@ -1890,6 +1910,19 @@ cmd "exec" unknown_flags="value" {
 }
 "#);
         insta::assert_snapshot!(out);
+    }
+
+    #[test]
+    fn plus_spellings_are_letters_of_their_own() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "-x" negate="+x"
+flag "unset-option: +o <option>"
+"#);
+        assert!(out.contains("NegatePlus: 'x'"), "{out}");
+        assert!(out.contains("PlusShorts: []byte{'o'}"), "{out}");
+        assert!(!out.contains("Negate: \"+x\""), "{out}");
     }
 
     /// mise declares both a `macos-defaults` command and a `macos defaults` path,

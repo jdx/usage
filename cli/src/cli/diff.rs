@@ -2190,6 +2190,7 @@ fn flag_spellings(flag: &SpecFlag) -> Vec<String> {
                 .chain(&flag.hidden_short_aliases)
                 .map(|short| format!("-{short}")),
         )
+        .chain(flag.plus_short.iter().map(|plus| format!("+{plus}")))
         .collect()
 }
 
@@ -2200,6 +2201,7 @@ fn primary_spelling(flag: &SpecFlag) -> String {
         .first()
         .map(|long| format!("--{long}"))
         .or_else(|| flag.short.first().map(|short| format!("-{short}")))
+        .or_else(|| flag.plus_short.first().map(|plus| format!("+{plus}")))
         .unwrap_or_else(|| flag.name.clone())
 }
 

@@ -2237,6 +2237,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         longs,
         hidden_longs: _,
         shorts,
+        plus_shorts,
         negate,
         global,
         variadic,
@@ -2245,7 +2246,17 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         unreachable!("filtered by the caller");
     };
     let shorts: Vec<u8> = shorts.iter().map(|c| *c as u8).collect();
-    let negate = option_str(negate.as_deref());
+    // A plus negation is a letter of its own, so that it bundles with other plus
+    // letters; only a long negation stays a name the long arm looks up.
+    let negate_plus = match negate.as_deref().and_then(|n| n.strip_prefix('+')) {
+        Some(letter) => {
+            let byte = letter.as_bytes()[0];
+            quote!(::core::option::Option::Some(#byte))
+        }
+        None => quote!(::core::option::Option::None),
+    };
+    let negate = option_str(negate.as_deref().filter(|n| !n.starts_with('+')));
+    let plus_shorts: Vec<u8> = plus_shorts.iter().map(|c| *c as u8).collect();
     let takes_value = field.takes_value();
     // The bound on one occurrence's values. A repeatable flag's bound counts occurrences
     // instead, which no single token can decide, so that one stays a post-binding check.
@@ -2308,6 +2319,8 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             allow_negative_numbers: #allow_negative_numbers,
             value_terminator: #value_terminator,
             require_equals: #require_equals,
+            plus_shorts: &[#(#plus_shorts),*],
+            negate_plus: #negate_plus,
             value_optional: #value_optional,
             bool_value: #bool_value,
             default_missing: #default_missing,
@@ -3685,6 +3698,7 @@ fn view_field_active(field: &Field) -> TokenStream {
         longs,
         hidden_longs,
         shorts,
+        plus_shorts,
         negate,
         global: true,
         ..
@@ -3697,11 +3711,18 @@ fn view_field_active(field: &Field) -> TokenStream {
         .chain(hidden_longs)
         // The negation is a spelling of the same flag, and for a negative-only flag it is
         // the *only* one: leaving it out made the selector list empty, and an empty
-        // `matches!` does not parse.
-        .chain(negate.iter())
+        // `matches!` does not parse. A `+x` negation is written as itself.
+        .chain(negate.iter().filter(|negate| !negate.starts_with('+')))
         .map(|long| format!("--{long}"));
     let short_selectors = shorts.iter().map(|short| format!("-{short}"));
-    let selectors: Vec<String> = long_selectors.chain(short_selectors).collect();
+    let plus_selectors = plus_shorts
+        .iter()
+        .map(|plus| format!("+{plus}"))
+        .chain(negate.iter().filter(|n| n.starts_with('+')).cloned());
+    let selectors: Vec<String> = long_selectors
+        .chain(short_selectors)
+        .chain(plus_selectors)
+        .collect();
     let named = if selectors.is_empty() {
         quote!(false)
     } else {
@@ -3730,6 +3751,7 @@ fn field_active_in_view(field: &Field, view: &ViewDecl) -> bool {
         longs,
         hidden_longs,
         shorts,
+        plus_shorts,
         negate,
         global: true,
         ..
@@ -3741,9 +3763,11 @@ fn field_active_in_view(field: &Field, view: &ViewDecl) -> bool {
         || longs
             .iter()
             .chain(hidden_longs)
-            .chain(negate.iter())
+            .chain(negate.iter().filter(|negate| !negate.starts_with('+')))
             .map(|long| format!("--{long}"))
             .chain(shorts.iter().map(|short| format!("-{short}")))
+            .chain(plus_shorts.iter().map(|plus| format!("+{plus}")))
+            .chain(negate.iter().filter(|n| n.starts_with('+')).cloned())
             .any(|selector| view.globals.contains(&selector))
 }
 
@@ -4287,13 +4311,21 @@ fn field_selectors(field: &Field) -> Vec<String> {
         Kind::Flag {
             longs,
             shorts,
+            plus_shorts,
             negate,
             ..
         } => longs
             .iter()
             .map(|long| format!("--{long}"))
             .chain(shorts.iter().map(|short| format!("-{short}")))
-            .chain(negate.iter().map(|long| format!("--{long}")))
+            .chain(plus_shorts.iter().map(|plus| format!("+{plus}")))
+            // A negation is a spelling of the same flag, and for a flag whose only form is
+            // its negation it is the only one. `+x` is written as itself; a long takes the
+            // dashes the model strips.
+            .chain(negate.iter().map(|negate| match negate.strip_prefix('+') {
+                Some(_) => negate.clone(),
+                None => format!("--{negate}"),
+            }))
             .collect(),
         Kind::Arg { .. } => {
             let inferred = to_kebab(&field.ident.to_string());

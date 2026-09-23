@@ -79,6 +79,9 @@ fn duplicate_flag_form(cmd: &Command<'_>) -> Option<std::string::String> {
         for short in flag.shorts {
             forms.push(std::format!("-{}", *short as char));
         }
+        for plus in flag.plus_shorts.iter().chain(flag.negate_plus.iter()) {
+            forms.push(std::format!("+{}", *plus as char));
+        }
     }
     forms.sort_unstable();
     if let Some(pair) = forms.windows(2).find(|pair| pair[0] == pair[1]) {
@@ -2837,6 +2840,9 @@ fn write_flag(
         // name, since that is what a token is matched against.
         write!(out, " negate={}", quoted(&format!("--{negate}")))?;
     }
+    if let Some(plus) = meta.flag.negate_plus {
+        write!(out, " negate={}", quoted(&format!("+{}", plus as char)))?;
+    }
     if let Some(heading) = meta.help_heading.or(inherited_heading) {
         write!(out, " help_heading={}", quoted(heading))?;
     }
@@ -3596,6 +3602,14 @@ fn flag_forms(meta: &FlagMeta<'_>) -> String {
         // against a token in the first place.
         forms.push('-');
         forms.push(*short as char);
+    }
+    for plus in flag.plus_shorts {
+        if !forms.is_empty() {
+            forms.push(' ');
+        }
+        // ASCII for the same reason a short is: a plus bundle is walked byte by byte.
+        forms.push('+');
+        forms.push(*plus as char);
     }
     for long in flag.longs {
         if meta.extra.hidden_longs.contains(long) {

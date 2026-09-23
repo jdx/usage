@@ -260,6 +260,22 @@ CLI whose `-h` means `--host` reads `-vhlocal` as its own.
 
 `-` alone is not a flag. It is a value, conventionally meaning stdin.
 
+### Plus spellings
+
+The shells spell some options with `+`: `set +x` turns tracing off, and
+`+o pipefail` unsets a named option. A switch declares its plus spelling as its
+negation, `negate="+x"`, and a flag may be spelled with `+` outright,
+`flag "unset-option: +o <option>"`. Plus letters bundle as dash letters do, in a
+token of their own: `+eux` turns off `e`, `u` and `x`, and a value-taking letter
+ends the bundle, so `+xo pipefail` turns off `x` and gives `+o` its value.
+
+A command reads a plus token this way only where some plus spelling is in scope;
+elsewhere `+x` is an ordinary word, which keeps existing specs and
+[sigil](./reference/sigils.md) arguments unchanged. A plus token with a letter no
+plus spelling names is not a bundle and becomes a word, or an `unknown_flag`
+under `unknown_flags "error"`. A plus token owed to a flag as its value is that
+value, and after `--` it is a value like any other.
+
 ## Unrecognized flags
 
 A flag-like token that names no flag in scope **becomes a word**, and is offered to

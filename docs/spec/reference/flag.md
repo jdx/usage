@@ -314,6 +314,20 @@ the detached form stays refused.
 
 A flag that takes no value cannot declare it.
 
+## Plus spellings
+
+A switch may give itself a `+` spelling that turns it off, and a flag may be spelled
+with `+`, as the shells' `set +x` and `+o pipefail` are:
+
+```kdl
+flag "-x" negate="+x"                       // set -x / set +x
+flag "-o <option>" var=#true                // -o pipefail
+flag "unset-option: +o <option>" var=#true  // +o pipefail
+```
+
+Plus letters bundle as dash letters do: `+eux`. See
+[the argv grammar](../argv.md#plus-spellings).
+
 ## `bool_value`
 
 A boolean switch can opt into explicit attached values. With

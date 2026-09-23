@@ -55,6 +55,8 @@ type Parser struct {
 	// bundleToken is the whole token the current bundle came from, so an error
 	// raised part way through it can still name what the user typed.
 	bundleToken string
+	// bundlePlus is whether the bundle being read is a plus token.
+	bundlePlus bool
 	// collecting is a variadic flag that is still taking values.
 	collecting *Flag
 	// collected is how many values it has taken, so a bound can stop it.
@@ -550,11 +552,56 @@ func (p *Parser) step() bool {
 			}
 			p.bundle = token[1:]
 			p.bundleToken = token
+			p.bundlePlus = false
 			return p.shortFlag()
+		}
+
+		// A plus token is read by the plus spellings in scope, and only where some
+		// are: elsewhere `+x` is an ordinary word.
+		if len(token) > 1 && token[0] == '+' && p.hasPlusSpellings() {
+			if p.plusBundleKnown(token[1:]) {
+				p.bundle = token[1:]
+				p.bundleToken = token
+				p.bundlePlus = true
+				return p.shortFlag()
+			}
+			if p.cmd.UnknownFlags == UnknownFlagsError {
+				return p.fail(Error{Code: CodeUnknownFlag, Token: token})
+			}
 		}
 
 		return p.word(token)
 	}
+}
+
+func (p *Parser) hasPlusSpellings() bool {
+	return p.eachInScope(func(f *Flag) bool { return len(f.PlusShorts) > 0 || f.NegatePlus != 0 }) != nil
+}
+
+// findPlus is the flag a plus letter names, and whether it is a switch's negation.
+func (p *Parser) findPlus(b byte) (*Flag, bool) {
+	if f := p.eachInScope(func(f *Flag) bool { return slices.Contains(f.PlusShorts, b) }); f != nil {
+		return f, false
+	}
+	if f := p.eachInScope(func(f *Flag) bool { return f.NegatePlus == b }); f != nil {
+		return f, true
+	}
+	return nil, false
+}
+
+// plusBundleKnown reports whether every letter of a plus bundle names a plus
+// spelling, up to the first that takes a value, as bundleKnown asks of a dash one.
+func (p *Parser) plusBundleKnown(letters string) bool {
+	for i := 0; i < len(letters); i++ {
+		f, negated := p.findPlus(letters[i])
+		if f == nil {
+			return false
+		}
+		if !negated && f.TakesValue {
+			return true
+		}
+	}
+	return true
 }
 
 func (p *Parser) longFlag(token string) bool {
@@ -658,7 +705,18 @@ func (p *Parser) shortFlag() bool {
 	b := p.bundle[0]
 	rest := p.bundle[1:]
 
-	flag := p.findShort(b)
+	var flag *Flag
+	if p.bundlePlus {
+		var negated bool
+		flag, negated = p.findPlus(b)
+		if flag != nil && negated {
+			// A plus letter that turns a switch off.
+			p.bundle = rest
+			return p.emit(Event{Kind: KindFlag, Flag: flag, Negated: true})
+		}
+	} else {
+		flag = p.findShort(b)
+	}
 	if flag == nil {
 		// bundleKnown already rejected any token containing an unrecognized letter,
 		// so this is unreachable — but a parser should report rather than panic if
