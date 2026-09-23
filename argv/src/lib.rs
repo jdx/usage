@@ -175,6 +175,8 @@ macro_rules! __usage_needs_complete_feature {
 }
 #[cfg(feature = "spec")]
 pub mod help;
+#[cfg(feature = "spec")]
+mod order;
 // Behind no feature: two traits and no code, so there is nothing here for a binary that
 // does not dispatch to pay for, and a hand-written CLI on the bare runtime can use them.
 pub mod run;

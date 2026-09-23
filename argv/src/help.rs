@@ -20,6 +20,7 @@
 use core::fmt::Write as _;
 use std::borrow::Cow;
 
+use crate::order::sort_by as sort_rows;
 use crate::spec::{
     AdmonitionKind, AdmonitionMeta, ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta,
 };
@@ -991,9 +992,9 @@ fn help_structure(
     if flatten_help(meta) {
         flat_help_usages(meta, long, &mut flag_usages, &mut arg_usages);
     }
-    arg_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
-    flag_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
-    command_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
+    for usages in [&mut arg_usages, &mut flag_usages, &mut command_usages] {
+        sort_rows(usages, &mut |a, b| b.len().cmp(&a.len()));
+    }
 
     let mut synopsis = String::new();
     usage_section(&mut synopsis, spec, path, meta);
@@ -1805,7 +1806,7 @@ fn short_sections(
         },
         "Arguments",
         width,
-        args.iter().copied(),
+        &args,
         |a| a.help_heading,
         // Section prose belongs to the long page, like an entry's admonitions.
         |_| None,
@@ -1922,7 +1923,7 @@ fn short_sections(
         },
         "Flags",
         width,
-        own.iter().copied(),
+        &own,
         |f| flag_help_heading(meta, f),
         |_| None,
         |out, f| short_entry(out, f, column_usage(f)),
@@ -1938,7 +1939,7 @@ fn short_sections(
         },
         "Global flags",
         width,
-        inherited.iter(),
+        &inherited,
         |_| None,
         |_| None,
         |out, (f, usage)| short_entry(out, f, usage.clone()),
@@ -2434,20 +2435,43 @@ struct SectionSink<'s> {
 
 /// One section per heading, unheaded first, while also keeping the named and default groups
 /// available to a template.
-fn split_groups_section<'m, T: 'm>(
+fn split_groups_section<'m, T>(
     sink: SectionSink<'_>,
     default_title: &str,
     width: usize,
-    items: impl Iterator<Item = &'m T> + Clone,
-    heading_of: impl Fn(&T) -> Option<&str>,
+    items: &[T],
+    heading_of: impl Fn(&T) -> Option<&'m str>,
     prose_of: impl Fn(&str) -> Option<&'m str>,
     mut write_item: impl FnMut(&mut String, &T),
+) {
+    // A thin shell over one non-generic body: every section on both pages shares it, rather
+    // than each call site inlining its own copy of the grouping loop.
+    grouped_sections(
+        sink,
+        default_title,
+        width,
+        items.len(),
+        &|index| heading_of(&items[index]),
+        &prose_of,
+        &mut |out, index| write_item(out, &items[index]),
+    );
+}
+
+#[inline(never)]
+fn grouped_sections<'m>(
+    sink: SectionSink<'_>,
+    default_title: &str,
+    width: usize,
+    len: usize,
+    heading_of: &dyn Fn(usize) -> Option<&'m str>,
+    prose_of: &dyn Fn(&str) -> Option<&'m str>,
+    write_item: &mut dyn FnMut(&mut String, usize),
 ) {
     // Headings in first-seen order, with the unheaded group before them. Collected rather
     // than sorted so that "first seen" means what it says.
     let mut headings: Vec<Option<&str>> = Vec::new();
-    for item in items.clone() {
-        let heading = heading_of(item);
+    for index in 0..len {
+        let heading = heading_of(index);
         if !headings.contains(&heading) {
             headings.push(heading);
         }
@@ -2469,12 +2493,12 @@ fn split_groups_section<'m, T: 'm>(
         // exists because entries did not ask for a section, and it is not one title: the
         // same unheaded flags render under `Flags` here and under `Global Flags` in a
         // Markdown page, so keying prose to it would mean different things per renderer.
-        if let Some(prose) = heading.and_then(&prose_of) {
+        if let Some(prose) = heading.and_then(prose_of) {
             write_wrapped_indented(&mut section, prose, width, 2);
             section.push('\n');
         }
-        for item in items.clone().filter(|i| heading_of(i) == heading) {
-            write_item(&mut section, item);
+        for index in (0..len).filter(|&index| heading_of(index) == heading) {
+            write_item(&mut section, index);
         }
         sink.page.push_str(&section);
         match heading {
@@ -2503,15 +2527,6 @@ fn declaration_position<T>(item: &T, declared: &[T]) -> usize {
         .map_or(usize::MAX, |_| index)
 }
 
-// Erasing the comparator lets LLVM share the sort between same-sized row types.
-// The callback is borrowed from the stack: no boxed closure or index allocation.
-#[inline(never)]
-fn sort_rows<T>(items: &mut [T], compare: &mut dyn FnMut(&T, &T) -> core::cmp::Ordering) {
-    items.sort_unstable_by(compare);
-}
-
-// The comparator lives in one callback body rather than being specialized throughout
-// the sort. The sort remains unstable and needs no key allocation.
 fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
     fn compare(a: &ArgMeta<'_>, b: &ArgMeta<'_>, declared: &[ArgMeta<'_>]) -> core::cmp::Ordering {
         let key = |item: &ArgMeta<'_>| {
@@ -2901,7 +2916,7 @@ fn long_sections(
         },
         "Arguments",
         width,
-        args.iter().copied(),
+        &args,
         |a| a.help_heading,
         |title| heading_help(meta, title),
         |out, a| {
@@ -2948,7 +2963,7 @@ fn long_sections(
         },
         "Flags",
         width,
-        own.iter().copied(),
+        &own,
         |f| flag_help_heading(meta, f),
         |title| heading_help(meta, title),
         |out, f| {
@@ -2990,7 +3005,7 @@ fn long_sections(
         },
         "Global flags",
         width,
-        inherited.iter(),
+        &inherited,
         |_| None,
         |_| None,
         |out, (f, usage)| {
