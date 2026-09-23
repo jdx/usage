@@ -175,8 +175,6 @@ struct Sections {
     ungrouped_flags: String,
     flattened: String,
     after_help: String,
-    /// The headings and row usages written, for colouring; empty on a plain page.
-    known: HelpStructure,
 }
 
 impl Sections {
@@ -873,20 +871,6 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
     out
 }
 
-/// What [`styled_help`] recognises on a page: the headings it wrote and the usage at the start
-/// of each row.
-///
-/// Noted by the section writers as they write, rather than worked out again from the metadata
-/// afterwards — a second walk that had to agree with the first about every filter and order.
-/// The synopsis is not here: it is the page's own `usage` section, read line by line.
-#[derive(Default)]
-struct HelpStructure {
-    headings: Vec<String>,
-    command_usages: Vec<String>,
-    flag_usages: Vec<String>,
-    arg_usages: Vec<String>,
-}
-
 /// Validate advanced-help metadata, including in generated static declarations.
 #[doc(hidden)]
 pub const fn __usage_advanced_help(enabled: bool) -> bool {
@@ -901,78 +885,84 @@ fn flatten_help(meta: &CommandMeta<'_>) -> bool {
     __usage_advanced_help(meta.extra.flatten_help)
 }
 
-fn styled_help(
-    page: &str,
-    style: Style,
-    headings: &[String],
-    command_usages: &[String],
-    flag_usages: &[String],
-    arg_usages: &[String],
-    synopsis: &[String],
-) -> String {
+/// Marks a line the section writers have already coloured as structure: a heading or a line
+/// of the synopsis. [`painted_prose`] removes it, and leaves the rest of such a line alone.
+///
+/// A control character no help text contains, and only ever written on a coloured page, so a
+/// plain page is never scanned for it.
+const STRUCTURE: char = '\u{1}';
+
+/// A heading, as every section writes one: after a blank line, and coloured on a coloured
+/// page.
+fn write_heading(out: &mut String, title: &str, style: Style) {
+    out.push('\n');
+    if style.coloured {
+        out.push(STRUCTURE);
+        out.push_str(&style.heading(&format!("{title}:")));
+    } else {
+        out.push_str(title);
+        out.push(':');
+    }
+    out.push('\n');
+}
+
+/// A row's usage as it is printed: coloured on a coloured page. The column is still measured
+/// on the plain spelling, which is what the reader sees.
+fn painted_usage(usage: &str, style: Style) -> Cow<'_, str> {
+    if style.coloured {
+        Cow::Owned(styled_flag_usage(usage, style))
+    } else {
+        Cow::Borrowed(usage)
+    }
+}
+
+/// The synopsis, coloured in place: `Usage:` as a heading, and every line's spellings.
+fn paint_synopsis(usage: &mut String, style: Style) {
     if !style.coloured {
-        return page.to_string();
+        return;
+    }
+    let mut out = String::with_capacity(usage.len() * 2);
+    for line in usage.split_inclusive('\n') {
+        let (body, newline) = line
+            .strip_suffix('\n')
+            .map_or((line, ""), |body| (body, "\n"));
+        out.push(STRUCTURE);
+        match body.strip_prefix("Usage:") {
+            Some(rest) => {
+                out.push_str(&style.heading("Usage:"));
+                out.push_str(&styled_flag_usage(rest, style));
+            }
+            None => out.push_str(&styled_flag_usage(body, style)),
+        }
+        out.push_str(newline);
+    }
+    *usage = out;
+}
+
+/// Author emphasis on a coloured page, over every line the writers did not mark as structure.
+///
+/// The structure itself — headings, the synopsis, the usage and command name at the start of
+/// each row — is coloured where it is written, so nothing here has to recognise it. Text an
+/// author wrote is prose however much it looks like a heading or a row.
+fn painted_prose(page: String, style: Style) -> String {
+    if !style.coloured {
+        return page;
     }
     let mut out = String::with_capacity(page.len());
     for line in page.split_inclusive('\n') {
         let (body, newline) = line
             .strip_suffix('\n')
             .map_or((line, ""), |body| (body, "\n"));
-        if synopsis.iter().any(|known| known == body) && body.starts_with("Usage:") {
-            let usage = body.strip_prefix("Usage:").unwrap_or_default();
-            out.push_str(&style.heading("Usage:"));
-            out.push_str(&styled_flag_usage(usage, style));
-        } else if synopsis.iter().any(|known| known == body) {
-            out.push_str(&styled_flag_usage(body, style));
-        } else if body
-            .strip_suffix(':')
-            .is_some_and(|heading| headings.iter().any(|known| known == heading))
-        {
-            out.push_str(&style.heading(body));
-        } else {
-            let styled = body.strip_prefix("  ").and_then(|entry| {
-                flag_usages
-                    .iter()
-                    .find_map(|usage| {
-                        entry
-                            .strip_prefix(usage)
-                            .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
-                            .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
-                    })
-                    .or_else(|| {
-                        arg_usages.iter().find_map(|usage| {
-                            entry
-                                .strip_prefix(usage)
-                                .filter(|rest| {
-                                    rest.is_empty() || rest.starts_with(char::is_whitespace)
-                                })
-                                .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
-                        })
-                    })
-                    .or_else(|| {
-                        command_usages.iter().find_map(|usage| {
-                            entry
-                                .strip_prefix(usage)
-                                .filter(|rest| {
-                                    // Command rows either end after the name or have the
-                                    // table's two-space separator. Group prose uses ordinary
-                                    // word spacing despite sharing the row indentation.
-                                    rest.is_empty() || rest.starts_with("  ")
-                                })
-                                .map(|rest| format!("  {}{rest}", style.command(usage)))
-                        })
-                    })
-            });
+        if let Some(structure) = body.strip_prefix(STRUCTURE) {
+            out.push_str(structure);
+        } else if body.trim_start().starts_with("$ ") {
             // Examples are shell source, where paired backticks are command substitution rather
-            // than prose markup. Every other non-structural line may contain author emphasis;
-            // option and argument spellings are harmless because intraword underscores do not
-            // open spans and unmatched shell globs remain literal.
-            let body = styled.as_deref().unwrap_or(body);
-            if body.trim_start().starts_with("$ ") {
-                out.push_str(body);
-            } else {
-                out.push_str(&style.inline(body));
-            }
+            // than prose markup. Every other line may contain author emphasis; option and
+            // argument spellings are harmless because intraword underscores do not open spans
+            // and unmatched shell globs remain literal.
+            out.push_str(body);
+        } else {
+            out.push_str(&style.inline(body));
         }
         out.push_str(newline);
     }
@@ -995,34 +985,16 @@ fn rendered_page(
         long,
         inherit_version_actions,
         suppress_global,
-        style.coloured,
+        style,
     );
-    let known = &sections.known;
-    // Plain output never reads the spellings used to recognize colored spans.
-    let synopsis: Vec<String> = if style.coloured {
-        sections.usage.lines().map(str::to_string).collect()
-    } else {
-        Vec::new()
-    };
-    let styled = |part: &str| {
-        styled_help(
-            part,
-            style,
-            &known.headings,
-            &known.command_usages,
-            &known.flag_usages,
-            &known.arg_usages,
-            &synopsis,
-        )
-    };
     let page = match spec
         .help_template
         .filter(|template| !template.trim().is_empty())
     {
         Some(template) => template::substitute(template, style, |name| {
-            sections.named(name).map(|part| styled(&part))
+            sections.named(name).map(|part| painted_prose(part, style))
         }),
-        None => styled(&sections.concatenated()),
+        None => painted_prose(sections.concatenated(), style),
     };
     with_logo(spec, path, chain, style, finish_page(page, style))
 }
@@ -1541,7 +1513,7 @@ fn short_help_with(
             false,
             inherit_version_actions,
             false,
-            false,
+            Style::PLAIN,
         ),
         Style::PLAIN,
     )
@@ -1566,7 +1538,7 @@ fn page_sections(
     long: bool,
     inherit_version_actions: bool,
     suppress_global: bool,
-    coloured: bool,
+    style: Style,
 ) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
@@ -1583,9 +1555,6 @@ fn page_sections(
             .collect()
     };
     let mut sections = Sections::default();
-    // What colouring the page will look for, noted while the page is written rather than
-    // worked out again afterwards. A plain page never reads it, so it is not collected there.
-    let mut known = coloured.then(HelpStructure::default);
     // The narrow page wraps too. Its descriptions used to run off the end of the terminal,
     // which the wide page has never done — and `-h` is the form most people type.
     // Less the logo's margin, when the root page is reserving one; see `logo_margin`.
@@ -1635,6 +1604,7 @@ fn page_sections(
     }
     command_deprecation(out, meta, 0, width);
     usage_section(&mut sections.usage, spec, path, meta);
+    paint_synopsis(&mut sections.usage, style);
 
     // The path without the binary: it is the sort key the reference orders the list by, even
     // now that the row itself shows the child's own name.
@@ -1646,7 +1616,7 @@ fn page_sections(
             width,
             long,
             root_default_command_name(spec, path, meta),
-            known.as_mut(),
+            style,
         );
     }
 
@@ -1683,13 +1653,14 @@ fn page_sections(
         next_line: meta.extra.next_line_help,
         long,
         aligned: true,
+        style,
     };
     split_groups_section(
         SectionSink {
             page: &mut sections.args,
             ungrouped: &mut sections.ungrouped_args,
             grouped: &mut sections.grouped_args,
-            titles: known.as_mut().map(|known| &mut known.headings),
+            style,
         },
         "Arguments",
         width,
@@ -1717,7 +1688,7 @@ fn page_sections(
             page: &mut sections.flags,
             ungrouped: &mut sections.ungrouped_flags,
             grouped: &mut sections.grouped_flags,
-            titles: known.as_mut().map(|known| &mut known.headings),
+            style,
         },
         "Flags",
         width,
@@ -1736,7 +1707,7 @@ fn page_sections(
             page: &mut sections.flags,
             ungrouped: &mut sections.ungrouped_flags,
             grouped: &mut sections.grouped_flags,
-            titles: known.as_mut().map(|known| &mut known.headings),
+            style,
         },
         "Global flags",
         width,
@@ -1745,14 +1716,6 @@ fn page_sections(
         |_| None,
         |out, (f, usage)| write_row(out, &Row::flag(f, usage), layout),
     );
-    if let Some(known) = known.as_mut() {
-        known
-            .arg_usages
-            .extend(args.into_iter().map(|(_, usage)| usage));
-        known
-            .flag_usages
-            .extend(own.into_iter().chain(inherited).map(|(_, usage)| usage));
-    }
     if flatten_help(meta) {
         flat_commands(
             &mut sections.flattened,
@@ -1760,17 +1723,12 @@ fn page_sections(
             meta,
             width,
             long,
-            known.as_mut(),
+            style,
         );
     }
 
     let out = &mut sections.after_help;
-    examples_section(out, meta.extra.examples, long);
-    if let Some(known) = known.as_mut() {
-        if !meta.extra.examples.is_empty() {
-            known.headings.push("Examples".to_string());
-        }
-    }
+    examples_section(out, meta.extra.examples, long, style);
     let after = if long {
         meta.extra.after_long_help.or(meta.extra.after_help)
     } else {
@@ -1793,18 +1751,6 @@ fn page_sections(
         }
     }
 
-    if let Some(mut known) = known {
-        // Longest first, so a row is claimed by the whole of its usage rather than by another
-        // usage that happens to be a prefix of it.
-        for usages in [
-            &mut known.arg_usages,
-            &mut known.flag_usages,
-            &mut known.command_usages,
-        ] {
-            sort_rows(usages, &mut |a, b| b.len().cmp(&a.len()));
-        }
-        sections.known = known;
-    }
     sections
 }
 
@@ -1917,6 +1863,7 @@ struct RowLayout {
     /// Whether the long page's notes line up under the row's help. A flattened body puts them
     /// at the block indent instead.
     aligned: bool,
+    style: Style,
 }
 
 /// Write one argument or flag row.
@@ -1933,11 +1880,14 @@ fn write_row(out: &mut String, row: &Row<'_>, layout: RowLayout) {
         next_line,
         long,
         aligned,
+        style,
     } = layout;
+    let painted = painted_usage(row.usage, style);
     let notes_at = if long {
         let indent = entry(
             out,
             row.usage,
+            &painted,
             row.long_help.or(row.help),
             col,
             width,
@@ -1950,7 +1900,7 @@ fn write_row(out: &mut String, row: &Row<'_>, layout: RowLayout) {
             BLOCK_INDENT
         }
     } else if next_line {
-        let _ = writeln!(out, "  {}", row.usage);
+        let _ = writeln!(out, "  {painted}");
         if let Some(help) = row.help.filter(|h| !h.trim().is_empty()) {
             write_wrapped_block(out, help, width);
         }
@@ -1968,6 +1918,7 @@ fn write_row(out: &mut String, row: &Row<'_>, layout: RowLayout) {
         entry(
             out,
             row.usage,
+            &painted,
             with_annotations(row.help, notes).as_deref(),
             col,
             width,
@@ -2087,7 +2038,7 @@ fn commands_section(
     width: usize,
     long: bool,
     default_name: Option<&str>,
-    known: Option<&mut HelpStructure>,
+    style: Style,
 ) {
     let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
     order_commands(&mut visible);
@@ -2130,22 +2081,6 @@ fn commands_section(
         .unwrap_or(0);
 
     let default_title = meta.extra.subcommand_help_heading.unwrap_or("Commands");
-    if let Some(known) = known {
-        known.command_usages.extend(
-            lines
-                .iter()
-                .map(|(_, sub)| sub.cmd.name)
-                .chain(show_help.then_some(HELP_SUBCOMMAND))
-                .map(str::to_string),
-        );
-        known.headings.push(default_title.to_string());
-        known.headings.extend(
-            lines
-                .iter()
-                .filter_map(|(_, sub)| command_help_section(sub, default_title))
-                .map(str::to_string),
-        );
-    }
     let mut headings = vec![None];
     for (_, sub) in &lines {
         let heading = command_help_section(sub, default_title);
@@ -2154,8 +2089,7 @@ fn commands_section(
         }
     }
     for heading in headings {
-        let title = heading.unwrap_or(default_title);
-        let _ = writeln!(out, "\n{title}:");
+        write_heading(out, heading.unwrap_or(default_title), style);
         // A `help_heading` on a subcommand builds a section like a flag's does, so it takes
         // prose on the same terms: the long page only, and only once declared.
         if long {
@@ -2171,6 +2105,7 @@ fn commands_section(
             entry(
                 out,
                 sub.cmd.name,
+                &style.command(sub.cmd.name),
                 command_row(sub, default_name == Some(sub.cmd.name)).as_deref(),
                 col,
                 width,
@@ -2181,6 +2116,7 @@ fn commands_section(
             entry(
                 out,
                 HELP_SUBCOMMAND,
+                &style.command(HELP_SUBCOMMAND),
                 Some(HELP_SUBCOMMAND_SUMMARY),
                 col,
                 width,
@@ -2261,18 +2197,14 @@ fn flat_commands(
     meta: &CommandMeta<'_>,
     width: usize,
     long: bool,
-    mut known: Option<&mut HelpStructure>,
+    style: Style,
 ) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
     order_commands(&mut visible);
     for sub in visible {
         let mut sub_path = path.to_vec();
         sub_path.push(sub.cmd.name);
-        let heading = sub_path.join(" ");
-        let _ = writeln!(out, "\n{heading}:");
-        if let Some(known) = known.as_mut() {
-            known.headings.push(heading);
-        }
+        write_heading(out, &sub_path.join(" "), style);
         let about = if long {
             sub.long_about.or(sub.about)
         } else {
@@ -2317,27 +2249,20 @@ fn flat_commands(
             next_line: meta.extra.next_line_help,
             long,
             aligned: false,
+            style,
         };
         for arg in args {
-            let usage = arg_usage(arg);
-            write_row(out, &Row::arg(arg, &usage), layout);
-            if let Some(known) = known.as_mut() {
-                known.arg_usages.push(usage);
-            }
+            write_row(out, &Row::arg(arg, &arg_usage(arg)), layout);
         }
         let layout = RowLayout {
             col: flag_col,
             ..layout
         };
         for flag in flags {
-            let usage = column_usage(flag);
-            write_row(out, &Row::flag(flag, &usage), layout);
-            if let Some(known) = known.as_mut() {
-                known.flag_usages.push(usage);
-            }
+            write_row(out, &Row::flag(flag, &column_usage(flag)), layout);
         }
         if flatten_help(sub) {
-            flat_commands(out, &sub_path, sub, width, long, known.as_deref_mut());
+            flat_commands(out, &sub_path, sub, width, long, style);
         }
         out.push('\n');
     }
@@ -2391,16 +2316,16 @@ fn heading_help<'a>(meta: &'a CommandMeta<'a>, title: &str) -> Option<&'a str> {
         .find_map(|group| heading_help(group.meta, title))
 }
 
-/// Where a rendered section goes: the page, plus the two partitions a template can name.
+/// Where a rendered section goes: the page, plus the two partitions a template can name, and
+/// the style its headings are written in.
 ///
-/// One value rather than three parameters, because the three always travel together — a
-/// section written to the page but not to its partition is a bug, not a configuration.
+/// One value rather than three parameters, because the three strings always travel together —
+/// a section written to the page but not to its partition is a bug, not a configuration.
 struct SectionSink<'s> {
     page: &'s mut String,
     ungrouped: &'s mut String,
     grouped: &'s mut String,
-    /// Where the titles written go, when the page is to be coloured.
-    titles: Option<&'s mut Vec<String>>,
+    style: Style,
 }
 
 /// One section per heading, unheaded first, while also keeping the named and default groups
@@ -2429,7 +2354,7 @@ fn split_groups_section<'m, T>(
 
 #[inline(never)]
 fn grouped_sections<'m>(
-    mut sink: SectionSink<'_>,
+    sink: SectionSink<'_>,
     default_title: &str,
     width: usize,
     len: usize,
@@ -2453,11 +2378,7 @@ fn grouped_sections<'m>(
 
     for heading in headings {
         let mut section = String::new();
-        let title = heading.unwrap_or(default_title);
-        let _ = writeln!(section, "\n{title}:");
-        if let Some(titles) = sink.titles.as_mut() {
-            titles.push(title.to_string());
-        }
+        write_heading(&mut section, heading.unwrap_or(default_title), sink.style);
         // Between the heading and its entries, where a reader looking at the section is
         // already looking. Written verbatim like an admonition rather than rewrapped, so
         // an author's own line breaks survive and the reference renderer can match it.
@@ -2701,11 +2622,11 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
 /// that many on its front page — reads as a wall of commands without the separation, and
 /// there is no way to tell where the interesting one is. The same rule applies to both
 /// pages, so `-h` and `--help` do not disagree about how a list is spaced.
-fn examples_section(out: &mut String, examples: &[Example<'_>], long: bool) {
+fn examples_section(out: &mut String, examples: &[Example<'_>], long: bool, style: Style) {
     if examples.is_empty() {
         return;
     }
-    let _ = writeln!(out, "\nExamples:");
+    write_heading(out, "Examples", style);
     for (index, example) in examples.iter().enumerate() {
         if index > 0 {
             out.push('\n');
@@ -2818,7 +2739,7 @@ fn long_help_with(
             true,
             inherit_version_actions,
             false,
-            false,
+            Style::PLAIN,
         ),
         Style::PLAIN,
     )
@@ -2855,6 +2776,7 @@ fn write_indented(out: &mut String, text: &str, indent: usize) {
 fn entry(
     out: &mut String,
     usage: &str,
+    painted: &str,
     help: Option<&str>,
     col: usize,
     width: usize,
@@ -2886,21 +2808,21 @@ fn entry(
         BLOCK_INDENT
     };
     let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
-        let _ = writeln!(out, "  {usage}");
+        let _ = writeln!(out, "  {painted}");
         // An entry with nothing in the column still has annotations to place, and the column is
         // where they go: it is this entry's row that is empty, not the table's.
         return if block { block_indent } else { indent };
     };
 
     if block {
-        let _ = writeln!(out, "  {usage}");
+        let _ = writeln!(out, "  {painted}");
         write_wrapped_indented(out, help, width, block_indent);
         return block_indent;
     }
 
     if overflow {
         let lines = wrap_at(help, inline_room, room);
-        let _ = writeln!(out, "  {usage}  {}", lines[0]);
+        let _ = writeln!(out, "  {painted}  {}", lines[0]);
         for line in &lines[1..] {
             if line.is_empty() {
                 out.push('\n');
@@ -2911,26 +2833,28 @@ fn entry(
         return indent;
     }
 
+    // Assembled rather than formatted. This is the row every entry on every page takes, and
+    // `{usage:<col$}` drags in the whole formatting machinery to pad a string — and would pad
+    // a coloured usage by its escapes as well as its text.
+    out.push_str("  ");
+    out.push_str(painted);
+    // Padded by characters, measured on the plain spelling: a usage can hold a `…`.
+    for _ in 0..col.saturating_sub(usage.chars().count()) {
+        out.push(' ');
+    }
+    out.push_str("  ");
     // Text that already fits is text `wrap` would hand straight back, so skip it and the two
     // allocations it makes. Worth the check because it is the common case — most descriptions
     // are shorter than the column leaves room for.
     if fits(help, room) {
-        // Assembled rather than formatted. This is the row every entry on every page takes, and
-        // `{usage:<col$}` drags in the whole formatting machinery to pad a string.
-        out.push_str("  ");
-        out.push_str(usage);
-        // Padded by characters, as the format directive it replaces was: a usage can hold a `…`.
-        for _ in 0..col.saturating_sub(usage.chars().count()) {
-            out.push(' ');
-        }
-        out.push_str("  ");
         out.push_str(help);
         out.push('\n');
         return indent;
     }
 
     let lines = wrap(help, room);
-    let _ = writeln!(out, "  {usage:<col$}  {}", lines[0]);
+    out.push_str(&lines[0]);
+    out.push('\n');
     for line in &lines[1..] {
         if line.is_empty() {
             out.push('\n');
@@ -3634,7 +3558,7 @@ fn topics_with_blocks(
     long: bool,
 ) -> Option<Vec<(Topic, String)>> {
     let (path, chain) = find(spec, cmd)?;
-    let sections = page_sections(spec, &path, &chain, long, false, false, false);
+    let sections = page_sections(spec, &path, &chain, long, false, false, Style::PLAIN);
     let mut used = Vec::<String>::new();
     Some(
         topic_blocks(&sections, |title| heading_help(chain.last()?, title))
@@ -4176,9 +4100,9 @@ fn recursive_help<'a>(
 mod style_tests {
     use super::{
         commands_section, default_visible_child, display_usage_masked, flag_usage, flat_commands,
-        inline_environment_notes, long_annotations, long_help, render, render_styled,
-        render_view_at_styled, styled_flag_usage, styled_help, styled_inline, usage_line, wrap,
-        AnnotationLayout, Palette, Row, Shown, Style,
+        inline_environment_notes, long_annotations, long_help, paint_synopsis, painted_prose,
+        render, render_styled, render_view_at_styled, styled_flag_usage, styled_inline, usage_line,
+        wrap, write_heading, AnnotationLayout, Palette, Row, Shown, Style,
     };
     use crate::spec::{
         ArgMeta, ClauseMeta, CommandExtra, CommandMeta, Example, FlagExtra, FlagMeta, Spec,
@@ -4564,7 +4488,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        flat_commands(&mut page, &["tool"], &root_meta, 80, false, None);
+        flat_commands(&mut page, &["tool"], &root_meta, 80, false, Style::PLAIN);
 
         assert!(
             page.contains("    Use the old mode\n    [deprecated: use --new]"),
@@ -4619,7 +4543,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        flat_commands(&mut page, &["tool"], &root_meta, 80, false, None);
+        flat_commands(&mut page, &["tool"], &root_meta, 80, false, Style::PLAIN);
 
         assert!(page.contains("--old\n"), "{page}");
         assert!(page.contains("[deprecated: use --new]\n"), "{page}");
@@ -4682,7 +4606,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        commands_section(&mut page, &[], &root_meta, 80, false, None, None);
+        commands_section(&mut page, &[], &root_meta, 80, false, None, Style::PLAIN);
 
         assert!(page.contains("  run   run it\n  help"));
         assert!(!page.contains("  run   run it\n\n  help"));
@@ -4790,57 +4714,31 @@ mod style_tests {
     }
 
     #[test]
-    fn coloured_help_styles_structure_without_changing_plain_text() {
-        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nCommands:\n  build these projects before publishing\n\n  build  Build it\n  help   Print help\n\nArguments:\n  <FILE>  Read this file\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
-        let headings = vec![
-            "Commands".to_string(),
-            "Arguments".to_string(),
-            "Options".to_string(),
-        ];
-        let command_usages = vec!["build".to_string(), "help".to_string()];
-        let usages = vec!["-f, --force".to_string()];
-        let arg_usages = vec!["<FILE>".to_string()];
-        let synopsis = vec![
-            "Usage: ex [OPTIONS]".to_string(),
-            "       ex --all".to_string(),
-        ];
+    fn coloured_help_styles_only_the_structure_it_wrote() {
+        let prose = "A summary ending in:\nUsage: prose is not a synopsis\nOptions:\n  -f, --force  Only mentioned\n  build  Also only mentioned\n";
+        let page = |style: Style| {
+            let mut page = prose.to_string();
+            let mut usage = "Usage: ex [OPTIONS]\n       ex --all\n".to_string();
+            paint_synopsis(&mut usage, style);
+            page.push_str(&usage);
+            write_heading(&mut page, "Options", style);
+            page.push_str("    [possible values: --auto]\n    (default: -1)\n");
+            painted_prose(page, style)
+        };
+        let plain = page(Style::PLAIN);
         assert_eq!(
-            styled_help(
-                page,
-                Style::PLAIN,
-                &headings,
-                &command_usages,
-                &usages,
-                &arg_usages,
-                &synopsis
-            ),
-            page
+            plain,
+            format!("{prose}Usage: ex [OPTIONS]\n       ex --all\n\nOptions:\n    [possible values: --auto]\n    (default: -1)\n")
         );
 
-        let coloured = styled_help(
-            page,
-            Style::COLOURED,
-            &headings,
-            &command_usages,
-            &usages,
-            &arg_usages,
-            &synopsis,
-        );
-        assert!(coloured.contains("\u{1b}[1;33mUsage:\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[1;33mOptions:\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[1;32m-f\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[1;32m--force\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[1;35m<FILE>\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m  Build it"));
-        assert!(coloured.contains("\u{1b}[1;32mhelp\u{1b}[0m   Print help"));
-        assert!(coloured.contains("  build these projects before publishing"));
-        assert!(!coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m these projects"));
-        assert!(coloured.contains("A summary ending in:\nUsage: prose is not a synopsis"));
-        assert!(coloured.contains("Usage: prose is not a synopsis\nExamples:"));
-        assert!(coloured.contains("ex \u{1b}[1;32m--all\u{1b}[0m"));
+        let coloured = page(Style::COLOURED);
+        assert!(coloured.starts_with(prose), "{coloured:?}");
+        assert!(coloured.contains("\u{1b}[1;33mUsage:\u{1b}[0m ex [\u{1b}[1;35mOPTIONS\u{1b}[0m]"));
+        assert!(coloured.contains("\n       ex \u{1b}[1;32m--all\u{1b}[0m\n"));
+        assert!(coloured.contains("\n\u{1b}[1;33mOptions:\u{1b}[0m\n"));
         assert!(coloured.contains("[possible values: --auto]"));
-        assert!(coloured.contains("(default: -1)"));
-        assert_eq!(strip_ansi(&coloured), page);
+        assert!(!coloured.contains('\u{1}'), "{coloured:?}");
+        assert_eq!(strip_ansi(&coloured), plain);
     }
 
     #[test]
@@ -5107,7 +5005,7 @@ mod style_tests {
     #[test]
     fn coloured_help_renders_inline_markdown_emphasis() {
         let page = "Use **force** for *all* files, _including_hidden_, `--literally`, and ~~never~~ this.\n  --dry_run  Keep snake_case and an unmatched * glob\n\nExamples:\n    $ echo `date`\n";
-        let coloured = styled_help(page, Style::COLOURED, &[], &[], &[], &[], &[]);
+        let coloured = painted_prose(page.to_string(), Style::COLOURED);
 
         assert!(
             coloured.contains("\u{1b}[1mforce\u{1b}[22m"),
@@ -5270,7 +5168,15 @@ fn an_overflowing_entry_wraps_even_when_the_page_is_very_narrow() {
     let width = 10;
     let col = usage_column_width("--long".chars().count(), width);
 
-    entry(&mut page, "--long", Some("alpha beta"), col, width, false);
+    entry(
+        &mut page,
+        "--long",
+        "--long",
+        Some("alpha beta"),
+        col,
+        width,
+        false,
+    );
 
     assert_eq!(page, "  --long\n    alpha\n    beta\n");
 }
