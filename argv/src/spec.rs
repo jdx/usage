@@ -909,7 +909,11 @@ pub struct CommandExtra<'a> {
     /// Descriptive availability conditions; they do not affect parsing.
     pub available_if: &'a [&'a str],
     /// Explicit placement within the parent's command section.
-    pub display_order: Option<usize>,
+    ///
+    /// Positions, bounds and widths in the metadata are `u32` or `u16` rather than `usize`,
+    /// which halves them in a table emitted for every command, flag and argument. A derive
+    /// saturates a larger declared value rather than wrapping it.
+    pub display_order: Option<u32>,
     /// What running this does to the world, for a caller deciding whether to
     /// confirm first. clap cannot express this, which is why mise keeps a
     /// 330-entry table to bolt it on afterwards.
@@ -924,7 +928,9 @@ pub struct CommandExtra<'a> {
     /// `:::`.
     pub restart_token: Option<&'a str>,
     /// Metadata for a repeatable positional clause.
-    pub clause: Option<ClauseMeta<'a>>,
+    ///
+    /// Behind a reference for the reason [`Command::clause`] is.
+    pub clause: Option<&'a ClauseMeta<'a>>,
     /// Whether this command cannot be run on its own: naming it and stopping is an
     /// error, and one of its subcommands has to follow.
     ///
@@ -943,9 +949,9 @@ pub struct CommandExtra<'a> {
     /// Expand each visible subcommand's summary and arguments into this command's help page.
     pub flatten_help: bool,
     /// Fixed help width. Zero disables wrapping.
-    pub term_width: Option<usize>,
+    pub term_width: Option<u16>,
     /// Maximum detected terminal width when `term_width` is unset. Zero disables the cap.
-    pub max_term_width: Option<usize>,
+    pub max_term_width: Option<u16>,
     /// Text printed above the usage line, and below everything else.
     ///
     /// The spec's `before_help`/`after_help` and their long forms. mise puts an Examples
@@ -1211,7 +1217,7 @@ pub struct FlagMeta<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct FlagExtra<'a> {
     /// Explicit placement within its help section.
-    pub display_order: Option<usize>,
+    pub display_order: Option<u32>,
     /// Short forms accepted by the parser but omitted from help and completion.
     pub hidden_shorts: &'a [u8],
     /// Long forms accepted by the parser but omitted from help and completion.
@@ -1237,12 +1243,12 @@ pub struct FlagExtra<'a> {
     pub hide_env_values: bool,
     /// A built-in completion class such as `path` or `dir`.
     pub complete_type: Option<&'a str>,
-    pub var_min: Option<usize>,
-    pub var_max: Option<usize>,
+    pub var_min: Option<u32>,
+    pub var_max: Option<u32>,
     /// Bounds on values consumed by one occurrence, distinct from the
     /// flag-level occurrence bounds above.
-    pub value_var_min: Option<usize>,
-    pub value_var_max: Option<usize>,
+    pub value_var_min: Option<u32>,
+    pub value_var_max: Option<u32>,
     /// Flags this one displaces when both are given.
     pub overrides: &'a [&'a str],
     /// Flags that cannot be given alongside this one.
@@ -1478,7 +1484,7 @@ pub struct DefaultIf<'a> {
 pub struct ArgMeta<'a> {
     pub arg: &'a Arg<'a>,
     /// Explicit placement within its help section.
-    pub display_order: Option<usize>,
+    pub display_order: Option<u32>,
     /// Ordered placeholders for a fixed-arity positional.
     pub value_names: &'a [&'a str],
     pub help: Option<&'a str>,
@@ -1522,8 +1528,8 @@ pub struct ArgMeta<'a> {
     pub required_if_eq_all: &'a [RequiredIfEq<'a>],
     pub required_unless: &'a [&'a str],
     pub required_unless_all: &'a [&'a str],
-    pub var_min: Option<usize>,
-    pub var_max: Option<usize>,
+    pub var_min: Option<u32>,
+    pub var_max: Option<u32>,
     /// The character one word is split on to make several positional values.
     pub delimiter: Option<char>,
     /// Heading to list this argument under in help output.
@@ -3615,9 +3621,9 @@ fn placeholder(name: &str, variadic: bool, optional: bool) -> String {
     format!("{open}{name}{close}{ellipsis}")
 }
 
-fn exact_arity(min: Option<usize>, max: Option<usize>) -> Option<usize> {
+fn exact_arity(min: Option<u32>, max: Option<u32>) -> Option<usize> {
     match (min, max) {
-        (Some(min), Some(max)) if min == max => Some(min),
+        (Some(min), Some(max)) if min == max => Some(min as usize),
         _ => None,
     }
 }

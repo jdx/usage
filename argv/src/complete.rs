@@ -3846,14 +3846,14 @@ mod tests {
         };
         static COMMAND: Command = Command {
             name: "run",
-            clause: Some(TASKS),
+            clause: Some(&TASKS),
             ..Command::EMPTY
         };
         static META: CommandMeta = CommandMeta {
             cmd: &COMMAND,
             extra: &CommandExtra {
                 restart_token: Some(":::"),
-                clause: Some(crate::spec::ClauseMeta {
+                clause: Some(&crate::spec::ClauseMeta {
                     name: "tasks",
                     separator: Some(":::"),
                     flags: &[],

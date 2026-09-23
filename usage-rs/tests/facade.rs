@@ -3556,3 +3556,40 @@ fn strip_ansi(s: &str) -> String {
     out.push_str(rest);
     out
 }
+
+/// Declared values past what the metadata's `u32`/`u16` can hold. The attribute parser
+/// takes any `usize`, so these compile; the literals only fit a 64-bit `usize`.
+#[cfg(target_pointer_width = "64")]
+#[derive(Cli)]
+#[usage(bin = "oversized", term_width = 70000, max_term_width = 65536)]
+#[allow(dead_code)]
+struct Oversized {
+    #[usage(long, display_order = 4294967296)]
+    ordered: bool,
+    #[usage(long, var, var_max = 4294967296)]
+    repeated: Vec<String>,
+    #[usage(long, variadic, var_max = 4294967296)]
+    spread: Vec<String>,
+    #[usage(arg, var_max = 4294967296)]
+    rest: Vec<String>,
+}
+
+/// An oversized bound or width saturates rather than wrapping: `4294967296 as u32` is zero,
+/// which would read as "no values allowed" and move a far-last `display_order` to the front.
+#[cfg(target_pointer_width = "64")]
+#[test]
+fn oversized_counts_and_widths_saturate_in_the_metadata() {
+    let root = Oversized::spec().root;
+    assert_eq!(root.extra.term_width, Some(u16::MAX));
+    assert_eq!(root.extra.max_term_width, Some(u16::MAX));
+    let flag = |long: &str| {
+        root.flags
+            .iter()
+            .find(|f| f.flag.longs.contains(&long))
+            .unwrap_or_else(|| panic!("--{long}"))
+    };
+    assert_eq!(flag("ordered").extra.display_order, Some(u32::MAX));
+    assert_eq!(flag("repeated").extra.var_max, Some(u32::MAX));
+    assert_eq!(flag("spread").extra.value_var_max, Some(u32::MAX));
+    assert_eq!(root.args[0].var_max, Some(u32::MAX));
+}
