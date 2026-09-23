@@ -104,3 +104,52 @@ fn a_spec_request_is_answered_before_the_parse() {
     assert!(out.contains("version \"6.0.0\""), "{out}");
     assert!(!out.contains("runtime-ex"), "{out}");
 }
+
+/// A reader that has gone away is not a crash. `print!` panics when its write fails, so a
+/// generated `parse()` that answered `--help | head -1`, or a completion the shell cancelled,
+/// used to panic — and abort with a core dump in a `panic = "abort"` build.
+///
+/// The read end is dropped before the child starts, so the first write always fails: the
+/// ordering is fixed rather than raced.
+#[test]
+fn a_closed_reader_is_not_a_crash() {
+    let built = fixture_output("runtime-identity", &[]);
+    assert!(
+        built.status.success(),
+        "{}",
+        String::from_utf8_lossy(&built.stderr)
+    );
+    let bin = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+        .join("runtime-identity")
+        .join("debug")
+        .join(format!(
+            "usage-rs-runtime-identity-fixture{}",
+            std::env::consts::EXE_SUFFIX
+        ));
+
+    let closed_pipe = || {
+        let (reader, writer) = std::io::pipe().expect("a pipe");
+        drop(reader);
+        writer
+    };
+    // stdout: answers the user asked for keep their success status.
+    for args in [&["--help"][..], &["--version"], &["__usage_spec__"]] {
+        let output = Command::new(&bin)
+            .args(args)
+            .stdout(closed_pipe())
+            .stderr(std::process::Stdio::piped())
+            .output()
+            .expect("the fixture should run");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(0), "{args:?}: {stderr}");
+        assert!(!stderr.contains("panicked"), "{args:?}: {stderr}");
+    }
+    // stderr: a failure keeps its failure status.
+    let output = Command::new(&bin)
+        .arg("--unknown")
+        .stdout(std::process::Stdio::piped())
+        .stderr(closed_pipe())
+        .output()
+        .expect("the fixture should run");
+    assert_eq!(output.status.code(), Some(2));
+}

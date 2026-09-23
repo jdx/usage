@@ -706,10 +706,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
             match __usage_result {
                 ::std::result::Result::Ok(finalized) => {
                     if !__usage_warnings.is_empty() {
-                        ::std::eprint!(
+                        usage_argv::__usage_eprint(::std::format_args!(
                             "{}",
                             usage_argv::render_warnings(&__usage_warnings),
-                        );
+                        ));
                     }
                     finalized
                 }
@@ -846,10 +846,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 ) {
                     ::std::result::Result::Ok(__usage_parsed) => {
                         if !__usage_warnings.is_empty() {
-                            ::std::eprint!(
+                            usage_argv::__usage_eprint(::std::format_args!(
                                 "{}",
                                 usage_argv::render_warnings(&__usage_warnings),
-                            );
+                            ));
                         }
                         __usage_parsed
                     }
@@ -1828,10 +1828,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     ) {
                         ::std::result::Result::Ok(parsed) => {
                             if !__usage_warnings.is_empty() {
-                                ::std::eprint!(
+                                usage_argv::__usage_eprint(::std::format_args!(
                                     "{}",
                                     usage_argv::render_warnings(&__usage_warnings),
-                                );
+                                ));
                             }
                             parsed
                         }
@@ -2048,7 +2048,7 @@ fn spec_endpoint_fns(cli: &Cli) -> (TokenStream, TokenStream) {
         if let ::std::option::Option::Some(__usage_answer) =
             Self::spec_request(__usage_all_refs.get(1..).unwrap_or(&[]))
         {
-            ::std::print!("{__usage_answer}");
+            usage_argv::__usage_print(::std::format_args!("{__usage_answer}"));
             usage_argv::__usage_process_exit(0);
         }
     };
@@ -2208,7 +2208,7 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             let __usage_args: ::std::vec::Vec<::std::ffi::OsString> =
                 ::std::env::args_os().skip(1).collect();
             if let ::std::option::Option::Some(answer) = Self::completion_request(&__usage_args) {
-                ::std::print!("{answer}");
+                usage_argv::__usage_print(::std::format_args!("{answer}"));
                 usage_argv::__usage_process_exit(0);
             }
         }
