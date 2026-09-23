@@ -3782,10 +3782,13 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
 ///
 /// Out of line for the reason [`crate::bind_text`] is: two copies of the word per member
 /// would otherwise be expanded at every member of every group.
+/// Each member that arrived, by its index, with the word it was given if it takes one.
+type MemberOrder = Vec<(usize, Option<Vec<u8>>)>;
+
 #[doc(hidden)]
 #[inline(never)]
 pub fn bind_member_text(
-    ordered: Option<&mut Vec<(usize, Option<Vec<u8>>)>>,
+    ordered: Option<&mut MemberOrder>,
     index: usize,
     given: &mut Option<Vec<u8>>,
     value: Option<&[u8]>,

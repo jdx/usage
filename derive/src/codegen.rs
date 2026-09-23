@@ -1858,15 +1858,20 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     // handed the spec with any computed identity already applied.
                     if let usage_argv::Error::Version { long } = __usage_error {
                         #runtime_program_for_version
-                        let __usage_version = if long {
-                            #output_long_version
-                        } else {
-                            #runtime_version
-                        };
+                        // One call per branch rather than one `if` value: a computed long
+                        // version and the short one need not have the same type, only
+                        // `Display`.
+                        if long {
+                            usage_argv::__usage_exit_version(
+                                __usage_bin,
+                                __usage_selected_view,
+                                &(#output_long_version),
+                            );
+                        }
                         usage_argv::__usage_exit_version(
                             __usage_bin,
                             __usage_selected_view,
-                            &__usage_version,
+                            &(#runtime_version),
                         );
                     }
                     #effective_spec

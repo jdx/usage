@@ -1690,6 +1690,30 @@ struct DynamicEx {
     retries: u16,
 }
 
+fn owned_long_version() -> String {
+    format!("{}\ncommit owned", env!("CARGO_PKG_VERSION"))
+}
+
+/// A literal short version beside a computed long one of another type. The process entry
+/// prints whichever was asked for, so the two only have to be `Display`, not the same type.
+#[derive(Cli)]
+#[usage(
+    bin = "mixed-version-ex",
+    version = "2.0.0",
+    long_version = owned_long_version(),
+    long_version_spec = "2.0.0\ncommit portable"
+)]
+struct MixedVersionEx;
+
+#[test]
+fn a_computed_long_version_need_not_match_the_short_versions_type() {
+    assert!(matches!(
+        MixedVersionEx::parse_from(&[OsStr::new("--version")]),
+        Err(usage::Error::Version { long: true })
+    ));
+    assert!(owned_long_version().ends_with("commit owned"));
+}
+
 /// Show one file
 #[derive(Args)]
 struct Show {
