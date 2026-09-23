@@ -175,6 +175,8 @@ struct Sections {
     ungrouped_flags: String,
     flattened: String,
     after_help: String,
+    /// The headings and row usages written, for colouring; empty on a plain page.
+    known: HelpStructure,
 }
 
 impl Sections {
@@ -862,13 +864,18 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
     out
 }
 
+/// What [`styled_help`] recognises on a page: the headings it wrote and the usage at the start
+/// of each row.
+///
+/// Noted by the section writers as they write, rather than worked out again from the metadata
+/// afterwards — a second walk that had to agree with the first about every filter and order.
+/// The synopsis is not here: it is the page's own `usage` section, read line by line.
 #[derive(Default)]
 struct HelpStructure {
     headings: Vec<String>,
     command_usages: Vec<String>,
     flag_usages: Vec<String>,
     arg_usages: Vec<String>,
-    synopsis: Vec<String>,
 }
 
 /// Validate advanced-help metadata, including in generated static declarations.
@@ -883,185 +890,6 @@ pub const fn __usage_advanced_help(enabled: bool) -> bool {
 
 fn flatten_help(meta: &CommandMeta<'_>) -> bool {
     __usage_advanced_help(meta.extra.flatten_help)
-}
-
-fn help_structure(
-    spec: &Spec<'_>,
-    path: &[&str],
-    chain: &[&CommandMeta<'_>],
-    long: bool,
-    inherit_version_actions: bool,
-    suppress_global: bool,
-) -> HelpStructure {
-    let meta = *chain.last().expect("a page is always about some command");
-    let mut headings = Vec::new();
-    let mut command_usages = Vec::new();
-    if !meta.extra.examples.is_empty() {
-        headings.push("Examples".to_string());
-    }
-    if flatten_help(meta) {
-        flat_help_headings(&path[1.min(path.len())..], meta, &mut headings);
-    } else if meta.subcommands.iter().any(|sub| !sub.hide) {
-        command_usages.extend(
-            meta.subcommands
-                .iter()
-                .filter(|sub| !sub.hide)
-                .map(|sub| sub.cmd.name.to_string()),
-        );
-        if !meta.cmd.disable_help_subcommand {
-            command_usages.push(HELP_SUBCOMMAND.to_string());
-        }
-        headings.push(
-            meta.extra
-                .subcommand_help_heading
-                .unwrap_or("Commands")
-                .to_string(),
-        );
-        headings.extend(
-            meta.subcommands
-                .iter()
-                .filter(|sub| !sub.hide)
-                .filter_map(|sub| sub.extra.help_heading)
-                .map(str::to_string),
-        );
-    }
-
-    let (own, inherited) = own_and_global(chain, inherit_version_actions);
-    let inherited = if suppress_global {
-        Vec::new()
-    } else {
-        inherited
-    };
-    let visible_arg = |arg: &&ArgMeta<'_>| {
-        !arg.hide
-            && if long {
-                !arg.hide_long_help
-            } else {
-                !arg.hide_short_help
-            }
-    };
-    let positional_args = positional_args(meta);
-    let mut args: Vec<_> = positional_args.iter().filter(visible_arg).collect();
-    order_args(&mut args, positional_args);
-    if args.iter().any(|arg| arg.help_heading.is_none()) {
-        headings.push("Arguments".to_string());
-    }
-    headings.extend(
-        args.iter()
-            .filter_map(|arg| arg.help_heading)
-            .map(str::to_string),
-    );
-    let mut arg_usages: Vec<String> = args.iter().map(|arg| arg_usage(arg)).collect();
-
-    let visible_flag = |flag: &&FlagMeta<'_>| {
-        !flag.hide
-            && if long {
-                !flag.hide_long_help
-            } else {
-                !flag.hide_short_help
-            }
-    };
-    let mut own: Vec<_> = own.into_iter().filter(visible_flag).collect();
-    order_flags(&mut own, meta.flags);
-    let inherited: Vec<_> = inherited
-        .into_iter()
-        .filter(|(flag, _)| {
-            if long {
-                !flag.hide_long_help
-            } else {
-                !flag.hide_short_help
-            }
-        })
-        .collect();
-    if own
-        .iter()
-        .any(|flag| flag_help_heading(meta, flag).is_none())
-    {
-        headings.push("Flags".to_string());
-    }
-    headings.extend(
-        own.iter()
-            .filter_map(|flag| flag_help_heading(meta, flag))
-            .map(str::to_string),
-    );
-    if !inherited.is_empty() {
-        headings.push("Global flags".to_string());
-    }
-
-    let mut flag_usages: Vec<String> = own.iter().map(|flag| column_usage(flag)).collect();
-    flag_usages.extend(inherited.into_iter().map(|(_, usage)| usage));
-    if flatten_help(meta) {
-        flat_help_usages(meta, long, &mut flag_usages, &mut arg_usages);
-    }
-    for usages in [&mut arg_usages, &mut flag_usages, &mut command_usages] {
-        sort_rows(usages, &mut |a, b| b.len().cmp(&a.len()));
-    }
-
-    let mut synopsis = String::new();
-    usage_section(&mut synopsis, spec, path, meta);
-    let synopsis = synopsis.lines().map(str::to_string).collect();
-    HelpStructure {
-        headings,
-        command_usages,
-        flag_usages,
-        arg_usages,
-        synopsis,
-    }
-}
-
-fn flat_help_usages(
-    meta: &CommandMeta<'_>,
-    long: bool,
-    flag_usages: &mut Vec<String>,
-    arg_usages: &mut Vec<String>,
-) {
-    let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    order_commands(&mut visible);
-    for sub in visible {
-        arg_usages.extend(
-            positional_args(sub)
-                .iter()
-                .filter(|arg| {
-                    !arg.hide
-                        && if long {
-                            !arg.hide_long_help
-                        } else {
-                            !arg.hide_short_help
-                        }
-                })
-                .map(arg_usage),
-        );
-        flag_usages.extend(
-            sub.flags
-                .iter()
-                .filter(|flag| {
-                    !flag.flag.global
-                        && !flag.hide
-                        && if long {
-                            !flag.hide_long_help
-                        } else {
-                            !flag.hide_short_help
-                        }
-                })
-                .map(column_usage),
-        );
-        if flatten_help(sub) {
-            flat_help_usages(sub, long, flag_usages, arg_usages);
-        }
-    }
-}
-
-fn flat_help_headings(path: &[&str], meta: &CommandMeta<'_>, headings: &mut Vec<String>) {
-    let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    order_commands(&mut visible);
-    for sub in visible {
-        let mut sub_path = path.to_vec();
-        sub_path.push(sub.cmd.name);
-        headings.push(sub_path.join(" "));
-        if flatten_help(sub) {
-            flat_help_headings(&sub_path, sub, headings);
-        }
-    }
 }
 
 fn styled_help(
@@ -1158,46 +986,34 @@ fn rendered_page(
         long,
         inherit_version_actions,
         suppress_global,
+        style.coloured,
     );
+    let known = &sections.known;
     // Plain output never reads the spellings used to recognize colored spans.
-    let structure = if style.coloured {
-        help_structure(
-            spec,
-            path,
-            chain,
-            long,
-            inherit_version_actions,
-            suppress_global,
-        )
+    let synopsis: Vec<String> = if style.coloured {
+        sections.usage.lines().map(str::to_string).collect()
     } else {
-        HelpStructure::default()
+        Vec::new()
+    };
+    let styled = |part: &str| {
+        styled_help(
+            part,
+            style,
+            &known.headings,
+            &known.command_usages,
+            &known.flag_usages,
+            &known.arg_usages,
+            &synopsis,
+        )
     };
     let page = match spec
         .help_template
         .filter(|template| !template.trim().is_empty())
     {
         Some(template) => template::substitute(template, style, |name| {
-            sections.named(name).map(|part| {
-                styled_help(
-                    &part,
-                    style,
-                    &structure.headings,
-                    &structure.command_usages,
-                    &structure.flag_usages,
-                    &structure.arg_usages,
-                    &structure.synopsis,
-                )
-            })
+            sections.named(name).map(|part| styled(&part))
         }),
-        None => styled_help(
-            &sections.concatenated(),
-            style,
-            &structure.headings,
-            &structure.command_usages,
-            &structure.flag_usages,
-            &structure.arg_usages,
-            &structure.synopsis,
-        ),
+        None => styled(&sections.concatenated()),
     };
     with_logo(spec, path, chain, style, finish_page(page, style))
 }
@@ -1709,7 +1525,15 @@ fn short_help_with(
         spec,
         path,
         chain,
-        &page_sections(spec, path, chain, false, inherit_version_actions, false),
+        &page_sections(
+            spec,
+            path,
+            chain,
+            false,
+            inherit_version_actions,
+            false,
+            false,
+        ),
         Style::PLAIN,
     )
 }
@@ -1733,6 +1557,7 @@ fn page_sections(
     long: bool,
     inherit_version_actions: bool,
     suppress_global: bool,
+    coloured: bool,
 ) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
@@ -1749,6 +1574,9 @@ fn page_sections(
             .collect()
     };
     let mut sections = Sections::default();
+    // What colouring the page will look for, noted while the page is written rather than
+    // worked out again afterwards. A plain page never reads it, so it is not collected there.
+    let mut known = coloured.then(HelpStructure::default);
     // The narrow page wraps too. Its descriptions used to run off the end of the terminal,
     // which the wide page has never done — and `-h` is the form most people type.
     // Less the logo's margin, when the root page is reserving one; see `logo_margin`.
@@ -1809,6 +1637,7 @@ fn page_sections(
             width,
             long,
             root_default_command_name(spec, path, meta),
+            known.as_mut(),
         );
     }
 
@@ -1821,9 +1650,13 @@ fn page_sections(
         .filter(|a| !a.hide && !hidden_on(long, a.hide_short_help, a.hide_long_help))
         .collect();
     order_args(&mut args, positional_args);
+    // Each row's usage once: it sizes the column, is the row's text, and is what colouring
+    // looks for at the start of a row.
+    let args: Vec<(&ArgMeta<'_>, String)> = args.into_iter().map(|a| (a, arg_usage(a))).collect();
+    let own: Vec<(&FlagMeta<'_>, String)> = own.into_iter().map(|f| (f, column_usage(f))).collect();
     let arg_col = args
         .iter()
-        .map(|a| arg_usage(a).chars().count())
+        .map(|(_, usage)| usage.chars().count())
         .max()
         .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
@@ -1847,21 +1680,22 @@ fn page_sections(
             page: &mut sections.args,
             ungrouped: &mut sections.ungrouped_args,
             grouped: &mut sections.grouped_args,
+            titles: known.as_mut().map(|known| &mut known.headings),
         },
         "Arguments",
         width,
         &args,
-        |a| a.help_heading,
+        |(a, _)| a.help_heading,
         prose_of,
-        |out, a| write_row(out, &Row::arg(a, &arg_usage(a)), layout),
+        |out, (a, usage)| write_row(out, &Row::arg(a, usage), layout),
     );
 
     // One column over *both* lists, so the two sections read as one table with a rule through
     // it rather than two tables that happen to be adjacent.
     let flag_col = own
         .iter()
-        .map(|f| column_usage(f).chars().count())
-        .chain(inherited.iter().map(|(_, u)| u.chars().count()))
+        .chain(&inherited)
+        .map(|(_, usage)| usage.chars().count())
         .max()
         .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
@@ -1874,13 +1708,14 @@ fn page_sections(
             page: &mut sections.flags,
             ungrouped: &mut sections.ungrouped_flags,
             grouped: &mut sections.grouped_flags,
+            titles: known.as_mut().map(|known| &mut known.headings),
         },
         "Flags",
         width,
         &own,
-        |f| flag_help_heading(meta, f),
+        |(f, _)| flag_help_heading(meta, f),
         prose_of,
-        |out, f| write_row(out, &Row::flag(f, &column_usage(f)), layout),
+        |out, (f, usage)| write_row(out, &Row::flag(f, usage), layout),
     );
     // After the command's own, and under a heading that says where they came from: `--config`
     // belongs to the program, not to this command, and a reader should be able to see that.
@@ -1892,6 +1727,7 @@ fn page_sections(
             page: &mut sections.flags,
             ungrouped: &mut sections.ungrouped_flags,
             grouped: &mut sections.grouped_flags,
+            titles: known.as_mut().map(|known| &mut known.headings),
         },
         "Global flags",
         width,
@@ -1900,6 +1736,14 @@ fn page_sections(
         |_| None,
         |out, (f, usage)| write_row(out, &Row::flag(f, usage), layout),
     );
+    if let Some(known) = known.as_mut() {
+        known
+            .arg_usages
+            .extend(args.into_iter().map(|(_, usage)| usage));
+        known
+            .flag_usages
+            .extend(own.into_iter().chain(inherited).map(|(_, usage)| usage));
+    }
     if flatten_help(meta) {
         flat_commands(
             &mut sections.flattened,
@@ -1907,11 +1751,17 @@ fn page_sections(
             meta,
             width,
             long,
+            known.as_mut(),
         );
     }
 
     let out = &mut sections.after_help;
     examples_section(out, meta.extra.examples, long);
+    if let Some(known) = known.as_mut() {
+        if !meta.extra.examples.is_empty() {
+            known.headings.push("Examples".to_string());
+        }
+    }
     let after = if long {
         meta.extra.after_long_help.or(meta.extra.after_help)
     } else {
@@ -1934,6 +1784,18 @@ fn page_sections(
         }
     }
 
+    if let Some(mut known) = known {
+        // Longest first, so a row is claimed by the whole of its usage rather than by another
+        // usage that happens to be a prefix of it.
+        for usages in [
+            &mut known.arg_usages,
+            &mut known.flag_usages,
+            &mut known.command_usages,
+        ] {
+            sort_rows(usages, &mut |a, b| b.len().cmp(&a.len()));
+        }
+        sections.known = known;
+    }
     sections
 }
 
@@ -2216,6 +2078,7 @@ fn commands_section(
     width: usize,
     long: bool,
     default_name: Option<&str>,
+    known: Option<&mut HelpStructure>,
 ) {
     let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
     order_commands(&mut visible);
@@ -2258,6 +2121,22 @@ fn commands_section(
         .unwrap_or(0);
 
     let default_title = meta.extra.subcommand_help_heading.unwrap_or("Commands");
+    if let Some(known) = known {
+        known.command_usages.extend(
+            lines
+                .iter()
+                .map(|(_, sub)| sub.cmd.name)
+                .chain(show_help.then_some(HELP_SUBCOMMAND))
+                .map(str::to_string),
+        );
+        known.headings.push(default_title.to_string());
+        known.headings.extend(
+            lines
+                .iter()
+                .filter_map(|(_, sub)| command_help_section(sub, default_title))
+                .map(str::to_string),
+        );
+    }
     let mut headings = vec![None];
     for (_, sub) in &lines {
         let heading = command_help_section(sub, default_title);
@@ -2373,13 +2252,18 @@ fn flat_commands(
     meta: &CommandMeta<'_>,
     width: usize,
     long: bool,
+    mut known: Option<&mut HelpStructure>,
 ) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
     order_commands(&mut visible);
     for sub in visible {
         let mut sub_path = path.to_vec();
         sub_path.push(sub.cmd.name);
-        let _ = writeln!(out, "\n{}:", sub_path.join(" "));
+        let heading = sub_path.join(" ");
+        let _ = writeln!(out, "\n{heading}:");
+        if let Some(known) = known.as_mut() {
+            known.headings.push(heading);
+        }
         let about = if long {
             sub.long_about.or(sub.about)
         } else {
@@ -2426,17 +2310,25 @@ fn flat_commands(
             aligned: false,
         };
         for arg in args {
-            write_row(out, &Row::arg(arg, &arg_usage(arg)), layout);
+            let usage = arg_usage(arg);
+            write_row(out, &Row::arg(arg, &usage), layout);
+            if let Some(known) = known.as_mut() {
+                known.arg_usages.push(usage);
+            }
         }
         let layout = RowLayout {
             col: flag_col,
             ..layout
         };
         for flag in flags {
-            write_row(out, &Row::flag(flag, &column_usage(flag)), layout);
+            let usage = column_usage(flag);
+            write_row(out, &Row::flag(flag, &usage), layout);
+            if let Some(known) = known.as_mut() {
+                known.flag_usages.push(usage);
+            }
         }
         if flatten_help(sub) {
-            flat_commands(out, &sub_path, sub, width, long);
+            flat_commands(out, &sub_path, sub, width, long, known.as_deref_mut());
         }
         out.push('\n');
     }
@@ -2498,6 +2390,8 @@ struct SectionSink<'s> {
     page: &'s mut String,
     ungrouped: &'s mut String,
     grouped: &'s mut String,
+    /// Where the titles written go, when the page is to be coloured.
+    titles: Option<&'s mut Vec<String>>,
 }
 
 /// One section per heading, unheaded first, while also keeping the named and default groups
@@ -2526,7 +2420,7 @@ fn split_groups_section<'m, T>(
 
 #[inline(never)]
 fn grouped_sections<'m>(
-    sink: SectionSink<'_>,
+    mut sink: SectionSink<'_>,
     default_title: &str,
     width: usize,
     len: usize,
@@ -2552,6 +2446,9 @@ fn grouped_sections<'m>(
         let mut section = String::new();
         let title = heading.unwrap_or(default_title);
         let _ = writeln!(section, "\n{title}:");
+        if let Some(titles) = sink.titles.as_mut() {
+            titles.push(title.to_string());
+        }
         // Between the heading and its entries, where a reader looking at the section is
         // already looking. Written verbatim like an admonition rather than rewrapped, so
         // an author's own line breaks survive and the reference renderer can match it.
@@ -2893,7 +2790,15 @@ fn long_help_with(
         spec,
         path,
         chain,
-        &page_sections(spec, path, chain, true, inherit_version_actions, false),
+        &page_sections(
+            spec,
+            path,
+            chain,
+            true,
+            inherit_version_actions,
+            false,
+            false,
+        ),
         Style::PLAIN,
     )
 }
@@ -3703,7 +3608,7 @@ fn topics_with_blocks(
     long: bool,
 ) -> Option<Vec<(Topic, String)>> {
     let (path, chain) = find(spec, cmd)?;
-    let sections = page_sections(spec, &path, &chain, long, false, false);
+    let sections = page_sections(spec, &path, &chain, long, false, false, false);
     let mut used = Vec::<String>::new();
     Some(
         topic_blocks(&sections, |title| heading_help(chain.last()?, title))
@@ -4633,7 +4538,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        flat_commands(&mut page, &["tool"], &root_meta, 80, false);
+        flat_commands(&mut page, &["tool"], &root_meta, 80, false, None);
 
         assert!(
             page.contains("    Use the old mode\n    [deprecated: use --new]"),
@@ -4688,7 +4593,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        flat_commands(&mut page, &["tool"], &root_meta, 80, false);
+        flat_commands(&mut page, &["tool"], &root_meta, 80, false, None);
 
         assert!(page.contains("--old\n"), "{page}");
         assert!(page.contains("[deprecated: use --new]\n"), "{page}");
@@ -4751,7 +4656,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        commands_section(&mut page, &[], &root_meta, 80, false, None);
+        commands_section(&mut page, &[], &root_meta, 80, false, None, None);
 
         assert!(page.contains("  run   run it\n  help"));
         assert!(!page.contains("  run   run it\n\n  help"));

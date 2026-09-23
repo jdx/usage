@@ -1,0 +1,27 @@
+---
+source: conformance/tests/coloured_help.rs
+expression: "page(TOOL, &[\"nl\"], true)"
+---
+Next line
+
+␛[1;33mUsage:␛[0m tool nl [␛[1;32m--gamma␛[0m ␛[1;35m<g>␛[0m] [␛[1;35my␛[0m]
+
+␛[1;33mArguments:␛[0m
+  [␛[1;35my␛[0m]
+    Y
+
+␛[1;33mFlags:␛[0m
+      ␛[1;32m--gamma␛[0m ␛[1;35m<g>␛[0m
+    Gamma
+    [env: G]
+    (default: 1)
+  ␛[1;32m-h␛[0m, ␛[1;32m--help␛[0m
+    Print help
+
+␛[1;33mGlobal flags:␛[0m
+  ␛[1;32m-f␛[0m, ␛[1;32m--force␛[0m
+    Do it ␛[3manyway␛[23m
+      ␛[1;32m--config␛[0m ␛[1;35m<path>␛[0m
+    Config file
+    [env: TOOL_CONFIG]
+    (default: a.toml)

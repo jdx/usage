@@ -1,0 +1,49 @@
+---
+source: conformance/tests/coloured_help.rs
+expression: "page(TOOL, &[], true)"
+---
+␛[1;33mFlags:␛[0m                                                                    ␛[36m  /\␛[0m
+-f, --force mentioned in prose                                            ␛[36m /  \␛[0m
+build Build it                                                            ␛[36m/____\␛[0m
+
+tool 1.2.3
+A ␛[1mtool␛[22m with ␛[36mcode␛[39m and ␛[3memphasis␛[23m
+
+␛[1;33mUsage:␛[0m tool [␛[1;35mFLAGS␛[0m] [␛[1;35mfile␛[0m] [␛[1;35mrest␛[0m]… [␛[1;35mSUBCOMMAND␛[0m]
+
+␛[1;33mCommands:␛[0m
+  ␛[1;32mflat␛[0m   Flattened
+  ␛[1;32mnl␛[0m     Next line
+  ␛[1;32mhelp␛[0m   Print this message or the help of the given subcommand(s)
+
+␛[1;33mMain:␛[0m
+  ␛[1;32mbuild␛[0m  Build it
+
+␛[1;33mArguments:␛[0m
+  [␛[1;35mfile␛[0m]   The ␛[1mfile␛[22m to use
+           [env: TOOL_FILE]
+
+␛[1;33mExtra:␛[0m
+  [␛[1;35mrest␛[0m]…  More
+
+␛[1;33mFlags:␛[0m
+  ␛[1;32m-f␛[0m, ␛[1;32m--force␛[0m          Do it ␛[3manyway␛[23m
+      ␛[1;32m--config␛[0m ␛[1;35m<path>␛[0m  Config file
+                       [env: TOOL_CONFIG]
+                       (default: a.toml)
+      ␛[1;32m--old␛[0m
+                       [deprecated: use --new]
+  ␛[1;32m-h␛[0m, ␛[1;32m--help␛[0m           Print help
+  ␛[1;32m-V␛[0m, ␛[1;32m--version␛[0m        Print version
+
+␛[1;33mOptions:␛[0m
+      ␛[1;32m--mode␛[0m ␛[1;35m<mode>␛[0m    Mode
+                       [possible values: fast, slow_mode]
+
+Examples:
+-f, --force again
+␛[1;33mArguments:␛[0m
+$ not styled *x*
+
+Author: Someone
+License: MIT
