@@ -137,43 +137,74 @@ impl Style {
         }
     }
 
-    fn wrap(self, code: &str, text: &str) -> String {
-        if self.coloured {
-            format!("\u{1b}[{code}m{text}\u{1b}[0m")
-        } else {
-            text.to_string()
+    /// Append `text` in `ink`, followed by a reset when colouring.
+    ///
+    /// Written into the message rather than returned as a `String` to be formatted into it: a
+    /// message is a list of these pieces, and every `format!` built from returned pieces compiles
+    /// its own copy of the formatting.
+    fn put(self, out: &mut String, ink: Ink, text: &str) {
+        self.put_joined(out, ink, &[text]);
+    }
+
+    /// Append several texts as one coloured run, such as `--` and a flag's name.
+    #[inline(never)]
+    fn put_joined(self, out: &mut String, ink: Ink, texts: &[&str]) {
+        let code = match ink {
+            Ink::Plain => None,
+            Ink::Error => Some("1m\u{1b}[31"),
+            Ink::Warning => Some("1m\u{1b}[33"),
+            Ink::Invalid => Some("33"),
+            Ink::Valid => Some("32"),
+            Ink::Heading => Some("1m\u{1b}[4"),
+            Ink::Literal => Some("1"),
+        };
+        match code.filter(|_| self.coloured) {
+            Some(code) => {
+                push_all(out, &["\u{1b}[", code, "m"]);
+                push_all(out, texts);
+                push_all(out, &["\u{1b}[0m"]);
+            }
+            None => push_all(out, texts),
         }
     }
 
+    /// Append each piece in turn; a message given as data rather than as a `format!`.
+    #[inline(never)]
+    fn put_all(self, out: &mut String, parts: &[(Ink, &str)]) {
+        for (ink, text) in parts {
+            self.put(out, *ink, text);
+        }
+    }
+}
+
+/// Append each of `texts`.
+///
+/// One out-of-line loop instead of a `push_str` per piece at every call site, each of which
+/// inlines its own capacity check and copy.
+#[inline(never)]
+fn push_all(out: &mut String, texts: &[&str]) {
+    for text in texts {
+        out.push_str(text);
+    }
+}
+
+/// What a piece of a message is, which decides its colour.
+#[derive(Clone, Copy)]
+enum Ink {
+    /// Uncoloured prose.
+    Plain,
     /// `error:`, and anything else that is the failure itself.
-    fn error(self, text: &str) -> String {
-        self.wrap("1m\u{1b}[31", text)
-    }
-
+    Error,
     /// `warning:` — something that worked, and should not have been asked for.
-    fn warning(self, text: &str) -> String {
-        self.wrap("1m\u{1b}[33", text)
-    }
-
+    Warning,
     /// What the user typed that did not work.
-    fn invalid(self, text: &str) -> String {
-        self.wrap("33", text)
-    }
-
+    Invalid,
     /// What would have worked: a suggestion, a possible value, a missing argument.
-    fn valid(self, text: &str) -> String {
-        self.wrap("32", text)
-    }
-
+    Valid,
     /// A heading, such as `Usage:`.
-    fn heading(self, text: &str) -> String {
-        self.wrap("1m\u{1b}[4", text)
-    }
-
+    Heading,
     /// Something to be typed as it is written.
-    fn literal(self, text: &str) -> String {
-        self.wrap("1", text)
-    }
+    Literal,
 }
 
 /// A flag as the user named it, without a value they attached to it.
@@ -196,34 +227,31 @@ fn flag_named(token: &str) -> &str {
     }
 }
 
-/// Every long spelling a flag answers to, its negation included.
+/// Every long spelling a word at this command could have named: its own flags', then any
+/// ancestor's globals — negations included.
 ///
+/// The same set the parser would have accepted, which is what makes a suggestion one that works.
 /// The parser takes `--no-color` through `find_negation`, and the completions offer it, so a
 /// suggestion that leaves it out is the odd one — a near miss of a name that works gets silence.
 /// clap has no separate notion of a negation, so the two forms are two arguments there and it
 /// suggests either; matching that is the point.
-fn long_spellings<'a>(meta: &'a crate::spec::FlagMeta<'a>) -> impl Iterator<Item = &'a str> {
-    meta.flag.longs.iter().copied().chain(meta.flag.negate)
-}
-
-/// Every flag a word at this command could have named: its own, then any ancestor's globals.
-///
-/// The same set the parser would have accepted, which is what makes a suggestion one that works.
-fn flags_in_scope<'a, 'c>(
-    chain: &'c [&'a CommandMeta<'a>],
-) -> impl Iterator<Item = &'a crate::spec::FlagMeta<'a>> + 'c {
+fn long_names_in_scope<'a>(chain: &[&'a CommandMeta<'a>]) -> Vec<&'a str> {
     // The command's own flags, and from each ancestor only what it declared global — the rule
     // the parser follows on the way down. The chain and not the tree: an earlier version
     // collected globals from every branch it walked through, so a global declared on one command
     // was suggested under an unrelated one — a tip naming a flag the parser would refuse, which
     // is worse than no tip.
-    let depth = chain.len();
-    chain.iter().enumerate().flat_map(move |(i, meta)| {
-        let own = i + 1 == depth;
-        meta.flags
-            .iter()
-            .filter(move |f| !f.hide && (own || f.flag.global))
-    })
+    let mut names = Vec::new();
+    for (i, meta) in chain.iter().enumerate() {
+        let own = i + 1 == chain.len();
+        for f in meta.flags {
+            if !f.hide && (own || f.flag.global) {
+                names.extend_from_slice(f.flag.longs);
+                names.extend(f.flag.negate);
+            }
+        }
+    }
+    names
 }
 
 /// How alike two words are, from 0 (nothing in common) to 1 (the same word).
@@ -307,11 +335,14 @@ fn jaro(a: &str, b: &str) -> f64 {
 /// so the closest match comes last. That reads oddly, and it is preserved here because the point
 /// of this module is that an adopter's users see no change; it is a difference worth undoing on
 /// both sides rather than on one.
-fn nearest<'a>(typed: &str, candidates: impl Iterator<Item = &'a str>) -> Vec<&'a str> {
-    let mut scored: Vec<(f64, &str)> = candidates
-        .map(|candidate| (jaro(typed, candidate), candidate))
-        .filter(|(score, _)| *score > 0.7)
-        .collect();
+fn nearest<'a>(typed: &str, candidates: &[&'a str]) -> Vec<&'a str> {
+    let mut scored: Vec<(f64, &str)> = Vec::new();
+    for candidate in candidates {
+        let score = jaro(typed, candidate);
+        if score > 0.7 {
+            scored.push((score, candidate));
+        }
+    }
     crate::order::sort_by(&mut scored, &mut |a, b| {
         a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1))
     });
@@ -322,27 +353,32 @@ fn nearest<'a>(typed: &str, candidates: impl Iterator<Item = &'a str>) -> Vec<&'
 /// A tip naming what was probably meant, or nothing when nothing was close.
 ///
 /// `noun` is the singular — clap writes "a similar argument exists" for one and "some similar
-/// arguments exist" for several, and the plural is the singular with an `s`.
-fn tip(style: Style, noun: &str, near: &[&str]) -> String {
-    match near {
-        [] => String::new(),
-        [one] => format!(
-            "\n  {} a similar {noun} exists: '{}'\n",
-            style.valid("tip:"),
-            style.valid(one)
-        ),
-        many => {
-            let listed: Vec<String> = many
-                .iter()
-                .map(|candidate| format!("'{}'", style.valid(candidate)))
-                .collect();
-            format!(
-                "\n  {} some similar {noun}s exist: {}\n",
-                style.valid("tip:"),
-                listed.join(", ")
-            )
-        }
+/// arguments exist" for several, and the plural is the singular with an `s`. `prefix` goes in
+/// front of each candidate, inside its colour: the dashes a flag is scored without.
+fn tip(out: &mut String, style: Style, noun: &str, prefix: &str, near: &[&str]) {
+    if near.is_empty() {
+        return;
     }
+    let one = near.len() == 1;
+    style.put_all(
+        out,
+        &[
+            (Ink::Plain, "\n  "),
+            (Ink::Valid, "tip:"),
+            (
+                Ink::Plain,
+                if one { " a similar " } else { " some similar " },
+            ),
+            (Ink::Plain, noun),
+            (Ink::Plain, if one { " exists: " } else { "s exist: " }),
+        ],
+    );
+    for (i, candidate) in near.iter().enumerate() {
+        // Each separator closes the quote the previous candidate opened.
+        push_all(out, &[if i == 0 { "'" } else { "', '" }]);
+        style.put_joined(out, Ink::Valid, &[prefix, candidate]);
+    }
+    push_all(out, &["'\n"]);
 }
 
 /// Whether a bare `--` stands in argv ahead of `token`.
@@ -427,28 +463,23 @@ fn unexpected_flag(
     chain: &[&CommandMeta<'_>],
     capture: ValueCapture,
 ) {
-    let _ = writeln!(
+    use Ink::{Invalid, Plain, Valid};
+    error_line(
         out,
-        "{} unexpected argument '{}' found",
-        style.error("error:"),
-        style.invalid(typed)
+        style,
+        &[
+            (Plain, "unexpected argument '"),
+            (Invalid, typed),
+            (Plain, "' found"),
+        ],
     );
     // Scored without the dashes, and only then written back with them. Every flag
     // starts `--`, and the prefix bonus in Jaro-Winkler counts that agreement — so
     // `--fore` came out similar to `--quiet`, which it is not. clap compares the bare
     // names for the same reason.
     let bare = typed.trim_start_matches('-');
-    let names: Vec<&str> = flags_in_scope(chain).flat_map(long_spellings).collect();
-    let near: Vec<String> = nearest(bare, names.into_iter())
-        .into_iter()
-        .map(|name| format!("--{name}"))
-        .collect();
-    let spelling = tip(
-        style,
-        "argument",
-        &near.iter().map(String::as_str).collect::<Vec<_>>(),
-    );
-    out.push_str(&spelling);
+    let near = nearest(bare, &long_names_in_scope(chain));
+    tip(out, style, "argument", "--", &near);
     // clap's rule, transcribed rather than invented, down to the exception. Its comment:
     // "`did_you_mean` is a lot more likely and should cause us to skip the `--` suggestion
     // with the one exception being that the CLI is trying to capture arguments". So a
@@ -462,16 +493,18 @@ fn unexpected_flag(
     // `tip` opens with the blank line separating the tips from the error above; when there was
     // no spelling to suggest, this supplies it instead.
     if as_value {
-        if spelling.is_empty() {
-            out.push('\n');
-        }
-        let _ = writeln!(
+        style.put_all(
             out,
-            "  {} to pass '{}' as a value, use '{}'",
-            style.valid("tip:"),
-            style.invalid(typed),
-            style.valid(&format!("-- {typed}"))
+            &[
+                (Plain, if near.is_empty() { "\n  " } else { "  " }),
+                (Valid, "tip:"),
+                (Plain, " to pass '"),
+                (Invalid, typed),
+                (Plain, "' as a value, use '"),
+            ],
         );
+        style.put_joined(out, Valid, &["-- ", typed]);
+        push_all(out, &["'\n"]);
     }
 }
 
@@ -506,34 +539,34 @@ fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String 
     let Some(meta) = meta else {
         return selector.to_string();
     };
-    let found = meta.flags.iter().find(|flag| {
-        flag.flag
-            .longs
-            .iter()
-            .any(|long| selector == format!("--{long}"))
-            || flag
-                .flag
-                .shorts
-                .iter()
-                .any(|short| selector == format!("-{}", *short as char))
-            || flag
-                .flag
-                .negate
-                .is_some_and(|negate| selector == format!("--{negate}"))
+    // Compared in place rather than by spelling each candidate out, which allocated per flag.
+    let long = selector.strip_prefix("--");
+    // A short is a byte, and it matches the one character after the dash that is that byte
+    // read as a `char`.
+    let short = selector.strip_prefix('-').and_then(|rest| {
+        let mut chars = rest.chars();
+        let only = u8::try_from(chars.next()?).ok()?;
+        chars.next().is_none().then_some(only)
     });
-    found
-        .map(|flag| {
-            let mut shown = crate::help::flag_spelling(flag);
-            if flag.flag.takes_value {
-                let name = flag.value_name.unwrap_or(flag.flag.name);
-                let _ = write!(shown, " <{name}>");
-                if flag.flag.variadic {
-                    shown.push('…');
-                }
-            }
-            shown
-        })
-        .unwrap_or_else(|| selector.to_string())
+    let found = meta.flags.iter().find(|flag| {
+        long.is_some_and(|long| flag.flag.longs.contains(&long) || flag.flag.negate == Some(long))
+            || short.is_some_and(|short| flag.flag.shorts.iter().any(|c| *c == short))
+    });
+    let Some(flag) = found else {
+        return selector.to_string();
+    };
+    let mut shown = crate::help::flag_spelling(flag);
+    if flag.flag.takes_value {
+        push_all(
+            &mut shown,
+            &[
+                " <",
+                flag.value_name.unwrap_or(flag.flag.name),
+                if flag.flag.variadic { ">…" } else { ">" },
+            ],
+        );
+    }
+    shown
 }
 
 /// The word that was bound to a named argument, recovered from argv.
@@ -843,7 +876,7 @@ pub fn report_view<'a>(
         code: code(error),
         subject: subject(error),
         location,
-        rendered: render_inner(spec, &rewritten, error, Style::PLAIN, Some(view)),
+        rendered: render_projected(spec, &rewritten, error, Style::PLAIN, view),
     }
 }
 
@@ -859,7 +892,7 @@ pub fn render(
     error: &Error<'_, '_>,
     style: Style,
 ) -> String {
-    render_inner(spec, argv, error, style, None)
+    render_plain(spec, argv, error, style)
 }
 
 /// Render the deprecations a command line used, the way a user should read them.
@@ -870,29 +903,33 @@ pub fn render(
 pub fn render_warnings(warnings: &[crate::warn::Warning<'_>], style: Style) -> String {
     let mut out = String::new();
     for warning in warnings {
-        out.push_str(&style.warning("warning:"));
-        out.push(' ');
-        out.push_str(&style.invalid(&crate::warn::subject(warning)));
-        out.push_str(" is deprecated");
+        style.put_all(
+            &mut out,
+            &[
+                (Ink::Warning, "warning:"),
+                (Ink::Plain, " "),
+                (Ink::Invalid, &crate::warn::subject(warning)),
+                (Ink::Plain, " is deprecated"),
+            ],
+        );
         if let Some(at) = warning.remove_at {
-            out.push_str(", removed at ");
-            out.push_str(&style.literal(at));
+            style.put_all(
+                &mut out,
+                &[(Ink::Plain, ", removed at "), (Ink::Literal, at)],
+            );
         }
         // A replacement is something to type, so it is coloured like anything else that would
         // have worked; an author's own message is prose, and colouring a sentence green would
         // claim more about it than is known.
         match crate::warn::tail(warning) {
-            Some(crate::warn::Tail::Message(message)) => {
-                out.push_str(": ");
-                out.push_str(message);
-            }
-            Some(crate::warn::Tail::Replacement(replacement)) => {
-                out.push_str(": use ");
-                out.push_str(&style.valid(replacement));
-            }
+            Some(crate::warn::Tail::Message(message)) => push_all(&mut out, &[": ", message]),
+            Some(crate::warn::Tail::Replacement(replacement)) => style.put_all(
+                &mut out,
+                &[(Ink::Plain, ": use "), (Ink::Valid, replacement)],
+            ),
             None => {}
         }
-        out.push('\n');
+        push_all(&mut out, &["\n"]);
     }
     out
 }
@@ -906,43 +943,60 @@ pub fn render_view<'a>(
     view: &'a ViewMeta<'a>,
 ) -> String {
     let (rewritten, _) = view_argv(argv, view);
-    render_inner(spec, &rewritten, error, style, Some(view))
+    render_projected(spec, &rewritten, error, style, view)
 }
 
-fn render_inner<'a>(
+/// The route a view-less render takes: resolve the command the words reached, then describe it.
+fn render_plain(
+    spec: &Spec<'_>,
+    argv: &[&std::ffi::OsStr],
+    error: &Error<'_, '_>,
+    style: Style,
+) -> String {
+    let taken = path_taken(spec.root.cmd, argv, None);
+    let cmd = *taken.last().expect("the root is always on the path");
+    let resolved = resolve(spec, &taken);
+    let resolved = resolved
+        .as_ref()
+        .map(|(names, chain)| (&names[..], &chain[..]));
+    describe(spec, spec.root.cmd, argv, error, style, None, cmd, resolved)
+}
+
+/// The same through a view, which first projects the promoted command into the root it is shown
+/// as.
+///
+/// Kept apart from [`render_plain`] so that a CLI declaring no views, whose generated code only
+/// ever reaches that one, carries none of the projection.
+fn render_projected<'a>(
     spec: &'a Spec<'a>,
     argv: &[&std::ffi::OsStr],
     error: &Error<'_, '_>,
     style: Style,
-    view: Option<&'a ViewMeta<'a>>,
+    view: &'a ViewMeta<'a>,
 ) -> String {
     let canonical_spec = spec;
-    let taken = path_taken(spec.root.cmd, argv, view);
+    let taken = path_taken(spec.root.cmd, argv, Some(view));
     let cmd = *taken.last().expect("the root is always on the path");
     let mut resolved = resolve(spec, &taken);
     let mut projected_spec = None;
     let mut projected_flags: Vec<FlagMeta<'_>> = Vec::new();
     let mut projected_groups = Vec::new();
-    let projection = view.and_then(|view| {
-        let depth = view.root.split_ascii_whitespace().count();
-        resolved
-            .as_ref()
-            .and_then(|(_, chain)| chain.get(depth).copied())
-            .map(|promoted| (view, depth, promoted))
-    });
-    if let Some((_, _, promoted)) = projection {
-        let (flags, groups) =
-            crate::help::view_root_fields(spec, promoted, view.expect("a projection has a view"));
+    let depth = view.root.split_ascii_whitespace().count();
+    let promoted = resolved
+        .as_ref()
+        .and_then(|(_, chain)| chain.get(depth).copied());
+    if let Some(promoted) = promoted {
+        let (flags, groups) = crate::help::view_root_fields(spec, promoted, view);
         projected_flags = flags;
         projected_groups = groups;
     }
-    let projected_root = projection.map(|(_, _, promoted)| CommandMeta {
+    let projected_root = promoted.map(|promoted| CommandMeta {
         flags: &projected_flags,
         groups: &projected_groups,
         ..*promoted
     });
-    if let (Some((view, depth, promoted)), Some(root), Some((names, chain))) =
-        (projection, projected_root.as_ref(), resolved.as_mut())
+    if let (Some(promoted), Some(root), Some((names, chain))) =
+        (promoted, projected_root.as_ref(), resolved.as_mut())
     {
         chain[0] = root;
         chain.drain(1..=depth.min(chain.len().saturating_sub(1)));
@@ -962,97 +1016,162 @@ fn render_inner<'a>(
         });
     }
     let spec = projected_spec.as_ref().unwrap_or(spec);
-    let chain: &[&CommandMeta<'_>] = resolved.as_ref().map(|(_, c)| &c[..]).unwrap_or(&[]);
-    let here = chain.last().copied();
-    let path = resolved
+    let resolved = resolved
         .as_ref()
-        .map(|(names, _)| names.join(" "))
-        .unwrap_or_else(|| spec.bin.unwrap_or(spec.name).to_string());
-    let usage = match (&resolved, here) {
-        (Some((names, _)), Some(meta)) => crate::help::usage_line(names, meta),
-        _ => path.clone(),
+        .map(|(names, chain)| (&names[..], &chain[..]));
+    describe(
+        spec,
+        canonical_spec.root.cmd,
+        argv,
+        error,
+        style,
+        Some(view),
+        cmd,
+        resolved,
+    )
+}
+
+/// One `error: …` line, assembled from its pieces.
+///
+/// Every failure opens with one. Given as data rather than each through its own `writeln!`, the
+/// messages share this routine instead of each compiling a copy of the formatting.
+#[inline(never)]
+fn error_line(out: &mut String, style: Style, parts: &[(Ink, &str)]) {
+    style.put_all(out, &[(Ink::Error, "error:"), (Ink::Plain, " ")]);
+    style.put_all(out, parts);
+    push_all(out, &["\n"]);
+}
+
+/// An indented line under the error, such as a missing argument's name.
+#[inline(never)]
+fn listed_line(out: &mut String, style: Style, text: &str) {
+    style.put_all(
+        out,
+        &[(Ink::Plain, "  "), (Ink::Valid, text), (Ink::Plain, "\n")],
+    );
+}
+
+/// The message for an error at the command `resolved` ends on.
+///
+/// `spec` and `resolved` are what the user is shown — projected, for a view — while
+/// `canonical_root` and `view` are what a fresh parse of `argv` needs to recover a value.
+#[allow(clippy::too_many_arguments)]
+fn describe(
+    spec: &Spec<'_>,
+    canonical_root: &Command<'_>,
+    argv: &[&std::ffi::OsStr],
+    error: &Error<'_, '_>,
+    style: Style,
+    view: Option<&ViewMeta<'_>>,
+    cmd: &Command<'_>,
+    resolved: Option<(&[&str], &[&CommandMeta<'_>])>,
+) -> String {
+    use Ink::{Invalid, Literal, Plain};
+
+    let chain: &[&CommandMeta<'_>] = resolved.map(|(_, c)| c).unwrap_or(&[]);
+    let here = chain.last().copied();
+    // The command as a user would type it, for the two places that need it.
+    let path = || {
+        resolved
+            .map(|(names, _)| names.join(" "))
+            .unwrap_or_else(|| spec.bin.unwrap_or(spec.name).to_string())
     };
-    let presented_route: Vec<&Command<'_>> = chain.iter().map(|meta| meta.cmd).collect();
+
+    // The argument or flag most errors are about, spelled the way the help spells it. Worked out
+    // once here rather than in each arm, which is one call and one `String` to drop.
+    let named = match error {
+        Error::MissingRequired { name }
+        | Error::DuplicateFlag { name }
+        | Error::InvalidChoice { name, .. }
+        | Error::ConflictingFlags { name, .. }
+        | Error::VarTooFew { name, .. }
+        | Error::VarTooMany { name, .. } => shown(here, name),
+        Error::InvalidValue(invalid) => shown(here, invalid.name),
+        Error::ArgRequiresDoubleDash { arg } => shown(here, arg.name),
+        _ => String::new(),
+    };
 
     let mut out = String::new();
-    let mut with_usage = false;
+    // The errors about the shape of the command line carry a usage block, as clap's do; the ones
+    // about a single value clear this, on the grounds that the shape was right.
+    let mut with_usage = true;
 
     match error {
-        // The shape of the command line: clap shows a usage block for these.
-        Error::UnknownFlag { token } => {
-            with_usage = true;
-            let whole = String::from_utf8_lossy(token);
-            let typed = flag_named(&whole);
-            let capture = value_capture(argv, token, here);
-            unexpected_flag(&mut out, style, typed, chain, capture);
-        }
-        Error::UnexpectedArg { token } => {
-            with_usage = true;
+        Error::UnknownFlag { token } | Error::UnexpectedArg { token } => {
             let word = String::from_utf8_lossy(token);
-            // What the word *looks like* decides, before anything about the command does. A
-            // dash-prefixed token is a flag the user got wrong — telling them `--forc` is an
-            // unrecognized subcommand is answering a question they did not ask, and it happens
-            // on exactly the commands where the mistake is easiest to make: the ones with
-            // subcommands, where a bare word would have been one.
-            if word.starts_with('-') && word != "-" {
-                // Same rule as a refused flag: a value attached with `=` is not part of the
-                // name, and the word reaches here by the same spelling mistake.
-                let named = flag_named(&word);
+            // For an unexpected argument, what the word *looks like* decides, before anything
+            // about the command does. A dash-prefixed token is a flag the user got wrong —
+            // telling them `--forc` is an unrecognized subcommand is answering a question they
+            // did not ask, and it happens on exactly the commands where the mistake is easiest
+            // to make: the ones with subcommands, where a bare word would have been one.
+            if matches!(error, Error::UnknownFlag { .. }) || (word.starts_with('-') && word != "-")
+            {
+                // A value attached with `=` is not part of the name, and an unexpected
+                // argument reaches here by the same spelling mistake as a refused flag.
+                let typed = flag_named(&word);
                 let capture = value_capture(argv, token, here);
-                unexpected_flag(&mut out, style, named, chain, capture);
+                unexpected_flag(&mut out, style, typed, chain, capture);
             } else if cmd.subcommands.is_empty() {
-                let _ = writeln!(
-                    out,
-                    "{} unexpected argument '{}' found",
-                    style.error("error:"),
-                    style.invalid(&word)
+                error_line(
+                    &mut out,
+                    style,
+                    &[
+                        (Plain, "unexpected argument '"),
+                        (Invalid, &word),
+                        (Plain, "' found"),
+                    ],
                 );
             } else {
-                let _ = writeln!(
-                    out,
-                    "{} unrecognized subcommand '{}'",
-                    style.error("error:"),
-                    style.invalid(&word)
+                error_line(
+                    &mut out,
+                    style,
+                    &[
+                        (Plain, "unrecognized subcommand '"),
+                        (Invalid, &word),
+                        (Plain, "'"),
+                    ],
                 );
                 // Every name a subcommand answers to, hidden ones included: a user who typed a
                 // near miss of an old alias should be told the name it still works under.
-                let names: Vec<&str> = cmd
-                    .subcommands
-                    .iter()
-                    .flat_map(|sub| core::iter::once(sub.name).chain(sub.aliases.iter().copied()))
-                    .collect();
-                out.push_str(&tip(
-                    style,
-                    "subcommand",
-                    &nearest(&word, names.into_iter()),
-                ));
+                let mut names: Vec<&str> = Vec::new();
+                for sub in cmd.subcommands {
+                    names.push(sub.name);
+                    names.extend_from_slice(sub.aliases);
+                }
+                tip(&mut out, style, "subcommand", "", &nearest(&word, &names));
             }
         }
         Error::SubcommandConflict { subcommand } => {
-            with_usage = true;
-            let _ = writeln!(
-                out,
-                "{} the subcommand '{}' cannot be used with arguments on its parent command",
-                style.error("error:"),
-                style.invalid(subcommand.name)
+            error_line(
+                &mut out,
+                style,
+                &[
+                    (Plain, "the subcommand '"),
+                    (Invalid, subcommand.name),
+                    (
+                        Plain,
+                        "' cannot be used with arguments on its parent command",
+                    ),
+                ],
             );
         }
         Error::MissingRequired { name } => {
-            with_usage = true;
-            let _ = writeln!(
-                out,
-                "{} the following required arguments were not provided:",
-                style.error("error:")
+            error_line(
+                &mut out,
+                style,
+                &[(Plain, "the following required arguments were not provided:")],
             );
-            let _ = writeln!(out, "  {}", style.valid(&shown(here, name)));
+            listed_line(&mut out, style, &named);
         }
         Error::DuplicateFlag { name } => {
-            with_usage = true;
-            let _ = writeln!(
-                out,
-                "{} the argument '{}' cannot be used multiple times",
-                style.error("error:"),
-                style.invalid(&shown(here, name))
+            error_line(
+                &mut out,
+                style,
+                &[
+                    (Plain, "the argument '"),
+                    (Invalid, &named),
+                    (Plain, "' cannot be used multiple times"),
+                ],
             );
         }
         Error::MissingSubcommand => {
@@ -1060,35 +1179,36 @@ fn render_inner<'a>(
             // clap prints the command's help page here, including the available subcommands,
             // while keeping exit 2; an error plus only `<SUBCOMMAND>` tells the reader what is
             // missing and withholds the list they need to fix it.
-            let help_style = if style == Style::COLOURED {
-                crate::help::Style::COLOURED
-            } else {
-                crate::help::Style::PLAIN
-            };
-            // `spec`, `chain`, and this route have already been projected above. Feeding the
-            // canonical host route through the view renderer a second time makes it look for
-            // host-only ancestors under the promoted root and loses the useful full help page.
+            let help_style = crate::help::Style::coloured_if(style.coloured);
+            // `spec`, `chain`, and this route have already been projected for a view. Feeding
+            // the canonical host route through the view renderer a second time makes it look
+            // for host-only ancestors under the promoted root and loses the useful full help
+            // page.
+            let presented_route: Vec<&Command<'_>> = chain.iter().map(|meta| meta.cmd).collect();
             let help = crate::help::render_at_styled(spec, &presented_route, false, help_style);
             if let Some(help) = help {
                 return help;
             }
-            with_usage = true;
-            let _ = writeln!(
-                out,
-                "{} '{}' requires a subcommand but one was not provided",
-                style.error("error:"),
-                style.invalid(&path)
+            error_line(
+                &mut out,
+                style,
+                &[
+                    (Plain, "'"),
+                    (Invalid, &path()),
+                    (Plain, "' requires a subcommand but one was not provided"),
+                ],
             );
         }
-
-        // About one value: clap shows no usage block, on the grounds that the shape was right.
         Error::MissingFlagValue { flag } => {
-            let name = flag
-                .longs
-                .first()
-                .map(|l| format!("--{l}"))
-                .or_else(|| flag.shorts.first().map(|s| format!("-{}", *s as char)))
-                .unwrap_or_else(|| flag.name.to_string());
+            with_usage = false;
+            let mut short = [0; 4];
+            let (dashes, spelled): (&str, &str) = if let Some(long) = flag.longs.first() {
+                ("--", long)
+            } else if let Some(first) = flag.shorts.first() {
+                ("-", (*first as char).encode_utf8(&mut short))
+            } else {
+                ("", flag.name)
+            };
             let value = here
                 .and_then(|meta| {
                     meta.flags
@@ -1097,127 +1217,161 @@ fn render_inner<'a>(
                         .and_then(|m| m.value_name)
                 })
                 .unwrap_or(flag.name);
-            if flag.require_equals {
-                let _ = writeln!(
-                    out,
-                    "{} equal sign is needed when assigning values to '{}'",
-                    style.error("error:"),
-                    style.invalid(&format!("{name}=<{value}>"))
-                );
+            let (before, joint, after) = if flag.require_equals {
+                ("equal sign is needed when assigning values to '", "=<", "'")
             } else {
-                let _ = writeln!(
-                    out,
-                    "{} a value is required for '{}' but none was supplied",
-                    style.error("error:"),
-                    style.invalid(&format!("{name} <{value}>"))
-                );
-            }
+                ("a value is required for '", " <", "' but none was supplied")
+            };
+            let mut wanted = String::new();
+            push_all(&mut wanted, &[dashes, spelled, joint, value, ">"]);
+            error_line(
+                &mut out,
+                style,
+                &[(Plain, before), (Invalid, &wanted), (Plain, after)],
+            );
         }
         Error::InvalidChoice { name, choices } => {
-            let shown_name = shown(here, name);
-            let typed = value_bound_to(canonical_spec.root.cmd, argv, name, choices, view);
+            with_usage = false;
+            let typed = value_bound_to(canonical_root, argv, name, choices, view);
             match typed.as_deref() {
-                Some(value) => {
-                    let _ = writeln!(
-                        out,
-                        "{} invalid value '{}' for '{}'",
-                        style.error("error:"),
-                        style.invalid(value),
-                        style.literal(&shown_name)
-                    );
-                }
+                Some(value) => error_line(
+                    &mut out,
+                    style,
+                    &[
+                        (Plain, "invalid value '"),
+                        (Invalid, value),
+                        (Plain, "' for '"),
+                        (Literal, &named),
+                        (Plain, "'"),
+                    ],
+                ),
                 // Nothing in argv bound to it, which means the value came from somewhere else —
                 // an environment variable, or a default the spec declared.
-                None => {
-                    let _ = writeln!(
-                        out,
-                        "{} invalid value for '{}'",
-                        style.error("error:"),
-                        style.literal(&shown_name)
-                    );
-                }
-            }
-            let listed: Vec<String> = choices.iter().map(|c| style.valid(c)).collect();
-            let _ = writeln!(out, "  [possible values: {}]", listed.join(", "));
-            if let Some(typed) = typed {
-                out.push_str(&tip(
+                None => error_line(
+                    &mut out,
                     style,
-                    "value",
-                    &nearest(&typed, choices.iter().copied()),
-                ));
+                    &[
+                        (Plain, "invalid value for '"),
+                        (Literal, &named),
+                        (Plain, "'"),
+                    ],
+                ),
+            }
+            push_all(&mut out, &["  [possible values: "]);
+            for (i, choice) in choices.iter().enumerate() {
+                style.put_all(
+                    &mut out,
+                    &[
+                        (Plain, if i == 0 { "" } else { ", " }),
+                        (Ink::Valid, choice),
+                    ],
+                );
+            }
+            push_all(&mut out, &["]\n"]);
+            if let Some(typed) = typed {
+                tip(&mut out, style, "value", "", &nearest(&typed, choices));
             }
         }
         Error::InvalidValue(invalid) => {
-            let _ = writeln!(
-                out,
-                "{} invalid value '{}' for '{}': {}",
-                style.error("error:"),
-                style.invalid(&invalid.value),
-                style.literal(&shown(here, invalid.name)),
-                invalid.reason
+            with_usage = false;
+            error_line(
+                &mut out,
+                style,
+                &[
+                    (Plain, "invalid value '"),
+                    (Invalid, &invalid.value),
+                    (Plain, "' for '"),
+                    (Literal, &named),
+                    (Plain, "': "),
+                    (Plain, &invalid.reason),
+                ],
             );
         }
         Error::MissingGroup { group, members } => {
-            with_usage = true;
             // clap's own shape for a required group, which is the required-arguments
             // message with the members listed under it. The group's name goes on the
             // first line rather than into the list, since it is not something to type.
-            let _ = writeln!(
-                out,
-                "{} one of the following required arguments was not provided ({group}):",
-                style.error("error:")
+            error_line(
+                &mut out,
+                style,
+                &[
+                    (
+                        Plain,
+                        "one of the following required arguments was not provided (",
+                    ),
+                    (Plain, group),
+                    (Plain, "):"),
+                ],
             );
             for member in *members {
-                let _ = writeln!(out, "  {}", style.valid(&group_member_shown(here, member)));
+                listed_line(&mut out, style, &group_member_shown(here, member));
             }
         }
         Error::ConflictingFlags { name, other } => {
             // Spelled by `help`, like every other name in this module — and like clap, which
             // writes `the argument '--force' cannot be used with '--jobs <JOBS>'`.
-            let _ = writeln!(
-                out,
-                "{} the argument '{}' cannot be used with '{}'",
-                style.error("error:"),
-                style.invalid(&shown(here, name)),
-                style.invalid(&shown(here, other))
-            );
-            with_usage = true;
-        }
-        Error::VarTooFew { name, min, got } => {
-            let _ = writeln!(
-                out,
-                "{} {min} values required for '{}' but {got} were provided",
-                style.error("error:"),
-                style.literal(&shown(here, name))
+            error_line(
+                &mut out,
+                style,
+                &[
+                    (Plain, "the argument '"),
+                    (Invalid, &named),
+                    (Plain, "' cannot be used with '"),
+                    (Invalid, &shown(here, other)),
+                    (Plain, "'"),
+                ],
             );
         }
-        Error::VarTooMany { name, max, got } => {
-            let _ = writeln!(
-                out,
-                "{} {max} values allowed for '{}' but {got} were provided",
-                style.error("error:"),
-                style.literal(&shown(here, name))
+        Error::VarTooFew {
+            name,
+            min: count,
+            got,
+        }
+        | Error::VarTooMany {
+            name,
+            max: count,
+            got,
+        } => {
+            with_usage = false;
+            let bound = if matches!(error, Error::VarTooFew { .. }) {
+                " values required for '"
+            } else {
+                " values allowed for '"
+            };
+            error_line(
+                &mut out,
+                style,
+                &[
+                    (Plain, &count.to_string()),
+                    (Plain, bound),
+                    (Literal, &named),
+                    (Plain, "' but "),
+                    (Plain, &got.to_string()),
+                    (Plain, " were provided"),
+                ],
             );
         }
         Error::ArgRequiresDoubleDash { arg } => {
-            with_usage = true;
-            let _ = writeln!(
-                out,
-                "{} '{}' can only be given after '{}'",
-                style.error("error:"),
-                style.literal(&shown(here, arg.name)),
-                style.literal("--")
+            error_line(
+                &mut out,
+                style,
+                &[
+                    (Plain, "'"),
+                    (Literal, &named),
+                    (Plain, "' can only be given after '"),
+                    (Literal, "--"),
+                    (Plain, "'"),
+                ],
             );
         }
         Error::TooDeep => {
-            let _ = writeln!(
-                out,
-                "{} this command line nests deeper than the parser goes",
-                style.error("error:")
+            with_usage = false;
+            error_line(
+                &mut out,
+                style,
+                &[(Plain, "this command line nests deeper than the parser goes")],
             );
         }
-        // Not a failure. A caller reaching here with one has skipped handling it, and inventing a
-        // message would hide that rather than help.
         // Neither is a failure, and a caller that has not handled them before reaching here
         // has a bug this cannot paper over.
         Error::Help { .. }
@@ -1229,17 +1383,28 @@ fn render_inner<'a>(
     }
 
     if with_usage {
-        let _ = writeln!(
-            out,
-            "\n{} {}",
-            style.heading("Usage:"),
-            style.literal(&usage)
+        let usage = match (resolved, here) {
+            (Some((names, _)), Some(meta)) => crate::help::usage_line(names, meta),
+            _ => path(),
+        };
+        style.put_all(
+            &mut out,
+            &[
+                (Plain, "\n"),
+                (Ink::Heading, "Usage:"),
+                (Plain, " "),
+                (Literal, &usage),
+                (Plain, "\n"),
+            ],
         );
     }
-    let _ = writeln!(
-        out,
-        "\nFor more information, try '{}'.",
-        style.literal("--help")
+    style.put_all(
+        &mut out,
+        &[
+            (Plain, "\nFor more information, try '"),
+            (Literal, "--help"),
+            (Plain, "'.\n"),
+        ],
     );
     out
 }
@@ -2291,4 +2456,530 @@ mod tests {
             "{message}"
         );
     }
+
+    /// Every message shape, plain and coloured, pinned byte for byte.
+    ///
+    /// The other tests here look for the part of a message they are about; this one holds the
+    /// whole of each, so a change to how the text is assembled cannot move a space, a newline, or
+    /// an escape code without failing. Escapes are shown as `^[` to keep the expectation readable.
+    fn every_shape(style: Style) -> String {
+        static EQUALS: Flag = Flag {
+            key: 9,
+            name: "mode",
+            longs: &["mode"],
+            require_equals: true,
+            ..Flag::VALUE
+        };
+        let cases: Vec<(&[&str], Error<'static, 'static>)> = vec![
+            (&["use"], Error::UnknownFlag { token: b"--fore" }),
+            (&["use"], Error::UnknownFlag { token: b"--zzz" }),
+            (&["exec"], Error::UnknownFlag { token: b"--fore" }),
+            (&["user"], Error::UnknownFlag { token: b"--zzz" }),
+            (&[], Error::UnexpectedArg { token: b"usse" }),
+            (&[], Error::UnexpectedArg { token: b"usr" }),
+            (&[], Error::UnexpectedArg { token: b"zzz" }),
+            (&[], Error::UnexpectedArg { token: b"--quie" }),
+            (&["use"], Error::UnexpectedArg { token: b"extra" }),
+            (&["use"], Error::SubcommandConflict { subcommand: &USE }),
+            (&["use"], Error::MissingRequired { name: "TOOL" }),
+            (&["use"], Error::DuplicateFlag { name: "jobs" }),
+            (&["use"], Error::MissingFlagValue { flag: &JOBS }),
+            (&["use"], Error::MissingFlagValue { flag: &FORCE }),
+            (&["use"], Error::MissingFlagValue { flag: &EQUALS }),
+            (
+                &["use", "tool", "bash", "zssh"],
+                Error::InvalidChoice {
+                    name: "SHELLS",
+                    choices: &["bash", "zsh"],
+                },
+            ),
+            (
+                &["use"],
+                Error::InvalidChoice {
+                    name: "SHELLS",
+                    choices: &["bash", "zsh"],
+                },
+            ),
+            (
+                &["use", "--jobs", "wat"],
+                Error::InvalidValue(Box::new(crate::InvalidValue {
+                    name: "jobs",
+                    value: "wat".to_string(),
+                    reason: "invalid digit found in string".to_string(),
+                })),
+            ),
+            (
+                &["use"],
+                Error::MissingGroup {
+                    group: "input",
+                    members: &["--jobs", "-f", "--no-force", "--elsewhere"],
+                },
+            ),
+            (
+                &["use"],
+                Error::ConflictingFlags {
+                    name: "force",
+                    other: "jobs",
+                },
+            ),
+            (
+                &["use"],
+                Error::VarTooFew {
+                    name: "SHELLS",
+                    min: 2,
+                    got: 1,
+                },
+            ),
+            (
+                &["use"],
+                Error::VarTooMany {
+                    name: "SHELLS",
+                    max: 1,
+                    got: 3,
+                },
+            ),
+            (&["exec"], Error::ArgRequiresDoubleDash { arg: &CMDLINE }),
+            (&["use"], Error::TooDeep),
+        ];
+        let mut all = String::new();
+        for (words, error) in cases {
+            let owned: Vec<std::ffi::OsString> =
+                words.iter().map(std::ffi::OsString::from).collect();
+            let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|o| o.as_os_str()).collect();
+            all.push_str(&render(&SPEC, &argv, &error, style));
+            all.push_str("----\n");
+        }
+        // The same shapes through a view, where the usage line and the names are the promoted
+        // command's rather than the host's.
+        static VIEW: ViewMeta = ViewMeta {
+            id: "runner",
+            name: "runner",
+            bin: "runner",
+            root: "use",
+            all_globals: true,
+            globals: &[],
+        };
+        static VIEW_SPEC: Spec = Spec {
+            views: &[VIEW],
+            ..SPEC
+        };
+        let view_cases: Vec<(&[&str], Error<'static, 'static>)> = vec![
+            (
+                &["runner", "--fore"],
+                Error::UnknownFlag { token: b"--fore" },
+            ),
+            (
+                &["runner", "--quie"],
+                Error::UnknownFlag { token: b"--quie" },
+            ),
+            (&["runner"], Error::MissingRequired { name: "TOOL" }),
+            (
+                &["runner", "tool", "zssh"],
+                Error::InvalidChoice {
+                    name: "SHELLS",
+                    choices: &["bash", "zsh"],
+                },
+            ),
+        ];
+        for (words, error) in view_cases {
+            let argv: Vec<&std::ffi::OsStr> = words.iter().map(std::ffi::OsStr::new).collect();
+            all.push_str(&render_view(&VIEW_SPEC, &argv, &error, style, &VIEW));
+            all.push_str("----\n");
+        }
+        all.replace('\u{1b}', "^[")
+    }
+
+    #[test]
+    fn a_warning_is_coloured_like_a_failure() {
+        use crate::warn::Warning;
+        let warnings = [
+            Warning::flag("--old", None, None, Some("2.0.0")),
+            Warning::flag("--old", Some("use --new"), None, None),
+            Warning::env("OLD_TOKEN", Some("APP_TOKEN")),
+        ];
+        assert_eq!(
+            render_warnings(&warnings, Style::PLAIN),
+            "warning: --old is deprecated, removed at 2.0.0\n\
+             warning: --old is deprecated: use --new\n\
+             warning: OLD_TOKEN is deprecated: use APP_TOKEN\n",
+        );
+        assert_eq!(
+            render_warnings(&warnings, Style::COLOURED).replace('\u{1b}', "^["),
+            "^[[1m^[[33mwarning:^[[0m ^[[33m--old^[[0m is deprecated, removed at ^[[1m2.0.0^[[0m\n\
+             ^[[1m^[[33mwarning:^[[0m ^[[33m--old^[[0m is deprecated: use --new\n\
+             ^[[1m^[[33mwarning:^[[0m ^[[33mOLD_TOKEN^[[0m is deprecated: use ^[[32mAPP_TOKEN^[[0m\n",
+        );
+    }
+
+    #[test]
+    fn every_message_is_unchanged_plain() {
+        let got = every_shape(Style::PLAIN);
+        assert_eq!(got, EVERY_SHAPE_PLAIN, "\n{got}");
+    }
+
+    #[test]
+    fn every_message_is_unchanged_coloured() {
+        let got = every_shape(Style::COLOURED);
+        assert_eq!(got, EVERY_SHAPE_COLOURED, "\n{got}");
+    }
+
+    const EVERY_SHAPE_PLAIN: &str = r#"error: unexpected argument '--fore' found
+
+  tip: a similar argument exists: '--force'
+
+Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: unexpected argument '--zzz' found
+
+  tip: to pass '--zzz' as a value, use '-- --zzz'
+
+Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: unexpected argument '--fore' found
+
+  tip: a similar argument exists: '--force'
+  tip: to pass '--fore' as a value, use '-- --fore'
+
+Usage: ex exec [-f --force] <-- COMMAND>…
+
+For more information, try '--help'.
+----
+error: unexpected argument '--zzz' found
+
+Usage: ex user [--local]
+
+For more information, try '--help'.
+----
+error: unrecognized subcommand 'usse'
+
+  tip: some similar subcommands exist: 'user', 'use'
+
+Usage: ex [--quiet] [--setup] [SUBCOMMAND]
+
+For more information, try '--help'.
+----
+error: unrecognized subcommand 'usr'
+
+  tip: some similar subcommands exist: 'use', 'user'
+
+Usage: ex [--quiet] [--setup] [SUBCOMMAND]
+
+For more information, try '--help'.
+----
+error: unrecognized subcommand 'zzz'
+
+Usage: ex [--quiet] [--setup] [SUBCOMMAND]
+
+For more information, try '--help'.
+----
+error: unexpected argument '--quie' found
+
+  tip: a similar argument exists: '--quiet'
+
+Usage: ex [--quiet] [--setup] [SUBCOMMAND]
+
+For more information, try '--help'.
+----
+error: unexpected argument 'extra' found
+
+Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: the subcommand 'use' cannot be used with arguments on its parent command
+
+Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: the following required arguments were not provided:
+  <TOOL>
+
+Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: the argument '--jobs' cannot be used multiple times
+
+Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: a value is required for '--jobs <JOBS>' but none was supplied
+
+For more information, try '--help'.
+----
+error: a value is required for '--force <force>' but none was supplied
+
+For more information, try '--help'.
+----
+error: equal sign is needed when assigning values to '--mode=<mode>'
+
+For more information, try '--help'.
+----
+error: invalid value 'zssh' for '[SHELLS]…'
+  [possible values: bash, zsh]
+
+  tip: a similar value exists: 'zsh'
+
+For more information, try '--help'.
+----
+error: invalid value for '[SHELLS]…'
+  [possible values: bash, zsh]
+
+For more information, try '--help'.
+----
+error: invalid value 'wat' for '--jobs': invalid digit found in string
+
+For more information, try '--help'.
+----
+error: one of the following required arguments was not provided (input):
+  --jobs <JOBS>
+  --force
+  --force
+  --elsewhere
+
+Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: the argument '--force' cannot be used with '--jobs'
+
+Usage: ex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: 2 values required for '[SHELLS]…' but 1 were provided
+
+For more information, try '--help'.
+----
+error: 1 values allowed for '[SHELLS]…' but 3 were provided
+
+For more information, try '--help'.
+----
+error: '<-- COMMAND>…' can only be given after '--'
+
+Usage: ex exec [-f --force] <-- COMMAND>…
+
+For more information, try '--help'.
+----
+error: this command line nests deeper than the parser goes
+
+For more information, try '--help'.
+----
+error: unexpected argument '--fore' found
+
+  tip: a similar argument exists: '--force'
+
+Usage: runner [FLAGS] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: unexpected argument '--quie' found
+
+  tip: a similar argument exists: '--quiet'
+
+Usage: runner [FLAGS] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: the following required arguments were not provided:
+  <TOOL>
+
+Usage: runner [FLAGS] <TOOL> [SHELLS]…
+
+For more information, try '--help'.
+----
+error: invalid value 'zssh' for '[SHELLS]…'
+  [possible values: bash, zsh]
+
+  tip: a similar value exists: 'zsh'
+
+For more information, try '--help'.
+----
+"#;
+
+    const EVERY_SHAPE_COLOURED: &str = r#"^[[1m^[[31merror:^[[0m unexpected argument '^[[33m--fore^[[0m' found
+
+  ^[[32mtip:^[[0m a similar argument exists: '^[[32m--force^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unexpected argument '^[[33m--zzz^[[0m' found
+
+  ^[[32mtip:^[[0m to pass '^[[33m--zzz^[[0m' as a value, use '^[[32m-- --zzz^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unexpected argument '^[[33m--fore^[[0m' found
+
+  ^[[32mtip:^[[0m a similar argument exists: '^[[32m--force^[[0m'
+  ^[[32mtip:^[[0m to pass '^[[33m--fore^[[0m' as a value, use '^[[32m-- --fore^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex exec [-f --force] <-- COMMAND>…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unexpected argument '^[[33m--zzz^[[0m' found
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex user [--local]^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unrecognized subcommand '^[[33musse^[[0m'
+
+  ^[[32mtip:^[[0m some similar subcommands exist: '^[[32muser^[[0m', '^[[32muse^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex [--quiet] [--setup] [SUBCOMMAND]^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unrecognized subcommand '^[[33musr^[[0m'
+
+  ^[[32mtip:^[[0m some similar subcommands exist: '^[[32muse^[[0m', '^[[32muser^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex [--quiet] [--setup] [SUBCOMMAND]^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unrecognized subcommand '^[[33mzzz^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex [--quiet] [--setup] [SUBCOMMAND]^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unexpected argument '^[[33m--quie^[[0m' found
+
+  ^[[32mtip:^[[0m a similar argument exists: '^[[32m--quiet^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex [--quiet] [--setup] [SUBCOMMAND]^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unexpected argument '^[[33mextra^[[0m' found
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m the subcommand '^[[33muse^[[0m' cannot be used with arguments on its parent command
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m the following required arguments were not provided:
+  ^[[32m<TOOL>^[[0m
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m the argument '^[[33m--jobs^[[0m' cannot be used multiple times
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m a value is required for '^[[33m--jobs <JOBS>^[[0m' but none was supplied
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m a value is required for '^[[33m--force <force>^[[0m' but none was supplied
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m equal sign is needed when assigning values to '^[[33m--mode=<mode>^[[0m'
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m invalid value '^[[33mzssh^[[0m' for '^[[1m[SHELLS]…^[[0m'
+  [possible values: ^[[32mbash^[[0m, ^[[32mzsh^[[0m]
+
+  ^[[32mtip:^[[0m a similar value exists: '^[[32mzsh^[[0m'
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m invalid value for '^[[1m[SHELLS]…^[[0m'
+  [possible values: ^[[32mbash^[[0m, ^[[32mzsh^[[0m]
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m invalid value '^[[33mwat^[[0m' for '^[[1m--jobs^[[0m': invalid digit found in string
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m one of the following required arguments was not provided (input):
+  ^[[32m--jobs <JOBS>^[[0m
+  ^[[32m--force^[[0m
+  ^[[32m--force^[[0m
+  ^[[32m--elsewhere^[[0m
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m the argument '^[[33m--force^[[0m' cannot be used with '^[[33m--jobs^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex use [-f --force] [--jobs <JOBS>] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m 2 values required for '^[[1m[SHELLS]…^[[0m' but 1 were provided
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m 1 values allowed for '^[[1m[SHELLS]…^[[0m' but 3 were provided
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m '^[[1m<-- COMMAND>…^[[0m' can only be given after '^[[1m--^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mex exec [-f --force] <-- COMMAND>…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m this command line nests deeper than the parser goes
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unexpected argument '^[[33m--fore^[[0m' found
+
+  ^[[32mtip:^[[0m a similar argument exists: '^[[32m--force^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mrunner [FLAGS] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m unexpected argument '^[[33m--quie^[[0m' found
+
+  ^[[32mtip:^[[0m a similar argument exists: '^[[32m--quiet^[[0m'
+
+^[[1m^[[4mUsage:^[[0m ^[[1mrunner [FLAGS] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m the following required arguments were not provided:
+  ^[[32m<TOOL>^[[0m
+
+^[[1m^[[4mUsage:^[[0m ^[[1mrunner [FLAGS] <TOOL> [SHELLS]…^[[0m
+
+For more information, try '^[[1m--help^[[0m'.
+----
+^[[1m^[[31merror:^[[0m invalid value '^[[33mzssh^[[0m' for '^[[1m[SHELLS]…^[[0m'
+  [possible values: ^[[32mbash^[[0m, ^[[32mzsh^[[0m]
+
+  ^[[32mtip:^[[0m a similar value exists: '^[[32mzsh^[[0m'
+
+For more information, try '^[[1m--help^[[0m'.
+----
+"#;
 }

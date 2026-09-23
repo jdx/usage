@@ -542,6 +542,15 @@ impl Style {
         palette: Palette::DEFAULT,
     };
 
+    /// [`Style::COLOURED`] or [`Style::PLAIN`], decided at run time without a branch that
+    /// duplicates whatever is rendered with the result.
+    pub(crate) const fn coloured_if(coloured: bool) -> Style {
+        Style {
+            coloured,
+            palette: Palette::DEFAULT,
+        }
+    }
+
     /// Remap the four semantic roles. Plain rendering ignores the palette.
     pub const fn palette(self, palette: Palette) -> Self {
         Style { palette, ..self }
