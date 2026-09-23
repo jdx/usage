@@ -1726,27 +1726,36 @@ fn parse_partial_traced(
             out.cmd.find_subcommand(&input[idx].word)
         };
         if let Some(subcommand) = selected_command {
-            let boundary_has_parent = out.cmd.args_conflicts_with_subcommands
-                && implicit_default
-                && input[idx].word.starts_with('-')
-                && !input[idx].word.starts_with("--")
-                && {
-                    let child_flags = gather_flags(subcommand);
-                    let mut found = false;
-                    for short in input[idx].word[1..].chars() {
-                        let key = format!("-{short}");
-                        if out.available_flags.contains_key(&key)
-                            || supplied_short(spec, &out.cmds, short).is_some()
-                        {
-                            found = true;
-                            break;
+            // Whether the shared boundary token carries a letter of the parent's own, which
+            // `args_conflicts_with_subcommands` refuses next to a subcommand. A plus bundle
+            // is read the same way: `+e` on the parent is as much an argument as `-e` is.
+            let boundary_has_parent =
+                out.cmd.args_conflicts_with_subcommands && implicit_default && {
+                    let word = &input[idx].word;
+                    let plus = word.starts_with('+');
+                    let sigil = if plus { '+' } else { '-' };
+                    if !plus && (!word.starts_with('-') || word.starts_with("--")) {
+                        false
+                    } else {
+                        let child_flags = gather_flags(subcommand);
+                        let mut found = false;
+                        for letter in word[1..].chars() {
+                            let key = format!("{sigil}{letter}");
+                            if out.available_flags.contains_key(&key)
+                                || (!plus && supplied_short(spec, &out.cmds, letter).is_some())
+                            {
+                                found = true;
+                                break;
+                            }
+                            match child_flags.get(&key) {
+                                // A negated letter takes no value however its flag reads.
+                                Some(flag) if flag.negate.as_deref() == Some(&key) => {}
+                                Some(flag) if flag.arg.is_none() => {}
+                                _ => break,
+                            }
                         }
-                        match child_flags.get(&key) {
-                            Some(flag) if flag.arg.is_none() => {}
-                            _ => break,
-                        }
+                        found
                     }
-                    found
                 };
             if out.cmd.args_conflicts_with_subcommands && (command_arg_found || boundary_has_parent)
             {
@@ -11606,6 +11615,38 @@ cmd "run"
             err.to_string().contains("cannot be used with arguments"),
             "{err}"
         );
+    }
+
+    #[test]
+    fn a_boundary_bundle_carrying_a_parent_letter_conflicts_whichever_sigil_it_wears() {
+        // The corpus cannot express this one: `SubcommandConflict` has no `ErrorCode`, so
+        // the dash case is not pinned there either.
+        for (sigil, negate) in [("-", ""), ("+", " negate=\"+e\"")] {
+            let spec: Spec = format!(
+                r#"
+name "ex"
+bin "ex"
+args_conflicts_with_subcommands #true
+default_subcommand "run"
+default_subcommand_flags #true
+flag "-e"{negate}
+cmd "run" {{
+    flag "-x"{x}
+    arg "[args]..."
+}}
+"#,
+                x = if sigil == "+" { " negate=\"+x\"" } else { "" }
+            )
+            .parse()
+            .unwrap();
+            let err = Parser::new(&spec)
+                .parse(&input(&["ex", &format!("{sigil}ex")]))
+                .unwrap_err();
+            assert!(
+                err.to_string().contains("cannot be used with arguments"),
+                "{sigil}ex carries the parent's own {sigil}e: {err}"
+            );
+        }
     }
 
     #[test]
