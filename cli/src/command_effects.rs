@@ -50,7 +50,7 @@ mod tests {
     fn walk(cmd: &CommandMeta, path: &mut Vec<String>, out: &mut Vec<(String, bool)>) {
         for sub in cmd.subcommands {
             path.push(sub.cmd.name.to_string());
-            out.push((path.join(" "), sub.effect.is_some()));
+            out.push((path.join(" "), sub.extra.effect.is_some()));
             walk(sub, path, out);
             path.pop();
         }
@@ -106,7 +106,7 @@ mod tests {
         // `usage g markdown -f x.kdl` only reads, the same command with
         // `--out-file` writes.
         let md = find("generate markdown").unwrap();
-        assert_eq!(md.effect, Some(Effect::Read));
+        assert_eq!(md.extra.effect, Some(Effect::Read));
         let flag = |name: &str| md.flags.iter().find(|f| f.flag.name == name).unwrap();
         assert_eq!(flag("out-file").extra.effect, Some(Effect::Write));
         assert_eq!(flag("out-dir").extra.effect, Some(Effect::Write));
@@ -147,7 +147,7 @@ mod tests {
         // case. That test looks for a flag called `out-file`, so it cannot see this one.
         let completion = find("generate completion").unwrap();
         // The command itself still only reads, which is the composition rule doing its job.
-        assert_eq!(completion.effect, Some(Effect::Read));
+        assert_eq!(completion.extra.effect, Some(Effect::Read));
         let flag = |name: &str| {
             completion
                 .flags
@@ -166,7 +166,7 @@ mod tests {
         // `generate sdk` cannot print to stdout, so there is no read-only way
         // to invoke it and the effect belongs on the command.
         let sdk = find("generate sdk").unwrap();
-        assert_eq!(sdk.effect, Some(Effect::Write));
+        assert_eq!(sdk.extra.effect, Some(Effect::Write));
         assert!(sdk
             .flags
             .iter()

@@ -2526,9 +2526,9 @@ fn command_metadata_on_args_struct_reaches_subcommands() {
     let spec = StructMetadataCli::spec();
     let meta = spec.root.subcommands[0];
     assert_eq!(meta.cmd.aliases, ["go", "secret-run"]);
-    assert_eq!(meta.hidden_aliases, ["secret-run"]);
+    assert_eq!(meta.extra.hidden_aliases, ["secret-run"]);
     assert!(meta.hide);
-    assert_eq!(meta.after_long_help, Some("More details."));
+    assert_eq!(meta.extra.after_long_help, Some("More details."));
 
     assert!(StructMetadataCli::parse_from(&[OsStr::new("go")]).is_ok());
     assert!(StructMetadataCli::parse_from(&[OsStr::new("secret-run")]).is_ok());
@@ -2638,8 +2638,8 @@ fn subcommand_help_headings_reach_help_and_the_portable_spec() {
 #[test]
 fn typed_help_width_reaches_help_and_the_portable_spec() {
     let spec = SizedHelp::spec();
-    assert_eq!(spec.root.term_width, Some(36));
-    assert_eq!(spec.root.max_term_width, Some(20));
+    assert_eq!(spec.root.extra.term_width, Some(36));
+    assert_eq!(spec.root.extra.max_term_width, Some(20));
     let page = usage::argv::help::long_help(spec, &["sized-help"], &[spec.root]);
     assert!(
         page.contains("                A description long\n")
@@ -2671,7 +2671,7 @@ fn typed_help_width_reaches_help_and_the_portable_spec() {
 #[test]
 fn typed_next_line_help_reaches_help_and_the_portable_spec() {
     let spec = NextLineHelp::spec();
-    assert!(spec.root.next_line_help);
+    assert!(spec.root.extra.next_line_help);
     let page = usage::argv::help::short_help(spec, &["next-help"], &[spec.root]);
     assert!(
         page.contains("--config <CONFIG>\n    Config file."),
@@ -2691,7 +2691,7 @@ fn typed_next_line_help_reaches_help_and_the_portable_spec() {
 #[test]
 fn typed_flatten_help_reaches_help_and_the_portable_spec() {
     let spec = FlatHelp::spec();
-    assert!(spec.root.flatten_help);
+    assert!(spec.root.extra.flatten_help);
     let page = usage::argv::help::short_help(spec, &["flat-help"], &[spec.root]);
     assert!(page.contains("Usage: flat-help run"), "{page}");
     assert!(!page.contains("\nCommands:\n"), "{page}");

@@ -889,8 +889,8 @@ struct Surrounded {
 #[test]
 fn the_roots_surrounding_text_stays_on_the_root_page() {
     let spec = Surrounded::spec();
-    assert_eq!(spec.root.before_help, Some("Read this first."));
-    assert_eq!(spec.root.after_help, Some("And this after."));
+    assert_eq!(spec.root.extra.before_help, Some("Read this first."));
+    assert_eq!(spec.root.extra.after_help, Some("And this after."));
 
     let go = spec.root.subcommands[0];
     let page = usage_argv::help::short_help(spec, &["surrounded", "go"], &[spec.root, go]);

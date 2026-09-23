@@ -49,7 +49,10 @@ fn recursive_help_is_explicitly_unavailable_in_the_small_build() {
 #[should_panic(expected = "require the `help-advanced` feature")]
 fn hand_written_flattened_metadata_is_not_silently_ignored() {
     let root = usage_rs::spec::CommandMeta {
-        flatten_help: true,
+        extra: &usage_rs::spec::CommandExtra {
+            flatten_help: true,
+            ..*StaticSpec::spec().root.extra
+        },
         ..*StaticSpec::spec().root
     };
     let spec = usage_rs::spec::Spec {

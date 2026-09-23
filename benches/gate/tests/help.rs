@@ -12,7 +12,7 @@
 
 use usage::{Spec as LibSpec, SpecCommand};
 use usage_argv::help::{long_help, short_help, usage_line};
-use usage_argv::spec::CommandMeta;
+use usage_argv::spec::{CommandExtra, CommandMeta};
 
 /// mise's committed spec, which the shadow was generated from.
 fn mise_spec() -> LibSpec {
@@ -258,21 +258,24 @@ fn the_text_around_a_page_is_rendered_where_the_reference_puts_it() {
         cmd: &GO,
         about: Some("Go somewhere"),
         long_about: Some("Go somewhere."),
-        before_help: Some("Read this first."),
-        before_long_help: Some("Read this first, at length."),
-        after_help: Some("And this after."),
-        after_long_help: Some("And this after, at length."),
         flags: &[usage_argv::spec::FlagMeta {
             flag: &DEEP,
             help: Some("Dig"),
             long_help: Some("Dig deeper.\n\n    indented\n    \nand a line of only spaces above"),
             ..usage_argv::spec::FlagMeta::EMPTY
         }],
-        examples: &[usage_argv::spec::Example {
-            code: "ex go --fast",
-            header: None,
-            help: Some("the quick way"),
-        }],
+        extra: &CommandExtra {
+            before_help: Some("Read this first."),
+            before_long_help: Some("Read this first, at length."),
+            after_help: Some("And this after."),
+            after_long_help: Some("And this after, at length."),
+            examples: &[usage_argv::spec::Example {
+                code: "ex go --fast",
+                header: None,
+                help: Some("the quick way"),
+            }],
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
@@ -319,9 +322,12 @@ fn root_surrounding_text_stays_on_the_root_page() {
     };
     static ROOT_META: CommandMeta = CommandMeta {
         cmd: &ROOT,
-        before_help: Some("Above every page."),
-        after_help: Some("Below every page."),
         subcommands: &[&GO_META],
+        extra: &CommandExtra {
+            before_help: Some("Above every page."),
+            after_help: Some("Below every page."),
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
@@ -359,8 +365,11 @@ fn the_root_writes_its_own_surrounding_text() {
     };
     static ROOT_META: CommandMeta = CommandMeta {
         cmd: &ROOT,
-        before_help: Some("Above."),
-        after_long_help: Some("Below, at length."),
+        extra: &CommandExtra {
+            before_help: Some("Above."),
+            after_long_help: Some("Below, at length."),
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
@@ -408,11 +417,14 @@ fn root_examples_stay_on_the_root_page() {
     static OWN_META: CommandMeta = CommandMeta {
         cmd: &OWN,
         about: Some("Own"),
-        examples: &[usage_argv::spec::Example {
-            code: "ex own --mine",
-            header: None,
-            help: None,
-        }],
+        extra: &CommandExtra {
+            examples: &[usage_argv::spec::Example {
+                code: "ex own --mine",
+                header: None,
+                help: None,
+            }],
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static ROOT: usage_argv::Command = usage_argv::Command {
@@ -422,12 +434,15 @@ fn root_examples_stay_on_the_root_page() {
     };
     static ROOT_META: CommandMeta = CommandMeta {
         cmd: &ROOT,
-        examples: &[usage_argv::spec::Example {
-            code: "ex go --fast",
-            header: None,
-            help: Some("the quick way"),
-        }],
         subcommands: &[&GO_META, &OWN_META],
+        extra: &CommandExtra {
+            examples: &[usage_argv::spec::Example {
+                code: "ex go --fast",
+                header: None,
+                help: Some("the quick way"),
+            }],
+            ..CommandExtra::EMPTY
+        },
         ..CommandMeta::EMPTY
     };
     static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
