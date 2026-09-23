@@ -1432,13 +1432,13 @@ impl<'a> Shown<'a> {
                 .longs
                 .iter()
                 .copied()
-                .find(|long| !meta.hidden_longs.contains(long)),
+                .find(|long| !meta.extra.hidden_longs.contains(long)),
             short: meta
                 .flag
                 .shorts
                 .iter()
                 .copied()
-                .find(|short| !meta.hidden_shorts.contains(short)),
+                .find(|short| !meta.extra.hidden_shorts.contains(short)),
             negate: meta.flag.negate.is_some(),
         }
     }
@@ -1462,14 +1462,12 @@ impl<'a> Shown<'a> {
             .chain(meta.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
             .collect();
         Shown {
-            long: meta
-                .flag
-                .longs
-                .iter()
-                .copied()
-                .find(|l| !meta.hidden_longs.contains(l) && !taken.contains(&format!("--{l}"))),
+            long: meta.flag.longs.iter().copied().find(|l| {
+                !meta.extra.hidden_longs.contains(l) && !taken.contains(&format!("--{l}"))
+            }),
             short: meta.flag.shorts.iter().copied().find(|s| {
-                !meta.hidden_shorts.contains(s) && !taken.contains(&format!("-{}", *s as char))
+                !meta.extra.hidden_shorts.contains(s)
+                    && !taken.contains(&format!("-{}", *s as char))
             }),
             negate: meta.flag.negate.is_some_and(|n| {
                 let spelling = format!("--{n}");
@@ -1534,9 +1532,10 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     if flag.takes_value {
         // Angled where the value must be given, squared where it need not — the same brackets
         // an argument uses, and for the same reason. pitchfork's `--bump` is the fleet's case.
-        let exact = exact_arity(meta.value_var_min, meta.value_var_max);
-        if meta.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
+        let exact = exact_arity(meta.extra.value_var_min, meta.extra.value_var_max);
+        if meta.extra.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
             let name = meta
+                .extra
                 .value_names
                 .first()
                 .copied()
@@ -1551,8 +1550,9 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
                     index == 0,
                 );
             }
-        } else if meta.value_names.len() <= 1 {
+        } else if meta.extra.value_names.len() <= 1 {
             let name = meta
+                .extra
                 .value_names
                 .first()
                 .copied()
@@ -1566,7 +1566,7 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
                 true,
             );
         } else {
-            for (index, name) in meta.value_names.iter().enumerate() {
+            for (index, name) in meta.extra.value_names.iter().enumerate() {
                 append_flag_value(
                     &mut out,
                     name,
@@ -1576,7 +1576,7 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
                 );
             }
         }
-        if flag.variadic && meta.value_names.len() <= 1 && exact.is_none() {
+        if flag.variadic && meta.extra.value_names.len() <= 1 && exact.is_none() {
             out.push('…');
         }
     }
@@ -1881,8 +1881,16 @@ fn short_sections(
                     f.choices
                 },
                 if f.hide_env { None } else { f.env },
-                if f.hide_env { &[] } else { f.env_fallback },
-                if f.hide_env { &[] } else { f.deprecated_env },
+                if f.hide_env {
+                    &[]
+                } else {
+                    f.extra.env_fallback
+                },
+                if f.hide_env {
+                    &[]
+                } else {
+                    f.extra.deprecated_env
+                },
                 if f.hide_default_value { &[] } else { f.default },
                 AnnotationLayout {
                     indent: BLOCK_INDENT,
@@ -1892,9 +1900,13 @@ fn short_sections(
             flag_notes(out, f, BLOCK_INDENT, width);
             return;
         }
-        let deprecation =
-            deprecation_label(f.deprecated, f.deprecated_warn_at, f.deprecated_remove_at);
-        let environment = inline_environment_notes(f.hide_env, f.env_fallback, f.deprecated_env);
+        let deprecation = deprecation_label(
+            f.extra.deprecated,
+            f.extra.deprecated_warn_at,
+            f.extra.deprecated_remove_at,
+        );
+        let environment =
+            inline_environment_notes(f.hide_env, f.extra.env_fallback, f.extra.deprecated_env);
         let notes = inline_annotations(
             if f.hide_possible_values {
                 &[]
@@ -2318,12 +2330,12 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
                     if flag.hide_env {
                         &[]
                     } else {
-                        flag.env_fallback
+                        flag.extra.env_fallback
                     },
                     if flag.hide_env {
                         &[]
                     } else {
-                        flag.deprecated_env
+                        flag.extra.deprecated_env
                     },
                     if flag.hide_default_value {
                         &[]
@@ -2339,12 +2351,15 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
                 continue;
             }
             let deprecation = deprecation_label(
-                flag.deprecated,
-                flag.deprecated_warn_at,
-                flag.deprecated_remove_at,
+                flag.extra.deprecated,
+                flag.extra.deprecated_warn_at,
+                flag.extra.deprecated_remove_at,
             );
-            let environment =
-                inline_environment_notes(flag.hide_env, flag.env_fallback, flag.deprecated_env);
+            let environment = inline_environment_notes(
+                flag.hide_env,
+                flag.extra.env_fallback,
+                flag.extra.deprecated_env,
+            );
             let notes = inline_annotations(
                 if flag.hide_possible_values {
                     &[]
@@ -2546,7 +2561,7 @@ fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a
     ) -> core::cmp::Ordering {
         let key = |item: &FlagMeta<'_>| {
             let position = declaration_position(item, declared);
-            (item.display_order.unwrap_or(position), position)
+            (item.extra.display_order.unwrap_or(position), position)
         };
         key(a).cmp(&key(b))
     }
@@ -2630,13 +2645,13 @@ pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
     meta.flag
         .longs
         .iter()
-        .find(|long| !meta.hidden_longs.contains(long))
+        .find(|long| !meta.extra.hidden_longs.contains(long))
         .map(|long| format!("--{long}"))
         .or_else(|| {
             meta.flag
                 .shorts
                 .iter()
-                .find(|short| !meta.hidden_shorts.contains(short))
+                .find(|short| !meta.extra.hidden_shorts.contains(short))
                 .map(|short| format!("-{}", *short as char))
         })
         .or_else(|| meta.flag.negate.map(|negate| format!("--{negate}")))
@@ -2976,7 +2991,7 @@ fn long_sections(
                 width,
                 meta.next_line_help,
             );
-            admonitions(out, f.admonitions, width);
+            admonitions(out, f.extra.admonitions, width);
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -2985,8 +3000,16 @@ fn long_sections(
                     f.choices
                 },
                 if f.hide_env { None } else { f.env },
-                if f.hide_env { &[] } else { f.env_fallback },
-                if f.hide_env { &[] } else { f.deprecated_env },
+                if f.hide_env {
+                    &[]
+                } else {
+                    f.extra.env_fallback
+                },
+                if f.hide_env {
+                    &[]
+                } else {
+                    f.extra.deprecated_env
+                },
                 if f.hide_default_value { &[] } else { f.default },
                 AnnotationLayout { indent, width },
             );
@@ -3011,7 +3034,7 @@ fn long_sections(
         |out, (f, usage)| {
             let text = f.long_help.or(f.help);
             let indent = entry(out, usage, text, flag_col, width, meta.next_line_help);
-            admonitions(out, f.admonitions, width);
+            admonitions(out, f.extra.admonitions, width);
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -3020,8 +3043,16 @@ fn long_sections(
                     f.choices
                 },
                 if f.hide_env { None } else { f.env },
-                if f.hide_env { &[] } else { f.env_fallback },
-                if f.hide_env { &[] } else { f.deprecated_env },
+                if f.hide_env {
+                    &[]
+                } else {
+                    f.extra.env_fallback
+                },
+                if f.hide_env {
+                    &[]
+                } else {
+                    f.extra.deprecated_env
+                },
                 if f.hide_default_value { &[] } else { f.default },
                 AnnotationLayout { indent, width },
             );
@@ -3466,9 +3497,9 @@ fn inline_environment_notes(hide: bool, fallbacks: &[&str], deprecated: &[&str])
 
 fn flag_notes(out: &mut String, meta: &FlagMeta<'_>, indent: usize, width: usize) {
     if let Some(label) = deprecation_label(
-        meta.deprecated,
-        meta.deprecated_warn_at,
-        meta.deprecated_remove_at,
+        meta.extra.deprecated,
+        meta.extra.deprecated_warn_at,
+        meta.extra.deprecated_remove_at,
     ) {
         write_wrapped_indented(out, &label, width, indent);
     }
@@ -3558,7 +3589,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 width,
                 meta.next_line_help,
             );
-            admonitions(out, flag.admonitions, width);
+            admonitions(out, flag.extra.admonitions, width);
             long_annotations(
                 out,
                 if flag.hide_possible_values {
@@ -3570,12 +3601,12 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 if flag.hide_env {
                     &[]
                 } else {
-                    flag.env_fallback
+                    flag.extra.env_fallback
                 },
                 if flag.hide_env {
                     &[]
                 } else {
-                    flag.deprecated_env
+                    flag.extra.deprecated_env
                 },
                 if flag.hide_default_value {
                     &[]
@@ -3872,7 +3903,7 @@ fn own_and_global<'a>(
                 .iter()
                 .position(|candidate| core::ptr::eq(*candidate, flag))
                 .unwrap_or(usize::MAX);
-            (flag.display_order.unwrap_or(position), position)
+            (flag.extra.display_order.unwrap_or(position), position)
         };
         sort_rows(&mut inherited, &mut |a, b| key(a.0).cmp(&key(b.0)));
 
@@ -4566,7 +4597,9 @@ mod style_tests {
         render_view_at_styled, styled_flag_usage, styled_help, styled_inline, usage_line, wrap,
         Palette, Shown, Style,
     };
-    use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
+    use crate::spec::{
+        ArgMeta, ClauseMeta, CommandMeta, Example, FlagExtra, FlagMeta, Spec, ViewMeta,
+    };
     use crate::{Arg, ArgAction, Clause, Command, Flag};
 
     #[test]
@@ -4598,22 +4631,14 @@ mod style_tests {
     #[test]
     fn filtered_help_rows_keep_declaration_order_as_the_tie_breaker() {
         macro_rules! check {
-            ($meta:ident, $order:ident) => {{
+            ($order:ident, $row:expr) => {{
+                let row = $row;
                 let declared = [
-                    $meta::EMPTY,
-                    $meta {
-                        display_order: Some(1),
-                        ..$meta::EMPTY
-                    },
-                    $meta::EMPTY,
-                    $meta {
-                        display_order: Some(0),
-                        ..$meta::EMPTY
-                    },
-                    $meta {
-                        display_order: Some(1),
-                        ..$meta::EMPTY
-                    },
+                    row(None),
+                    row(Some(1)),
+                    row(None),
+                    row(Some(0)),
+                    row(Some(1)),
                 ];
                 // Filtering out a row must not renumber the remaining defaults. Shuffle rows
                 // so equal explicit orders must use declaration position.
@@ -4624,8 +4649,18 @@ mod style_tests {
                 }
             }};
         }
-        check!(ArgMeta, order_args);
-        check!(FlagMeta, order_flags);
+        check!(order_args, |display_order| ArgMeta {
+            display_order,
+            ..ArgMeta::EMPTY
+        });
+        let extras = [None, Some(0), Some(1)].map(|display_order| FlagExtra {
+            display_order,
+            ..FlagExtra::EMPTY
+        });
+        check!(order_flags, |display_order: Option<usize>| FlagMeta {
+            extra: &extras[display_order.map_or(0, |order| order + 1)],
+            ..FlagMeta::EMPTY
+        });
     }
 
     #[test]
@@ -4910,7 +4945,10 @@ mod style_tests {
         let flag_meta = FlagMeta {
             flag: &flag,
             help: Some("Use the old mode"),
-            deprecated: Some("use --new"),
+            extra: &FlagExtra {
+                deprecated: Some("use --new"),
+                ..FlagExtra::EMPTY
+            },
             ..FlagMeta::EMPTY
         };
         let sub_cmd = Command {
@@ -4954,7 +4992,10 @@ mod style_tests {
         let flags = [
             FlagMeta {
                 flag: &old,
-                deprecated: Some("use --new"),
+                extra: &FlagExtra {
+                    deprecated: Some("use --new"),
+                    ..FlagExtra::EMPTY
+                },
                 ..FlagMeta::EMPTY
             },
             FlagMeta {
@@ -4996,8 +5037,11 @@ mod style_tests {
         let meta = FlagMeta {
             flag: &flag,
             hide_env: true,
-            env_fallback: &["OLD_TOKEN"],
-            deprecated_env: &["LEGACY_TOKEN"],
+            extra: &FlagExtra {
+                env_fallback: &["OLD_TOKEN"],
+                deprecated_env: &["LEGACY_TOKEN"],
+                ..FlagExtra::EMPTY
+            },
             ..FlagMeta::EMPTY
         };
         let mut page = String::new();

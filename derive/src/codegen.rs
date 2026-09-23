@@ -2832,63 +2832,72 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     quote! {
         #completer_decl
         pub static #name: usage_argv::spec::FlagMeta = usage_argv::spec::FlagMeta {
-            effect: #effect,
             complete: #completer,
-            complete_type: #complete_type,
             flag: &#table,
-            display_order: #display_order,
             help: #help,
             long_help: #long_help,
-            admonitions: #admonitions,
-            deprecated: #deprecated,
-            deprecated_warn_at: #deprecated_warn_at,
-            deprecated_remove_at: #deprecated_remove_at,
             env: #env,
-            env_fallback: &[#(#env_fallback),*],
-            deprecated_env: &[#(#deprecated_env),*],
             default: #default,
             help_heading: #help_heading,
-            surface: #surface,
-            available_if: &[#(#available_if),*],
             value_name: #value_name,
-            value_names: &[#(#value_names),*],
             hide: #hide,
             hide_default_value: #hide_default_value,
             hide_env: #hide_env,
-            hide_env_values: #hide_env_values,
             hide_possible_values: #hide_possible_values,
             hide_short_help: #hide_short_help,
             hide_long_help: #hide_long_help,
             count: #count,
             repeatable: #repeatable,
-            hidden_shorts: &[],
-            hidden_longs: &[#(#hidden_longs),*],
             required: #required,
             value_optional: #value_optional,
             accepted_choices: #accepted_choices,
             choices: #choices,
-            choice_aliases: #choice_aliases,
-            choice_details: #choice_details,
             ignore_case: #ignore_case,
             allow_unknown_choices: #allow_unknown_choices,
-            validate: #validate,
-            validate_error: #validate_error,
-            var_min: #var_min,
-            var_max: #var_max,
-            value_var_min: #value_var_min,
-            value_var_max: #value_var_max,
-            overrides: &[#(#overrides),*],
-            conflicts: &[#(#conflicts),*],
-            requires: &[#(#requires),*],
-            requires_if: &[#(#requires_if),*],
-            default_if: &[#(#default_if),*],
-            exclusive: #exclusive,
-            delimiter: #delimiter,
-            required_if: &[#(#required_if),*],
-            required_if_eq: &[#(#required_if_eq),*],
-            required_if_eq_all: &[#(#required_if_eq_all),*],
-            required_unless: &[#(#required_unless),*],
-            required_unless_all: &[#(#required_unless_all),*],
+            // Built as a constant so `shared` can swap an empty one for the single static
+            // every such flag points at, which keeps these fields out of most flags' tables.
+            extra: {
+                const __USAGE_EXTRA: usage_argv::spec::FlagExtra<'static> =
+                    usage_argv::spec::FlagExtra {
+                    effect: #effect,
+                    complete_type: #complete_type,
+                    display_order: #display_order,
+                    admonitions: #admonitions,
+                    deprecated: #deprecated,
+                    deprecated_warn_at: #deprecated_warn_at,
+                    deprecated_remove_at: #deprecated_remove_at,
+                    env_fallback: &[#(#env_fallback),*],
+                    deprecated_env: &[#(#deprecated_env),*],
+                    surface: #surface,
+                    available_if: &[#(#available_if),*],
+                    value_names: &[#(#value_names),*],
+                    hide_env_values: #hide_env_values,
+                    hidden_shorts: &[],
+                    hidden_longs: &[#(#hidden_longs),*],
+                    choice_aliases: #choice_aliases,
+                    choice_details: #choice_details,
+                    validate: #validate,
+                    validate_error: #validate_error,
+                    var_min: #var_min,
+                    var_max: #var_max,
+                    value_var_min: #value_var_min,
+                    value_var_max: #value_var_max,
+                    overrides: &[#(#overrides),*],
+                    conflicts: &[#(#conflicts),*],
+                    requires: &[#(#requires),*],
+                    requires_if: &[#(#requires_if),*],
+                    default_if: &[#(#default_if),*],
+                    exclusive: #exclusive,
+                    delimiter: #delimiter,
+                    required_if: &[#(#required_if),*],
+                    required_if_eq: &[#(#required_if_eq),*],
+                    required_if_eq_all: &[#(#required_if_eq_all),*],
+                    required_unless: &[#(#required_unless),*],
+                    required_unless_all: &[#(#required_unless_all),*],
+                        ..usage_argv::spec::FlagExtra::EMPTY
+                    };
+                usage_argv::spec::FlagExtra::shared(&__USAGE_EXTRA)
+            },
             ..usage_argv::spec::FlagMeta::EMPTY
         };
     }
@@ -11013,9 +11022,16 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 value_name: #value_name,
                 accepted_choices: #accepted_choices,
                 choices: #choices,
-                choice_aliases: #choice_aliases,
-                choice_details: #choice_details,
                 ignore_case: #ignore_case,
+                extra: {
+                    const __USAGE_EXTRA: usage_argv::spec::FlagExtra<'static> =
+                        usage_argv::spec::FlagExtra {
+                            choice_aliases: #choice_aliases,
+                            choice_details: #choice_details,
+                            ..usage_argv::spec::FlagExtra::EMPTY
+                        };
+                    usage_argv::spec::FlagExtra::shared(&__USAGE_EXTRA)
+                },
                 ..usage_argv::spec::FlagMeta::EMPTY
             }
         }

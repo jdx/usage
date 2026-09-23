@@ -636,7 +636,7 @@ fn command_flags_can_name_clause_arguments() {
         .iter()
         .find(|flag| flag.flag.name == "force")
         .expect("force metadata");
-    assert_eq!(force.requires, ["tool"]);
+    assert_eq!(force.extra.requires, ["tool"]);
 
     RelatedClause::parse_from(&[
         std::ffi::OsStr::new("--force"),

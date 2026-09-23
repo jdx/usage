@@ -30,8 +30,8 @@ use usage::{
 };
 use usage_argv::spec::{
     AdmonitionKind, AdmonitionMeta, ArgMeta, ChoiceAliasMeta, ChoiceMeta, ClauseMeta, CommandMeta,
-    DefaultIf, Effect, Example, ExitCodeMeta, FlagMeta, Framing as ArgvFraming, GroupMeta,
-    HeadingMeta, OutputMeta, RequiredIfEq, RequiresIf,
+    DefaultIf, Effect, Example, ExitCodeMeta, FlagExtra, FlagMeta, Framing as ArgvFraming,
+    GroupMeta, HeadingMeta, OutputMeta, RequiredIfEq, RequiresIf,
 };
 use usage_argv::{Arg, Clause, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -432,16 +432,9 @@ fn flag_meta(
     FlagMeta {
         flag: table,
         builtin: f.builtin,
-        hidden_shorts: bytes(&f.hidden_short_aliases),
-        hidden_longs: strs(&f.hidden_aliases),
         help: opt(&f.help),
         long_help: opt(&f.help_long),
-        admonitions: admonitions(&f.admonitions),
-        deprecated: opt(&f.deprecated),
-        deprecated_warn_at: opt(&f.deprecated_warn_at),
-        deprecated_remove_at: opt(&f.deprecated_remove_at),
         value_name: arg.map(|a| leak(&a.name)),
-        value_names: arg.map_or(&[], |a| strs(&a.value_names)),
         // The value's own bracket bit, which is not the flag's — usage-lib renders a flag from
         // two independent `required` bits and a spec can write either without the other. Folded
         // with the value's own default the way usage-lib folds a positional's, so
@@ -449,89 +442,98 @@ fn flag_meta(
         // *flag* is a different statement and stays in `default` below.
         value_optional: arg.is_some_and(|a| !a.required || !a.default.is_empty()),
         env: opt(&f.env),
-        env_fallback: strs(&f.env_fallback),
-        deprecated_env: strs(&f.deprecated_env),
         default: strs(&f.default),
         accepted_choices: accepted_choices(choices),
         choices: visible_choices(choices),
-        choice_aliases: choice_aliases(choices),
-        choice_details: choice_details(choices),
         ignore_case: choices.is_some_and(|c| c.ignore_case),
         allow_unknown_choices: choices.is_some_and(|c| !c.strict),
-        validate: arg.and_then(|a| a.validate.as_deref()).map(leak),
-        validate_error: arg.and_then(|a| a.validate_error.as_deref()).map(leak),
         required: f.required,
         hide: f.hide,
         hide_default_value: f.hide_default_value,
         hide_env: f.hide_env,
-        hide_env_values: f.hide_env_values,
         hide_possible_values: f.hide_possible_values,
         hide_short_help: f.hide_short_help,
         hide_long_help: f.hide_long_help,
         count: f.count,
         repeatable: f.var,
-        // The separator as declared, a `char`: the metadata is the cold model and says what
-        // the spec said, where the binding table beside it holds the byte binding counts by.
-        delimiter: arg.and_then(|a| a.delimiter),
-        var_min: f.var_min,
-        var_max: f.var_max,
-        value_var_min: arg.and_then(|a| a.var_min),
-        value_var_max: arg.and_then(|a| a.var_max),
-        overrides: strs(&f.overrides),
-        conflicts: strs(&f.conflicts),
-        requires: strs(&f.requires),
-        requires_if: Box::leak(
-            f.requires_if
-                .iter()
-                .map(|condition| RequiresIf {
-                    value: leak(&condition.value),
-                    requires: leak(&condition.requires),
-                })
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        ),
-        default_if: Box::leak(
-            f.default_if
-                .iter()
-                .map(|condition| DefaultIf {
-                    selector: leak(&condition.selector),
-                    when: condition.when.as_deref().map(leak),
-                    value: leak(&condition.value),
-                })
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        ),
-        exclusive: f.exclusive,
-        required_if: strs(&f.required_if),
-        required_if_eq: Box::leak(
-            f.required_if_eq
-                .iter()
-                .map(|condition| RequiredIfEq {
-                    selector: leak(&condition.selector),
-                    value: leak(&condition.value),
-                })
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        ),
-        required_if_eq_all: Box::leak(
-            f.required_if_eq_all
-                .iter()
-                .map(|condition| RequiredIfEq {
-                    selector: leak(&condition.selector),
-                    value: leak(&condition.value),
-                })
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        ),
-        required_unless: strs(&f.required_unless),
-        required_unless_all: strs(&f.required_unless_all),
         help_heading: opt(&f.help_heading),
-        surface: opt(&f.surface),
-        available_if: strs(&f.available_if),
-        display_order: f.display_order,
-        effect: f.effect.map(effect),
-        complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
         complete: NO_COMPLETER,
+        extra: Box::leak(Box::new(FlagExtra {
+            hidden_shorts: bytes(&f.hidden_short_aliases),
+            hidden_longs: strs(&f.hidden_aliases),
+            admonitions: admonitions(&f.admonitions),
+            deprecated: opt(&f.deprecated),
+            deprecated_warn_at: opt(&f.deprecated_warn_at),
+            deprecated_remove_at: opt(&f.deprecated_remove_at),
+            value_names: arg.map_or(&[], |a| strs(&a.value_names)),
+            env_fallback: strs(&f.env_fallback),
+            deprecated_env: strs(&f.deprecated_env),
+            choice_aliases: choice_aliases(choices),
+            choice_details: choice_details(choices),
+            validate: arg.and_then(|a| a.validate.as_deref()).map(leak),
+            validate_error: arg.and_then(|a| a.validate_error.as_deref()).map(leak),
+            hide_env_values: f.hide_env_values,
+            // The separator as declared, a `char`: the metadata is the cold model and says what
+            // the spec said, where the binding table beside it holds the byte binding counts by.
+            delimiter: arg.and_then(|a| a.delimiter),
+            var_min: f.var_min,
+            var_max: f.var_max,
+            value_var_min: arg.and_then(|a| a.var_min),
+            value_var_max: arg.and_then(|a| a.var_max),
+            overrides: strs(&f.overrides),
+            conflicts: strs(&f.conflicts),
+            requires: strs(&f.requires),
+            requires_if: Box::leak(
+                f.requires_if
+                    .iter()
+                    .map(|condition| RequiresIf {
+                        value: leak(&condition.value),
+                        requires: leak(&condition.requires),
+                    })
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            ),
+            default_if: Box::leak(
+                f.default_if
+                    .iter()
+                    .map(|condition| DefaultIf {
+                        selector: leak(&condition.selector),
+                        when: condition.when.as_deref().map(leak),
+                        value: leak(&condition.value),
+                    })
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            ),
+            exclusive: f.exclusive,
+            required_if: strs(&f.required_if),
+            required_if_eq: Box::leak(
+                f.required_if_eq
+                    .iter()
+                    .map(|condition| RequiredIfEq {
+                        selector: leak(&condition.selector),
+                        value: leak(&condition.value),
+                    })
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            ),
+            required_if_eq_all: Box::leak(
+                f.required_if_eq_all
+                    .iter()
+                    .map(|condition| RequiredIfEq {
+                        selector: leak(&condition.selector),
+                        value: leak(&condition.value),
+                    })
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            ),
+            required_unless: strs(&f.required_unless),
+            required_unless_all: strs(&f.required_unless_all),
+            surface: opt(&f.surface),
+            available_if: strs(&f.available_if),
+            display_order: f.display_order,
+            effect: f.effect.map(effect),
+            complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
+        })),
     }
 }
 
@@ -912,7 +914,7 @@ mod tests {
         let built = build_spec(&spec);
 
         assert_eq!(built.min_usage_version, Some("2.1.0"));
-        assert_eq!(built.root.flags[0].complete_type, Some("path"));
+        assert_eq!(built.root.flags[0].extra.complete_type, Some("path"));
         assert_eq!(built.root.args[0].complete_type, Some("dir"));
         // A Rust completer is a function the binary calls, which a spec's `run=` is not — so
         // this stays `None` however a spec is written, and says so rather than defaulting.
@@ -971,11 +973,11 @@ mod tests {
 
         // The value's name, not the flag's: the reference completes a flag by handing its value
         // to the code that completes a positional, so `complete "out"` answers for nothing.
-        assert_eq!(built.root.flags[0].complete_type, Some("path"));
+        assert_eq!(built.root.flags[0].extra.complete_type, Some("path"));
         // `<KEY>` against a node stored as `key`, on a subcommand, from the top level.
         assert_eq!(get.args[0].complete_type, Some("file"));
         // And nothing invented for a value no node names.
-        assert_eq!(get.flags[0].complete_type, None);
+        assert_eq!(get.flags[0].extra.complete_type, None);
     }
 
     /// The spec's own nodes are consulted before the command's, which is the reference's order
