@@ -2178,73 +2178,18 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             argv: &[::std::ffi::OsString],
         ) -> ::std::option::Option<::std::string::String> {
             let request = usage_argv::complete::CompletionRequest::parse(argv)?;
-            let candidates_for = request.candidates_for.clone();
-            let mut split = request.split.clone();
-            let __usage_selected_view = split.words.first().and_then(|__usage_program| {
-                usage_argv::spec::view_for_program(
-                    Self::spec(),
-                    ::std::ffi::OsStr::new(__usage_program),
-                )
-            });
-            if let ::std::option::Option::Some(name) = candidates_for {
-                // Walked here as well, because a `--candidates` request names a completer and
-                // says nothing about where the cursor is — and the completer still wants the
-                // words its own command was given.
-                let position = match __usage_selected_view {
-                    ::std::option::Option::Some(view) =>
-                        usage_argv::complete::walk_view(
-                            Self::spec().root.cmd,
-                            split.argv(),
-                            view,
-                        ),
-                    ::std::option::Option::None =>
-                        usage_argv::complete::walk(Self::spec().root.cmd, split.argv()),
-                };
-                let __usage_words = split.argv();
-                let __usage_path: ::std::vec::Vec<(
-                    &usage_argv::Command<'_>,
-                    &[::std::string::String],
-                )> = position
-                    .path
-                    .iter()
-                    .map(|(cmd, start)| (*cmd, __usage_words.get(*start..).unwrap_or(&[])))
-                    .collect();
-                let ctx = usage_argv::complete::CompleteCtx {
-                    words: &split.words,
-                    cword: split.cword,
-                    prefix: &split.prefix,
-                    command_words: __usage_words
-                        .get(position.command_start..)
-                        .unwrap_or(&[]),
-                    command_path: &__usage_path,
-                };
-                // Nothing of that name is an empty answer rather than an error: a spec written
-                // against a newer version of this CLI is a stale script, and a stale script
-                // should complete nothing rather than print a message into the user's prompt.
-                let found = match __usage_selected_view {
-                    ::std::option::Option::Some(view) =>
-                        usage_argv::complete::for_name_view(Self::spec(), &name, &ctx, view)
-                            .unwrap_or_default(),
-                    ::std::option::Option::None =>
-                        usage_argv::complete::for_name(Self::spec(), &name, &ctx)
-                            .unwrap_or_default(),
-                };
-                let answer = usage_argv::complete::Completions {
-                    candidates: found,
-                    files: ::std::option::Option::None,
-                };
-                return ::std::option::Option::Some(usage_argv::complete::render_request(
-                    &answer,
-                    &request,
-                ));
-            }
-            let answer = match __usage_selected_view {
-                ::std::option::Option::Some(view) =>
-                    usage_argv::complete::complete_view(Self::spec(), &split, view),
-                ::std::option::Option::None =>
-                    usage_argv::complete::complete(Self::spec(), &split),
-            };
-            ::std::option::Option::Some(usage_argv::complete::render_request(&answer, &request))
+            let __usage_selected_view =
+                request.split.words.first().and_then(|__usage_program| {
+                    usage_argv::spec::view_for_program(
+                        Self::spec(),
+                        ::std::ffi::OsStr::new(__usage_program),
+                    )
+                });
+            ::std::option::Option::Some(usage_argv::complete::__usage_answer_request(
+                Self::spec(),
+                &request,
+                __usage_selected_view,
+            ))
         }
     };
     let intercept = quote! {
