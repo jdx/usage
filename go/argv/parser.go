@@ -215,7 +215,7 @@ func (p *Parser) defaultFlagRoute() int {
 			}
 			if !hasAttached && !f.RequireEquals && i < len(p.argv) {
 				next := p.argv[i]
-				if !isSeparator(next) && !(p.isPlusBundle(next) && !f.AllowHyphenValues) && (f.AllowHyphenValues || !isFlagLike(next) || (f.AllowNegativeNumbers && isNegativeNumber(next))) {
+				if !isSeparator(next) && (f.AllowHyphenValues || !p.isPlusBundle(next)) && (f.AllowHyphenValues || !isFlagLike(next) || (f.AllowNegativeNumbers && isNegativeNumber(next))) {
 					attached, hasAttached = next, true
 					i++
 				}
@@ -799,7 +799,7 @@ func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string,
 	if flag.RequireEquals {
 		return p.missingOrDefault(flag, long, short)
 	}
-	if p.pos < len(p.argv) && !p.isClauseSeparator(p.argv[p.pos]) && !(p.isPlusBundle(p.argv[p.pos]) && !flag.AllowHyphenValues) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos]) || (flag.AllowNegativeNumbers && isNegativeNumber(p.argv[p.pos]))) {
+	if p.pos < len(p.argv) && !p.isClauseSeparator(p.argv[p.pos]) && (flag.AllowHyphenValues || !p.isPlusBundle(p.argv[p.pos])) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos]) || (flag.AllowNegativeNumbers && isNegativeNumber(p.argv[p.pos]))) {
 		v := p.argv[p.pos]
 		p.pos++
 		return v, true, true
