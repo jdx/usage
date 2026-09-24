@@ -196,6 +196,25 @@ arg "<file>..." double_dash="automatic" // once arg is passed, behave as if a do
 arg "<args>..." double_dash="preserve" // preserve double dashes as args (e.g. mycli arg1 -- arg2 -- arg3)
 ```
 
+## Completion
+
+Put a [`complete`](./complete.md) node inside the arg to say how its values complete. It takes
+the same properties as the top-level form (`run`, `type`, `descriptions`) but no name, because
+the arg it sits in is the one it completes. The same goes for the `arg` inside a flag:
+
+```kdl
+arg "<plugin>" {
+  complete run="mycli plugins list"
+}
+flag "--color <when>" {
+  arg "<when>" {
+    complete run="printf 'always:Always color\\nnever:Never color\\n'" descriptions=#true
+  }
+}
+```
+
+A `complete` inside the arg wins over a top-level `complete "plugin"` that names it.
+
 ## Double-Dash Behavior
 
 `double_dash="required"` is enforced while parsing, so the three points below are

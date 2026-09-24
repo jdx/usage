@@ -38,7 +38,8 @@ function __usage_register_shebang_completions
             set -l first
             read -l -n 128 first <$file 2>/dev/null
             if string match -q -- '#!*usage*' "$first"
-                complete -c $name -x -a "(command usage complete-word --shell fish -f \"$file\" -- ($cmdline_pre_cmd) (commandline -t))"
+                # stderr is discarded so a parse error isn't printed over the prompt.
+                complete -c $name -x -a "(command usage complete-word --shell fish -f \"$file\" -- ($cmdline_pre_cmd) (commandline -t) 2>/dev/null)"
                 set -a registered $name
             end
         end

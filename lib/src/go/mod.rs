@@ -42,7 +42,8 @@ use crate::case::AsPascalCase;
 
 use crate::spec::unknown_flags::UnknownFlags;
 use crate::{
-    Spec, SpecArg, SpecChoices, SpecCommand, SpecDoubleDashChoices, SpecFlag, SpecFlagAction,
+    Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecDoubleDashChoices, SpecFlag,
+    SpecFlagAction,
 };
 
 /// How to emit.
@@ -658,7 +659,8 @@ impl Emitter<'_> {
             .as_ref()
             .map(|a| a.name.as_str())
             .unwrap_or(flag.name.as_str());
-        if let Some(kind) = complete_type(self.spec, named_value) {
+        let inline = flag.arg.as_ref().and_then(|a| a.complete.as_ref());
+        if let Some(kind) = complete_type(self.spec, inline, named_value) {
             fields.push(format!("CompleteType: {}", go_string(kind)));
         }
         // Written on the value a flag takes, never on the flag.
@@ -801,12 +803,17 @@ impl Emitter<'_> {
 /// The cold half of a positional argument.
 /// The type a spec's `complete` block names for an entry, if it names one.
 ///
-/// By lowercased name, which is how usage-lib files them: `complete "FILE"` and
-/// an argument written `<file>` are the same position as far as the reference is
-/// concerned.
-fn complete_type<'a>(spec: &'a Spec, name: &str) -> Option<&'a str> {
-    spec.complete
-        .get(&name.to_lowercase())
+/// One written inside the entry's own `arg` wins, as it does in the reference.
+/// Otherwise by lowercased name, which is how usage-lib files them:
+/// `complete "FILE"` and an argument written `<file>` are the same position as far
+/// as the reference is concerned.
+fn complete_type<'a>(
+    spec: &'a Spec,
+    inline: Option<&'a SpecComplete>,
+    name: &str,
+) -> Option<&'a str> {
+    inline
+        .or_else(|| spec.complete.get(&name.to_lowercase()))
         .and_then(|c| c.type_.as_deref())
 }
 
@@ -828,7 +835,7 @@ fn arg_meta(
     // than by any post-binding rule: an author who wrote `complete "input"
     // type="file"` named what belongs there, and the alternative is inferring it
     // from a name they did not choose.
-    if let Some(kind) = complete_type(spec, &arg.name) {
+    if let Some(kind) = complete_type(spec, arg.complete.as_ref(), &arg.name) {
         fields.push(format!("CompleteType: {}", go_string(kind)));
     }
     if let Some(choices) = &arg.choices {
@@ -2888,6 +2895,30 @@ flag "--b" conflicts="--no-tint"
         // `--no-tint` is not the form `-no-tint`, so it names nothing — as in
         // usage-lib, which does not resolve it either.
         assert!(!entry_of(&out, "b").contains("Conflicts"), "{out}");
+    }
+
+    #[test]
+    fn a_complete_inside_an_arg_is_its_complete_type() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+complete "target" type="file"
+arg "<target>" {
+    complete type="dir"
+}
+flag "--into <where>" {
+    complete type="dir"
+}
+"#);
+        let target = out
+            .lines()
+            .find(|l| l.contains("Name: \"target\"") && l.contains("CompleteType"))
+            .unwrap_or_default();
+        assert!(target.contains("CompleteType: \"dir\""), "{out}");
+        assert!(
+            entry_of(&out, "into").contains("CompleteType: \"dir\""),
+            "{out}"
+        );
     }
 
     #[test]

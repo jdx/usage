@@ -86,8 +86,10 @@ cmd plugin {
     }
 }
 __USAGE_EOF__
+    # stderr is discarded: a line that doesn't parse (`mycli help <Tab>`) makes
+    # complete-word fail, and its error would be printed over the prompt.
     # shellcheck disable=SC2207
-	COMPREPLY=($(compgen -W "$(command usage complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${words[@]}")" -- "$cur"))
+	COMPREPLY=($(compgen -W "$(command usage complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${words[@]}" 2>/dev/null)" -- "$cur"))
 	__ltrim_colon_completions "$cur"
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then

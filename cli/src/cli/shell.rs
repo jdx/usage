@@ -110,6 +110,14 @@ shell_command!(
 
 impl Shell {
     pub fn run(&mut self, shell: &str) -> usage::miette::Result<()> {
+        // Held until the shell exits: dropping it deletes the copy the shell is reading.
+        let _copy = match ScriptCopy::for_stream(&self.script, shell)? {
+            Some(copy) => {
+                self.script = copy.path.clone();
+                Some(copy)
+            }
+            None => None,
+        };
         let spec = Spec::parse_file(&self.script)?;
         let mut args = self.args.clone();
         args.insert(0, spec.bin.clone());
@@ -134,10 +142,12 @@ impl Shell {
         cmd.stdin(Stdio::inherit());
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
-        let script_path = self.script.to_str().ok_or_else(|| {
-            usage::miette::miette!("Invalid file path: {}", self.script.display())
-        })?;
-        let args = std::iter::once(script_path.to_string())
+        let run_path = _copy.as_ref().map_or(&self.script, |copy| &copy.run_path);
+        let script_path = run_path
+            .to_str()
+            .ok_or_else(|| usage::miette::miette!("Invalid file path: {}", run_path.display()))?
+            .to_string();
+        let args = std::iter::once(script_path.clone())
             .chain(self.args.clone())
             .collect_vec();
         cmd.args(&args);
@@ -158,8 +168,10 @@ impl Shell {
 
         if !result.success() {
             let code = result.code().unwrap_or(1);
+            // `exit` skips destructors, so the copy is removed here or not at all.
+            drop(_copy);
             if cfg!(windows) && overridden.is_none() {
-                if let Some(hint) = wsl_path_hint(shell, code, script_path) {
+                if let Some(hint) = wsl_path_hint(shell, code, &script_path) {
                     eprintln!("{hint}");
                 }
             }
@@ -184,6 +196,89 @@ impl Shell {
         );
         Ok(())
     }
+}
+
+/// A private copy of a script that can only be read once.
+///
+/// `usage bash <(…)` hands over a pipe. Reading the spec out of it consumes it, so the shell,
+/// given the same path, would find nothing left and run an empty script. The script is read
+/// once into a directory only this user can open, and both the spec and the shell read that.
+struct ScriptCopy {
+    dir: PathBuf,
+    /// The copy the spec is read from, under the original file name so that a spec without
+    /// `bin` infers the same name it would have from the original path.
+    path: PathBuf,
+    /// The copy the shell runs. The same file, except for PowerShell, which runs a file only
+    /// when it ends in `.ps1`.
+    run_path: PathBuf,
+}
+
+impl ScriptCopy {
+    /// A copy of `script` when it is a pipe, FIFO or device rather than a regular file.
+    fn for_stream(script: &std::path::Path, shell: &str) -> usage::miette::Result<Option<Self>> {
+        // A path that does not exist is left alone so the parse reports it as before.
+        match std::fs::metadata(script) {
+            Ok(meta) if !meta.is_file() && !meta.is_dir() => {}
+            _ => return Ok(None),
+        }
+        let content = std::fs::read(script).into_diagnostic()?;
+        let dir = private_temp_dir()?;
+        let name = script
+            .file_name()
+            .map_or_else(|| "script".into(), |n| n.to_os_string());
+        let path = dir.join(&name);
+        let run_path = if shell == "pwsh" {
+            let mut ps1 = name;
+            ps1.push(".ps1");
+            dir.join(ps1)
+        } else {
+            path.clone()
+        };
+        // Owned by `copy` from here, so a failed write still removes the directory.
+        let copy = Self {
+            dir,
+            path,
+            run_path,
+        };
+        std::fs::write(&copy.path, &content).into_diagnostic()?;
+        if copy.run_path != copy.path {
+            std::fs::write(&copy.run_path, &content).into_diagnostic()?;
+        }
+        Ok(Some(copy))
+    }
+}
+
+impl Drop for ScriptCopy {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// A new directory under the system temp dir that no other user can read.
+fn private_temp_dir() -> usage::miette::Result<PathBuf> {
+    #[cfg_attr(not(unix), allow(unused_mut))]
+    let mut builder = std::fs::DirBuilder::new();
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    let base = std::env::temp_dir();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.subsec_nanos());
+    // `create` fails rather than reuse a directory that is already there, so a name someone
+    // else picked first is never written into.
+    let mut last_err = None;
+    for attempt in 0..16u32 {
+        let dir = base.join(format!(
+            "usage-script-{}-{nanos:x}-{attempt}",
+            std::process::id()
+        ));
+        match builder.create(&dir) {
+            Ok(()) => return Ok(dir),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => last_err = Some(err),
+            Err(err) => return Err(err).into_diagnostic(),
+        }
+    }
+    Err(last_err.expect("the loop ran")).into_diagnostic()
 }
 
 /// Whether `path` is a path only Windows understands — a drive letter or a UNC share.

@@ -379,6 +379,22 @@ impl Spec {
             && self.examples.is_empty()
     }
 
+    /// The completer for `arg`, a positional or a flag's value, as seen from `cmd`.
+    ///
+    /// A `complete` written inside the `arg` node wins, since it is attached to the argument
+    /// itself. Otherwise a `complete` naming the argument is looked up by its lowercased name,
+    /// at the top level of the spec first and then on `cmd`.
+    pub fn completer<'a>(
+        &'a self,
+        cmd: &'a SpecCommand,
+        arg: &'a SpecArg,
+    ) -> Option<&'a SpecComplete> {
+        arg.complete.as_ref().or_else(|| {
+            let name = arg.name.to_lowercase();
+            self.complete.get(&name).or_else(|| cmd.complete.get(&name))
+        })
+    }
+
     /// Materialize one declared executable view.
     ///
     /// This is a cold-path operation for documentation and completion generation. The canonical

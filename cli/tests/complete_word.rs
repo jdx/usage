@@ -72,6 +72,20 @@ fn complete_word_completer() {
 }
 
 #[test]
+fn complete_word_a_complete_inside_an_arg_completes_it() {
+    // Attached to the arg itself, so it wins over the `complete "target"` that names it.
+    assert_cmd("inline-complete.usage.kdl", &["in"]).stdout("inline-a\ninline-b\n");
+    // A flag's value, written inside the flag's `arg`, with descriptions.
+    assert_cmd("inline-complete.usage.kdl", &["--", "--color", ""])
+        .stdout("always\tAlways color\nnever\tNever color\n");
+    // The same, written directly inside the flag.
+    assert_cmd("inline-complete.usage.kdl", &["--", "--shorthand", ""])
+        .stdout("short-1\nshort-2\n");
+    // An arg with none of its own still finds the named one.
+    assert_cmd("inline-complete.usage.kdl", &["other", ""]).stdout("named\n");
+}
+
+#[test]
 fn complete_word_run_outranks_a_builtin_inferred_from_the_argument_name() {
     assert_cmd("run-named-builtin.usage.kdl", &["ru"]).stdout("run-result\n");
 }

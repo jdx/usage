@@ -272,7 +272,7 @@ impl FigArg {
                 };
             }
         }
-        Self {
+        let mut fig_arg = Self {
             name,
             description: arg.help.clone(),
             is_variadic: arg.var,
@@ -282,7 +282,22 @@ impl FigArg {
             suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
             debounce: FigArg::get_generator(&arg.name).map(|_| true),
             declared: false,
+        };
+        // A `complete` inside the `arg` is the nearest declaration there is, so it arrives
+        // first and the named ones applied afterwards leave it alone.
+        //
+        // One with neither `run` nor `type` still takes the place of the named ones, as it
+        // does in `complete-word`, which then falls back to what the argument's name
+        // suggests. So the name-based guesses stay, and the arg is marked declared so a named
+        // completer does not replace them.
+        if let Some(complete) = &arg.complete {
+            if complete.run.is_none() && complete.type_.is_none() {
+                fig_arg.declared = true;
+            } else {
+                fig_arg.update_from_complete(complete.clone());
+            }
         }
+        fig_arg
     }
 
     pub fn update_from_complete(&mut self, spec: SpecComplete) {
@@ -320,10 +335,18 @@ impl FigArg {
         // the two that reached Fig before, so a spec declaring both keeps the behaviour
         // it already had.
         if let Some(run) = spec.run {
+            // The placeholder is swapped for the generator call by text once the spec is
+            // serialized, so it has to tell two commands apart. A `complete` inside an `arg`
+            // makes the same name with a different `run=` ordinary: `<name>` on one command
+            // listing tasks and on another listing tools would otherwise both get whichever
+            // was replaced first.
+            let mut hasher = std::hash::DefaultHasher::new();
+            std::hash::Hash::hash(&run, &mut hasher);
+            let id = std::hash::Hasher::finish(&hasher);
             self.generators = Some(FigGenerator {
                 type_: GeneratorType::Complete,
                 post_process: run,
-                template_str: format!("${name}$"),
+                template_str: format!("${name}-{id:016x}$"),
             });
             return;
         }

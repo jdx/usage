@@ -141,6 +141,9 @@ fn every_kdl_example_on_the_checked_pages_parses() {
         // another block reads, so the page can be held to parsing from the day it was
         // written.
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/flagset.md"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/arg.md"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/complete.md"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/flag.md"),
     ];
     let mut checked = 0;
     let mut failures = Vec::new();
