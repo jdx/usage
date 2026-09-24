@@ -38,7 +38,9 @@
 //! # Async commands
 //!
 //! [`RunAsync`] and [`RunAsyncWith`] are the async pair: an implementation writes `async fn`,
-//! and the generated dispatch is an `async fn` that awaits the selected command.
+//! and the generated dispatch is an `async fn` that awaits the selected command. It builds that
+//! command's future on the heap and awaits the box, so an unoptimized build does not keep room
+//! for every command's future on the stack while running one of them.
 //!
 //! ```
 //! use usage_argv::RunAsync;
@@ -66,8 +68,8 @@
 //!
 //! The sync pair can carry a future too, since [`Output`](Run::Output) is whatever the command
 //! produces: a boxed `Pin<Box<dyn Future<Output = T>>>` (plus `+ Send` if the CLI wants it) is
-//! a value like any other. That costs an allocation and names a type; the async traits exist so
-//! that neither is necessary.
+//! a value like any other. That names a type; the async traits exist so that it is not
+//! necessary.
 //!
 //! # An example
 //!

@@ -336,6 +336,111 @@ fn an_async_enum_can_still_run_a_synchronous_command() {
     assert_eq!(block_on(cli.command.run_async()), "later");
 }
 
+async fn fallback(argv: Vec<String>) -> String {
+    yield_once().await;
+    format!("ext {}", argv.join(" "))
+}
+
+#[derive(Subcommands)]
+#[usage(run_async, external = fallback, output = String)]
+enum Catch {
+    /// Fetch something
+    Fetch(Fetch),
+    #[usage(external_subcommand)]
+    Other(Vec<String>),
+}
+
+/// A tool with an async catch-all and a flag of its own
+#[derive(Cli)]
+#[usage(bin = "catch", run_async)]
+struct CatchCli {
+    /// Print more
+    #[usage(short = 'v', long)]
+    verbose: bool,
+    #[usage(subcommand)]
+    command: Catch,
+}
+
+#[test]
+fn an_external_subcommand_awaits_the_named_fallback() {
+    let argv = [OsStr::new("git"), OsStr::new("status")];
+    let cli = CatchCli::parse_from(&argv).expect("valid command line");
+    assert_eq!(block_on(cli.command.run_async()), "ext git status");
+}
+
+#[test]
+fn a_root_with_flags_reads_them_then_awaits_run_command_async() {
+    let argv = [OsStr::new("--verbose"), OsStr::new("fetch")];
+    let cli = CatchCli::parse_from(&argv).expect("valid command line");
+    assert!(cli.verbose);
+    assert_eq!(block_on(cli.run_command_async()), "later");
+}
+
+impl RunAsyncWith<&App> for Fetch {
+    type Output = String;
+    async fn run_async_with(self, app: &App) -> Self::Output {
+        yield_once().await;
+        format!("later jobs={}", app.jobs)
+    }
+}
+
+/// Answer without any context
+#[derive(Args)]
+struct Ping;
+
+impl RunAsync for Ping {
+    type Output = String;
+    async fn run_async(self) -> Self::Output {
+        yield_once().await;
+        "pong".to_string()
+    }
+}
+
+#[derive(Subcommands)]
+#[usage(run_async_with)]
+enum MixedCtx {
+    /// Answer without any context
+    #[usage(no_ctx)]
+    Ping(Ping),
+    /// Fetch something
+    Fetch(Fetch),
+}
+
+/// A tool that loads context only for some async commands
+#[derive(Cli)]
+#[usage(bin = "mixed-ctx")]
+struct MixedCtxCli {
+    #[usage(subcommand)]
+    command: MixedCtx,
+}
+
+#[test]
+fn a_skipped_context_is_not_built_when_an_async_dispatch_loads_it_lazily() {
+    let app = App { jobs: 2 };
+    let argv = [OsStr::new("ping")];
+    let cli = MixedCtxCli::parse_from(&argv).expect("valid command line");
+    let mut built = false;
+    assert_eq!(
+        block_on(cli.command.run_async_with_lazy(|| {
+            built = true;
+            &app
+        })),
+        "pong"
+    );
+    assert!(!built);
+
+    let argv = [OsStr::new("fetch")];
+    let cli = MixedCtxCli::parse_from(&argv).expect("valid command line");
+    assert_eq!(
+        block_on(cli.command.run_async_with_lazy(|| {
+            built = true;
+            &app
+        })),
+        "later jobs=2"
+    );
+    assert!(built);
+}
+
 /// The smallest executor that proves these are real futures: no runtime dependency in the
 /// conformance crate, and a command that yields is resumed rather than run to completion on
 /// the first poll.

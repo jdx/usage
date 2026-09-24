@@ -115,6 +115,24 @@ pub fn __usage_print(output: std::fmt::Arguments<'_>) {
     let _ = stdout.write_fmt(output).and_then(|()| stdout.flush());
 }
 
+/// Build a command's future on the heap, for a generated async dispatch to await.
+///
+/// The future is created inside this function, not by the caller, and that is the point:
+/// without optimizations every temporary in an `async fn` gets its own stack slot, held for
+/// as long as the future runs, so a dispatch that wrote `run_async(inner).await` in each arm
+/// kept a slot the size of every command's future on the stack while running any one of them.
+/// Created here, the future only passes through this function's frame, and the dispatch keeps
+/// a `Box` per arm instead. `Send` still follows the command's future, since a box of it is
+/// `Send` exactly when it is.
+#[doc(hidden)]
+pub fn __usage_box_future<F, Fut>(make: F) -> std::pin::Pin<Box<Fut>>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future,
+{
+    Box::pin(make())
+}
+
 /// [`__usage_print`] for stderr: help and failures that go there, and deprecation warnings.
 #[doc(hidden)]
 pub fn __usage_eprint(output: std::fmt::Arguments<'_>) {

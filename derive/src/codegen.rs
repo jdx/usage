@@ -7471,11 +7471,23 @@ impl DispatchTrait {
             quote!(usage_argv::#name::#method(#value))
         };
         if self.is_async {
-            quote!(#call.await)
+            awaited(call)
         } else {
             call
         }
     }
+}
+
+/// An awaited call into a command, for a generated async dispatch.
+///
+/// The call is made inside [`__usage_box_future`](usage_argv::__usage_box_future) rather than
+/// in the dispatch itself. Without optimizations every temporary in an `async fn` gets its own
+/// stack slot for as long as the future runs, so `#call.await` in each arm kept room for every
+/// command's future on the stack while running any one of them, and a dispatch nested in
+/// another added its own. Built in the helper, a command's future only passes through the
+/// helper's frame, and the dispatch holds one `Box` per arm.
+fn awaited(call: TokenStream) -> TokenStream {
+    quote!(usage_argv::__usage_box_future(move || #call).await)
 }
 
 /// Which trait one variant actually implements, which may differ from the enum's.
@@ -7595,7 +7607,7 @@ fn dispatch_arm_call(
             quote!(#path(#value))
         };
         if kind.is_async {
-            quote!(#call.await)
+            awaited(call)
         } else {
             call
         }
@@ -7655,7 +7667,7 @@ fn lazy_arm_call(
             }}
         };
         if kind.is_async {
-            quote!(#invoked.await)
+            awaited(invoked)
         } else {
             invoked
         }
@@ -7664,7 +7676,7 @@ fn lazy_arm_call(
         let method = format_ident!("{}", arm.method);
         let invoked = quote!(usage_argv::#name::<__UsageCtx>::#method(#value, __usage_load()));
         if arm.is_async {
-            quote!(#invoked.await)
+            awaited(invoked)
         } else {
             invoked
         }

@@ -183,6 +183,16 @@ What no design can add is the third thing: _demanding_ `Send` in generic code, w
 `-> impl Future + Send` in the trait would buy at the cost of the second bullet. The traits take
 the side that refuses nothing.
 
+### Stack
+
+The generated dispatch builds the selected command's future on the heap, one allocation per
+dispatch level, and awaits the box. It does so because of how unoptimized builds lay out an
+`async fn`: every temporary gets its own stack slot, and the frame holding those slots stays on
+the stack for as long as the future runs. A dispatch that awaited each command in place kept a
+slot the size of every command's future while running any one of them, and a nested dispatch
+added its own — in mise, several megabytes of a debug build's main stack before any command
+ran. Boxed, a dispatch holds a pointer per arm, however large its commands' futures are.
+
 ### The other way
 
 The sync traits can carry a future too, since `Output` is whatever the command produces:
@@ -198,9 +208,8 @@ impl Run for Install {
 }
 ```
 
-That costs an allocation and names a type — the box is needed because an `async` block's type
-cannot be named and an associated type has to be — and it is where the `+ Send` goes if the CLI
-wants one. Worth it only when the future has to be a value: stored, selected over, or returned
+That names a type — the box is needed because an `async` block's type cannot be named and an
+associated type has to be — and it is where the `+ Send` goes if the CLI wants one. Worth it only when the future has to be a value: stored, selected over, or returned
 across an API boundary. Otherwise use `RunAsync`.
 
 A CLI whose commands are mostly synchronous can also keep `Output = Result<()>` and hold a
