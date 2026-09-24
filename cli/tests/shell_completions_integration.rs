@@ -1757,7 +1757,7 @@ fn test_zsh_completion_shows_parse_error_as_message() {
 export PATH="{bin_dir}:{usage_dir}:$PATH"
 export XDG_CACHE_HOME="{tmp}"
 autoload -U compinit
-compinit -u
+compinit -u -D
 source "{per_bin}"
 source "{init}"
 
@@ -1771,6 +1771,17 @@ _m
 words=(m "")
 CURRENT=2
 _m
+
+# Trace logging writes to stderr too: a successful completion shows no message,
+# a failed one shows the error rather than the first log line, and `%` in the
+# typed word is escaped for `_message`.
+print -r -- "[traced]"
+words=(m "")
+CURRENT=2
+USAGECLI_TRACE=true _m
+words=(m 'h%Bx' "")
+CURRENT=3
+USAGECLI_TRACE=true _m
 
 words=(m help "")
 CURRENT=3
@@ -1805,12 +1816,17 @@ _usage_default_complete
     let expected = "[per-bin]\n\
                     [_message] -r usage: unexpected word: help\n\
                     [compadd] run\n\
+                    [traced]\n\
+                    [compadd] run\n\
+                    [_message] -r usage: unexpected word: h%%Bx\n\
                     [init]\n\
                     [_message] -r usage: unexpected word: help\n\
                     [compadd] run\n";
     assert_eq!(stdout, expected, "stderr:\n{stderr}");
+    // Only complete-word's error is under test: on Windows the scripts' own
+    // spec-cache `mkdir -m 700` can warn, which is unrelated.
     assert!(
-        stderr.is_empty(),
+        !stderr.contains("unexpected word"),
         "complete-word's error must not reach the terminal.\nstderr:\n{stderr}"
     );
 
@@ -1889,8 +1905,10 @@ run_case init-ok _usage_default_complete m ""
         stdout, "[per-bin-error] \n[per-bin-ok] run\n[init-error] \n[init-ok] run\n",
         "stderr:\n{stderr}"
     );
+    // Only complete-word's error is under test: on Windows the scripts' own
+    // spec-cache `mkdir -m 700` can warn, which is unrelated.
     assert!(
-        stderr.is_empty(),
+        !stderr.contains("unexpected word"),
         "complete-word's error must not reach the terminal.\nstderr:\n{stderr}"
     );
 
@@ -1941,7 +1959,7 @@ echo "[ok]" (complete -C 'm ')
             "{label}: unexpected completions.\nstdout:\n{stdout}\nstderr:\n{stderr}"
         );
         assert!(
-            stderr.is_empty(),
+            !stderr.contains("unexpected word"),
             "{label}: complete-word's error must not reach the terminal.\nstderr:\n{stderr}"
         );
     };
@@ -2420,6 +2438,83 @@ fn test_complete_path_preserves_partially_typed_segments() {
         Some(&temp_dir),
     );
     assert_eq!(output, "target/debug/\n");
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+/// Nushell's completer captures complete-word's stderr with `| complete`, so a
+/// line that doesn't parse yields no candidates and prints nothing.
+///
+/// Skipped whenever `nu` can't run, in CI too: unlike zsh and fish, nothing
+/// installs Nushell on the runners.
+#[test]
+fn test_nu_completion_discards_parse_error() {
+    let nu_runs = Command::new("nu")
+        .arg("--version")
+        .output()
+        .is_ok_and(|out| out.status.success());
+    if !nu_runs {
+        eprintln!("Skipping nu test - `nu` is not installed");
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir =
+        env::temp_dir().join(format!("usage_nu_parse_error_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+    let spec_file = temp_dir.join("m.kdl");
+    fs::write(&spec_file, "bin \"m\"\ncmd \"run\" help=\"Run it\"\n").unwrap();
+
+    let output = Command::new(&usage_bin)
+        .args(["generate", "completion", "nu", "m", "-f"])
+        .arg(&spec_file)
+        .output()
+        .expect("Failed to generate completion");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // The completer is private to the generated module; export it so the test
+    // can call it the way Nushell's `@complete` does.
+    let script = String::from_utf8(output.stdout)
+        .unwrap()
+        .replace("    def m_completer", "    export def m_completer");
+    let per_bin = temp_dir.join("m.nu");
+    fs::write(&per_bin, script).unwrap();
+
+    let test_script = format!(
+        r#"$env.PATH = ($env.PATH | prepend "{usage_dir}")
+$env.XDG_CACHE_HOME = "{tmp}"
+source "{per_bin}"
+print $"[error] (m_completer [m help ''] | get value? | default [] | str join ' ')"
+print $"[ok] (m_completer [m ''] | get value | str join ' ')"
+"#,
+        usage_dir = sh_path(usage_bin.parent().unwrap()),
+        tmp = sh_path(&temp_dir),
+        per_bin = sh_path(&per_bin),
+    );
+    let script_file = temp_dir.join("test.nu");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = Command::new("nu")
+        .arg("--no-config-file")
+        .arg(&script_file)
+        .output()
+        .expect("Failed to run nu parse-error test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        result.status.success(),
+        "nu script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        result.status
+    );
+    assert_eq!(stdout, "[error] \n[ok] run\n", "stderr:\n{stderr}");
+    assert!(
+        !stderr.contains("unexpected word"),
+        "complete-word's error must not reach the terminal.\nstderr:\n{stderr}"
+    );
 
     let _ = fs::remove_dir_all(&temp_dir);
 }

@@ -35,7 +35,9 @@ _usage_default_complete() {
                   [[ "${parts[3]}" == "'"* ]] && needs_menu=1
                 done < <(
                   { _usage_err="$(command usage complete-word --shell zsh -f "$cmdpath" --cword=$((CURRENT - 1)) -- "${(Q)words[@]}" 2>&1 >&3 3>&-)"; } 3>&1
+                  (( $? )) || _usage_err=
                   for _usage_l in "${(@f)_usage_err}"; do
+                    [[ "$_usage_l" == \[[A-Z]*\]* ]] && continue
                     _usage_l="${_usage_l#"${_usage_l%%[![:space:]]*}"}"
                     _usage_l="${_usage_l#Error:}"
                     _usage_l="${_usage_l#"${_usage_l%%[![:space:]]*}"}"
@@ -45,7 +47,7 @@ _usage_default_complete() {
                     break
                   done
                 )
-                [[ -n "$usage_err" ]] && _message -r "usage: $usage_err"
+                [[ -n "$usage_err" ]] && _message -r "usage: ${usage_err//\%/%%}"
                 (( needs_menu )) && compstate[insert]=menu
                 if (( ${#inserts[@]} )); then
                   local -a _usage_display=()

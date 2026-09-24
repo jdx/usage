@@ -28,11 +28,13 @@ fn render_completion_loop(usage_bin: &str, indent: &str, cw_extra_args: &str) ->
     // `complete-word` fails when the words before the cursor don't parse
     // (`mycli help <Tab>` → `unexpected word: help`). Letting its stderr reach
     // the terminal would print over the prompt mid-edit, so the process
-    // substitution captures it and forwards only its first meaningful line —
+    // substitution captures it and, only when `complete-word` failed, forwards
+    // its first meaningful line — skipping `[TRACE …]`-style log lines, and
     // without `Error:`, miette's `×`, or a bare `usage::…` diagnostic code —
     // as a line starting with the unit separator (0x1f), which no completion
     // value begins with. The loop shows that line with `_message`, in the
-    // listing area where zsh prints its own completion messages.
+    // listing area where zsh prints its own completion messages, with `%`
+    // doubled so typed text is not read as a prompt escape.
     let template = r#"local -a values=() descs=() inserts=()
 local needs_menu=0 line usage_err=
 while IFS= read -r line; do
@@ -47,7 +49,9 @@ while IFS= read -r line; do
   [[ "${parts[3]}" == "'"* ]] && needs_menu=1
 done < <(
   { _usage_err="$(command __USAGE_BIN__ complete-word --shell zsh __CW_EXTRA__ -- "${(Q)words[@]}" 2>&1 >&3 3>&-)"; } 3>&1
+  (( $? )) || _usage_err=
   for _usage_l in "${(@f)_usage_err}"; do
+    [[ "$_usage_l" == \[[A-Z]*\]* ]] && continue
     _usage_l="${_usage_l#"${_usage_l%%[![:space:]]*}"}"
     _usage_l="${_usage_l#Error:}"
     _usage_l="${_usage_l#"${_usage_l%%[![:space:]]*}"}"
@@ -57,7 +61,7 @@ done < <(
     break
   done
 )
-[[ -n "$usage_err" ]] && _message -r "usage: $usage_err"
+[[ -n "$usage_err" ]] && _message -r "usage: ${usage_err//\%/%%}"
 (( needs_menu )) && compstate[insert]=menu
 if (( ${#inserts[@]} )); then
   local -a _usage_display=()
