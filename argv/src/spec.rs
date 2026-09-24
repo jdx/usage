@@ -6157,28 +6157,55 @@ mod tests {
 
     #[test]
     fn getters_read_through_the_cold_half() {
+        // Neighbouring fields of the same type get distinct values, so a getter that returns
+        // its sibling fails here.
         const FLAG: FlagMeta<'static> = FlagMeta {
-            help: Some("where to look"),
+            help: Some("short"),
+            long_help: Some("long"),
             extra: &FlagExtra {
                 env_fallback: &["OLD_PATH"],
+                deprecated_env: &["OLDER_PATH"],
                 ..FlagExtra::EMPTY
             },
             ..FlagMeta::EMPTY
         };
         const CMD: CommandMeta<'static> = CommandMeta {
             about: Some("run it"),
+            long_about: Some("run it, at length"),
             extra: &CommandExtra {
                 deprecated: Some("use `new`"),
+                deprecated_warn_at: Some("7.0"),
                 ..CommandExtra::EMPTY
             },
             ..CommandMeta::EMPTY
         };
-        // `const` so a getter that stops being `const fn` fails here, not in an adopter's static.
-        const ENV: &[&str] = FLAG.env_fallback();
-        assert_eq!(FLAG.help(), Some("where to look"));
-        assert_eq!(ENV, ["OLD_PATH"]);
-        assert_eq!(CMD.about(), Some("run it"));
-        assert_eq!(CMD.deprecated(), Some("use `new`"));
+        const ARG: ArgMeta<'static> = ArgMeta {
+            help: Some("the input"),
+            long_help: Some("the input, at length"),
+            ..ArgMeta::EMPTY
+        };
+        // Every read is a `const` item, so a getter that stops being `const fn` fails here
+        // rather than in an adopter's static.
+        const FLAG_HELP: Option<&str> = FLAG.help();
+        const FLAG_LONG_HELP: Option<&str> = FLAG.long_help();
+        const FLAG_ENV_FALLBACK: &[&str] = FLAG.env_fallback();
+        const FLAG_DEPRECATED_ENV: &[&str] = FLAG.deprecated_env();
+        const CMD_ABOUT: Option<&str> = CMD.about();
+        const CMD_LONG_ABOUT: Option<&str> = CMD.long_about();
+        const CMD_DEPRECATED: Option<&str> = CMD.deprecated();
+        const CMD_DEPRECATED_WARN_AT: Option<&str> = CMD.deprecated_warn_at();
+        const ARG_HELP: Option<&str> = ARG.help();
+        const ARG_LONG_HELP: Option<&str> = ARG.long_help();
+        assert_eq!(FLAG_HELP, Some("short"));
+        assert_eq!(FLAG_LONG_HELP, Some("long"));
+        assert_eq!(FLAG_ENV_FALLBACK, ["OLD_PATH"]);
+        assert_eq!(FLAG_DEPRECATED_ENV, ["OLDER_PATH"]);
+        assert_eq!(CMD_ABOUT, Some("run it"));
+        assert_eq!(CMD_LONG_ABOUT, Some("run it, at length"));
+        assert_eq!(CMD_DEPRECATED, Some("use `new`"));
+        assert_eq!(CMD_DEPRECATED_WARN_AT, Some("7.0"));
+        assert_eq!(ARG_HELP, Some("the input"));
+        assert_eq!(ARG_LONG_HELP, Some("the input, at length"));
     }
 
     #[test]
