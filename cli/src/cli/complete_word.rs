@@ -968,6 +968,9 @@ impl usage_rs::Run for CompleteWord {
         let shell = self.shell.as_ref();
         let any_descriptions = choices.iter().any(|(_, d)| !d.is_empty());
         for (c, description) in choices {
+            // Applied here rather than at each source so that none of them — subcommand and
+            // flag help, custom completers — can leak a second line as a candidate.
+            let description = one_line(Some(&description));
             match shell {
                 "bash" => println!("{c}"),
                 "fish" | "nu" | "powershell" => {
