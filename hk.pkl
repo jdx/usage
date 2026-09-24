@@ -43,7 +43,10 @@ steps {
     }
 
     ["cargo-semver-checks"] {
-        glob = List("lib/**/*.rs", "lib/Cargo.toml")
+        // Everything but the unpublished members, so a new published crate is covered without
+        // being listed here. `--workspace` decides which crates are checked.
+        glob = List("**/*.rs", "**/Cargo.toml")
+        exclude = List("benches/**", "conformance/**", "xtask/**")
         check = "mise run lint:semver"
     }
 }
