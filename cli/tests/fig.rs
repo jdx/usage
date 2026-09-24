@@ -236,3 +236,26 @@ cmd "e" help="e" {
     assert!(!e.contains("echo from-d"), "{e}");
     assert!(e.contains(r#""template": "folders""#), "{e}");
 }
+
+#[test]
+fn an_empty_complete_inside_an_arg_still_shadows_a_named_one() {
+    // `complete-word` takes the arg's own completer even when it says neither `run` nor
+    // `type`, then falls back to what the name suggests. So the named `type="dir"` does not
+    // apply, and `<config_file>` keeps the paths its name implies.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+complete "target" type="dir"
+complete "config_file" type="dir"
+arg "<target>" {
+    complete
+}
+arg "<config_file>" {
+    complete
+}
+        "#,
+    );
+    assert!(!fig.contains("folders"), "{fig}");
+    assert!(fig.contains(r#""template": "filepaths""#), "{fig}");
+}

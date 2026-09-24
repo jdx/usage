@@ -250,8 +250,17 @@ impl FigArg {
         };
         // A `complete` inside the `arg` is the nearest declaration there is, so it arrives
         // first and the named ones applied afterwards leave it alone.
+        //
+        // One with neither `run` nor `type` still takes the place of the named ones, as it
+        // does in `complete-word`, which then falls back to what the argument's name
+        // suggests. So the name-based guesses stay, and the arg is marked declared so a named
+        // completer does not replace them.
         if let Some(complete) = &arg.complete {
-            fig_arg.update_from_complete(complete.clone());
+            if complete.run.is_none() && complete.type_.is_none() {
+                fig_arg.declared = true;
+            } else {
+                fig_arg.update_from_complete(complete.clone());
+            }
         }
         fig_arg
     }

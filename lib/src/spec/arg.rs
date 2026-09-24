@@ -1884,4 +1884,23 @@ cmd "sub" {
             .build();
         assert_eq!(arg.complete.unwrap().name, "file");
     }
+
+    #[test]
+    fn a_built_arg_normalizes_a_named_completer_the_way_kdl_does() {
+        // Given a name of its own, the completer still takes the arg's, lowercased: that is
+        // what the KDL form parses back to, so JSON and a round trip agree.
+        let mut spec: Spec = "name \"ex\"\nbin \"ex\"\n".parse().unwrap();
+        spec.cmd.args.push(
+            SpecArg::builder()
+                .name("FILE")
+                .complete(crate::SpecComplete::new("FILE").run("ls"))
+                .build(),
+        );
+        assert_eq!(spec.cmd.args[0].complete.as_ref().unwrap().name, "file");
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(
+            reparsed.cmd.args[0].complete.as_ref().unwrap().name,
+            spec.cmd.args[0].complete.as_ref().unwrap().name
+        );
+    }
 }
