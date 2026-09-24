@@ -142,6 +142,25 @@ cmd "d" help="d" {
 }
 
 #[test]
+fn a_delegated_argument_is_left_bare() {
+    // Fig cannot ask a shell for another command's completion, and the name-based guess
+    // ("file" means paths) would describe the wrong command line.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+cmd "d" help="d" {
+    arg "<command_file>" help="forwarded" var=#true
+    complete "command_file" delegate="terraform"
+}
+        "#,
+    );
+    assert!(!fig.contains("template"), "{fig}");
+    assert!(!fig.contains("generators"), "{fig}");
+    assert!(!fig.contains("terraform"), "{fig}");
+}
+
+#[test]
 fn a_declaration_replaces_a_guessed_generator_too() {
     // `get_generator` reads the name as well: anything containing "env_var" gets the
     // environment-variable generator. Treating that guess as a prior declaration let it

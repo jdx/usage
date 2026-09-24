@@ -4,6 +4,7 @@ use std::ffi::OsStr;
 use usage::miette::Result;
 use usage_rs::{Cli as DeriveCli, Subcommands};
 
+mod complete_delegate;
 pub mod complete_word;
 mod diff;
 mod exec;

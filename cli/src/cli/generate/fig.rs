@@ -255,7 +255,7 @@ impl FigArg {
 
         // A `complete` node with neither a command to run nor a type says nothing about
         // what this value is, so it displaces nothing.
-        if spec.run.is_none() && spec.type_.is_none() {
+        if spec.run.is_none() && spec.type_.is_none() && spec.delegate.is_none() {
             return;
         }
 
@@ -293,6 +293,10 @@ impl FigArg {
             return;
         }
 
+        // A `delegate` names another program whose shell completion answers, and Fig has no
+        // way to ask a shell. It is still a declaration — the name-based guess would be
+        // wrong about a wrapped command line — so the argument is left bare, as below.
+        //
         // And a type becomes the template Fig has its own name for, where Fig has one:
         // `none` says to offer nothing, and the kinds a shell answers for itself have no
         // Fig equivalent worth approximating. Both leave the argument bare, which is the

@@ -10,13 +10,15 @@ use std::sync::LazyLock;
 use usage::miette::IntoDiagnostic;
 use usage_rs::Args;
 
-use usage::parse::{ParseOutput, ParseValue};
+use usage::parse::{ParseOutput, ParseValue, TokenRole};
 use usage::sh::sh;
 use usage::spec::config::SpecConfigProp;
 use usage::spec::config_type::{Base, SpecConfigType};
-use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecDoubleDashChoices, SpecFlag};
+use usage::{
+    Spec, SpecArg, SpecCommand, SpecComplete, SpecDoubleDashChoices, SpecFlag, UnknownFlags,
+};
 
-use crate::cli::generate;
+use crate::cli::{complete_delegate, generate};
 
 static COMPLETER_TERA: LazyLock<tera::Tera> = LazyLock::new(|| {
     let mut tera = tera::Tera::default();
@@ -397,6 +399,16 @@ impl CompleteWord {
             }
             choices
         };
+        if flags_possible && attached_long_value.is_none() && sigil_arg.is_none() {
+            if let Some(arg) = self.delegated_arg_at_flag(&cx, &ctoken) {
+                let (found, _) = self.complete_arg(&cx, &parsed.cmd, arg, &ctoken)?;
+                for candidate in found {
+                    if !choices.iter().any(|(name, _)| *name == candidate.0) {
+                        choices.push(candidate);
+                    }
+                }
+            }
+        }
         // Fallback to file completions if nothing is known about this argument and it's not a
         // flag. Past a `--` a dash-prefixed word is not a flag but a value, so a path like
         // `-input` still gets completed there.
@@ -818,6 +830,16 @@ impl CompleteWord {
                 true,
             ));
         }
+        if let Some(delegate) = &complete.delegate {
+            let found = self
+                .complete_delegated(cx, arg, delegate, ctoken)
+                .into_iter()
+                .filter(|(name, _)| name.starts_with(ctoken))
+                .collect();
+            // Open, like `run`: the other program saying nothing is not a claim that nothing
+            // belongs here, and with bash's `-o default` it would have fallen back to files too.
+            return Ok((found, false));
+        }
         if let Some(run) = &complete.run {
             let run = render_completer_run(run, cx.tera).into_diagnostic()?;
             trace!("run: {run}");
@@ -866,6 +888,56 @@ impl CompleteWord {
         }
 
         Ok((vec![], false))
+    }
+
+    /// Ask the shell what `delegate` would complete, given the words `arg` already holds.
+    fn complete_delegated(
+        &self,
+        cx: &Ctx<'_>,
+        arg: &SpecArg,
+        delegate: &str,
+        ctoken: &str,
+    ) -> Vec<(String, String)> {
+        // Validated when the spec was parsed; a spec built in code can still carry bad quoting.
+        let Ok(mut words) = usage::shell_words::split(delegate) else {
+            return vec![];
+        };
+        words.extend(delegated_words(cx.parsed, arg));
+        words.push(ctoken.to_string());
+        trace!("delegate: {}", words.iter().join(" "));
+        complete_delegate::complete(&self.shell, &words)
+    }
+
+    /// The delegated argument whose command line a dash-prefixed word at the cursor continues.
+    ///
+    /// The flag branches answer with this CLI's own flags, which is right until the delegated
+    /// argument has started: after `wrapper layer1 plan`, `-o` names a flag of the wrapped
+    /// command, and the parser agrees — a flag this CLI does not declare binds to that argument
+    /// like any other word. This CLI's flags stay on offer beside the delegated ones, because
+    /// the parser still gives those to this CLI.
+    fn delegated_arg_at_flag<'a>(&self, cx: &Ctx<'a>, ctoken: &str) -> Option<&'a SpecArg> {
+        if !ctoken.starts_with('-') || !cx.parsed.flag_awaiting_value.is_empty() {
+            return None;
+        }
+        let unknown_flags = cx
+            .parsed
+            .cmds
+            .iter()
+            .rev()
+            .find_map(|cmd| cmd.unknown_flags)
+            .or(cx.spec.unknown_flags)
+            .unwrap_or_default();
+        if unknown_flags != UnknownFlags::Value {
+            return None;
+        }
+        let arg = cx.parsed.next_arg.as_deref()?;
+        let name = arg.name.to_lowercase();
+        let complete = cx
+            .spec
+            .complete
+            .get(&name)
+            .or(cx.parsed.cmd.complete.get(&name))?;
+        (complete.delegate.is_some() && !delegated_words(cx.parsed, arg).is_empty()).then_some(arg)
     }
 
     fn complete_path(
@@ -1154,6 +1226,29 @@ struct Ctx<'a> {
     spec: &'a Spec,
     parsed: &'a ParseOutput,
     after_restart_token: bool,
+}
+
+/// The words of the command line that `arg` has taken so far, as typed.
+///
+/// From the token table rather than the bound value, so a flag of the delegated command that
+/// this CLI does not know — bound to `arg` as a word — reaches the delegate spelled the way the
+/// user wrote it. A `restart_token` or clause separator starts the argument over, so only what
+/// came after the last one belongs to the command line being completed.
+fn delegated_words(parsed: &ParseOutput, arg: &SpecArg) -> Vec<String> {
+    let mut words = vec![];
+    for token in &parsed.tokens {
+        for role in &token.roles {
+            match role {
+                TokenRole::Restart | TokenRole::ClauseSeparator { .. } => words.clear(),
+                TokenRole::Arg { arg: bound, .. }
+                | TokenRole::UnknownFlag {
+                    bound_as: Some(bound),
+                } if bound.name == arg.name => words.push(token.word.clone()),
+                _ => {}
+            }
+        }
+    }
+    words
 }
 
 /// The first argument that advances the ordinary positional cursor.
