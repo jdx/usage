@@ -1511,6 +1511,9 @@ run_case init-empty _usage_default_complete "ex --out=" 2 ex --out =
 run_case init-partial _usage_default_complete "ex --out=a" 3 ex --out = a
 # The cursor sits after `=` with another word already typed after it.
 POINT=9 run_case init-midline _usage_default_complete "ex --out= x" 2 ex --out = x
+# The cursor sits inside the value: `--out=a|X`.
+POINT=13 run_case bin-midword _mycli "mycli --out=aX" 3 mycli --out = aX
+POINT=10 run_case init-midword _usage_default_complete "ex --out=aX" 3 ex --out = aX
 "#,
         bin_dir = path_var_entry("bash", &bin_dir),
         usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
@@ -1529,6 +1532,10 @@ POINT=9 run_case init-midline _usage_default_complete "ex --out= x" 2 ex --out =
     let stderr = String::from_utf8_lossy(&result.stderr);
     println!("stdout:\n{stdout}\nstderr:\n{stderr}");
 
+    assert!(
+        result.status.success(),
+        "bash test script exited non-zero. stderr: {stderr}"
+    );
     for expected in [
         "[bin-empty] <a b>",
         "[bin-partial] <a>",
@@ -1536,6 +1543,8 @@ POINT=9 run_case init-midline _usage_default_complete "ex --out= x" 2 ex --out =
         "[init-empty] <a b>",
         "[init-partial] <a>",
         "[init-midline] <a b>",
+        "[bin-midword] <a>",
+        "[init-midword] <a>",
     ] {
         assert!(
             stdout.contains(expected),

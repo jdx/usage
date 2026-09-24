@@ -90,6 +90,9 @@ cmd plugin {
 __USAGE_EOF__
     # stderr is discarded: a line that doesn't parse (`mycli help <Tab>`) makes
     # complete-word fail, and its error would be printed over the prompt.
+    # Complete the text before the cursor, as `$cur` holds it: with the cursor in `--out=a|X`
+    # the value typed so far is `a`, not `aX`.
+    words[cword]="$cur"
     # shellcheck disable=SC2207
 	COMPREPLY=($(compgen -W "$(command usage complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${words[@]}" 2>/dev/null)" -- "$cur"))
 	# Readline only replaces the text after the last word break, so strip the part of

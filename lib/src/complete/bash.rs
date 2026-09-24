@@ -110,6 +110,9 @@ fi"#
     {file_write_logic}
     # stderr is discarded: a line that doesn't parse (`{bin} help <Tab>`) makes
     # complete-word fail, and its error would be printed over the prompt.
+    # Complete the text before the cursor, as `$cur` holds it: with the cursor in `--out=a|X`
+    # the value typed so far is `a`, not `aX`.
+    words[cword]="$cur"
     # shellcheck disable=SC2207
 	COMPREPLY=($(compgen -W "$(command {usage_bin} complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${{words[@]}}" 2>/dev/null)" -- "$cur"))
 	# Readline only replaces the text after the last word break, so strip the part of
@@ -191,8 +194,10 @@ _usage_default_complete() {{
                 # Bash splits `--out=a` into `--out`, `=`, `a` (`=` is in COMP_WORDBREAKS).
                 # Join those back into one word, using COMP_LINE to tell `--out=a` apart
                 # from `--out = a`, so complete-word sees the word that was typed. The whole
-                # line is walked, not just up to the cursor, so words after it stay apart.
-                local words=() cword=0 i line="$COMP_LINE" word spaced
+                # line is walked, not just up to the cursor, so words after it stay apart;
+                # `ends` records where each joined word stops so the current one can then be
+                # cut at the cursor.
+                local words=() ends=() cword=0 i line="$COMP_LINE" word spaced
                 for ((i = 0; i < ${{#COMP_WORDS[@]}}; i++)); do
                     word="${{COMP_WORDS[i]}}"
                     spaced=1
@@ -205,8 +210,14 @@ _usage_default_complete() {{
                     else
                         words+=("$word")
                     fi
+                    ends[${{#words[@]}} - 1]=$((${{#COMP_LINE}} - ${{#line}}))
                     ((i == COMP_CWORD)) && cword=$((${{#words[@]}} - 1))
                 done
+                # With the cursor in `--out=a|X`, the value typed so far is `a`, not `aX`.
+                local after=$((${{ends[cword]:-0}} - COMP_POINT))
+                if ((after > 0 && after <= ${{#words[cword]}})); then
+                    words[cword]="${{words[cword]:0:${{#words[cword]}} - after}}"
+                fi
                 local cur="${{words[cword]}}"
                 local IFS=$'\n'
                 # stderr is discarded so a parse error isn't printed over the prompt.
