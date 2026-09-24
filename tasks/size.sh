@@ -47,9 +47,9 @@ build() {
   # relink stops `cp` here, rather than handing one checkout's binary to the other.
   for bin in "${BINS[@]}"; do rm -f "$CARGO_TARGET_DIR/release/$bin"; done
   local members
-  members=$(cd "$src" && cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name | "-p", .')
+  members=$(cd "$src" && cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[].name | "-p", .')
   # shellcheck disable=SC2086 # one word per `-p` and package name
-  (cd "$src" && cargo clean --release -q $members)
+  (cd "$src" && cargo clean --release --locked -q $members)
   (cd "$src" && cargo build --release --locked -q -p gate -p usage-cli \
     --bin parse-none --bin parse-usage --bin parse-clap --bin usage)
   mkdir -p "$dest"
