@@ -61,6 +61,9 @@ usage-lib = { workspace = true, features = ["docs", "unstable_choices_env", "val
 
 [target.'cfg(unix)'.dependencies]
 exec = "0.3"
+# `killpg`, to take down a hung delegated completion's whole process group. Already in the
+# build through `exec`, so this adds no crate.
+libc = "0.2"
 
 [dev-dependencies]
 assert_cmd = { version = "2", features = ["color-auto"] }

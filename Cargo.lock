@@ -1994,6 +1994,7 @@ dependencies = [
  "indexmap 2.14.2",
  "insta",
  "itertools 0.15.0",
+ "libc",
  "log",
  "predicates",
  "regex",

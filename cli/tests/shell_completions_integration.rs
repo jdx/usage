@@ -2489,7 +2489,7 @@ complete -c fakecmd -n __fish_use_subcommand -a apply -d 'Apply it'
 complete -c fakecmd -n '__fish_seen_subcommand_from plan' -o out -d 'Write the plan'
 complete -c fakecmd -n '__fish_seen_subcommand_from plan; and string match -q -- "--*" (commandline -ct)' -l out -r -f -a 'plan.tfplan other.tfplan' -d 'Plan file'
 complete -c fakecmd -n '__fish_seen_subcommand_from plan' -o other
-complete -c fakecmd -n 'test (count (commandline -opc)) -eq 2' -a second -d 'Second word'
+complete -c fakecmd -n 'test (count (commandline -opc)) -eq 2; and not __fish_seen_subcommand_from plan' -a second -d 'Second word'
 "#,
         )
         .unwrap();
@@ -2500,6 +2500,8 @@ complete -c fakecmd -n 'test (count (commandline -opc)) -eq 2' -a second -d 'Sec
   _init_completion -s || return
   if ((cword == 1)); then
     COMPREPLY=($(compgen -W "plan apply" -- "$cur"))
+  elif ((cword == 2)) && [[ ${words[1]} != plan ]]; then
+    COMPREPLY=($(compgen -W "second" -- "$cur"))
   elif [[ ${words[1]} == plan ]]; then
     if [[ $prev == --out ]]; then
       COMPREPLY=($(compgen -W "plan.tfplan other.tfplan" -- "$cur"))
@@ -2543,6 +2545,8 @@ elif [[ $words[2] == plan ]]; then
     local -a opts=('-out:Write the plan' '-other')
     _describe option opts
   fi
+elif (( CURRENT == 3 )) && [[ $words[2] != (plan|marker) ]]; then
+  compadd -- second
 elif [[ $words[2] == marker ]]; then
   compadd -- a__USAGE_DELEGATE_DONE b c
 fi
@@ -2703,6 +2707,10 @@ fn assert_delegated(fixture: &DelegateFixture, shell: &str) {
         "{shell}: {auto}"
     );
 
+    // An empty word stays a word: after `fakecmd ''` the cursor is on the second argument.
+    let empty = fixture.complete(shell, &["wrap", "layer1", "", ""]);
+    assert_eq!(delegated_values(&empty), ["second"], "{shell}: {empty}");
+
     // A value in the same word as the wrapped command's flag. Each shell's script hands it over
     // the way that shell splits it: bash, where `=` is a word break, as `--out`, `=`, `pl`,
     // and wants back only what follows the `=`; the others as one word, answered with whole
@@ -2765,9 +2773,6 @@ fn test_fish_delegates_to_wrapped_command_completion() {
     // The wrapped command's descriptions come through.
     let out = fixture.complete("fish", &["wrap", "layer1", "pl"]);
     assert_eq!(out, "plan\tShow a plan\n");
-    // An empty word stays a word: after `fakecmd ''` the cursor is on the second argument.
-    let out = fixture.complete("fish", &["wrap", "layer1", "", ""]);
-    assert_eq!(out, "second\tSecond word\n");
 }
 
 /// Through the generated fish script rather than `complete-word` alone: what a user pressing Tab

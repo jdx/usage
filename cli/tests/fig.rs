@@ -161,6 +161,26 @@ cmd "d" help="d" {
 }
 
 #[test]
+fn an_inline_delegate_leaves_the_argument_bare_too() {
+    // The same declaration written inside the argument. Read as an empty `complete`, it kept
+    // the paths guessed from "file" in the name.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+cmd "d" help="d" {
+    arg "<command_file>" help="forwarded" var=#true {
+        complete delegate="terraform"
+    }
+}
+        "#,
+    );
+    assert!(!fig.contains("template"), "{fig}");
+    assert!(!fig.contains("generators"), "{fig}");
+    assert!(!fig.contains("terraform"), "{fig}");
+}
+
+#[test]
 fn a_declaration_replaces_a_guessed_generator_too() {
     // `get_generator` reads the name as well: anything containing "env_var" gets the
     // environment-variable generator. Treating that guess as a prior declaration let it

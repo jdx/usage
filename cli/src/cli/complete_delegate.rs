@@ -40,7 +40,9 @@ const FISH: &str = r#"complete -C (string join -- " " (string escape -- $argv[1.
 /// Those are built the way readline builds them, because bash-completion reassembles words by
 /// comparing the two: `COMP_LINE` is the text, and `COMP_WORDS` splits `-out=pl` into `-out`,
 /// `=`, `pl`, since `=` is a word break. The generated bash script already hands usage that
-/// split form, so a word that is just `=` is glued back to its neighbours in the text.
+/// split form, so a word that is just `=` is glued back to its neighbours in the text. Like
+/// readline's, the words before the cursor are the text as typed, quotes included, so an empty
+/// one is `''` and keeps its place instead of vanishing.
 const BASH: &str = r#"
 if ! declare -F _command_offset >/dev/null; then
   for f in "${BASH_COMPLETION:-}" /usr/share/bash-completion/bash_completion \
@@ -55,16 +57,17 @@ COMP_LINE=
 i=0 prev=
 for w in "$@"; do
   i=$((i + 1))
-  if [[ -n $COMP_LINE && $w != = && $prev != = ]]; then COMP_LINE+=' '; fi
-  if ((i < $#)); then printf -v q '%q' "$w"; COMP_LINE+=$q; else COMP_LINE+=$w; fi
-  rest=$w
+  if ((i < $#)); then printf -v q '%q' "$w"; else q=$w; fi
+  if [[ -n $COMP_LINE && $q != = && $prev != = ]]; then COMP_LINE+=' '; fi
+  COMP_LINE+=$q
+  rest=$q
   while [[ $rest == *=* ]]; do
     [[ -n ${rest%%=*} ]] && COMP_WORDS+=("${rest%%=*}")
     COMP_WORDS+=(=)
     rest=${rest#*=}
   done
-  if [[ -n $rest ]] || ((i == $# && ${#w} == 0)); then COMP_WORDS+=("$rest"); fi
-  prev=$w
+  if [[ -n $rest ]] || ((i == $# && ${#q} == 0)); then COMP_WORDS+=("$rest"); fi
+  prev=$q
 done
 COMP_CWORD=$((${#COMP_WORDS[@]} - 1))
 COMP_POINT=${#COMP_LINE}
@@ -78,7 +81,9 @@ for c in "${COMPREPLY[@]}"; do printf '%s\n' "${c% }"; done
 /// zsh's completion system only runs inside the line editor, so this drives one: an
 /// interactive `zsh -f` on a pseudo-terminal, with `compadd` wrapped to print every match it
 /// is handed. The line itself arrives in an environment variable and is put into the buffer by
-/// a widget, so nothing typed is ever read as keystrokes.
+/// a widget, so nothing typed is ever read as keystrokes. `(q)` leaves a plain word as typed
+/// (completion functions compare `$words` with names like `commit`) and turns an empty one
+/// into `''`, so it keeps its place instead of becoming a gap the line editor skips.
 ///
 /// Every marker carries a nonce chosen for the run, and the end marker must be the whole line,
 /// so a candidate that happens to contain marker text is returned rather than ending the read.
@@ -210,18 +215,21 @@ fn run_with_timeout(mut command: Command) -> Option<String> {
 /// Killing the shell alone left a completion's own child running when that child held the
 /// pipe open — the very thing that made the read time out — and every further Tab added
 /// another. The group is gone even after its leader has exited, as long as a member remains,
-/// which is exactly that case. `kill` rather than a libc binding keeps the CLI free of a
-/// dependency for a path that only runs when a completion has already hung.
+/// which is exactly that case.
+///
+/// `killpg` rather than the `kill` program, whose spellings disagree: procps needs a `--`
+/// before `-<pgid>` (without it, once the leader has exited it reports success and kills
+/// nothing), and the BSD `kill` on macOS does not take one.
 #[cfg(unix)]
 fn kill_tree(child: &mut std::process::Child) {
-    let group = format!("-{}", child.id());
-    let killed = Command::new("kill")
-        .args(["-KILL", "--", &group])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-    if !killed.is_ok_and(|status| status.success()) {
+    let Ok(group) = libc::pid_t::try_from(child.id()) else {
+        let _ = child.kill();
+        return;
+    };
+    // SAFETY: `killpg` takes plain integers and touches no memory. The group is the one
+    // `process_group(0)` created for this child, whose id is the child's pid; the child has
+    // not been waited on yet, so that id cannot have been reused.
+    if unsafe { libc::killpg(group, libc::SIGKILL) } != 0 {
         let _ = child.kill();
     }
 }
