@@ -96,7 +96,9 @@ __USAGE_EOF__
 	# `$cur` up to its last `:` or `=` from each candidate (what __ltrim_colon_completions
 	# does for `:` alone).
 	local breaks="${COMP_WORDBREAKS//[^:=]/}"
-	if [[ -n "$breaks" && "$cur" == *["$breaks"]* ]]; then
+	# An empty COMPREPLY is left alone: before bash 4.4 the rewrite below would turn it into
+	# one empty candidate.
+	if ((${#COMPREPLY[@]})) && [[ -n "$breaks" && "$cur" == *["$breaks"]* ]]; then
 		local break_prefix="${cur%"${cur##*["$breaks"]}"}"
 		COMPREPLY=("${COMPREPLY[@]#"$break_prefix"}")
 	fi

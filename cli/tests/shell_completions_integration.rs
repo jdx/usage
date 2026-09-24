@@ -1498,7 +1498,7 @@ run_case() {{
     COMP_WORDS=("$@")
     COMP_CWORD="$cword"
     COMP_LINE="$line"
-    COMP_POINT=${{#line}}
+    COMP_POINT=${{POINT:-${{#line}}}}
     COMPREPLY=()
     "$fn" "${{COMP_WORDS[0]}}" "${{COMP_WORDS[$cword]}}" "${{COMP_WORDS[$((cword-1))]}}"
     echo "[$label] <${{COMPREPLY[*]}}>"
@@ -1509,6 +1509,8 @@ run_case bin-partial _mycli "mycli --out=a" 3 mycli --out = a
 run_case bin-flag _mycli "mycli --o" 1 mycli --o
 run_case init-empty _usage_default_complete "ex --out=" 2 ex --out =
 run_case init-partial _usage_default_complete "ex --out=a" 3 ex --out = a
+# The cursor sits after `=` with another word already typed after it.
+POINT=9 run_case init-midline _usage_default_complete "ex --out= x" 2 ex --out = x
 "#,
         bin_dir = path_var_entry("bash", &bin_dir),
         usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
@@ -1533,6 +1535,7 @@ run_case init-partial _usage_default_complete "ex --out=a" 3 ex --out = a
         "[bin-flag] <--out>",
         "[init-empty] <a b>",
         "[init-partial] <a>",
+        "[init-midline] <a b>",
     ] {
         assert!(
             stdout.contains(expected),

@@ -116,7 +116,9 @@ fi"#
 	# `$cur` up to its last `:` or `=` from each candidate (what __ltrim_colon_completions
 	# does for `:` alone).
 	local breaks="${{COMP_WORDBREAKS//[^:=]/}}"
-	if [[ -n "$breaks" && "$cur" == *["$breaks"]* ]]; then
+	# An empty COMPREPLY is left alone: before bash 4.4 the rewrite below would turn it into
+	# one empty candidate.
+	if ((${{#COMPREPLY[@]}})) && [[ -n "$breaks" && "$cur" == *["$breaks"]* ]]; then
 		local break_prefix="${{cur%"${{cur##*["$breaks"]}}"}}"
 		COMPREPLY=("${{COMPREPLY[@]#"$break_prefix"}}")
 	fi
@@ -188,8 +190,9 @@ _usage_default_complete() {{
             if type -P {usage_bin} &> /dev/null; then
                 # Bash splits `--out=a` into `--out`, `=`, `a` (`=` is in COMP_WORDBREAKS).
                 # Join those back into one word, using COMP_LINE to tell `--out=a` apart
-                # from `--out = a`, so complete-word sees the word that was typed.
-                local words=() cword=0 i line="${{COMP_LINE:0:COMP_POINT}}" word spaced
+                # from `--out = a`, so complete-word sees the word that was typed. The whole
+                # line is walked, not just up to the cursor, so words after it stay apart.
+                local words=() cword=0 i line="$COMP_LINE" word spaced
                 for ((i = 0; i < ${{#COMP_WORDS[@]}}; i++)); do
                     word="${{COMP_WORDS[i]}}"
                     spaced=1
@@ -210,7 +213,9 @@ _usage_default_complete() {{
                 # shellcheck disable=SC2207
                 COMPREPLY=( $(command {usage_bin} complete-word --shell bash -f "$cmdpath" --cword="$cword" -- "${{words[@]}}" 2>/dev/null) )
                 # Readline only replaces the text after the last `=`, so drop what precedes it.
-                if [[ "$cur" == *=* && "$COMP_WORDBREAKS" == *=* ]]; then
+                # Guarded on a non-empty COMPREPLY: before bash 4.4, rewriting an empty array
+                # this way leaves one empty candidate, which would erase the typed value.
+                if ((${{#COMPREPLY[@]}})) && [[ "$cur" == *=* && "$COMP_WORDBREAKS" == *=* ]]; then
                     COMPREPLY=( "${{COMPREPLY[@]#"${{cur%"${{cur##*=}}"}}"}}" )
                 fi
                 return 0
