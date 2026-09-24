@@ -440,7 +440,23 @@ impl SpecFlag {
         }
         for child in node.children() {
             match child.name() {
-                "arg" => flag.arg = Some(SpecArg::parse(ctx, &child)?),
+                "arg" => {
+                    let mut arg = SpecArg::parse(ctx, &child)?;
+                    // A `complete` written on the flag before this `arg` belongs to the value
+                    // this `arg` now describes, so it moves across rather than being dropped.
+                    if let Some(mut complete) = flag.arg.take().and_then(|prev| prev.complete) {
+                        if arg.complete.is_some() {
+                            bail_parse!(
+                                ctx,
+                                child.node.name().span(),
+                                "a flag's value may have only one complete"
+                            );
+                        }
+                        complete.name = arg.name.to_lowercase();
+                        arg.complete = Some(complete);
+                    }
+                    flag.arg = Some(arg);
+                }
                 "help" => flag.help = Some(child.arg(0)?.ensure_string()?),
                 "long_help" => flag.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_long" => flag.help_long = Some(child.arg(0)?.ensure_string()?),

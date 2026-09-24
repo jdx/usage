@@ -1858,6 +1858,22 @@ cmd "sub" {
         );
         assert!(err(r#"arg "<file>" { complete run="ls" type="file"; }"#).contains("run or type"));
         assert!(err(r#"flag "--force" { complete run="ls"; }"#).contains("must have value"));
+        assert!(err(
+            r#"flag "--out <path>" { complete run="ls"; arg "<path>" { complete run="pwd"; }; }"#
+        )
+        .contains("only one complete"));
+    }
+
+    #[test]
+    fn a_flag_complete_written_before_its_arg_is_kept() {
+        let spec: Spec = r#"flag "--out <path>" { complete run="ls"; arg "<target>"; }"#
+            .parse()
+            .unwrap();
+        let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(arg.name, "target");
+        let complete = arg.complete.as_ref().unwrap();
+        assert_eq!(complete.run.as_deref(), Some("ls"));
+        assert_eq!(complete.name, "target");
     }
 
     #[test]
