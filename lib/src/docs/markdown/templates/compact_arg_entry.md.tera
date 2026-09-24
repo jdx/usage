@@ -13,6 +13,10 @@
 
   **Choices Environment Variable:** `{{ arg.choices.env }}`
 {%- endif %}
+{%- if arg.choices and arg.choices.run %}
+
+  **Choices:** output of `{{ arg.choices.run }}`
+{%- endif %}
 {%- if arg.default | length > 0 %}
 
   **Default:** {% for value in arg.default %}`{{ value }}`{% if not loop.last %}, {% endif %}{% endfor %}

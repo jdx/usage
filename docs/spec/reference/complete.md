@@ -4,7 +4,8 @@ A `complete` node supplies candidates for an argument or flag with the given nam
 Use a built-in `type` for paths and other common values, `run` for a command
 that prints candidates, or `delegate` to hand a wrapped command's arguments to that
 command's own shell completion. For a fixed list, put `choices` on the argument or flag
-instead.
+instead, and for values a command lists that should also be shown in help and
+enforced, use [`choices run=`](/spec/reference/arg#choices-from-a-command).
 
 ```kdl
 // use a custom completion command for all args named "plugin"

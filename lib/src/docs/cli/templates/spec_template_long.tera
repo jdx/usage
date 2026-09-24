@@ -98,6 +98,9 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
 {{ arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent=arg.ann_indent, width=terminal_width) }}
 {%- endif %}
+{%- if not arg.hide_possible_values and arg.choices and arg.choices.run %}
+{{ arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent=arg.ann_indent, width=terminal_width) }}
+{%- endif %}
 {%- if not arg.hide_env and arg.env %}
 {{ arg.env | terminal_annotation(label="[env: ", suffix="]", indent=arg.ann_indent, width=terminal_width) }}
 {%- endif %}
@@ -159,6 +162,9 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
 {{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent=flag.ann_indent, width=terminal_width) }}
 {%- endif %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.run %}
+{{ flag.arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent=flag.ann_indent, width=terminal_width) }}
+{%- endif %}
 {%- if not flag.hide_env and flag.env %}
 {{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent=flag.ann_indent, width=terminal_width) }}
 {%- endif %}
@@ -219,6 +225,9 @@ Global flags:
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
 {{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent=flag.ann_indent, width=terminal_width) }}
 {%- endif %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.run %}
+{{ flag.arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent=flag.ann_indent, width=terminal_width) }}
+{%- endif %}
 {%- if not flag.hide_env and flag.env %}
 {{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent=flag.ann_indent, width=terminal_width) }}
 {%- endif %}
@@ -273,6 +282,9 @@ Global flags:
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
 {{ arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endif %}
+{%- if not arg.hide_possible_values and arg.choices and arg.choices.run %}
+{{ arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent="    ", width=terminal_width) }}
+{%- endif %}
 {%- if not arg.hide_env and arg.env %}
 {{ arg.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endif %}
@@ -316,6 +328,9 @@ Global flags:
 {%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
 {{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}
+{%- endif %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.run %}
+{{ flag.arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent="    ", width=terminal_width) }}
 {%- endif %}
 {%- if not flag.hide_env and flag.env %}
 {{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}

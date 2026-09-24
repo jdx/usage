@@ -298,3 +298,122 @@ arg "<config_file>" {
     assert!(!fig.contains("folders"), "{fig}");
     assert!(fig.contains(r#""template": "filepaths""#), "{fig}");
 }
+
+#[test]
+fn choices_from_a_command_complete_by_running_it_and_generate_without_it() {
+    // `choices run=` is completed the way `complete run=` is: Fig runs the command when
+    // completing. Generating the spec must not run it, which `exit 1` would show. The
+    // declared values still reach Fig as suggestions, and the name-inferred path guess
+    // does not stand beside a declaration.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+arg "<service_file>" help="service" {
+    choices "local" run="exit 1"
+}
+        "#,
+    );
+    assert!(
+        fig.contains("completionGeneratorTemplate(`exit 1`)"),
+        "{fig}"
+    );
+    assert!(fig.contains(r#""local""#), "{fig}");
+    assert!(!fig.contains("template\":"), "{fig}");
+}
+
+#[test]
+fn a_command_reaches_the_template_literal_as_written() {
+    // `${HOME}` would be interpolated by JavaScript, a backtick would end the literal, and a
+    // backslash would start an escape. `complete run=` and `choices run=` share the path.
+    let fig = fig_of(
+        r##"
+name "ex"
+bin "ex"
+arg "<a>" help="a" {
+    choices run=#"ls ${HOME} `pwd` a\b"#
+}
+arg "<b>" help="b"
+complete "b" run=#"ls ${HOME} `pwd` a\b"#
+        "##,
+    );
+    assert_eq!(
+        fig.matches(r#"completionGeneratorTemplate(`ls \${HOME} \`pwd\` a\\b`)"#)
+            .count(),
+        2,
+        "{fig}"
+    );
+}
+
+#[test]
+fn choices_from_different_commands_on_one_arg_name_stay_apart() {
+    // The generator placeholder is replaced by text, so two `<svc>` arguments whose values come
+    // from different commands must not share one, or both get whichever is replaced first.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+cmd "a" help="a" {
+    arg "<svc>" help="svc" {
+        choices run="echo from-a"
+    }
+}
+cmd "b" help="b" {
+    arg "<svc>" help="svc" {
+        choices run="echo from-b"
+    }
+}
+        "#,
+    );
+    assert!(
+        fig.contains("completionGeneratorTemplate(`echo from-a`)"),
+        "{fig}"
+    );
+    assert!(
+        fig.contains("completionGeneratorTemplate(`echo from-b`)"),
+        "{fig}"
+    );
+}
+
+#[test]
+fn a_run_completer_beside_choices_is_not_offered() {
+    // `usage complete-word` answers an argument with choices from those choices and never
+    // runs its `complete run=`, inline or named, so Fig must not offer that command's output.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+arg "<mode>" help="mode" {
+    choices "fast" "slow"
+    complete run="echo inline"
+}
+arg "<level>" help="level" {
+    choices "low" "high"
+}
+complete "level" run="echo named"
+        "#,
+    );
+    assert!(fig.contains(r#""fast""#), "{fig}");
+    assert!(fig.contains(r#""low""#), "{fig}");
+    assert!(!fig.contains("echo inline"), "{fig}");
+    assert!(!fig.contains("echo named"), "{fig}");
+}
+
+#[test]
+fn choices_displace_the_guess_from_a_file_like_name() {
+    // `<config_file>` would be guessed a path, but its choices are all `usage complete-word`
+    // offers and all the parser accepts, so Fig offers no files beside them.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+arg "<config_file>" help="config" {
+    choices "dev.toml" "prod.toml"
+    complete run="ls"
+}
+        "#,
+    );
+    assert!(fig.contains(r#""dev.toml""#), "{fig}");
+    assert!(!fig.contains("filepaths"), "{fig}");
+    assert!(!fig.contains("completionGeneratorTemplate(`ls`)"), "{fig}");
+}

@@ -799,9 +799,16 @@ impl CompleteWord {
         }
 
         if let Some(choices) = &arg.choices {
+            // Declared values and whatever `run=` prints, as one list: a `choices run=` is
+            // the same command a `complete run=` would be, with help and validation to match.
+            // A command that fails still leaves the declared values to offer, and its error
+            // goes to the trace log rather than over the prompt.
+            let values = choices.resolved_values(None).unwrap_or_else(|err| {
+                trace!("choices run= failed: {err}");
+                choices.values()
+            });
             return Ok((
-                choices
-                    .values()
+                values
                     .into_iter()
                     .filter(|c| c.starts_with(ctoken))
                     .map(|value| {
@@ -1028,6 +1035,9 @@ impl usage_rs::Run for CompleteWord {
         let shell = self.shell.as_ref();
         let any_descriptions = choices.iter().any(|(_, d)| !d.is_empty());
         for (c, description) in choices {
+            // Applied here rather than at each source so that none of them — subcommand and
+            // flag help, custom completers — can leak a second line as a candidate.
+            let description = one_line(Some(&description));
             match shell {
                 "bash" => println!("{c}"),
                 "fish" | "nu" | "powershell" => {

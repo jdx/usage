@@ -61,6 +61,8 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {{ arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
 {{ arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
+{%- if not arg.hide_possible_values and arg.choices and arg.choices.run %}
+{{ arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_env and arg.env %}
 {{ arg.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_env %}{% for env in arg.env_fallback %}
@@ -92,6 +94,8 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {{ flag.arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
 {{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.run %}
+{{ flag.arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env and flag.env %}
 {{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env %}{% for env in flag.env_fallback %}
@@ -124,6 +128,8 @@ Global flags:
 {{ flag.arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
 {{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.run %}
+{{ flag.arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env and flag.env %}
 {{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env %}{% for env in flag.env_fallback %}
@@ -165,6 +171,8 @@ Global flags:
 {{ arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
 {{ arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
+{%- if not arg.hide_possible_values and arg.choices and arg.choices.run %}
+{{ arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_env and arg.env %}
 {{ arg.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_env %}{% for env in arg.env_fallback %}
@@ -193,6 +201,8 @@ Global flags:
 {{ flag.arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
 {{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.run %}
+{{ flag.arg.choices.run | terminal_annotation(label="[possible values: output of `", suffix="`]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env and flag.env %}
 {{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env %}{% for env in flag.env_fallback %}

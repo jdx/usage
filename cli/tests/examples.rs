@@ -255,3 +255,23 @@ fn test_exec_help_without_a_script() {
         }
     }
 }
+
+/// A script's `--help` runs its `choices run=` and lists what it prints, and a value outside
+/// that list is refused before the script body runs.
+#[cfg(unix)]
+#[test]
+fn test_choices_from_a_command() {
+    let run = |args: &[&str]| {
+        let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+        cmd.args(["bash", "../examples/choices-run.sh"]).args(args);
+        cmd.assert()
+    };
+    run(&["--help"])
+        .success()
+        .stdout(contains("[possible values: app, database]"));
+    run(&["-h"]).success().stdout(contains("[app, database]"));
+    run(&["database"]).success().stdout("building database\n");
+    run(&["nope"]).failure().stderr(contains(
+        "Invalid choice for arg service: nope, expected one of app, database",
+    ));
+}

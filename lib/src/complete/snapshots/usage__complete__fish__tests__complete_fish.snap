@@ -16,11 +16,13 @@ test -d "$spec_dir"; or mkdir -p -m 700 "$spec_dir"
 set -l spec_file "$spec_dir/usage__usage_spec_mycli.spec"
 mycli complete --usage | string collect > "$spec_file"
 
-set -l tokens
 # stderr is discarded: a line that doesn't parse (`mycli help <Tab>`) makes
 # complete-word fail, and its error would be printed over the prompt.
+# The word being completed is cut at the cursor (`-c`) and unquoted, so
+# `'prod<Tab>` and `sub\ dir/<Tab>` match the same values as their bare
+# spellings; fish re-quotes whatever it inserts.
 if commandline -x >/dev/null 2>&1
-    complete -xc mycli -a "(command usage complete-word --shell fish -f \"$spec_file\" -- (commandline -xpc) (commandline -t) 2>/dev/null)"
+    complete -xc mycli -a "(command usage complete-word --shell fish -f \"$spec_file\" -- (commandline -xpc) (commandline -ct | string unescape) 2>/dev/null)"
 else
-    complete -xc mycli -a "(command usage complete-word --shell fish -f \"$spec_file\" -- (commandline -opc) (commandline -t) 2>/dev/null)"
+    complete -xc mycli -a "(command usage complete-word --shell fish -f \"$spec_file\" -- (commandline -opc) (commandline -ct | string unescape) 2>/dev/null)"
 end

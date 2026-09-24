@@ -784,6 +784,16 @@ impl SpecArgBuilder {
         self
     }
 
+    /// Take further choices from the lines a shell command prints (`choices run=`).
+    ///
+    /// The command runs when a value is checked, a word is completed, or a running program
+    /// shows its help; generated docs and code describe it without running it.
+    pub fn choices_run(mut self, run: impl Into<String>) -> Self {
+        let choices = self.inner.choices.get_or_insert_with(SpecChoices::default);
+        choices.run = Some(run.into());
+        self
+    }
+
     /// Set choices from an environment variable
     #[cfg(feature = "unstable_choices_env")]
     pub fn choices_env(mut self, env: impl Into<String>) -> Self {
@@ -1365,6 +1375,18 @@ mod tests {
             vec!["json".to_string(), "yaml".to_string(), "toml".to_string()]
         );
         assert_eq!(choices.env(), None);
+    }
+
+    #[test]
+    fn test_arg_builder_choices_run_keeps_the_declared_values() {
+        let arg = SpecArgBuilder::new()
+            .name("service")
+            .choices_run("printf 'app\\ndatabase\\n'")
+            .choices(["local"])
+            .build();
+        let choices = arg.choices.unwrap();
+        assert_eq!(choices.choices, vec!["local".to_string()]);
+        assert_eq!(choices.run(), Some("printf 'app\\ndatabase\\n'"));
     }
 
     #[cfg(feature = "unstable_choices_env")]

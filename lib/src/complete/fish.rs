@@ -81,13 +81,15 @@ test -d "$spec_dir"; or mkdir -p -m 700 "$spec_dir"
 set -l spec_file "$spec_dir/usage_{spec_variable}.spec"
 {file_write_logic}
 
-set -l tokens
 # stderr is discarded: a line that doesn't parse (`{bin} help <Tab>`) makes
 # complete-word fail, and its error would be printed over the prompt.
+# The word being completed is cut at the cursor (`-c`) and unquoted, so
+# `'prod<Tab>` and `sub\ dir/<Tab>` match the same values as their bare
+# spellings; fish re-quotes whatever it inserts.
 if commandline -x >/dev/null 2>&1
-    complete -xc {bin} -a "(command {usage_bin} complete-word --shell fish -f \"$spec_file\" -- (commandline -xpc) (commandline -t) 2>/dev/null)"
+    complete -xc {bin} -a "(command {usage_bin} complete-word --shell fish -f \"$spec_file\" -- (commandline -xpc) (commandline -ct | string unescape) 2>/dev/null)"
 else
-    complete -xc {bin} -a "(command {usage_bin} complete-word --shell fish -f \"$spec_file\" -- (commandline -opc) (commandline -t) 2>/dev/null)"
+    complete -xc {bin} -a "(command {usage_bin} complete-word --shell fish -f \"$spec_file\" -- (commandline -opc) (commandline -ct | string unescape) 2>/dev/null)"
 end
 "#
     ).trim().to_string());
@@ -144,7 +146,7 @@ function __usage_register_shebang_completions
             read -l -n 128 first <$file 2>/dev/null
             if string match -q -- '#!*usage*' "$first"
                 # stderr is discarded so a parse error isn't printed over the prompt.
-                complete -c $name -x -a "(command {usage_bin} complete-word --shell fish -f \"$file\" -- ($cmdline_pre_cmd) (commandline -t) 2>/dev/null)"
+                complete -c $name -x -a "(command {usage_bin} complete-word --shell fish -f \"$file\" -- ($cmdline_pre_cmd) (commandline -ct | string unescape) 2>/dev/null)"
                 set -a registered $name
             end
         end
