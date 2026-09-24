@@ -111,6 +111,11 @@ struct FigArg {
     /// only decides which declaration wins while one is being built.
     #[serde(skip)]
     declared: bool,
+    /// Whether the argument declares `choices`. `usage complete-word` answers from them and
+    /// never runs a `complete run=` for such an argument, so neither does Fig. Not part of a
+    /// Fig spec.
+    #[serde(skip)]
+    has_choices: bool,
 }
 
 #[serde_as]
@@ -281,6 +286,7 @@ impl FigArg {
                     suggestions: choices.choices.clone(),
                     debounce: None,
                     declared: true,
+                    has_choices: true,
                 };
             }
         }
@@ -294,6 +300,7 @@ impl FigArg {
             suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
             debounce: FigArg::get_generator(&arg.name).map(|_| true),
             declared: false,
+            has_choices: arg.choices.is_some(),
         };
         // A `complete` inside the `arg` is the nearest declaration there is, so it arrives
         // first and the named ones applied afterwards leave it alone.
@@ -318,6 +325,13 @@ impl FigArg {
         // A `complete` node with neither a command to run nor a type says nothing about
         // what this value is, so it displaces nothing.
         if spec.run.is_none() && spec.type_.is_none() {
+            return;
+        }
+        // Choices are a closed set that `usage complete-word` offers instead of running a
+        // command, so a `run=` beside them would offer values nothing else accepts. It is
+        // still the nearest declaration, so a farther one must not take its place.
+        if self.has_choices && spec.type_.is_none() {
+            self.declared = true;
             return;
         }
 

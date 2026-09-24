@@ -335,3 +335,27 @@ cmd "b" help="b" {
         "{fig}"
     );
 }
+
+#[test]
+fn a_run_completer_beside_choices_is_not_offered() {
+    // `usage complete-word` answers an argument with choices from those choices and never
+    // runs its `complete run=`, inline or named, so Fig must not offer that command's output.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+arg "<mode>" help="mode" {
+    choices "fast" "slow"
+    complete run="echo inline"
+}
+arg "<level>" help="level" {
+    choices "low" "high"
+}
+complete "level" run="echo named"
+        "#,
+    );
+    assert!(fig.contains(r#""fast""#), "{fig}");
+    assert!(fig.contains(r#""low""#), "{fig}");
+    assert!(!fig.contains("echo inline"), "{fig}");
+    assert!(!fig.contains("echo named"), "{fig}");
+}
