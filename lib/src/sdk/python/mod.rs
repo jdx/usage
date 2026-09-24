@@ -450,7 +450,7 @@ fn render_flags_dataclass(
 }
 
 fn arg_py_type(arg: &SpecArg, cmd_name: &str, choice_types: &ChoiceTypeMap) -> String {
-    let base = if let Some(choices) = &arg.choices {
+    let base = if let Some(choices) = crate::sdk::typed_choices(arg) {
         if let Some(resolved) = choice_types.lookup(cmd_name, &arg.name) {
             resolved.to_string()
         } else {
@@ -480,7 +480,7 @@ fn flag_py_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -
 
     match &flag.arg {
         Some(arg) => {
-            let base = if let Some(choices) = &arg.choices {
+            let base = if let Some(choices) = crate::sdk::typed_choices(arg) {
                 if let Some(resolved) = choice_types.lookup(cmd_name, &flag.name) {
                     resolved.to_string()
                 } else {

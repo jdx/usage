@@ -300,14 +300,20 @@ fn describe_output(output: &SpecOutput, cmd: &SpecCommand, select: Option<&str>)
 }
 
 fn describe_arg(arg: &SpecArg) -> Value {
-    json!({
+    let mut described = json!({
         "name": arg.name,
         "required": arg.required,
         "variadic": arg.var,
         "help": arg.help,
         "effect": arg.effect.map(|e| e.as_str()),
         "choices": arg.choices.as_ref().map(|c| c.choices.clone()),
-    })
+    });
+    // Described, not run: without it a `choices run=` with no declared values would read as
+    // an argument that accepts nothing.
+    if let Some(run) = arg.choices.as_ref().and_then(|c| c.run()) {
+        described["choices_run"] = Value::from(run);
+    }
+    described
 }
 
 fn describe_flag(flag: &SpecFlag) -> Value {

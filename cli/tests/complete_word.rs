@@ -392,6 +392,17 @@ fn complete_word_choices_from_env() {
         .stdout("foo\nbar\nbaz\n");
 }
 
+/// `choices run=` completes like `complete run=` would, so a spec says it once.
+#[cfg(unix)]
+#[test]
+fn complete_word_choices_from_a_command() {
+    cmd("choices-run.sh", Some("fish"))
+        .args(["d"])
+        .assert()
+        .success()
+        .stdout("database\n");
+}
+
 #[test]
 fn complete_word_choices_from_env_unset_returns_empty() {
     cmd("env-choices.usage.kdl", Some("fish"))

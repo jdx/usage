@@ -46,11 +46,13 @@ impl Exec {
         let parsed = usage::parse::parse_partial(spec, args)?;
         print!(
             "{}",
-            usage::docs::cli::render_help_styled(
+            // The script's own help, so `choices run=` is run and its values listed.
+            usage::docs::cli::render_runtime_help(
                 spec,
                 &parsed.cmd,
                 long,
                 usage::docs::cli::Style::auto(),
+                None,
             )
         );
         Ok(())

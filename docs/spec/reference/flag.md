@@ -104,6 +104,10 @@ flag "--env <env>" {
   // usage-lib; the usage CLI enables it, but library consumers must opt in
 }
 
+flag "--service <service>" {
+  choices run="docker compose config --services" // values from the command's output; see arg's Choices
+}
+
 // argv wins, then APP_TOKEN, then the fallbacks from left to right, then the
 // explicitly deprecated alias. The list nodes preserve declaration order.
 flag "--token <token>" env="APP_TOKEN" {

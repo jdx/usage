@@ -796,9 +796,11 @@ impl CompleteWord {
         }
 
         if let Some(choices) = &arg.choices {
+            // Declared values and whatever `run=` prints, as one list: a `choices run=` is
+            // the same command a `complete run=` would be, with help and validation to match.
             return Ok((
                 choices
-                    .values()
+                    .resolved_values(None)?
                     .into_iter()
                     .filter(|c| c.starts_with(ctoken))
                     .map(|value| {

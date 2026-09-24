@@ -1406,6 +1406,40 @@ fn diff_choices(
         }
     }
 
+    // What a `choices run=` prints is unknown here, and running it would be the diff
+    // executing a spec's commands. So these are judged by the command alone: gaining one
+    // can only add accepted values, losing one takes away whatever it printed, and
+    // swapping one for another could do either.
+    match (old.and_then(|ch| ch.run()), new.and_then(|ch| ch.run())) {
+        (None, Some(run)) if old_strict => c.compatible(
+            "choices-run-added",
+            path,
+            format!("{subject} now also accepts what `{run}` prints"),
+        ),
+        (Some(run), None) if new_strict => c.breaking(
+            "choices-run-removed",
+            path,
+            format!("{subject} no longer accepts what `{run}` prints"),
+        ),
+        (Some(was_run), Some(now_run)) if was_run != now_run => c.metadata(
+            "choices-run-changed",
+            path,
+            format!("{subject} now takes its values from `{now_run}` instead of `{was_run}`"),
+        ),
+        // Where anything is accepted, the command only decides what is offered.
+        (None, Some(run)) => c.metadata(
+            "choices-run-added",
+            path,
+            format!("{subject} now also offers what `{run}` prints"),
+        ),
+        (Some(run), None) => c.metadata(
+            "choices-run-removed",
+            path,
+            format!("{subject} no longer offers what `{run}` prints"),
+        ),
+        _ => {}
+    }
+
     if old.is_some_and(|ch| ch.ignore_case) && !new.is_some_and(|ch| ch.ignore_case) {
         c.breaking(
             "choices-case-sensitive",
@@ -2519,6 +2553,19 @@ flag "--color <when>" help="color" {
         "#;
         assert_eq!(codes(old, narrowed), ["breaking:choice-removed"]);
         assert_eq!(codes(old, widened), ["compatible:choice-added"]);
+    }
+
+    #[test]
+    fn choices_from_a_command_are_judged_by_the_command_without_running_it() {
+        let spec = |choices: &str| {
+            format!("name \"ex\"\nbin \"ex\"\narg \"<svc>\" help=\"svc\" {{\n    {choices}\n}}\n")
+        };
+        let listed = spec(r#"choices "local""#);
+        let from_a = spec(r#"choices "local" run="exit 1""#);
+        let from_b = spec(r#"choices "local" run="exit 2""#);
+        assert_eq!(codes(&listed, &from_a), ["compatible:choices-run-added"]);
+        assert_eq!(codes(&from_a, &listed), ["breaking:choices-run-removed"]);
+        assert_eq!(codes(&from_a, &from_b), ["metadata:choices-run-changed"]);
     }
 
     #[test]

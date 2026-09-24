@@ -164,6 +164,10 @@ arg "<env>" {
   // usage-lib; the usage CLI enables it, but library consumers must opt in
 }
 
+arg "<service>" {
+  choices run="docker compose config --services" // values from the command's output, one per line
+}
+
 // Rich choices keep clap PossibleValue metadata portable in KDL.
 arg "<color>" {
   choices ignore_case=#true {
@@ -227,3 +231,37 @@ Two interactions are worth calling out:
 
 Choices are strict by default. Set `strict=#false` on `choices` to keep the
 declared values in help and completion while accepting values outside the list.
+
+### Choices from a command
+
+When the accepted values belong to another tool, `run=` takes them from a command
+instead of copying them into the spec. Each line the command prints is a value;
+surrounding whitespace and blank lines are ignored. Values listed on the node are
+kept alongside the command's.
+
+```kdl
+arg "<service>" help="The service to build" {
+  choices "all" run="docker compose config --services"
+}
+```
+
+The command runs with `sh -c`, like `complete run=`, and only where the program is
+running:
+
+- **Help.** A script's `--help` lists what it printed,
+  `[possible values: all, app, database]`. If the command fails, the page says where
+  the values come from instead: ``[possible values: output of `docker compose config --services`]``.
+- **Validation.** A value that neither the node nor the command lists is refused, with
+  `ignore_case` and `strict` applying as they do to declared values. The command runs
+  only when a declared value does not already match, and at most once per parse. If
+  it fails, the parse fails and says so.
+- **Completion.** `usage complete-word` offers the command's values, so a separate
+  `complete "service" run=…` is not needed.
+
+Generated output never runs it. Markdown and `usage generate` describe the command
+(``**Choices:** output of `docker compose config --services` ``), a generated Go
+parser or SDK type accepts any value there, and a Fig spec runs it as a generator
+when completing.
+
+For library callers, `usage::docs::cli::render_runtime_help` draws the help page with
+the command's values; `render_help` never runs anything.

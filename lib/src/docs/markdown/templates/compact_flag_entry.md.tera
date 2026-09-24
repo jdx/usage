@@ -31,6 +31,10 @@
 
   **Choices Environment Variable:** `{{ flag.arg.choices.env }}`
 {%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.run %}
+
+  **Choices:** output of `{{ flag.arg.choices.run }}`
+{%- endif %}
 {%- if flag.default | length > 0 %}
 
   **Default:** {% for value in flag.default %}`{{ value }}`{% if not loop.last %}, {% endif %}{% endfor %}

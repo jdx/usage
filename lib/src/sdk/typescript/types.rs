@@ -305,7 +305,7 @@ fn render_flag_field(
 }
 
 fn arg_ts_type(arg: &SpecArg, cmd_name: &str, choice_types: &ChoiceTypeMap) -> String {
-    let base = if let Some(choices) = &arg.choices {
+    let base = if let Some(choices) = crate::sdk::typed_choices(arg) {
         if let Some(resolved) = choice_types.lookup(cmd_name, &arg.name) {
             resolved.to_string()
         } else {
@@ -334,7 +334,7 @@ fn flag_ts_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -
 
     match &flag.arg {
         Some(arg) => {
-            let base = if let Some(choices) = &arg.choices {
+            let base = if let Some(choices) = crate::sdk::typed_choices(arg) {
                 if let Some(resolved) = choice_types.lookup(cmd_name, &flag.name) {
                     resolved.to_string()
                 } else {
@@ -499,6 +499,28 @@ mod tests {
         let spec = full_feature_spec();
         let output = super::super::super::generate(&spec, &make_opts());
         insta::assert_snapshot!(get_file(&output, "client.ts"));
+    }
+
+    /// `choices run=` values are only known where the program runs, so the type stays open
+    /// instead of a union that would refuse them, and generating it runs nothing.
+    #[test]
+    fn choices_from_a_command_are_typed_as_strings() {
+        let spec: Spec = r##"
+            bin "app"
+            arg "service" {
+                choices "local" run="exit 1"
+            }
+            flag "--env <env>" {
+                choices run="exit 1"
+            }
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("service: string;"), "{types}");
+        assert!(types.contains("env?: string;"), "{types}");
+        assert!(!types.contains("Choice"), "{types}");
     }
 
     /// Spec with config props.

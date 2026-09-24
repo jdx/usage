@@ -674,7 +674,7 @@ impl Emitter<'_> {
             if choices.ignore_case {
                 fields.push("IgnoreCase: true".to_string());
             }
-            if !choices.strict {
+            if accepts_unlisted(choices) {
                 fields.push("AllowUnknownChoices: true".to_string());
             }
         }
@@ -843,7 +843,7 @@ fn arg_meta(
         if choices.ignore_case {
             fields.push("IgnoreCase: true".to_string());
         }
-        if !choices.strict {
+        if accepts_unlisted(choices) {
             fields.push("AllowUnknownChoices: true".to_string());
         }
     }
@@ -1014,6 +1014,15 @@ fn string_slice(values: &[String]) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!("[]string{{{list}}}")
+}
+
+/// Whether the table should let a value outside its lists through.
+///
+/// A generated table cannot know what `choices run=` would print — its command runs where
+/// the program runs, not where the table is generated — so those values are left unchecked
+/// rather than every one of them refused.
+fn accepts_unlisted(choices: &SpecChoices) -> bool {
+    !choices.strict || choices.run().is_some()
 }
 
 fn accepted_choices(choices: &SpecChoices) -> Vec<String> {
@@ -1872,6 +1881,21 @@ flag "--color <when>" {
             "{entry}"
         );
         assert!(entry.contains("IgnoreCase: true"), "{entry}");
+        assert!(entry.contains("AllowUnknownChoices: true"), "{entry}");
+    }
+
+    #[test]
+    fn choices_from_a_command_are_left_unchecked_rather_than_run() {
+        // `exit 1` would fail if it ran: generating the table must not run it.
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--service <name>" {
+    choices "local" run="exit 1"
+}
+"#);
+        let entry = entry_of(&out, "service");
+        assert!(entry.contains(r#"Choices: []string{"local"}"#), "{entry}");
         assert!(entry.contains("AllowUnknownChoices: true"), "{entry}");
     }
 

@@ -200,3 +200,26 @@ cmd "diff" help="diff" {
     );
     assert!(!fig.contains("generators"), "{fig}");
 }
+
+#[test]
+fn choices_from_a_command_complete_by_running_it_and_generate_without_it() {
+    // `choices run=` is completed the way `complete run=` is: Fig runs the command when
+    // completing. Generating the spec must not run it, which `exit 1` would show. The
+    // declared values still reach Fig as suggestions, and the name-inferred path guess
+    // does not stand beside a declaration.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+arg "<service_file>" help="service" {
+    choices "local" run="exit 1"
+}
+        "#,
+    );
+    assert!(
+        fig.contains("completionGeneratorTemplate(`exit 1`)"),
+        "{fig}"
+    );
+    assert!(fig.contains(r#""local""#), "{fig}");
+    assert!(!fig.contains("template\":"), "{fig}");
+}

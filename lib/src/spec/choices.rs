@@ -1,5 +1,6 @@
 use crate::kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::error::UsageErr;
@@ -25,6 +26,14 @@ pub struct SpecChoices {
     #[cfg(feature = "unstable_choices_env")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
+    /// A shell command whose output lists further values, one per line.
+    ///
+    /// Run only where a program is running: when a value is checked, when a word is being
+    /// completed, and for a help page asked for with [`crate::docs::cli::render_runtime_help`]
+    /// or by `--help` during a parse. Generated documentation and code never run it, and
+    /// describe it instead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run: Option<String>,
 }
 
 const fn default_strict() -> bool {
@@ -40,6 +49,7 @@ impl Default for SpecChoices {
             strict: true,
             #[cfg(feature = "unstable_choices_env")]
             env: None,
+            run: None,
         }
     }
 }
@@ -90,6 +100,12 @@ impl SpecChoices {
         self.env = env;
     }
 
+    /// The command whose output lists further values, if the choices name one.
+    #[must_use]
+    pub fn run(&self) -> Option<&str> {
+        self.run.as_deref()
+    }
+
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         let mut config = Self {
             choices: node
@@ -104,6 +120,7 @@ impl SpecChoices {
                 #[cfg(feature = "unstable_choices_env")]
                 "env" => config.set_env(Some(v.ensure_string()?)),
                 "ignore_case" => config.ignore_case = v.ensure_bool()?,
+                "run" => config.run = Some(v.ensure_string()?),
                 "strict" => config.strict = v.ensure_bool()?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported choices key {k}"),
             }
@@ -165,26 +182,78 @@ impl SpecChoices {
             config.details.push(detail);
         }
 
-        if config.choices.is_empty() {
+        if config.choices.is_empty() && config.run.is_none() {
             #[cfg(feature = "unstable_choices_env")]
             if config.env().is_none() {
                 bail_parse!(
                     ctx,
                     node.span(),
-                    "choices must have at least 1 argument or env property"
+                    "choices must have at least 1 argument, an env property, or a run property"
                 );
             }
             #[cfg(not(feature = "unstable_choices_env"))]
-            bail_parse!(ctx, node.span(), "choices must have at least 1 argument");
+            bail_parse!(
+                ctx,
+                node.span(),
+                "choices must have at least 1 argument or a run property"
+            );
         }
 
         Ok(config)
     }
 
+    /// The declared values, and those named by `env=`. Never runs `run=`: see
+    /// [`Self::values_from_run`] and [`Self::resolved_values`] for that.
     pub fn values(&self) -> Vec<String> {
         self.values_with_env(None)
     }
 
+    /// Run `run=` and return the values it printed: one per line, trimmed, with blank lines
+    /// skipped. Empty when the choices name no command.
+    ///
+    /// `env` is added to the command's environment, for a caller parsing against a
+    /// different one (see [`crate::Parser::with_env`]). Within a single parse or help page the
+    /// same command runs once, however many values are checked against it.
+    pub fn values_from_run(
+        &self,
+        env: Option<&HashMap<String, String>>,
+    ) -> Result<Vec<String>, UsageErr> {
+        match &self.run {
+            Some(run) => run_choices(run, env),
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// Every value these choices offer: the declared ones, `env=`'s, and what `run=` prints,
+    /// without repeats. What completion offers and what a running program's help lists.
+    pub fn resolved_values(
+        &self,
+        env: Option<&HashMap<String, String>>,
+    ) -> Result<Vec<String>, UsageErr> {
+        let mut values = self.values_with_env(env);
+        for value in self.values_from_run(env)? {
+            if !values.contains(&value) {
+                values.push(value);
+            }
+        }
+        Ok(values)
+    }
+
+    /// Whether `value` is one of the choices, running `run=` only when the declared values
+    /// and `env=` do not already accept it.
+    pub(crate) fn matches_resolved(
+        &self,
+        value: &str,
+        env: Option<&HashMap<String, String>>,
+    ) -> Result<bool, UsageErr> {
+        if self.matches_with_env(value, env) {
+            return Ok(true);
+        }
+        Ok(self.matches_values(value, self.values_from_run(env)?))
+    }
+
+    /// Whether `value` is one of the declared values or those named by `env=`. Never runs
+    /// `run=`.
     pub fn matches(&self, value: &str) -> bool {
         self.matches_static(value) || self.matches_values(value, self.values_with_env(None))
     }
@@ -291,6 +360,92 @@ impl SpecChoices {
         choices.details.clear();
         choices
     }
+
+    /// A help page's choices with `run=`'s output folded into the list, for a program that is
+    /// running. A command that fails leaves `run` in place, so the page says where the values
+    /// come from rather than listing none of them.
+    #[cfg(feature = "cli-help")]
+    pub(crate) fn resolve_for_help(&mut self, env: Option<&HashMap<String, String>>) {
+        if let Ok(found) = self.values_from_run(env) {
+            for value in found {
+                if !self.choices.contains(&value) {
+                    self.choices.push(value);
+                }
+            }
+            self.run = None;
+        }
+    }
+}
+
+/// What each `run=` printed, or why it failed, keyed by the command.
+type RunOutputs = HashMap<String, Result<Vec<String>, String>>;
+
+thread_local! {
+    /// The outputs for the parse or help page in progress. `None` outside one.
+    static RUN_OUTPUTS: RefCell<Option<RunOutputs>> = const { RefCell::new(None) };
+}
+
+/// Remembers what `run=` commands printed until it is dropped, so a parse checking five
+/// values against one command runs it once. A scope opened inside another shares it.
+///
+/// Scoped rather than kept on the spec: a long-lived process that parses the same spec
+/// twice should see the command's answer as of each parse, not as of the first.
+pub(crate) struct RunScope {
+    owner: bool,
+}
+
+impl RunScope {
+    pub(crate) fn enter() -> Self {
+        let owner = RUN_OUTPUTS.with(|outputs| {
+            let mut outputs = outputs.borrow_mut();
+            let owner = outputs.is_none();
+            if owner {
+                *outputs = Some(HashMap::new());
+            }
+            owner
+        });
+        Self { owner }
+    }
+}
+
+impl Drop for RunScope {
+    fn drop(&mut self) {
+        if self.owner {
+            RUN_OUTPUTS.with(|outputs| outputs.borrow_mut().take());
+        }
+    }
+}
+
+fn run_choices(run: &str, env: Option<&HashMap<String, String>>) -> Result<Vec<String>, UsageErr> {
+    let cached = RUN_OUTPUTS.with(|outputs| {
+        outputs
+            .borrow()
+            .as_ref()
+            .and_then(|outputs| outputs.get(run).cloned())
+    });
+    let result = match cached {
+        Some(result) => result,
+        None => {
+            let result = crate::sh::sh_with_env(run, env)
+                .map(|stdout| {
+                    let mut values: Vec<String> = Vec::new();
+                    for line in stdout.lines().map(str::trim).filter(|l| !l.is_empty()) {
+                        if !values.iter().any(|v| v == line) {
+                            values.push(line.to_string());
+                        }
+                    }
+                    values
+                })
+                .map_err(|err| err.to_string());
+            RUN_OUTPUTS.with(|outputs| {
+                if let Some(outputs) = outputs.borrow_mut().as_mut() {
+                    outputs.insert(run.to_string(), result.clone());
+                }
+            });
+            result
+        }
+    };
+    result.map_err(UsageErr::ShellError)
 }
 
 impl From<&SpecChoices> for KdlNode {
@@ -339,6 +494,9 @@ impl From<&SpecChoices> for KdlNode {
         #[cfg(feature = "unstable_choices_env")]
         if let Some(env) = arg.env() {
             node.push(KdlEntry::new_prop("env", env.to_string()));
+        }
+        if let Some(run) = arg.run() {
+            node.push(crate::spec::helpers::string_entry(Some("run"), run));
         }
         node
     }

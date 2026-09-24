@@ -1,4 +1,5 @@
 use crate::{Spec, SpecCommand};
+use std::collections::HashMap;
 use std::sync::LazyLock;
 use tera::Tera;
 
@@ -10,7 +11,48 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
 }
 
 /// Render a terminal help page with an explicit colour policy.
+///
+/// Runs nothing: `choices run=` is described as where the values come from. A program showing
+/// its own help while it runs wants [`render_runtime_help`], which lists them.
 pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Style) -> String {
+    render_page(spec, cmd, long, style, ChoiceRuns::Describe)
+}
+
+/// Render the help page of a program that is running, listing what `choices run=` prints.
+///
+/// The page [`render_help_styled`] draws, except that each `choices run=` command on it is run
+/// and its output listed among the possible values, as `choices "a" "b"` would be. A command
+/// that fails is described instead, the way the static page describes it, and what it wrote to
+/// stderr reaches the terminal. `env` is added to each command's environment, for a caller
+/// that parses with [`crate::Parser::with_env`]. Each distinct command runs once per page.
+///
+/// For a script's or task's `--help`; generated documentation should use
+/// [`render_help_styled`], which never runs anything.
+pub fn render_runtime_help(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    long: bool,
+    style: Style,
+    env: Option<&HashMap<String, String>>,
+) -> String {
+    let _scope = crate::spec::choices::RunScope::enter();
+    render_page(spec, cmd, long, style, ChoiceRuns::Run(env))
+}
+
+/// Whether a page runs `choices run=` commands or describes them.
+#[derive(Clone, Copy)]
+enum ChoiceRuns<'a> {
+    Describe,
+    Run(Option<&'a HashMap<String, String>>),
+}
+
+fn render_page(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    long: bool,
+    style: Style,
+    runs: ChoiceRuns<'_>,
+) -> String {
     // Convert to docs models to get layout calculations
     let docs_spec = crate::docs::models::Spec::from(spec);
     let mut docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd, long));
@@ -33,6 +75,13 @@ pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Sty
     // Listed nowhere before this: `communique generate` accepts `--config` from its root and
     // its page mentioned none of it — a flag a user can type and cannot discover.
     let (mut inherited, ancestors_taken) = inherited_flags(spec, cmd, &docs_cmd.full_cmd, long);
+    // Before anything is laid out, since the values listed decide how an entry wraps.
+    if let ChoiceRuns::Run(env) = runs {
+        resolve_command_choices(&mut docs_cmd, env);
+        for flag in &mut inherited {
+            resolve_flag_choices(flag, env);
+        }
+    }
 
     // One column over both lists, so the two sections read as one table with a rule through it
     // rather than two that happen to be adjacent. The width feeds the wrapping as well as the
@@ -258,7 +307,49 @@ pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Sty
             );
         }
     }
-    append_default_command_help(spec, cmd, long, style, page)
+    append_default_command_help(spec, cmd, long, style, runs, page)
+}
+
+/// Fold what each `choices run=` on a page prints into its possible values.
+fn resolve_command_choices(
+    cmd: &mut crate::docs::models::SpecCommand,
+    env: Option<&HashMap<String, String>>,
+) {
+    for arg in cmd
+        .args
+        .iter_mut()
+        .chain(cmd.arg_groups.iter_mut().flat_map(|g| g.items.iter_mut()))
+    {
+        resolve_arg_choices(arg, env);
+    }
+    for flag in cmd
+        .flags
+        .iter_mut()
+        .chain(cmd.flag_groups.iter_mut().flat_map(|g| g.items.iter_mut()))
+    {
+        resolve_flag_choices(flag, env);
+    }
+    for child in &mut cmd.flattened_subcommands {
+        resolve_command_choices(child, env);
+    }
+}
+
+fn resolve_flag_choices(
+    flag: &mut crate::docs::models::SpecFlag,
+    env: Option<&HashMap<String, String>>,
+) {
+    if let Some(arg) = &mut flag.arg {
+        resolve_arg_choices(arg, env);
+    }
+}
+
+fn resolve_arg_choices(
+    arg: &mut crate::docs::models::SpecArg,
+    env: Option<&HashMap<String, String>>,
+) {
+    if let Some(choices) = arg.choices.as_mut().filter(|c| c.run.is_some()) {
+        choices.resolve_for_help(env);
+    }
 }
 
 fn append_default_command_help(
@@ -266,6 +357,7 @@ fn append_default_command_help(
     cmd: &SpecCommand,
     long: bool,
     style: Style,
+    runs: ChoiceRuns<'_>,
     parent: String,
 ) -> String {
     if !cmd.full_cmd.is_empty() || !spec.default_subcommand_help || cmd.flatten_help {
@@ -279,7 +371,7 @@ fn append_default_command_help(
     else {
         return parent;
     };
-    let child_page = render_help_styled(spec, child, long, style);
+    let child_page = render_page(spec, child, long, style, runs);
     let mut out = parent.trim_end().to_string();
     out.push_str("\n\nDefault command: ");
     out.push_str(&crate::help_template::semantic(
@@ -738,6 +830,10 @@ fn value_annotations(
         }
         if let Some(env) = choices.env() {
             parts.push(format!("[choices env: {env}]"));
+        }
+        if let Some(run) = choices.run() {
+            // Beside the bare `[a, b]` list this page gives declared values.
+            parts.push(format!("[output of `{run}`]"));
         }
     }
     if !hide_env {
