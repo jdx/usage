@@ -25,10 +25,12 @@ use crate::env;
 /// How long the shell gets to answer. A Tab that stalls is worse than one that offers nothing.
 const TIMEOUT: Duration = Duration::from_secs(3);
 
-/// fish completes a command line string, so the words are escaped back into one.
-/// `--no-quoted` keeps a partial last word open (`'foo` would read as a closed string), and an
-/// empty last word leaves the trailing space that says "a new word starts here".
-const FISH: &str = r#"complete -C (string join -- " " (string escape --no-quoted -- $argv))"#;
+/// fish completes a command line string, so the words are escaped back into one. The words
+/// before the cursor are quoted, so an empty one stays a word (`''`) instead of collapsing
+/// into a space and shifting every later word one position left. The last word is escaped
+/// with `--no-quoted` instead, which keeps a partial word open (`'foo'` would read as a closed
+/// string), and when it is empty leaves the trailing space that says "a new word starts here".
+const FISH: &str = r#"complete -C (string join -- " " (string escape -- $argv[1..-2]) (string escape --no-quoted -- $argv[-1]))"#;
 
 /// bash-completion's `_command_offset` is how its own `sudo`/`xargs` completions hand the rest of
 /// a line to the command it names: it finds that command's compspec (loading it on demand from
@@ -61,12 +63,17 @@ for c in "${COMPREPLY[@]}"; do printf '%s\n' "${c% }"; done
 /// is handed. The line itself arrives in an environment variable and is put into the buffer by
 /// a widget, so nothing typed is ever read as keystrokes.
 ///
+/// Every marker carries a nonce chosen for the run, and the end marker must be the whole line,
+/// so a candidate that happens to contain marker text is returned rather than ending the read.
+///
 /// The widget is bound to `^G` because it is no prefix of another binding: on `^X`, which is,
 /// the line editor waited out `KEYTIMEOUT` (0.4s) before running it. `compinit` keeps its dump
 /// in usage's cache directory, the one the generated scripts already use, which takes its
 /// share of each Tab from about 250ms to a few.
 const ZSH: &str = r#"
 zmodload zsh/zpty || exit 0
+zmodload zsh/datetime 2>/dev/null
+export __USAGE_DELEGATE_NONCE=__usage_delegate_$$_${RANDOM}${RANDOM}_${EPOCHREALTIME//[^0-9]/}
 local -a w=("$@")
 export __USAGE_DELEGATE_LINE="${(j: :)${(@q)w[1,-2]}} ${(q)w[-1]}"
 export __USAGE_DELEGATE_SETUP='
@@ -90,25 +97,27 @@ compadd() {
   zparseopts -E -a __o P:=__p p:=__hp S:=__s s:=__hs
   builtin compadd -A __h -D __d "$@"
   for (( __i = 1; __i <= $#__h; __i++ )); do
-    print -r -- "__USAGE_DELEGATE_HIT:${(Q)IPREFIX}${__p[2]}${__hp[2]}${(Q)__h[__i]}${__hs[2]}${__s[2]}"$'"'"'\t'"'"'"${${__d[__i]#$__h[__i]}##[[:space:]]#(--|:)[[:space:]]#}"
+    print -r -- "$__USAGE_DELEGATE_NONCE:HIT:${(Q)IPREFIX}${__p[2]}${__hp[2]}${(Q)__h[__i]}${__hs[2]}${__s[2]}"$'"'"'\t'"'"'"${${__d[__i]#$__h[__i]}##[[:space:]]#(--|:)[[:space:]]#}"
   done
 }
 __usage_delegate() {
   BUFFER=$__USAGE_DELEGATE_LINE; CURSOR=$#BUFFER
   zle complete-word
-  print -r -- $'"'"'\n'"'"'__USAGE_DELEGATE_DONE; exit
+  print -r -- $'"'"'\n'"'"'"$__USAGE_DELEGATE_NONCE:DONE"; exit
 }
 zle -N __usage_delegate; bindkey "^G" __usage_delegate
-print -r -- __USAGE_DELEGATE_""READY'
+print -r -- "$__USAGE_DELEGATE_NONCE:READY"'
 zpty __usage_delegate zsh -f -i
 zpty -w __usage_delegate 'eval "$__USAGE_DELEGATE_SETUP"'
-local out
-while zpty -r __usage_delegate out; do [[ $out == *__USAGE_DELEGATE_READY* ]] && break; done
+local out n=$__USAGE_DELEGATE_NONCE
+while zpty -r __usage_delegate out; do
+  [[ ${${out//$'\r'/}%$'\n'} == "$n:READY" ]] && break
+done
 zpty -w -n __usage_delegate $'\x07'
 while zpty -r __usage_delegate out; do
   out=${${out//$'\r'/}%$'\n'}
-  [[ $out == *__USAGE_DELEGATE_DONE* ]] && break
-  [[ $out == *__USAGE_DELEGATE_HIT:* ]] && print -r -- ${out#*__USAGE_DELEGATE_HIT:}
+  [[ $out == "$n:DONE" ]] && break
+  [[ $out == *"$n:HIT:"* ]] && print -r -- ${out#*"$n:HIT:"}
 done
 zpty -d __usage_delegate
 "#;
@@ -131,6 +140,10 @@ pub(crate) fn complete(shell: &str, words: &[String]) -> Vec<(String, String)> {
     let program = env::shell_program_override(shell, |key| std::env::var(key).ok())
         .unwrap_or_else(|| shell.to_string());
     let mut command = Command::new(program);
+    // Its own process group, so a timeout can take down whatever the completion started along
+    // with the shell (see `run_with_timeout`).
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut command, 0);
     command
         .args(args)
         .args(words)
@@ -167,8 +180,37 @@ fn run_with_timeout(mut command: Command) -> Option<String> {
     let out = rx.recv_timeout(TIMEOUT);
     if out.is_err() {
         debug!("delegate: gave up after {TIMEOUT:?}");
-        let _ = child.kill();
+        kill_tree(&mut child);
     }
     let _ = child.wait();
+    // The reader is never joined: after a timeout it may still be blocked on a pipe that some
+    // process outside the group holds, and `complete-word` must not wait for it to exit.
     String::from_utf8(out.ok()?).ok()
+}
+
+/// Kill the shell and everything else in its process group.
+///
+/// Killing the shell alone left a completion's own child running when that child held the
+/// pipe open — the very thing that made the read time out — and every further Tab added
+/// another. The group is gone even after its leader has exited, as long as a member remains,
+/// which is exactly that case. `kill` rather than a libc binding keeps the CLI free of a
+/// dependency for a path that only runs when a completion has already hung.
+#[cfg(unix)]
+fn kill_tree(child: &mut std::process::Child) {
+    let group = format!("-{}", child.id());
+    let killed = Command::new("kill")
+        .args(["-KILL", "--", &group])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    if !killed.is_ok_and(|status| status.success()) {
+        let _ = child.kill();
+    }
+}
+
+/// Windows has no process groups to reach for here; the shell itself is what can be killed.
+#[cfg(not(unix))]
+fn kill_tree(child: &mut std::process::Child) {
+    let _ = child.kill();
 }

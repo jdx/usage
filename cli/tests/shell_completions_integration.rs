@@ -2186,6 +2186,7 @@ complete -c fakecmd -n __fish_use_subcommand -a plan -d 'Show a plan'
 complete -c fakecmd -n __fish_use_subcommand -a apply -d 'Apply it'
 complete -c fakecmd -n '__fish_seen_subcommand_from plan' -o out -d 'Write the plan'
 complete -c fakecmd -n '__fish_seen_subcommand_from plan' -o other
+complete -c fakecmd -n 'test (count (commandline -opc)) -eq 2' -a second -d 'Second word'
 "#,
         )
         .unwrap();
@@ -2203,6 +2204,24 @@ complete -F _fakecmd fakecmd
 "#,
         )
         .unwrap();
+        // A completion that hangs: it leaves a child holding the pipe complete-word reads, and
+        // says where that child is.
+        fs::write(
+            bash.join("hangcmd"),
+            r#"_hangcmd() {
+  sleep 30 &
+  echo $! > "$HOME/hang.pid"
+  COMPREPLY=(x)
+}
+complete -F _hangcmd hangcmd
+"#,
+        )
+        .unwrap();
+        fs::write(
+            dir.join("hang.usage.kdl"),
+            "bin \"wrap\"\narg \"<command>\" var=#true\ncomplete \"command\" delegate=\"hangcmd\"\n",
+        )
+        .unwrap();
         fs::write(
             zsh.join("_fakecmd"),
             r#"#compdef fakecmd
@@ -2212,6 +2231,8 @@ if (( CURRENT == 2 )); then
 elif [[ $words[2] == plan ]]; then
   local -a opts=('-out:Write the plan' '-other')
   _describe option opts
+elif [[ $words[2] == marker ]]; then
+  compadd -- a__USAGE_DELEGATE_DONE b c
 fi
 "#,
         )
@@ -2383,6 +2404,9 @@ fn test_fish_delegates_to_wrapped_command_completion() {
     // The wrapped command's descriptions come through.
     let out = fixture.complete("fish", &["wrap", "layer1", "pl"]);
     assert_eq!(out, "plan\tShow a plan\n");
+    // An empty word stays a word: after `fakecmd ''` the cursor is on the second argument.
+    let out = fixture.complete("fish", &["wrap", "layer1", "", ""]);
+    assert_eq!(out, "second\tSecond word\n");
 }
 
 /// Through the generated fish script rather than `complete-word` alone: what a user pressing Tab
@@ -2444,6 +2468,57 @@ fn test_zsh_delegates_to_wrapped_command_completion() {
     // The wrapped command's descriptions come through, in zsh's three-column format.
     let out = fixture.complete("zsh", &["wrap", "layer1", "pl"]);
     assert_eq!(out, "plan\tShow a plan\tplan\n");
+    // A candidate containing marker text is a candidate, not the end of the answer.
+    let out = fixture.complete("zsh", &["wrap", "layer1", "marker", ""]);
+    assert_eq!(
+        delegated_values(&out),
+        ["a__USAGE_DELEGATE_DONE", "b", "c"],
+        "{out}"
+    );
+}
+
+/// A completion that hangs with a child holding complete-word's pipe: complete-word gives up
+/// after its timeout, and takes that child down with the shell rather than leaving it behind.
+#[cfg(unix)]
+#[test]
+fn test_delegate_timeout_kills_the_whole_completion() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+    if bash_completion_or_skip().is_none() {
+        return;
+    }
+    let fixture = DelegateFixture::new("hang");
+    let started = std::time::Instant::now();
+    let out = fixture.complete_with(&fixture.dir.join("hang.usage.kdl"), "bash", &["wrap", ""]);
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed < std::time::Duration::from_secs(10),
+        "took {elapsed:?}"
+    );
+    // Nothing from the shell that hung, so the file fallback answers.
+    assert!(!out.lines().any(|line| line == "x"), "{out}");
+
+    let pid = fs::read_to_string(fixture.dir.join("hang.pid")).unwrap();
+    let pid = pid.trim();
+    // Reparented and reaped asynchronously once killed, so give it a moment.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        let state = Command::new("ps")
+            .args(["-o", "stat=", "-p", pid])
+            .output()
+            .unwrap();
+        let state = String::from_utf8_lossy(&state.stdout);
+        let state = state.trim();
+        if state.is_empty() || state.starts_with('Z') {
+            break;
+        }
+        if std::time::Instant::now() > deadline {
+            let _ = Command::new("kill").args(["-KILL", pid]).status();
+            panic!("the hung completion's child {pid} is still running ({state})");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
 }
 
 #[test]
