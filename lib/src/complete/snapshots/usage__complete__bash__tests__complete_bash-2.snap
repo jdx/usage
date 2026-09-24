@@ -20,7 +20,9 @@ _mycli() {
     fi
 
 	local cur prev words cword comp_args
-    _init_completion -n : -- "$@" || return
+    # `=` and `:` stay inside the word so complete-word sees `--out=a` as one word
+    # rather than `--out`, `=`, `a`.
+    _init_completion -n := -- "$@" || return
     local spec_dir="${XDG_CACHE_HOME:-$HOME/.cache}/usage"
     [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
     local spec_file="$spec_dir/usage__usage_spec_mycli_1_2_3.spec"
@@ -30,9 +32,21 @@ _mycli() {
     fi
     # stderr is discarded: a line that doesn't parse (`mycli help <Tab>`) makes
     # complete-word fail, and its error would be printed over the prompt.
+    # Complete the text before the cursor, as `$cur` holds it: with the cursor in `--out=a|X`
+    # the value typed so far is `a`, not `aX`.
+    words[cword]="$cur"
     # shellcheck disable=SC2207
 	COMPREPLY=($(compgen -W "$(command usage complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${words[@]}" 2>/dev/null)" -- "$cur"))
-	__ltrim_colon_completions "$cur"
+	# Readline only replaces the text after the last word break, so strip the part of
+	# `$cur` up to its last `:` or `=` from each candidate (what __ltrim_colon_completions
+	# does for `:` alone).
+	local breaks="${COMP_WORDBREAKS//[^:=]/}"
+	# An empty COMPREPLY is left alone: before bash 4.4 the rewrite below would turn it into
+	# one empty candidate.
+	if ((${#COMPREPLY[@]})) && [[ -n "$breaks" && "$cur" == *["$breaks"]* ]]; then
+		local break_prefix="${cur%"${cur##*["$breaks"]}"}"
+		COMPREPLY=("${COMPREPLY[@]#"$break_prefix"}")
+	fi
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then
         unset COMPREPLY
