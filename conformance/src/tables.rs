@@ -540,7 +540,12 @@ fn flag_meta(
             available_if: strs(&f.available_if),
             display_order: f.display_order.map(saturate_u32),
             effect: f.effect.map(effect),
-            complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
+            complete_type: complete_type(
+                completers,
+                &f.name,
+                arg.map(|a| a.name.as_str()),
+                arg.and_then(|a| a.complete.as_ref()),
+            ),
         })),
     }
 }
@@ -609,7 +614,7 @@ fn arg_meta(
         help_heading: opt(&a.help_heading),
         surface: opt(&a.surface),
         available_if: strs(&a.available_if),
-        complete_type: complete_type(completers, &a.name, None),
+        complete_type: complete_type(completers, &a.name, None, a.complete.as_ref()),
         complete: NO_COMPLETER,
     }
 }
@@ -639,15 +644,17 @@ const NO_COMPLETER: Option<usage_argv::spec::Completer> = None;
 /// `completers` are already in the reference's order of preference — the spec's own nodes before
 /// the command's — so the first match wins. They arrive as a slice of borrows rather than the
 /// `IndexMap` they come from so that this crate need not depend on `indexmap` to name the type.
+/// The type of the completer for an entry. One written inside the entry's own `arg` wins, the
+/// way it does in the reference (`Spec::completer`); otherwise the first named one.
 fn complete_type(
     completers: &[&SpecComplete],
     name: &str,
     value_name: Option<&str>,
+    inline: Option<&SpecComplete>,
 ) -> Option<&'static str> {
     let key = value_name.unwrap_or(name).to_lowercase();
-    let found = completers
-        .iter()
-        .find(|c| c.name == key)
+    let found = inline
+        .or_else(|| completers.iter().copied().find(|c| c.name == key))
         .and_then(|c| c.type_.as_deref());
     found.map(leak)
 }
