@@ -204,7 +204,12 @@ no raising `gate.pct` in `tak.toml`, no dropping a benchmark, and no
 other check whose purpose is to tell a human something: don't neuter the check to
 get a green square.
 
-When a change genuinely costs instructions, measure it, say so in the pull request
+The `size` workflow is the same kind of check for binary size: `tasks/size.sh` compares
+stripped release builds of the `usage` CLI and a mise-sized derived CLI against the merge
+base and fails above 1%. The same rules apply: never raise `GATE_PCT`, drop a binary, or
+mark one ungated to get a pull request through.
+
+When a change genuinely costs instructions or bytes, measure it, say so in the pull request
 with the numbers, and **ask the user** how to proceed. Let them decide between
 absorbing the cost, optimizing, or adjusting the gate themselves. This applies
 generally: whenever the fix under consideration is more invasive than the problem —

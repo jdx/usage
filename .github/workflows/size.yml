@@ -1,0 +1,56 @@
+name: size
+
+# Stripped release sizes of the `usage` CLI and a mise-sized derived CLI, against the commit
+# this pull request would merge onto. Fails when a gated binary grows by more than the
+# threshold in `tasks/size.sh`, which says what is measured and why.
+#
+# A hosted runner, unlike perf-pr: size does not depend on the machine, so there is nothing
+# for a dedicated one to hold still. The checkout is GitHub's merge of the pull request into
+# its base, so the merge base is the base branch's tip and the difference is this change alone.
+#
+# Never add `continue-on-error`, raise the threshold, or drop a binary to get a pull request
+# through — see "Performance Gate" in AGENTS.md.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  size:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # `tasks/size.sh` builds the merge base from a worktree.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning]
+        with:
+          shared-key: size
+      # The report reaches the job summary whether or not the gate passed, and the exit
+      # status is raised afterwards, so a failure always arrives with the table explaining it.
+      - name: Compare binary sizes against the base
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          set +e
+          ./tasks/size.sh "$BASE_REF" /tmp/size-report.md
+          status=$?
+          set -e
+          if [ -s /tmp/size-report.md ]; then
+            tee -a "$GITHUB_STEP_SUMMARY" </tmp/size-report.md
+          else
+            echo "The size comparison never produced a report." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
