@@ -145,7 +145,9 @@
 //! `run_async_with` for [`RunAsyncWith`](usage_argv::RunAsyncWith). A context is whatever the CLI
 //! has to give, and the generated dispatch is generic over it. The async pair's implementations
 //! are written `async fn` and the generated dispatch awaits the selected command, with no `Send`
-//! bound imposed either way. An enum may say several.
+//! bound imposed either way. It builds that command's future on the heap and awaits the box, so
+//! an unoptimized build does not keep a stack slot for every command's future while running
+//! one. An enum may say several.
 //!
 //! The output type is the first variant's, and each of the others is required to agree, so a
 //! command returning something else is reported on the command. A `#[usage(run)]` *struct* that
