@@ -101,7 +101,9 @@ fi"#
     out.push(format!(
         r#"
 	local cur prev words cword comp_args
-    _init_completion -n : -- "$@" || return
+    # `=` and `:` stay inside the word so complete-word sees `--out=a` as one word
+    # rather than `--out`, `=`, `a`.
+    _init_completion -n := -- "$@" || return
     local spec_dir="${{XDG_CACHE_HOME:-$HOME/.cache}}/usage"
     [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
     local spec_file="$spec_dir/usage_{spec_variable}.spec"
@@ -110,7 +112,14 @@ fi"#
     # complete-word fail, and its error would be printed over the prompt.
     # shellcheck disable=SC2207
 	COMPREPLY=($(compgen -W "$(command {usage_bin} complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${{words[@]}}" 2>/dev/null)" -- "$cur"))
-	__ltrim_colon_completions "$cur"
+	# Readline only replaces the text after the last word break, so strip the part of
+	# `$cur` up to its last `:` or `=` from each candidate (what __ltrim_colon_completions
+	# does for `:` alone).
+	local breaks="${{COMP_WORDBREAKS//[^:=]/}}"
+	if [[ -n "$breaks" && "$cur" == *["$breaks"]* ]]; then
+		local break_prefix="${{cur%"${{cur##*["$breaks"]}}"}}"
+		COMPREPLY=("${{COMPREPLY[@]#"$break_prefix"}}")
+	fi
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then
         unset COMPREPLY
@@ -177,10 +186,33 @@ _usage_default_complete() {{
         local first
         if IFS= read -r first < "$cmdpath" 2>/dev/null && [[ "$first" == "#!"*"usage"* ]]; then
             if type -P {usage_bin} &> /dev/null; then
+                # Bash splits `--out=a` into `--out`, `=`, `a` (`=` is in COMP_WORDBREAKS).
+                # Join those back into one word, using COMP_LINE to tell `--out=a` apart
+                # from `--out = a`, so complete-word sees the word that was typed.
+                local words=() cword=0 i line="${{COMP_LINE:0:COMP_POINT}}" word spaced
+                for ((i = 0; i < ${{#COMP_WORDS[@]}}; i++)); do
+                    word="${{COMP_WORDS[i]}}"
+                    spaced=1
+                    [[ "$line" == [[:space:]]* ]] || spaced=0
+                    line="${{line#"${{line%%[![:space:]]*}}"}}"
+                    line="${{line#"$word"}}"
+                    if ((i > 0 && !spaced)) && [[ -n "$word" ]] \
+                        && [[ "$word" == =* || "${{words[${{#words[@]}} - 1]}}" == *= ]]; then
+                        words[${{#words[@]}} - 1]+="$word"
+                    else
+                        words+=("$word")
+                    fi
+                    ((i == COMP_CWORD)) && cword=$((${{#words[@]}} - 1))
+                done
+                local cur="${{words[cword]}}"
                 local IFS=$'\n'
                 # stderr is discarded so a parse error isn't printed over the prompt.
                 # shellcheck disable=SC2207
-                COMPREPLY=( $(command {usage_bin} complete-word --shell bash -f "$cmdpath" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}" 2>/dev/null) )
+                COMPREPLY=( $(command {usage_bin} complete-word --shell bash -f "$cmdpath" --cword="$cword" -- "${{words[@]}}" 2>/dev/null) )
+                # Readline only replaces the text after the last `=`, so drop what precedes it.
+                if [[ "$cur" == *=* && "$COMP_WORDBREAKS" == *=* ]]; then
+                    COMPREPLY=( "${{COMPREPLY[@]#"${{cur%"${{cur##*=}}"}}"}}" )
+                fi
                 return 0
             fi
         fi

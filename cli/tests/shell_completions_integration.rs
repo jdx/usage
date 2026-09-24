@@ -1430,6 +1430,119 @@ run_case foo 1 ex "--f"
     let _ = fs::remove_dir_all(&temp_dir);
 }
 
+// Bash puts `=` in COMP_WORDBREAKS, so `mycli --out=<TAB>` reaches the completion function
+// as the words `mycli`, `--out`, `=` with `=` as the current word, and `--out=a` as `mycli`,
+// `--out`, `=`, `a`. Handed to complete-word like that, `=` bound as the flag's value and
+// nothing was offered. The COMP_WORDS below are what an interactive bash produces for these
+// lines; the candidates must be what readline inserts after the `=`.
+#[test]
+fn test_bash_completion_attached_long_flag_value() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+    let Some(bash_completion) = bash_completion_or_skip() else {
+        return;
+    };
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_bash_eq_test_{}", std::process::id()));
+    let bin_dir = temp_dir.join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+
+    let spec = r#"bin "mycli"
+flag "--out <file>" {
+    choices "a" "b"
+}
+"#;
+    let spec_file = temp_dir.join("mycli.kdl");
+    fs::write(&spec_file, spec).unwrap();
+    let output = Command::new(&usage_bin)
+        .args(["generate", "completion", "bash", "mycli", "-f"])
+        .arg(&spec_file)
+        .output()
+        .expect("Failed to generate bash completion");
+    assert!(output.status.success());
+    let comp_file = temp_dir.join("mycli.bash");
+    fs::write(&comp_file, &output.stdout).unwrap();
+
+    // The same flag on a shebang script, completed through the completion-init handler.
+    let script_path = bin_dir.join("ex");
+    fs::write(
+        &script_path,
+        "#!/usr/bin/env -S usage bash\n#USAGE bin \"ex\"\n#USAGE flag \"--out <file>\" {\n#USAGE   choices \"a\" \"b\"\n#USAGE }\necho $usage_out\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let output = Command::new(&usage_bin)
+        .args(["generate", "completion-init", "bash"])
+        .output()
+        .expect("Failed to generate completion-init");
+    assert!(output.status.success());
+    let init_file = temp_dir.join("init.bash");
+    fs::write(&init_file, &output.stdout).unwrap();
+
+    let test_script = format!(
+        r#"#!/usr/bin/env bash
+export PATH="{bin_dir}:{usage_dir}:$PATH"
+export XDG_CACHE_HOME="{cache_dir}"
+source "{bash_completion}"
+source "{comp_file}"
+source "{init_file}"
+
+run_case() {{
+    local label="$1" fn="$2" line="$3" cword="$4"; shift 4
+    COMP_WORDS=("$@")
+    COMP_CWORD="$cword"
+    COMP_LINE="$line"
+    COMP_POINT=${{#line}}
+    COMPREPLY=()
+    "$fn" "${{COMP_WORDS[0]}}" "${{COMP_WORDS[$cword]}}" "${{COMP_WORDS[$((cword-1))]}}"
+    echo "[$label] <${{COMPREPLY[*]}}>"
+}}
+
+run_case bin-empty _mycli "mycli --out=" 2 mycli --out =
+run_case bin-partial _mycli "mycli --out=a" 3 mycli --out = a
+run_case bin-flag _mycli "mycli --o" 1 mycli --o
+run_case init-empty _usage_default_complete "ex --out=" 2 ex --out =
+run_case init-partial _usage_default_complete "ex --out=a" 3 ex --out = a
+"#,
+        bin_dir = path_var_entry("bash", &bin_dir),
+        usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
+        cache_dir = sh_path(&temp_dir.join("cache")),
+        bash_completion = sh_path(&bash_completion),
+        comp_file = sh_path(&comp_file),
+        init_file = sh_path(&init_file),
+    );
+    let script_file = temp_dir.join("test.sh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = script_command("bash", &script_file)
+        .output()
+        .expect("Failed to run bash test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    println!("stdout:\n{stdout}\nstderr:\n{stderr}");
+
+    for expected in [
+        "[bin-empty] <a b>",
+        "[bin-partial] <a>",
+        "[bin-flag] <--out>",
+        "[init-empty] <a b>",
+        "[init-partial] <a>",
+    ] {
+        assert!(
+            stdout.contains(expected),
+            "expected `{expected}`, got:\n{stdout}"
+        );
+    }
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
 #[test]
 fn test_zsh_completion_init_integration() {
     if skip_if_shell_missing("zsh") {
