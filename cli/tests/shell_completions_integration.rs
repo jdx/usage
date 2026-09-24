@@ -1976,6 +1976,114 @@ echo "[ok]" (complete -C 'm ')
     let _ = fs::remove_dir_all(&temp_dir);
 }
 
+/// fish hands `commandline -t` over as typed, quotes and backslashes included, so a word the
+/// user had started quoting matched nothing: `'prod<Tab>` looked for values beginning with
+/// a quote. And a multi-line `help` put its second line on a row of its own, where fish took
+/// it for a candidate.
+#[test]
+fn test_fish_completion_quoted_word_and_multiline_help() {
+    if skip_if_shell_missing("fish") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_fish_quoting_test_{}", std::process::id()));
+    let bin_dir = temp_dir.join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+
+    let spec = r#"bin "m"
+cmd "deploy" help="Deploy it\nMore detail" {
+    arg "<env>" {
+        choices "prod env" "staging"
+    }
+}
+"#;
+    let spec_file = temp_dir.join("m.kdl");
+    fs::write(&spec_file, spec).unwrap();
+    let shebang: String = spec.lines().map(|l| format!("#USAGE {l}\n")).collect();
+    let script_path = bin_dir.join("m");
+    fs::write(
+        &script_path,
+        format!("#!/usr/bin/env -S usage bash\n{shebang}echo ran\n"),
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    let generate = |args: &[&str], out: &Path| {
+        let output = Command::new(&usage_bin)
+            .args(args)
+            .output()
+            .expect("Failed to generate completion");
+        assert!(
+            output.status.success(),
+            "{args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        fs::write(out, &output.stdout).unwrap();
+    };
+    let per_bin = temp_dir.join("m.fish");
+    generate(
+        &[
+            "generate",
+            "completion",
+            "fish",
+            "m",
+            "-f",
+            spec_file.to_str().unwrap(),
+        ],
+        &per_bin,
+    );
+    let init = temp_dir.join("init.fish");
+    generate(&["generate", "completion-init", "fish"], &init);
+
+    let run = |label: &str, source: &Path| {
+        let test_script = format!(
+            r#"set -gx PATH "{bin_dir}" "{usage_dir}" /usr/bin /bin
+set -gx XDG_CACHE_HOME "{tmp}"
+source "{source}"
+for line in 'm ' "m deploy 'prod" 'm deploy "prod e' 'm deploy prod\ e'
+    echo "[$line]" (complete -C $line | string escape)
+end
+"#,
+            bin_dir = sh_path(&bin_dir),
+            usage_dir = sh_path(usage_bin.parent().unwrap()),
+            tmp = sh_path(&temp_dir),
+            source = sh_path(source),
+        );
+        let script_file = temp_dir.join(format!("test-{label}.fish"));
+        fs::write(&script_file, &test_script).unwrap();
+
+        let result = script_command("fish", &script_file)
+            .output()
+            .expect("Failed to run fish quoting test");
+        let stdout = String::from_utf8_lossy(&result.stdout);
+        let stderr = String::from_utf8_lossy(&result.stderr);
+        assert!(
+            result.status.success(),
+            "{label}: fish script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+            result.status
+        );
+        assert_eq!(
+            stdout.lines().collect::<Vec<_>>(),
+            [
+                r"[m ] deploy\tDeploy\ it",
+                r"[m deploy 'prod] 'prod env'",
+                r#"[m deploy "prod e] 'prod env'"#,
+                r"[m deploy prod\ e] 'prod env'",
+            ],
+            "{label}: unexpected completions.\nstderr:\n{stderr}"
+        );
+    };
+    run("per-bin", &per_bin);
+    run("init", &init);
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
 // ---------------------------------------------------------------------------
 // Shell-function collision tests.
 //
