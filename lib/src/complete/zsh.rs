@@ -205,9 +205,10 @@ pub fn complete_zsh_init(usage_bin: &str) -> String {
 # Source this file from your zshrc to enable <Tab> completion for any command
 # on $PATH whose first line is a `usage` shebang.
 
+# No `emulate -L zsh` up here: the completion system already runs this with
+# its own option set, and `_files` below needs that set intact (it relies on
+# `nullglob`, which `emulate` turns off). Reset options only on the usage path.
 _usage_default_complete() {{
-    emulate -L zsh
-    setopt localoptions nonomatch extendedglob
     local cmd cmdpath
     cmd="${{words[1]}}"
     if [[ "$cmd" == */* ]]; then
@@ -220,6 +221,7 @@ _usage_default_complete() {{
         local first
         if IFS= read -r first < "$cmdpath" 2>/dev/null && [[ "$first" == "#!"*"usage"* ]]; then
             if (( ${{+commands[{usage_bin}]}} )); then
+                emulate -L zsh
 {completion_loop}
                 return $?
             fi

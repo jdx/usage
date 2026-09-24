@@ -1441,7 +1441,10 @@ fn test_zsh_completion_init_integration() {
 
     // Stub `compadd`/`_files` to capture what the handler offers without
     // needing an interactive ZLE context. Drive with $words/$CURRENT.
-    // The fallback must preserve completion-friendly options for `_files`.
+    // `complete` applies `$_comp_options` the way `_main_complete` does before
+    // it calls a completer, and the `_files` fallback must see them unchanged:
+    // resetting them (e.g. `emulate -L zsh` turning `nullglob` off) makes
+    // `_path_files` insert its own glob patterns as candidates (#712).
     // The init template calls `compadd -l -d <display-arr> -U -Q -S '' -a <inserts-arr>`.
     let test_script = format!(
         r#"#!/usr/bin/env zsh
@@ -1458,20 +1461,24 @@ compadd() {{
     print -r -- "[compadd:inserts] $i"
 }}
 _files() {{
-    print -r -- "[files-fallback] nomatch=$options[nomatch] extendedglob=$options[extendedglob]"
+    print -r -- "[files-fallback] nullglob=$options[nullglob] rcexpandparam=$options[rcexpandparam] extendedglob=$options[extendedglob]"
+}}
+complete() {{
+    setopt localoptions ${{_comp_options[@]}}
+    _usage_default_complete
 }}
 
 words=(ex "")
 CURRENT=2
-_usage_default_complete
+complete
 
 words=(ex "--f")
 CURRENT=2
-_usage_default_complete
+complete
 
 words=(plain "")
 CURRENT=2
-_usage_default_complete
+complete
 "#,
         bin_dir = path_var_entry("zsh", &bin_dir),
         usage_dir = path_var_entry("zsh", usage_bin.parent().unwrap()),
@@ -1500,8 +1507,8 @@ _usage_default_complete
         "expected --foo flag in compadd display, got: {stdout}"
     );
     assert!(
-        stdout.contains("[files-fallback] nomatch=off extendedglob=on"),
-        "expected file fallback to disable nomatch and enable extendedglob, got: {stdout}"
+        stdout.contains("[files-fallback] nullglob=on rcexpandparam=on extendedglob=on"),
+        "expected file fallback to keep the completion system's options, got: {stdout}"
     );
 
     let _ = fs::remove_dir_all(&temp_dir);
