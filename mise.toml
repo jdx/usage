@@ -247,6 +247,12 @@ run = [
 dir = "{{config_root}}"
 run = ["cargo build --release", "./tasks/perf-shadow.sh"]
 
+# Stripped binary sizes against the merge base, gated at 1%: what the `size` workflow runs.
+# Takes an optional base ref (default origin/main) and output path.
+[tasks.size]
+dir = "{{config_root}}"
+run = "./tasks/size.sh"
+
 # What binding a mise-sized command line costs a Go CLI. Reported, never gated — see the
 # note at the top of the script, and `perf:shadow` for the Rust side's version of the same
 # comparison.
