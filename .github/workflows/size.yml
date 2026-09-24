@@ -35,6 +35,11 @@ jobs:
           # `tasks/size.sh` builds the merge base from a worktree.
           fetch-depth: 0
           persist-credentials: false
+      # Named rather than whatever the image ships, so the build does not fail on a
+      # dependency newer than the preinstalled compiler. Both sides use the same one, which
+      # is all the comparison needs.
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --no-self-update && rustup default stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning]
         with:
           shared-key: size
@@ -42,7 +47,9 @@ jobs:
       # status is raised afterwards, so a failure always arrives with the table explaining it.
       - name: Compare binary sizes against the base
         env:
-          BASE_REF: origin/${{ github.base_ref }}
+          # From the pull request payload: perf-pr found the generic `github.base_ref`
+          # naming main for a reopened stacked pull request.
+          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
         run: |
           set +e
           ./tasks/size.sh "$BASE_REF" /tmp/size-report.md

@@ -26,7 +26,11 @@ trap 'git worktree remove --force "$tmp/src" 2>/dev/null || true; rm -rf "$tmp"'
 
 # One target directory for both builds, so crates.io dependencies compile once. Workspace
 # crates still build twice: cargo keys them by path, and the base lives in a worktree.
-export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-$PWD/target/size}
+# Absolute, because the base builds from inside the worktree: a relative path would put its
+# binaries under the worktree while `build` copies them from here.
+CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-target/size}
+case $CARGO_TARGET_DIR in /*) ;; *) CARGO_TARGET_DIR=$PWD/$CARGO_TARGET_DIR ;; esac
+export CARGO_TARGET_DIR
 
 # `parse-usage` is mise's whole CLI through the derive, which is the size an adopter's binary
 # pays for usage. `parse-none` is the same program without the parse, subtracted so the gate
@@ -35,6 +39,9 @@ BINS=(parse-none parse-usage parse-clap usage)
 
 build() {
   local src=$1 dest=$2
+  # Both checkouts link to the same paths. Removing them first means a build that failed to
+  # relink stops `cp` here, rather than handing one checkout's binary to the other.
+  for bin in "${BINS[@]}"; do rm -f "$CARGO_TARGET_DIR/release/$bin"; done
   (cd "$src" && cargo build --release --locked -q -p gate -p usage-cli \
     --bin parse-none --bin parse-usage --bin parse-clap --bin usage)
   mkdir -p "$dest"
@@ -65,7 +72,8 @@ row() {
   verdict=reported
   if [ "$gated" = true ]; then
     verdict=ok
-    if awk -v p="$pct" -v g="$GATE_PCT" 'BEGIN { exit !(p > g) }'; then
+    # Against the exact ratio, not the rounded `pct`: +1.004% prints as +1.00% and still fails.
+    if awk -v b="$base_bytes" -v d="$delta" -v g="$GATE_PCT" 'BEGIN { exit !(b > 0 && 100 * d > g * b) }'; then
       verdict="**over ${GATE_PCT}%**"
       failed=true
     fi
