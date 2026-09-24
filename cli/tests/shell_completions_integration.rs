@@ -1997,9 +1997,17 @@ cmd "deploy" help="Deploy it\nMore detail" {
         choices "prod env" "staging"
     }
 }
+cmd "read" {
+    arg "<file>"
+}
 "#;
     let spec_file = temp_dir.join("m.kdl");
     fs::write(&spec_file, spec).unwrap();
+    // Path completion runs relative to the working directory, and an escaped space in a
+    // directory name is the other way a typed word differs from the value it names.
+    let work_dir = temp_dir.join("work");
+    fs::create_dir_all(work_dir.join("sub dir")).unwrap();
+    fs::write(work_dir.join("sub dir").join("c.txt"), "").unwrap();
     let shebang: String = spec.lines().map(|l| format!("#USAGE {l}\n")).collect();
     let script_path = bin_dir.join("m");
     fs::write(
@@ -2045,10 +2053,12 @@ cmd "deploy" help="Deploy it\nMore detail" {
             r#"set -gx PATH "{bin_dir}" "{usage_dir}" /usr/bin /bin
 set -gx XDG_CACHE_HOME "{tmp}"
 source "{source}"
-for line in 'm ' "m deploy 'prod" 'm deploy "prod e' 'm deploy prod\ e'
+cd "{work_dir}"
+for line in 'm ' "m deploy 'prod" 'm deploy "prod e' 'm deploy prod\ e' 'm read sub\ dir/' "m read 'sub dir/"
     echo "[$line]" (complete -C $line | string escape)
 end
 "#,
+            work_dir = sh_path(&work_dir),
             bin_dir = sh_path(&bin_dir),
             usage_dir = sh_path(usage_bin.parent().unwrap()),
             tmp = sh_path(&temp_dir),
@@ -2070,10 +2080,12 @@ end
         assert_eq!(
             stdout.lines().collect::<Vec<_>>(),
             [
-                r"[m ] deploy\tDeploy\ it",
+                r"[m ] deploy\tDeploy\ it read",
                 r"[m deploy 'prod] 'prod env'",
                 r#"[m deploy "prod e] 'prod env'"#,
                 r"[m deploy prod\ e] 'prod env'",
+                r"[m read sub\ dir/] 'sub dir/c.txt'",
+                r"[m read 'sub dir/] 'sub dir/c.txt'",
             ],
             "{label}: unexpected completions.\nstderr:\n{stderr}"
         );
