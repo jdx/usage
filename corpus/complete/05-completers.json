@@ -1,0 +1,42 @@
+{
+  "section": "completers",
+  "about": "Which `complete` answers for a position. A completer is found by the lowercased name of the argument or flag value it belongs to, or written inside that `arg` node itself; the one inside the node is attached to the argument rather than matched to it, so it wins. Typed completers are stated here by the kind of answer they give rather than by running anything, as the README says: `type=\"none\"` closes a position, and a path type defers to the shell.",
+  "vectors": [
+    {
+      "id": "a-complete-inside-an-arg-is-read",
+      "doc": "An argument named `<FILE>` completes paths by its name alone. A `complete type=\"none\"` written inside it says nothing belongs there, so the name's guess gives way and nothing is offered, not even paths.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<FILE>\" {\n  complete type=\"none\"\n}\n",
+      "line": "ex ",
+      "expect": {
+        "nothing": true
+      }
+    },
+    {
+      "id": "a-complete-inside-an-arg-beats-a-named-one",
+      "doc": "Both a `complete \"file\" type=\"dir\"` naming the argument and a `type=\"none\"` inside its own node: the one inside the node wins, so no directories are offered and the position is closed.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncomplete \"file\" type=\"dir\"\narg \"<file>\" {\n  complete type=\"none\"\n}\n",
+      "line": "ex ",
+      "expect": {
+        "nothing": true
+      }
+    },
+    {
+      "id": "a-complete-inside-a-flags-value-is-read",
+      "doc": "The same for a flag's value, written inside the flag's `arg` node.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--token <FILE>\" {\n  arg \"<FILE>\" {\n    complete type=\"none\"\n  }\n}\n",
+      "line": "ex --token ",
+      "expect": {
+        "nothing": true
+      }
+    },
+    {
+      "id": "a-complete-inside-a-flag-belongs-to-its-value",
+      "doc": "Written directly inside the flag, as shorthand for inside its `arg`: a flag has one value, so there is no doubt which it completes.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--token <FILE>\" {\n  complete type=\"none\"\n}\n",
+      "line": "ex --token ",
+      "expect": {
+        "nothing": true
+      }
+    }
+  ]
+}

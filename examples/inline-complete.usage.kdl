@@ -1,0 +1,18 @@
+// A `complete` inside the arg it completes, rather than one matched by name.
+// The named `complete "target"` below loses to the inline one on `<target>`,
+// and still answers for the `<target>` of `other`, which has none of its own.
+complete "target" run="printf 'named\\n'"
+arg "<target>" {
+    complete run="printf 'inline-a\\ninline-b\\n'"
+}
+flag "--color <when>" {
+    arg "<when>" {
+        complete run="printf 'always:Always color\\nnever:Never color\\n'" descriptions=#true
+    }
+}
+flag "--shorthand <value>" {
+    complete run="printf 'short-1\\nshort-2\\n'"
+}
+cmd "other" {
+    arg "<target>"
+}

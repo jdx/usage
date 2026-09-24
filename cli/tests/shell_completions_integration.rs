@@ -2562,6 +2562,18 @@ complete "command" delegate="fakecmd"
 "#,
         )
         .unwrap();
+        // The same wrapper with the completer written inside the argument it completes.
+        fs::write(
+            dir.join("wrap_inline.usage.kdl"),
+            r#"bin "wrap"
+flag "-v --verbose"
+arg "<layer>"
+arg "<command>" var=#true {
+    complete delegate="fakecmd"
+}
+"#,
+        )
+        .unwrap();
         Self { dir, spec_file }
     }
 
@@ -2679,6 +2691,18 @@ fn assert_delegated(fixture: &DelegateFixture, shell: &str) {
         delegated_values(&auto),
         ["-other", "-out"],
         "{shell}: {auto}"
+    );
+
+    // A `complete` inside the argument delegates the same way, flag words included.
+    let inline = fixture.complete_with(
+        &fixture.dir.join("wrap_inline.usage.kdl"),
+        shell,
+        &["wrap", "layer1", "plan", "-o"],
+    );
+    assert_eq!(
+        delegated_values(&inline),
+        ["-other", "-out"],
+        "{shell}: {inline}"
     );
 
     // Typed words reach the delegate as data, never as shell syntax.

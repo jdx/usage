@@ -109,6 +109,30 @@ func TestAFlagsDefaultCanBeDeclaredOnItsValue(t *testing.T) {
 	}
 }
 
+// A `complete` written inside an `arg` node is lowered onto the argument, and it
+// wins over a `complete` found by name, the same as in usage-lib.
+func TestAnArgsOwnCompleterWinsOverANamedOne(t *testing.T) {
+	var s Spec
+	if err := json.Unmarshal([]byte(`{
+		"name":"ex",
+		"bin":"ex",
+		"complete":{"target":{"name":"target","type_":"file"}},
+		"cmd":{"name":"ex",
+			"args":[{"name":"target","required":true,"complete":{"name":"target","type_":"dir"}}],
+			"flags":[{"name":"out","long":["out"],"arg":{"name":"path","required":true,"complete":{"name":"path","type_":"file"}}}]
+		}
+	}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	root, meta := build(&s)
+	if got := metaFor(t, meta, root, "target").CompleteType; got != "dir" {
+		t.Errorf("the arg's own completer should win: got %q", got)
+	}
+	if got := metaFor(t, meta, root, "out").CompleteType; got != "file" {
+		t.Errorf("a flag value's own completer should be read: got %q", got)
+	}
+}
+
 func TestSubcommandRequirementPolicyReachesTheCommandTable(t *testing.T) {
 	root, _ := build(&Spec{
 		Name: "ex", Bin: "ex",

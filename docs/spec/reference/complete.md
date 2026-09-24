@@ -11,6 +11,30 @@ instead.
 complete "plugin" run="mycli plugins list"
 ```
 
+## Inside an `arg`
+
+A `complete` can also sit inside the `arg` it completes, including the `arg` of a flag. It
+leaves out the name, since the node it sits in already says which argument it is for:
+
+```kdl
+arg "<plugin>" {
+  complete run="mycli plugins list"
+}
+flag "--color <when>" {
+  arg "<when>" {
+    complete type="none"
+  }
+}
+// shorthand for a complete inside the flag's arg
+flag "--out <path>" {
+  complete type="dir"
+}
+```
+
+A named `complete` covers every argument with that name. One inside an arg covers only that arg,
+and it wins when both are present. Otherwise usage looks for a named one: first at the top level
+of the spec, then in the command being completed.
+
 ## `type` — completions usage supplies itself
 
 Instead of a `run`, a completer can name something usage already knows how to complete. `run`,

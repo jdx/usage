@@ -47,6 +47,9 @@ flag "--color" env="MYCLI_COLOR" // flag can be backed by an env var
 
 flag "--file <file>"  // args named "<file>" will be completed as files
 flag "--dir <dir>"    // args named "<dir>" will be completed as directories
+flag "--plugin <name>" {
+  complete run="mycli plugins list" // completes this flag's value; see complete.md
+}
 
 flag "--file <file>" required_if="--dir"     // if --dir is set, --file must also be set
 flag "--file <file>" required_unless="--dir" // either --file or --dir must be present

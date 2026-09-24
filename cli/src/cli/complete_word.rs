@@ -744,12 +744,9 @@ impl CompleteWord {
     }
 
     /// The reserved `type=` of the completer for an argument, if it has one.
-    fn completer_type<'a>(&self, cx: &Ctx<'a>, arg: &SpecArg) -> Option<&'a str> {
-        let name = arg.name.to_lowercase();
+    fn completer_type<'b>(&self, cx: &'b Ctx<'_>, arg: &'b SpecArg) -> Option<&'b str> {
         cx.spec
-            .complete
-            .get(&name)
-            .or_else(|| cx.parsed.cmd.complete.get(&name))
+            .completer(&cx.parsed.cmd, arg)
             .and_then(|complete| complete.type_.as_deref())
     }
 
@@ -790,13 +787,7 @@ impl CompleteWord {
         static EMPTY_COMPL: LazyLock<SpecComplete> = LazyLock::new(SpecComplete::default);
 
         trace!("complete_arg: {arg} {ctoken}");
-        let name = arg.name.to_lowercase();
-        let complete = cx
-            .spec
-            .complete
-            .get(&name)
-            .or(cmd.complete.get(&name))
-            .unwrap_or(&EMPTY_COMPL);
+        let complete = cx.spec.completer(cmd, arg).unwrap_or(&EMPTY_COMPL);
         if let Some(type_) = complete.type_.as_deref() {
             // An explicitly declared closed completer answers even when its answer is nothing:
             // it knows the whole set of candidates, so an unmatched prefix means no matches
@@ -881,7 +872,7 @@ impl CompleteWord {
         // The same is true in the other direction: an explicitly declared open type such as
         // `command_args` must not fall through to a different builtin inferred from its name.
         if complete.type_.is_none() {
-            let (builtin, closed) = self.complete_builtin(cx, &name, ctoken);
+            let (builtin, closed) = self.complete_builtin(cx, &arg.name.to_lowercase(), ctoken);
             if !builtin.is_empty() || closed {
                 return Ok((builtin, closed));
             }
@@ -931,12 +922,7 @@ impl CompleteWord {
             return None;
         }
         let arg = cx.parsed.next_arg.as_deref()?;
-        let name = arg.name.to_lowercase();
-        let complete = cx
-            .spec
-            .complete
-            .get(&name)
-            .or(cx.parsed.cmd.complete.get(&name))?;
+        let complete = cx.spec.completer(&cx.parsed.cmd, arg)?;
         (complete.delegate.is_some() && !delegated_words(cx.parsed, arg).is_empty()).then_some(arg)
     }
 
