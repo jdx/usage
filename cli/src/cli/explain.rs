@@ -129,13 +129,17 @@ pub fn explain(spec: &Spec, argv: &[String], env: Option<HashMap<String, String>
     // happens to say — least of all a spec file a bug report arrived with. Injected answers
     // are what turns that from a policy into a fact: usage-lib resolves a command's mounts on
     // the way into it, and given a map it looks the answer up instead of running anything.
+    // `choices run=` commands are turned off outright: a value its declared choices do not
+    // accept is explained as bound, unchecked, rather than checked against a command.
     //
     // Empty answers first, so a line inside the command's own vocabulary is explained
     // exactly. A spec declaring nothing, as the answer to every mount, second: it lets a line
     // under a mounting command be explained on the declarations that *are* readable, rather
     // than refusing the whole report over a subcommand nobody asked about.
     let parser = |mounts: HashMap<String, String>| {
-        let parser = Parser::new(spec).with_mount_outputs(mounts);
+        let parser = Parser::new(spec)
+            .with_mount_outputs(mounts)
+            .without_running_commands();
         match env.clone() {
             Some(env) => parser.with_env(env),
             None => parser,
@@ -939,6 +943,37 @@ mount run="false --usage"
             "{:?}",
             discovery.refused
         );
+    }
+
+    // Unix only: the command is an `sh` line, and the marker's path goes into a KDL string,
+    // where a Windows path's backslashes would be read as escapes.
+    #[cfg(unix)]
+    #[test]
+    fn a_choices_command_is_never_run_to_answer_a_report() {
+        // The command would leave a marker behind. The value it alone could vouch for is
+        // explained as bound, unchecked, rather than checked against it.
+        let marker =
+            std::env::temp_dir().join(format!("usage-explain-choices-run-{}", std::process::id()));
+        let _ = std::fs::remove_file(&marker);
+        let spec: Spec = format!(
+            r#"
+name "mycli"
+bin "mycli"
+arg "<svc>" {{
+    choices "local" run="echo ran > '{}'; echo app"
+}}
+        "#,
+            marker.display()
+        )
+        .parse()
+        .unwrap();
+
+        let explanation = explain(&spec, &argv(&["mycli", "app"]), env(&[]));
+        assert_eq!(value(&explanation, "svc"), "app argv [1]");
+        assert!(explanation.errors.is_empty(), "{:?}", explanation.errors);
+        let ran = marker.exists();
+        let _ = std::fs::remove_file(&marker);
+        assert!(!ran, "explain ran the choices command");
     }
 
     #[test]

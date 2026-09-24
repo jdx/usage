@@ -687,6 +687,7 @@ pub struct Parser<'a> {
     spec: &'a Spec,
     env: Option<HashMap<String, String>>,
     mount_outputs: Option<HashMap<String, String>>,
+    run_commands: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -696,6 +697,7 @@ impl<'a> Parser<'a> {
             spec,
             env: None,
             mount_outputs: None,
+            run_commands: true,
         }
     }
 
@@ -716,6 +718,17 @@ impl<'a> Parser<'a> {
     /// caller explicitly opts into injection.
     pub fn with_mount_outputs(mut self, outputs: HashMap<String, String>) -> Self {
         self.mount_outputs = Some(outputs);
+        self
+    }
+
+    /// Never run a `choices run=` command while parsing.
+    ///
+    /// For a caller that inspects a command line rather than acting on it. A value that the
+    /// declared choices do not accept is let through unchecked instead of being checked
+    /// against the command's output, and a help page describes the command rather than
+    /// listing what it prints. Mounts are unaffected; see [`Parser::with_mount_outputs`].
+    pub fn without_running_commands(mut self) -> Self {
+        self.run_commands = false;
         self
     }
 
@@ -766,6 +779,7 @@ impl<'a> Parser<'a> {
     /// than in the line, such as a mount that will not run, stops the trace where it stopped
     /// and the words past it carry no role.
     pub fn explain_refused(self, input: &[String]) -> Result<ParseOutput, Vec<TokenBinding>> {
+        let _no_runs = (!self.run_commands).then(crate::spec::choices::NoRunScope::enter);
         let mut trace = Trace::new(input);
         match parse_partial_traced(
             self.spec,
@@ -787,6 +801,7 @@ impl<'a> Parser<'a> {
         // Held across both phases: defaults are checked against the same `choices run=`
         // output the words were.
         let _runs = crate::spec::choices::RunScope::enter();
+        let _no_runs = (!self.run_commands).then(crate::spec::choices::NoRunScope::enter);
         let custom_env = self.env.as_ref();
         let (mut out, overridden_flags) = parse_partial_with_env(
             self.spec,
@@ -5136,6 +5151,9 @@ fn choice_error(
     match choices.matches_resolved(value, custom_env) {
         Ok(true) => return None,
         Ok(false) => {}
+        // Only a command could say, and this parse may not run one: let the value through
+        // rather than report an error the real run might not have.
+        Err(_) if choices.run().is_some() && crate::spec::choices::runs_disabled() => return None,
         Err(err) => {
             return Some(format!(
                 "Could not check {} {}: {value} against its choices: {err}",

@@ -1,6 +1,6 @@
 use crate::kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 
 use crate::error::UsageErr;
@@ -383,6 +383,39 @@ type RunOutputs = HashMap<String, Result<Vec<String>, String>>;
 thread_local! {
     /// The outputs for the parse or help page in progress. `None` outside one.
     static RUN_OUTPUTS: RefCell<Option<RunOutputs>> = const { RefCell::new(None) };
+    /// Set while a caller that must not start programs is parsing; see [`NoRunScope`].
+    static RUNS_DISABLED: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Keeps `run=` commands from running until it is dropped.
+///
+/// For a caller that inspects a command line rather than acting on it, such as
+/// `usage explain`, which promises never to start another program: a spec file that
+/// arrived with a bug report should not run its commands on the machine of whoever reads
+/// the report. While it is held, a value the declared choices do not accept is let through
+/// unchecked rather than checked against a command, and help describes the command instead
+/// of listing its output.
+pub(crate) struct NoRunScope {
+    was: bool,
+}
+
+impl NoRunScope {
+    pub(crate) fn enter() -> Self {
+        Self {
+            was: RUNS_DISABLED.with(|disabled| disabled.replace(true)),
+        }
+    }
+}
+
+impl Drop for NoRunScope {
+    fn drop(&mut self) {
+        RUNS_DISABLED.with(|disabled| disabled.set(self.was));
+    }
+}
+
+/// Whether a [`NoRunScope`] is held, so `run=` commands must not start.
+pub(crate) fn runs_disabled() -> bool {
+    RUNS_DISABLED.with(Cell::get)
 }
 
 /// Remembers what `run=` commands printed until it is dropped, so a parse checking five
@@ -417,6 +450,11 @@ impl Drop for RunScope {
 }
 
 fn run_choices(run: &str, env: Option<&HashMap<String, String>>) -> Result<Vec<String>, UsageErr> {
+    if runs_disabled() {
+        return Err(UsageErr::ShellError(format!(
+            "`{run}` was not run: commands are disabled for this parse"
+        )));
+    }
     let cached = RUN_OUTPUTS.with(|outputs| {
         outputs
             .borrow()

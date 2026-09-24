@@ -273,3 +273,42 @@ fn markdown_describes_the_command_without_running_it() {
     assert!(md.contains("**Choices:** output of `echo app`"), "{md}");
     assert!(!md.contains("- `app`"), "{md}");
 }
+
+#[cfg(unix)]
+#[test]
+fn a_parser_told_not_to_run_commands_never_does() {
+    let dir = tempfile::tempdir().unwrap();
+    let log = dir.path().join("runs");
+    let spec: Spec = format!(
+        r#"
+bin "build"
+arg "<service>" {{
+    choices "local" run="echo ran >> '{}'; echo app"
+}}
+"#,
+        log.display()
+    )
+    .parse()
+    .unwrap();
+
+    // A value only the command could vouch for is let through unchecked; one it could never
+    // print is too, since nothing asked the command.
+    for word in ["app", "not-a-service"] {
+        let out = Parser::new(&spec)
+            .without_running_commands()
+            .explain(&args(&[word]))
+            .unwrap();
+        assert!(out.errors.is_empty(), "{word}: {:?}", out.errors);
+    }
+    // Help describes the command rather than running it for its values.
+    let _ = Parser::new(&spec)
+        .without_running_commands()
+        .explain(&args(&["--help"]));
+    assert!(!log.exists(), "the command ran");
+
+    // The declared values are still checked as usual.
+    Parser::new(&spec)
+        .without_running_commands()
+        .parse(&args(&["local"]))
+        .unwrap();
+}
