@@ -285,7 +285,7 @@ Source it once from the shell's rc file and Tab works on any executable whose fi
             choices bash fish zsh
         }
     }
-    cmd fig help="Generate a Fig completion spec, for Amazon Q and Fig" effect=read {
+    cmd fig help="Generate a completion spec in the legacy Fig format" effect=read {
         flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" {
             arg <FILE>
         }

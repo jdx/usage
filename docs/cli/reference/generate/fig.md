@@ -6,7 +6,7 @@
 - **Effect:** read-only
 - **Source code:** [`cli/src/cli/generate/fig.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/fig.rs)
 
-Generate a Fig completion spec, for Amazon Q and Fig
+Generate a completion spec in the legacy Fig format
 
 ## Flags
 

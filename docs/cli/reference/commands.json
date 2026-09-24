@@ -872,7 +872,7 @@
             "unknown_flags": null,
             "hide": false,
             "args_override_self": true,
-            "help": "Generate a Fig completion spec, for Amazon Q and Fig",
+            "help": "Generate a completion spec in the legacy Fig format",
             "name": "fig",
             "aliases": [],
             "hidden_aliases": [],

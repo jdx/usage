@@ -44,7 +44,7 @@ mod description_format {
     }
 }
 
-/// Generate a Fig completion spec, for Amazon Q and Fig
+/// Generate a completion spec in the legacy Fig format
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct Fig {

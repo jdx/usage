@@ -446,7 +446,7 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: "fig",
-          description: "Generate a Fig completion spec, for Amazon Q and Fig",
+          description: "Generate a completion spec in the legacy Fig format",
           options: [
             {
               name: ["-f", "--file"],
