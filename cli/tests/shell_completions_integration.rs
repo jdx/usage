@@ -1675,6 +1675,283 @@ echo "[foo]" (complete -C 'ex --f')
 }
 
 // ---------------------------------------------------------------------------
+// Parse errors during completion (#596).
+//
+// `m help <Tab>` against a spec with no `help` command makes `complete-word`
+// exit 1 with `Error: unexpected word: help` on stderr. That error is useful
+// and `complete-word` keeps printing it, but the generated scripts run while
+// the user is mid-edit, so stderr reaching the terminal is printed straight
+// over the prompt. zsh shows the error through `_message` instead; bash and
+// fish discard it. Each test covers both the per-binary script and the
+// `completion-init` shebang handler.
+// ---------------------------------------------------------------------------
+
+/// Stage `m` for the parse-error tests: a spec file, the per-binary completion
+/// for `shell`, the `completion-init` script, and a `usage`-shebang copy of
+/// the same CLI on a `bin/` directory. Returns (temp_dir, bin_dir,
+/// per_bin_script, init_script).
+fn stage_parse_error_env(usage_bin: &Path, shell: &str) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
+    let temp_dir = env::temp_dir().join(format!(
+        "usage_{shell}_parse_error_test_{}",
+        std::process::id()
+    ));
+    let bin_dir = temp_dir.join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+
+    let spec_file = temp_dir.join("m.kdl");
+    fs::write(&spec_file, "bin \"m\"\ncmd \"run\" help=\"Run it\"\n").unwrap();
+
+    let script_path = bin_dir.join("m");
+    fs::write(
+        &script_path,
+        "#!/usr/bin/env -S usage bash\n#USAGE bin \"m\"\n#USAGE cmd \"run\" help=\"Run it\"\necho ran\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    let generate = |args: &[&str], out: &Path| {
+        let output = Command::new(usage_bin)
+            .args(args)
+            .output()
+            .expect("Failed to generate completion");
+        assert!(
+            output.status.success(),
+            "{args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        fs::write(out, &output.stdout).unwrap();
+    };
+    let per_bin = temp_dir.join(format!("m.{shell}"));
+    generate(
+        &[
+            "generate",
+            "completion",
+            shell,
+            "m",
+            "-f",
+            spec_file.to_str().unwrap(),
+        ],
+        &per_bin,
+    );
+    let init = temp_dir.join(format!("init.{shell}"));
+    generate(&["generate", "completion-init", shell], &init);
+
+    (temp_dir, bin_dir, per_bin, init)
+}
+
+#[test]
+fn test_zsh_completion_shows_parse_error_as_message() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let (temp_dir, bin_dir, per_bin, init) = stage_parse_error_env(&usage_bin, "zsh");
+
+    let test_script = format!(
+        r#"#!/usr/bin/env zsh
+export PATH="{bin_dir}:{usage_dir}:$PATH"
+export XDG_CACHE_HOME="{tmp}"
+autoload -U compinit
+compinit -u
+source "{per_bin}"
+source "{init}"
+
+compadd() {{ print -r -- "[compadd] ${{inserts[*]}}" }}
+_message() {{ print -r -- "[_message] $*" }}
+
+words=(m help "")
+CURRENT=3
+print -r -- "[per-bin]"
+_m
+words=(m "")
+CURRENT=2
+_m
+
+words=(m help "")
+CURRENT=3
+print -r -- "[init]"
+_usage_default_complete
+words=(m "")
+CURRENT=2
+_usage_default_complete
+"#,
+        bin_dir = path_var_entry("zsh", &bin_dir),
+        usage_dir = path_var_entry("zsh", usage_bin.parent().unwrap()),
+        tmp = sh_path(&temp_dir),
+        per_bin = sh_path(&per_bin),
+        init = sh_path(&init),
+    );
+    let script_file = temp_dir.join("test.zsh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = script_command("zsh", &script_file)
+        .output()
+        .expect("Failed to run zsh parse-error test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        result.status.success(),
+        "zsh script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        result.status
+    );
+    // Once from the per-binary script, once from the init handler, each
+    // followed by the working completion.
+    let expected = "[per-bin]\n\
+                    [_message] -r usage: unexpected word: help\n\
+                    [compadd] run\n\
+                    [init]\n\
+                    [_message] -r usage: unexpected word: help\n\
+                    [compadd] run\n";
+    assert_eq!(stdout, expected, "stderr:\n{stderr}");
+    assert!(
+        stderr.is_empty(),
+        "complete-word's error must not reach the terminal.\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_bash_completion_discards_parse_error() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let (temp_dir, bin_dir, per_bin, init) = stage_parse_error_env(&usage_bin, "bash");
+
+    // The per-binary script needs bash-completion. Use the real library when
+    // there is one; otherwise stand in the two functions the script calls, so
+    // what is under test (complete-word's stderr) is still exercised.
+    let bash_completion = match system_bash_completion() {
+        Some(path) => format!("source \"{}\"", sh_path(&path)),
+        None => r#"_init_completion() {
+    words=("${COMP_WORDS[@]}")
+    cword=$COMP_CWORD
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+}
+__ltrim_colon_completions() { :; }"#
+            .to_string(),
+    };
+
+    let test_script = format!(
+        r#"#!/usr/bin/env bash
+export PATH="{bin_dir}:{usage_dir}:$PATH"
+export XDG_CACHE_HOME="{tmp}"
+{bash_completion}
+source "{per_bin}"
+source "{init}"
+
+run_case() {{
+    local label="$1" fn="$2"; shift 2
+    COMP_WORDS=("$@")
+    COMP_CWORD=$(( ${{#COMP_WORDS[@]}} - 1 ))
+    COMP_LINE="${{COMP_WORDS[*]}}"
+    COMP_POINT=${{#COMP_LINE}}
+    COMPREPLY=()
+    "$fn" m "${{COMP_WORDS[COMP_CWORD]}}" "${{COMP_WORDS[COMP_CWORD-1]}}"
+    echo "[$label] ${{COMPREPLY[*]}}"
+}}
+
+run_case per-bin-error _m m help ""
+run_case per-bin-ok _m m ""
+run_case init-error _usage_default_complete m help ""
+run_case init-ok _usage_default_complete m ""
+"#,
+        bin_dir = path_var_entry("bash", &bin_dir),
+        usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
+        tmp = sh_path(&temp_dir),
+        per_bin = sh_path(&per_bin),
+        init = sh_path(&init),
+    );
+    let script_file = temp_dir.join("test.sh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = script_command("bash", &script_file)
+        .output()
+        .expect("Failed to run bash parse-error test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        result.status.success(),
+        "bash script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        result.status
+    );
+    assert_eq!(
+        stdout, "[per-bin-error] \n[per-bin-ok] run\n[init-error] \n[init-ok] run\n",
+        "stderr:\n{stderr}"
+    );
+    assert!(
+        stderr.is_empty(),
+        "complete-word's error must not reach the terminal.\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_fish_completion_discards_parse_error() {
+    if skip_if_shell_missing("fish") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let (temp_dir, bin_dir, per_bin, init) = stage_parse_error_env(&usage_bin, "fish");
+
+    // The per-binary script and the init scan both register a completer for
+    // `m`, so each runs in its own fish. $PATH is kept small so the init scan
+    // stays bounded.
+    let run = |label: &str, source: &Path| {
+        let test_script = format!(
+            r#"set -gx PATH "{bin_dir}" "{usage_dir}" /usr/bin /bin
+set -gx XDG_CACHE_HOME "{tmp}"
+source "{source}"
+echo "[error]" (complete -C 'm help ')
+echo "[ok]" (complete -C 'm ')
+"#,
+            bin_dir = sh_path(&bin_dir),
+            usage_dir = sh_path(usage_bin.parent().unwrap()),
+            tmp = sh_path(&temp_dir),
+            source = sh_path(source),
+        );
+        let script_file = temp_dir.join(format!("test-{label}.fish"));
+        fs::write(&script_file, &test_script).unwrap();
+
+        let result = script_command("fish", &script_file)
+            .output()
+            .expect("Failed to run fish parse-error test");
+        let stdout = String::from_utf8_lossy(&result.stdout);
+        let stderr = String::from_utf8_lossy(&result.stderr);
+
+        assert!(
+            result.status.success(),
+            "{label}: fish script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+            result.status
+        );
+        assert!(
+            stdout.starts_with("[error]\n") && stdout.contains("[ok] run"),
+            "{label}: unexpected completions.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        );
+        assert!(
+            stderr.is_empty(),
+            "{label}: complete-word's error must not reach the terminal.\nstderr:\n{stderr}"
+        );
+    };
+    run("per-bin", &per_bin);
+    run("init", &init);
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+// ---------------------------------------------------------------------------
 // Shell-function collision tests.
 //
 // Two distinct ways a shell function can defeat the "is the usage CLI
