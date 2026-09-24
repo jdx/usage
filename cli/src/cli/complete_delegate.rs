@@ -17,13 +17,14 @@
 
 use std::io::Read;
 use std::process::{Command, Stdio};
-use std::sync::mpsc;
 use std::time::Duration;
 
 use crate::env;
 
 /// How long the shell gets to answer. A Tab that stalls is worse than one that offers nothing.
 const TIMEOUT: Duration = Duration::from_secs(3);
+/// How often the wait checks whether the reader has finished.
+const POLL: Duration = Duration::from_millis(5);
 
 /// fish completes a command line string, so the words are escaped back into one. The words
 /// before the cursor are quoted, so an empty one stays a word (`''`) instead of collapsing
@@ -188,26 +189,38 @@ pub(crate) fn complete(shell: &str, words: &[String]) -> Vec<(String, String)> {
 fn run_with_timeout(mut command: Command) -> Option<String> {
     let mut child = command
         .spawn()
-        .inspect_err(|err| debug!("delegate: {command:?} failed to start: {err}"))
+        .inspect_err(|err| {
+            let program = command.get_program().to_string_lossy();
+            debug!("delegate: {program} failed to start: {err}")
+        })
         .ok()?;
     let mut stdout = child.stdout.take()?;
     // Read on another thread so the wait can give up: end of file arrives once the shell and
     // anything it started have let go of the pipe, which a hung completion never does.
-    let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
+    //
+    // Polled rather than sent over a channel: a channel costs the binary some 15 KB of
+    // `std::sync::mpmc` for one message, and a few milliseconds of polling is nothing beside
+    // a shell starting up.
+    let reader = std::thread::spawn(move || {
         let mut out = Vec::new();
         let _ = stdout.read_to_end(&mut out);
-        let _ = tx.send(out);
+        out
     });
-    let out = rx.recv_timeout(TIMEOUT);
-    if out.is_err() {
-        debug!("delegate: gave up after {TIMEOUT:?}");
-        kill_tree(&mut child);
+    let deadline = std::time::Instant::now() + TIMEOUT;
+    while !reader.is_finished() && std::time::Instant::now() < deadline {
+        std::thread::sleep(POLL);
     }
+    let out = if reader.is_finished() {
+        reader.join().ok()
+    } else {
+        debug!("delegate: gave up after {}s", TIMEOUT.as_secs());
+        kill_tree(&mut child);
+        // Not joined: it may still be blocked on a pipe that some process outside the group
+        // holds, and `complete-word` must not wait for that to exit.
+        None
+    };
     let _ = child.wait();
-    // The reader is never joined: after a timeout it may still be blocked on a pipe that some
-    // process outside the group holds, and `complete-word` must not wait for it to exit.
-    String::from_utf8(out.ok()?).ok()
+    String::from_utf8(out?).ok()
 }
 
 /// Kill the shell and everything else in its process group.
