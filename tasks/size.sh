@@ -25,9 +25,13 @@ tmp=$(mktemp -d)
 trap 'git worktree remove --force "$tmp/src" 2>/dev/null || true; rm -rf "$tmp"' EXIT
 
 # One target directory for both builds, so crates.io dependencies compile once. Workspace
-# crates still build twice: cargo keys them by path, and the base lives in a worktree.
-# Absolute, because the base builds from inside the worktree: a relative path would put its
-# binaries under the worktree while `build` copies them from here.
+# crates are cleaned before each build and so always build from the checkout at hand: cargo
+# names their artifacts by path relative to the workspace root, so the base worktree and this
+# checkout (or a cached run of another branch) produce the same names, and one side's fresh
+# `usage-lib` looks up to date to the other. Without the clean, the head linked the base's
+# code and every comparison came out +0 bytes. Absolute, because the base builds from inside
+# the worktree: a relative path would put its binaries under the worktree while `build`
+# copies them from here.
 CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-target/size}
 case $CARGO_TARGET_DIR in /*) ;; *) CARGO_TARGET_DIR=$PWD/$CARGO_TARGET_DIR ;; esac
 export CARGO_TARGET_DIR
@@ -42,6 +46,10 @@ build() {
   # Both checkouts link to the same paths. Removing them first means a build that failed to
   # relink stops `cp` here, rather than handing one checkout's binary to the other.
   for bin in "${BINS[@]}"; do rm -f "$CARGO_TARGET_DIR/release/$bin"; done
+  local members
+  members=$(cd "$src" && cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name | "-p", .')
+  # shellcheck disable=SC2086 # one word per `-p` and package name
+  (cd "$src" && cargo clean --release -q $members)
   (cd "$src" && cargo build --release --locked -q -p gate -p usage-cli \
     --bin parse-none --bin parse-usage --bin parse-clap --bin usage)
   mkdir -p "$dest"
