@@ -86,8 +86,15 @@ run = "hk check --all"
 [tasks."lint:clippy"]
 run = "hk check --all --step cargo-clippy"
 
+# Every published crate, not just usage-lib: 6.11.1 removed public fields from
+# usage-argv's `FlagMeta` in a patch release and nothing caught it (#1489).
+# `--workspace` skips `publish = false` members and proc-macro crates.
+# The baselines are built from crates.io with fresh dependency resolution, so without the
+# fallback a published crate picks up whatever its dependencies released since — kdl 6.7.1
+# needing rustc 1.95 broke this on CI's 1.94. The fallback resolves for the running rustc.
 [tasks."lint:semver"]
-run = "cargo semver-checks check-release -p usage-lib"
+env = { CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS = "fallback" }
+run = "cargo semver-checks check-release --workspace"
 [tasks."lint:rust-docs-version"]
 run = '''
 major=$(sed -n 's/^version = "\([0-9]*\)\..*/\1/p' lib/Cargo.toml | head -1)
