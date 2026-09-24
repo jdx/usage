@@ -305,3 +305,33 @@ complete "b" run=#"ls ${HOME} `pwd` a\b"#
         "{fig}"
     );
 }
+
+#[test]
+fn choices_from_different_commands_on_one_arg_name_stay_apart() {
+    // The generator placeholder is replaced by text, so two `<svc>` arguments whose values come
+    // from different commands must not share one, or both get whichever is replaced first.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+cmd "a" help="a" {
+    arg "<svc>" help="svc" {
+        choices run="echo from-a"
+    }
+}
+cmd "b" help="b" {
+    arg "<svc>" help="svc" {
+        choices run="echo from-b"
+    }
+}
+        "#,
+    );
+    assert!(
+        fig.contains("completionGeneratorTemplate(`echo from-a`)"),
+        "{fig}"
+    );
+    assert!(
+        fig.contains("completionGeneratorTemplate(`echo from-b`)"),
+        "{fig}"
+    );
+}
