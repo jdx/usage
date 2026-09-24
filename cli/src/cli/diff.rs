@@ -1408,10 +1408,12 @@ fn diff_choices(
 
     // What a `choices run=` prints is unknown here, and running it would be the diff
     // executing a spec's commands. So these are judged by the command alone: gaining one
-    // can only add accepted values, losing one takes away whatever it printed, and
-    // swapping one for another could do either. There is no "possibly breaking" grade, so
-    // a swap on a strict set is graded breaking: a reviewer who reads a false alarm loses
-    // a minute, one who misses a narrowed set ships it.
+    // can only add accepted values, and losing one takes away whatever it printed.
+    //
+    // Swapping one command for another is metadata. Its output can narrow with no spec
+    // change at all (a service leaves a compose file), so the diff could never promise to
+    // catch that; grading every edit to the command breaking, down to reformatting a
+    // pipeline, would only teach people to wave the gate through.
     match (old.and_then(|ch| ch.run()), new.and_then(|ch| ch.run())) {
         (None, Some(run)) if old_strict => c.compatible(
             "choices-run-added",
@@ -1422,14 +1424,6 @@ fn diff_choices(
             "choices-run-removed",
             path,
             format!("{subject} no longer accepts what `{run}` prints"),
-        ),
-        (Some(was_run), Some(now_run)) if was_run != now_run && new_strict => c.breaking(
-            "choices-run-changed",
-            path,
-            format!(
-                "{subject} now takes its values from `{now_run}` instead of `{was_run}`, \
-                 and may no longer accept some of what the old command printed"
-            ),
         ),
         (Some(was_run), Some(now_run)) if was_run != now_run => c.metadata(
             "choices-run-changed",
@@ -2575,8 +2569,8 @@ flag "--color <when>" help="color" {
         let from_b = spec(r#"choices "local" run="exit 2""#);
         assert_eq!(codes(&listed, &from_a), ["compatible:choices-run-added"]);
         assert_eq!(codes(&from_a, &listed), ["breaking:choices-run-removed"]);
-        assert_eq!(codes(&from_a, &from_b), ["breaking:choices-run-changed"]);
-        // Where anything is accepted, a new command changes only what is offered.
+        // The diff cannot know what either command prints, so a swap is not graded breaking.
+        assert_eq!(codes(&from_a, &from_b), ["metadata:choices-run-changed"]);
         let open_a = spec(r#"choices "local" strict=#false run="exit 1""#);
         let open_b = spec(r#"choices "local" strict=#false run="exit 2""#);
         assert_eq!(codes(&open_a, &open_b), ["metadata:choices-run-changed"]);
