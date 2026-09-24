@@ -106,8 +106,10 @@ fi"#
     [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
     local spec_file="$spec_dir/usage_{spec_variable}.spec"
     {file_write_logic}
+    # stderr is discarded: a line that doesn't parse (`{bin} help <Tab>`) makes
+    # complete-word fail, and its error would be printed over the prompt.
     # shellcheck disable=SC2207
-	COMPREPLY=($(compgen -W "$(command {usage_bin} complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${{words[@]}}")" -- "$cur"))
+	COMPREPLY=($(compgen -W "$(command {usage_bin} complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${{words[@]}}" 2>/dev/null)" -- "$cur"))
 	__ltrim_colon_completions "$cur"
     # shellcheck disable=SC2181
     if [[ $? -ne 0 ]]; then
@@ -176,8 +178,9 @@ _usage_default_complete() {{
         if IFS= read -r first < "$cmdpath" 2>/dev/null && [[ "$first" == "#!"*"usage"* ]]; then
             if type -P {usage_bin} &> /dev/null; then
                 local IFS=$'\n'
+                # stderr is discarded so a parse error isn't printed over the prompt.
                 # shellcheck disable=SC2207
-                COMPREPLY=( $(command {usage_bin} complete-word --shell bash -f "$cmdpath" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}") )
+                COMPREPLY=( $(command {usage_bin} complete-word --shell bash -f "$cmdpath" --cword="$COMP_CWORD" -- "${{COMP_WORDS[@]}}" 2>/dev/null) )
                 return 0
             fi
         fi

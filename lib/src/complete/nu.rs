@@ -74,7 +74,10 @@ pub fn complete_nu(opts: &CompleteOptions) -> String {
         let spec_file = ($spec_dir | path join $"usage_{spec_variable}.spec")
         {file_write_logic}
 
-        (^{usage_bin} complete-word -f $spec_file --shell nu -- ...$spans)
+        # `complete` captures stderr and the exit code: a line that doesn't
+        # parse makes complete-word fail, and its error would be printed over
+        # the prompt.
+        (^{usage_bin} complete-word -f $spec_file --shell nu -- ...$spans | complete).stdout
         | lines
         | each {{|it| $it | split column "\t" | rename value description | into record }}
     }}

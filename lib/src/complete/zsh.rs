@@ -24,15 +24,44 @@ fn render_completion_loop(usage_bin: &str, indent: &str, cw_extra_args: &str) ->
     // shell-quoted insert — and we build the formatted display ourselves and
     // call `compadd` directly so every match is offered, with descriptions
     // aligned to the longest value.
+    //
+    // `complete-word` fails when the words before the cursor don't parse
+    // (`mycli help <Tab>` → `unexpected word: help`). Letting its stderr reach
+    // the terminal would print over the prompt mid-edit, so the process
+    // substitution captures it and, only when `complete-word` failed, forwards
+    // its first meaningful line — skipping `[TRACE …]`-style log lines, and
+    // without `Error:`, miette's `×`, or a bare `usage::…` diagnostic code —
+    // as a line starting with the unit separator (0x1f), which no completion
+    // value begins with. The loop shows that line with `_message`, in the
+    // listing area where zsh prints its own completion messages, with `%`
+    // doubled so typed text is not read as a prompt escape.
     let template = r#"local -a values=() descs=() inserts=()
-local needs_menu=0 line
+local needs_menu=0 line usage_err=
 while IFS= read -r line; do
+  if [[ "$line" == $'\x1f'* ]]; then
+    usage_err="${line#?}"
+    continue
+  fi
   local -a parts=("${(@ps:\t:)line}")
   values+=("${parts[1]}")
   descs+=("${parts[2]}")
   inserts+=("${parts[3]}")
   [[ "${parts[3]}" == "'"* ]] && needs_menu=1
-done < <(command __USAGE_BIN__ complete-word --shell zsh __CW_EXTRA__ -- "${(Q)words[@]}")
+done < <(
+  { _usage_err="$(command __USAGE_BIN__ complete-word --shell zsh __CW_EXTRA__ -- "${(Q)words[@]}" 2>&1 >&3 3>&-)"; } 3>&1
+  (( $? )) || _usage_err=
+  for _usage_l in "${(@f)_usage_err}"; do
+    [[ "$_usage_l" == \[[A-Z]*\]* ]] && continue
+    _usage_l="${_usage_l#"${_usage_l%%[![:space:]]*}"}"
+    _usage_l="${_usage_l#Error:}"
+    _usage_l="${_usage_l#"${_usage_l%%[![:space:]]*}"}"
+    _usage_l="${_usage_l#× }"
+    [[ -z "$_usage_l" || ( "$_usage_l" == *::* && "$_usage_l" != *' '* ) ]] && continue
+    print -r -- $'\x1f'"$_usage_l"
+    break
+  done
+)
+[[ -n "$usage_err" ]] && _message -r "usage: ${usage_err//\%/%%}"
 (( needs_menu )) && compstate[insert]=menu
 if (( ${#inserts[@]} )); then
   local -a _usage_display=()
@@ -205,9 +234,10 @@ pub fn complete_zsh_init(usage_bin: &str) -> String {
 # Source this file from your zshrc to enable <Tab> completion for any command
 # on $PATH whose first line is a `usage` shebang.
 
+# No `emulate -L zsh` up here: the completion system already runs this with
+# its own option set, and `_files` below needs that set intact (it relies on
+# `nullglob`, which `emulate` turns off). Reset options only on the usage path.
 _usage_default_complete() {{
-    emulate -L zsh
-    setopt localoptions nonomatch extendedglob
     local cmd cmdpath
     cmd="${{words[1]}}"
     if [[ "$cmd" == */* ]]; then
@@ -220,6 +250,7 @@ _usage_default_complete() {{
         local first
         if IFS= read -r first < "$cmdpath" 2>/dev/null && [[ "$first" == "#!"*"usage"* ]]; then
             if (( ${{+commands[{usage_bin}]}} )); then
+                emulate -L zsh
 {completion_loop}
                 return $?
             fi
