@@ -43,7 +43,17 @@ steps {
     }
 
     ["cargo-semver-checks"] {
-        glob = List("lib/**/*.rs", "lib/Cargo.toml")
+        glob = List(
+            "argv/**/*.rs", "argv/Cargo.toml",
+            "clap_usage/**/*.rs", "clap_usage/Cargo.toml",
+            "cli/**/*.rs", "cli/Cargo.toml",
+            "config/**/*.rs", "config/Cargo.toml",
+            "lib/**/*.rs", "lib/Cargo.toml",
+            "test/**/*.rs", "test/Cargo.toml",
+            "usage-dynamic/**/*.rs", "usage-dynamic/Cargo.toml",
+            "usage-rs/**/*.rs", "usage-rs/Cargo.toml",
+            "validation/**/*.rs", "validation/Cargo.toml",
+        )
         check = "mise run lint:semver"
     }
 }
