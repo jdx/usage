@@ -311,12 +311,12 @@ impl FigArg {
         // A `complete` inside the `arg` is the nearest declaration there is, so it arrives
         // first and the named ones applied afterwards leave it alone.
         //
-        // One with neither `run` nor `type` still takes the place of the named ones, as it
+        // One with none of `run`, `type` or `delegate` still takes the place of the named ones, as it
         // does in `complete-word`, which then falls back to what the argument's name
         // suggests. So the name-based guesses stay, and the arg is marked declared so a named
         // completer does not replace them.
         if let Some(complete) = &arg.complete {
-            if complete.run.is_none() && complete.type_.is_none() {
+            if complete.run.is_none() && complete.type_.is_none() && complete.delegate.is_none() {
                 fig_arg.declared = true;
             } else {
                 fig_arg.update_from_complete(complete.clone());
@@ -330,7 +330,7 @@ impl FigArg {
 
         // A `complete` node with neither a command to run nor a type says nothing about
         // what this value is, so it displaces nothing.
-        if spec.run.is_none() && spec.type_.is_none() {
+        if spec.run.is_none() && spec.type_.is_none() && spec.delegate.is_none() {
             return;
         }
         // Choices are a closed set that `usage complete-word` offers instead of running a
@@ -375,6 +375,10 @@ impl FigArg {
             return;
         }
 
+        // A `delegate` names another program whose shell completion answers, and Fig has no
+        // way to ask a shell. It is still a declaration — the name-based guess would be
+        // wrong about a wrapped command line — so the argument is left bare, as below.
+        //
         // And a type becomes the template Fig has its own name for, where Fig has one:
         // `none` says to offer nothing, and the kinds a shell answers for itself have no
         // Fig equivalent worth approximating. Both leave the argument bare, which is the

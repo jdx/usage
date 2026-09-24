@@ -1856,7 +1856,8 @@ cmd "sub" {
             err(r#"arg "<file>" { complete run="ls"; complete run="pwd"; }"#)
                 .contains("only one complete")
         );
-        assert!(err(r#"arg "<file>" { complete run="ls" type="file"; }"#).contains("run or type"));
+        assert!(err(r#"arg "<file>" { complete run="ls" type="file"; }"#)
+            .contains("only one of run, type or delegate"));
         assert!(err(r#"flag "--force" { complete run="ls"; }"#).contains("must have value"));
         assert!(err(
             r#"flag "--out <path>" { complete run="ls"; arg "<path>" { complete run="pwd"; }; }"#

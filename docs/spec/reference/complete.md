@@ -1,8 +1,9 @@
 # `complete`
 
 A `complete` node supplies candidates for an argument or flag with the given name.
-Use a built-in `type` for paths and other common values, or `run` for a command
-that prints candidates. For a fixed list, put `choices` on the argument or flag
+Use a built-in `type` for paths and other common values, `run` for a command
+that prints candidates, or `delegate` to hand a wrapped command's arguments to that
+command's own shell completion. For a fixed list, put `choices` on the argument or flag
 instead, and for values a command lists that should also be shown in help and
 enforced, use [`choices run=`](/spec/reference/arg#choices-from-a-command).
 
@@ -37,8 +38,8 @@ of the spec, then in the command being completed.
 
 ## `type` — completions usage supplies itself
 
-Instead of a `run`, a completer can name something usage already knows how to complete. `run`
-and `type` are alternatives; setting both is an error.
+Instead of a `run`, a completer can name something usage already knows how to complete. `run`,
+`type` and `delegate` are alternatives; setting more than one is an error.
 
 ```kdl
 complete "path" type="file"
@@ -109,6 +110,52 @@ does not enumerate keeps the fallback — including a union like `bool|path`, wh
 `false` are offered but a path is still valid, so a path prefix still completes.
 
 Descriptions are reduced to their first line, since one candidate is one row of a menu.
+
+## `delegate` — another command's own completion
+
+A wrapper that forwards its trailing words to another program can hand completion of those
+words to that program's shell completion, instead of reimplementing it with `run`:
+
+```kdl
+arg "<layer>" help="Layer to run"
+arg "<command>" var=#true help="Terraform command to run"
+complete "command" delegate="terraform"
+```
+
+Completing any word of `command` asks the user's shell what it would offer for
+`terraform` followed by the words `command` already holds: `wrapper layer1 plan -o<Tab>`
+offers what `terraform plan -o<Tab>` would, such as `-out`, with descriptions where the
+shell has them. `delegate` is a command line, so it can carry fixed
+arguments: `delegate="kubectl --context prod"`. `run`, `type` and `delegate` are
+alternatives; setting more than one is an error.
+
+The typed words are passed to the shell as data, never spliced into a script, so there is
+nothing to quote. The shell gets 3 seconds to answer. If it cannot — the shell or the
+command's completion is not installed, or it times out — the argument gets no delegated
+candidates and the usual fallback to file names applies.
+
+A word starting with `-` is offered to the wrapped command once `command` holds at least one
+word, because the parser binds a flag this CLI does not declare to that argument. This CLI's
+own flags stay on offer beside the wrapped command's, since the parser still gives those to
+this CLI. To pass every word after the first straight through, both when parsing and when
+completing, add `double_dash="automatic"` to the argument.
+
+Which shells can be asked, and where the wrapped command's completion has to be registered
+for them to find it:
+
+- **fish**: anywhere fish looks — its completions directories or `config.fish`. fish only
+  loads completions for a command that is installed.
+- **bash**: a file bash-completion's loader finds, such as
+  `~/.local/share/bash-completion/completions/<command>`. Requires bash-completion. A
+  `complete` line in `~/.bashrc` is not seen; put it in that file instead.
+- **zsh**: a `_<command>` function on zsh's default `fpath` (such as
+  `/usr/share/zsh/site-functions`), or on `$FPATH` when that is exported. An `fpath` set up
+  in `~/.zshrc`, and `bashcompinit` `complete` lines there, are not seen.
+- **PowerShell** and **Nushell**: not supported. The argument gets no delegated candidates.
+
+The shell's configuration is not loaded in bash and zsh because it runs on every Tab and may
+be slow or print to the terminal; fish's `config.fish` is loaded, as fish always does. zsh
+keeps its `compinit` dump in `${XDG_CACHE_HOME:-~/.cache}/usage/delegate.zcompdump`.
 
 ## Descriptions
 

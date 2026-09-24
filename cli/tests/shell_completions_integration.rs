@@ -2702,6 +2702,455 @@ fn test_complete_path_preserves_partially_typed_segments() {
     let _ = fs::remove_dir_all(&temp_dir);
 }
 
+/// A wrapper whose trailing words belong to `fakecmd`, and `fakecmd`'s own completion
+/// registered where each shell looks for one: fish's per-user completions directory,
+/// bash-completion's per-user directory, and a `_fakecmd` function on zsh's `fpath`.
+struct DelegateFixture {
+    dir: PathBuf,
+    spec_file: PathBuf,
+}
+
+impl DelegateFixture {
+    fn new(label: &str) -> Self {
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
+        let dir = env::temp_dir().join(format!(
+            "usage_delegate_{label}_{}_{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        let fish = dir.join("config/fish/completions");
+        let bash = dir.join("data/bash-completion/completions");
+        let zsh = dir.join("zfunc");
+        let bin = dir.join("bin");
+        for d in [&fish, &bash, &zsh, &bin] {
+            fs::create_dir_all(d).unwrap();
+        }
+        // fish only loads the completions of a command that exists.
+        let fakecmd = bin.join("fakecmd");
+        fs::write(&fakecmd, "#!/bin/sh\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&fakecmd, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        fs::write(
+            fish.join("fakecmd.fish"),
+            r#"complete -c fakecmd -f
+complete -c fakecmd -n __fish_use_subcommand -a plan -d 'Show a plan'
+complete -c fakecmd -n __fish_use_subcommand -a apply -d 'Apply it'
+complete -c fakecmd -n '__fish_seen_subcommand_from plan' -o out -d 'Write the plan'
+complete -c fakecmd -n '__fish_seen_subcommand_from plan; and string match -q -- "--*" (commandline -ct)' -l out -r -f -a 'plan.tfplan other.tfplan' -d 'Plan file'
+complete -c fakecmd -n '__fish_seen_subcommand_from plan' -o other
+complete -c fakecmd -n 'test (count (commandline -opc)) -eq 2; and not __fish_seen_subcommand_from plan' -a second -d 'Second word'
+"#,
+        )
+        .unwrap();
+        fs::write(
+            bash.join("fakecmd"),
+            r#"_fakecmd() {
+  local cur prev words cword split
+  _init_completion -s || return
+  if ((cword == 1)); then
+    COMPREPLY=($(compgen -W "plan apply" -- "$cur"))
+  elif ((cword == 2)) && [[ ${words[1]} != plan ]]; then
+    COMPREPLY=($(compgen -W "second" -- "$cur"))
+  elif [[ ${words[1]} == plan ]]; then
+    if [[ $prev == --out ]]; then
+      COMPREPLY=($(compgen -W "plan.tfplan other.tfplan" -- "$cur"))
+    else
+      COMPREPLY=($(compgen -W "-out -other" -- "$cur"))
+    fi
+  fi
+}
+complete -F _fakecmd fakecmd
+"#,
+        )
+        .unwrap();
+        // A completion that hangs: it leaves a child holding the pipe complete-word reads, and
+        // says where that child is.
+        fs::write(
+            bash.join("hangcmd"),
+            r#"_hangcmd() {
+  sleep 30 &
+  echo $! > "$HOME/hang.pid"
+  COMPREPLY=(x)
+}
+complete -F _hangcmd hangcmd
+"#,
+        )
+        .unwrap();
+        fs::write(
+            dir.join("hang.usage.kdl"),
+            "bin \"wrap\"\narg \"<command>\" var=#true\ncomplete \"command\" delegate=\"hangcmd\"\n",
+        )
+        .unwrap();
+        fs::write(
+            zsh.join("_fakecmd"),
+            r#"#compdef fakecmd
+if (( CURRENT == 2 )); then
+  local -a cmds=('plan:Show a plan' 'apply:Apply it')
+  _describe command cmds
+elif [[ $words[2] == plan ]]; then
+  if compset -P '--out='; then
+    compadd -- plan.tfplan other.tfplan
+  else
+    local -a opts=('-out:Write the plan' '-other')
+    _describe option opts
+  fi
+elif (( CURRENT == 3 )) && [[ $words[2] != (plan|marker) ]]; then
+  compadd -- second
+elif [[ $words[2] == marker ]]; then
+  compadd -- a__USAGE_DELEGATE_DONE b c
+fi
+"#,
+        )
+        .unwrap();
+        let spec_file = dir.join("wrap.usage.kdl");
+        fs::write(
+            &spec_file,
+            r#"bin "wrap"
+flag "-v --verbose"
+arg "<layer>"
+arg "<command>" var=#true
+complete "command" delegate="fakecmd"
+"#,
+        )
+        .unwrap();
+        // The same wrapper, but with the parser handing every word after the first straight to
+        // the wrapped command.
+        fs::write(
+            dir.join("wrap_auto.usage.kdl"),
+            r#"bin "wrap"
+flag "-v --verbose"
+arg "<layer>"
+arg "<command>" var=#true double_dash="automatic"
+complete "command" delegate="fakecmd"
+"#,
+        )
+        .unwrap();
+        // The same wrapper with the completer written inside the argument it completes.
+        fs::write(
+            dir.join("wrap_inline.usage.kdl"),
+            r#"bin "wrap"
+flag "-v --verbose"
+arg "<layer>"
+arg "<command>" var=#true {
+    complete delegate="fakecmd"
+}
+"#,
+        )
+        .unwrap();
+        Self { dir, spec_file }
+    }
+
+    /// `usage complete-word --shell <shell>` for `words`, with the fixture's completions
+    /// visible and the developer's own configuration not.
+    fn complete(&self, shell: &str, words: &[&str]) -> String {
+        self.complete_with(&self.spec_file, shell, words)
+    }
+
+    fn complete_with(&self, spec_file: &Path, shell: &str, words: &[&str]) -> String {
+        let mut command = self.command(build_usage_binary());
+        command
+            .args(["complete-word", "--shell", shell, "-f"])
+            .arg(spec_file)
+            .arg("--")
+            .args(words);
+        let output = command.output().unwrap();
+        assert!(
+            output.status.success(),
+            "complete-word failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    }
+
+    /// `program`, run in the fixture's environment.
+    fn command(&self, program: impl AsRef<std::ffi::OsStr>) -> Command {
+        let mut command = Command::new(program);
+        command
+            .current_dir(&self.dir)
+            .env("HOME", &self.dir)
+            .env("XDG_CONFIG_HOME", self.dir.join("config"))
+            .env("XDG_DATA_HOME", self.dir.join("data"))
+            .env(
+                "PATH",
+                env::join_paths(
+                    std::iter::once(self.dir.join("bin"))
+                        .chain(env::split_paths(&env::var_os("PATH").unwrap_or_default())),
+                )
+                .unwrap(),
+            );
+        if let Some(library) = system_bash_completion() {
+            command.env("BASH_COMPLETION", library);
+        }
+        // An exported FPATH replaces zsh's default rather than adding to it.
+        if let Ok(default) = Command::new(shell_program("zsh"))
+            .args(["-f", "-c", "print -r -- ${(j.:.)fpath}"])
+            .output()
+        {
+            let default = String::from_utf8_lossy(&default.stdout);
+            command.env(
+                "FPATH",
+                format!("{}:{}", sh_path(&self.dir.join("zfunc")), default.trim()),
+            );
+        }
+        command
+    }
+}
+
+impl Drop for DelegateFixture {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// The candidate column of complete-word's output, sorted.
+fn delegated_values(output: &str) -> Vec<&str> {
+    let mut values: Vec<&str> = output
+        .lines()
+        .map(|line| line.split('\t').next().unwrap())
+        .collect();
+    values.sort();
+    values
+}
+
+/// What every shell must return for the fixture, whichever way it computes it.
+fn assert_delegated(fixture: &DelegateFixture, shell: &str) {
+    // The first word of the delegated argument: the wrapped command's subcommands.
+    let first = fixture.complete(shell, &["wrap", "layer1", ""]);
+    assert_eq!(
+        delegated_values(&first),
+        ["apply", "plan"],
+        "{shell}: {first}"
+    );
+
+    let partial = fixture.complete(shell, &["wrap", "layer1", "pl"]);
+    assert_eq!(delegated_values(&partial), ["plan"], "{shell}: {partial}");
+
+    // A flag of the wrapped command, once the delegated argument has started. The parser binds
+    // it to that argument, so completion hands it to the wrapped command too.
+    let flag = fixture.complete(shell, &["wrap", "layer1", "plan", "-o"]);
+    assert_eq!(
+        delegated_values(&flag),
+        ["-other", "-out"],
+        "{shell}: {flag}"
+    );
+
+    // The wrapper's own flags stay on offer beside the wrapped command's, because the parser
+    // still gives those to the wrapper.
+    let dash = fixture.complete(shell, &["wrap", "layer1", "plan", "-"]);
+    assert_eq!(
+        delegated_values(&dash),
+        ["--verbose", "-other", "-out", "-v"],
+        "{shell}: {dash}"
+    );
+
+    // Under `double_dash="automatic"` the parser gives every word after the first to the
+    // wrapped command, so completion offers only the wrapped command's flags.
+    let auto = fixture.complete_with(
+        &fixture.dir.join("wrap_auto.usage.kdl"),
+        shell,
+        &["wrap", "layer1", "plan", "-"],
+    );
+    assert_eq!(
+        delegated_values(&auto),
+        ["-other", "-out"],
+        "{shell}: {auto}"
+    );
+
+    // An empty word stays a word: after `fakecmd ''` the cursor is on the second argument.
+    let empty = fixture.complete(shell, &["wrap", "layer1", "", ""]);
+    assert_eq!(delegated_values(&empty), ["second"], "{shell}: {empty}");
+
+    // A value in the same word as the wrapped command's flag. Each shell's script hands it over
+    // the way that shell splits it: bash, where `=` is a word break, as `--out`, `=`, `pl`,
+    // and wants back only what follows the `=`; the others as one word, answered with whole
+    // words. A bash completion answers with the value alone either way.
+    let (words, expected): (&[&str], &[&str]) = if shell == "bash" {
+        (
+            &["wrap", "layer1", "plan", "--out", "=", "pl"],
+            &["plan.tfplan"],
+        )
+    } else {
+        (
+            &["wrap", "layer1", "plan", "--out=pl"],
+            &["--out=plan.tfplan"],
+        )
+    };
+    let value = fixture.complete(shell, words);
+    assert_eq!(delegated_values(&value), expected, "{shell}: {value}");
+    // One word in every shell, as `usage complete-word` may also be called: whole words back.
+    let value = fixture.complete(shell, &["wrap", "layer1", "plan", "--out="]);
+    assert_eq!(
+        delegated_values(&value),
+        ["--out=other.tfplan", "--out=plan.tfplan"],
+        "{shell}: {value}"
+    );
+
+    // A `complete` inside the argument delegates the same way, flag words included.
+    let inline = fixture.complete_with(
+        &fixture.dir.join("wrap_inline.usage.kdl"),
+        shell,
+        &["wrap", "layer1", "plan", "-o"],
+    );
+    assert_eq!(
+        delegated_values(&inline),
+        ["-other", "-out"],
+        "{shell}: {inline}"
+    );
+
+    // Typed words reach the delegate as data, never as shell syntax.
+    fixture.complete(
+        shell,
+        &[
+            "wrap",
+            "layer1",
+            "$(touch pwned)",
+            "x;touch pwned2`touch pwned3`",
+        ],
+    );
+    for marker in ["pwned", "pwned2", "pwned3"] {
+        assert!(!fixture.dir.join(marker).exists(), "{shell} ran {marker}");
+    }
+}
+
+#[test]
+fn test_fish_delegates_to_wrapped_command_completion() {
+    if skip_if_shell_missing("fish") {
+        return;
+    }
+    let fixture = DelegateFixture::new("fish");
+    assert_delegated(&fixture, "fish");
+    // The wrapped command's descriptions come through.
+    let out = fixture.complete("fish", &["wrap", "layer1", "pl"]);
+    assert_eq!(out, "plan\tShow a plan\n");
+}
+
+/// Through the generated fish script rather than `complete-word` alone: what a user pressing Tab
+/// gets.
+#[test]
+fn test_fish_generated_script_delegates() {
+    if skip_if_shell_missing("fish") {
+        return;
+    }
+    let fixture = DelegateFixture::new("fish_script");
+    let usage_bin = build_usage_binary();
+    let script = fixture
+        .command(&usage_bin)
+        .args(["generate", "completion", "fish", "wrap", "-f"])
+        .arg(&fixture.spec_file)
+        .output()
+        .unwrap();
+    assert!(script.status.success());
+    let script_file = fixture.dir.join("wrap.fish");
+    fs::write(&script_file, &script.stdout).unwrap();
+    let wrap = fixture.dir.join("bin/wrap");
+    fs::copy(fixture.dir.join("bin/fakecmd"), &wrap).unwrap();
+    let out = fixture
+        .command(shell_program("fish"))
+        .arg("-c")
+        .arg(r#"set -gx PATH $argv[1] $PATH; source $argv[2]; complete -C "wrap layer1 plan -o""#)
+        .arg(sh_path(usage_bin.parent().unwrap()))
+        .arg(sh_path(&script_file))
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(
+        delegated_values(&stdout),
+        ["-other", "-out"],
+        "{stdout}{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn test_bash_delegates_to_wrapped_command_completion() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+    if bash_completion_or_skip().is_none() {
+        return;
+    }
+    let fixture = DelegateFixture::new("bash");
+    assert_delegated(&fixture, "bash");
+}
+
+#[test]
+fn test_zsh_delegates_to_wrapped_command_completion() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+    let fixture = DelegateFixture::new("zsh");
+    assert_delegated(&fixture, "zsh");
+    // The wrapped command's descriptions come through, in zsh's three-column format.
+    let out = fixture.complete("zsh", &["wrap", "layer1", "pl"]);
+    assert_eq!(out, "plan\tShow a plan\tplan\n");
+    // A candidate containing marker text is a candidate, not the end of the answer.
+    let out = fixture.complete("zsh", &["wrap", "layer1", "marker", ""]);
+    assert_eq!(
+        delegated_values(&out),
+        ["a__USAGE_DELEGATE_DONE", "b", "c"],
+        "{out}"
+    );
+}
+
+/// A completion that hangs with a child holding complete-word's pipe: complete-word gives up
+/// after its timeout, and takes that child down with the shell rather than leaving it behind.
+#[cfg(unix)]
+#[test]
+fn test_delegate_timeout_kills_the_whole_completion() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+    if bash_completion_or_skip().is_none() {
+        return;
+    }
+    let fixture = DelegateFixture::new("hang");
+    let started = std::time::Instant::now();
+    let out = fixture.complete_with(&fixture.dir.join("hang.usage.kdl"), "bash", &["wrap", ""]);
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed < std::time::Duration::from_secs(10),
+        "took {elapsed:?}"
+    );
+    // Nothing from the shell that hung, so the file fallback answers.
+    assert!(!out.lines().any(|line| line == "x"), "{out}");
+
+    let pid = fs::read_to_string(fixture.dir.join("hang.pid")).unwrap();
+    let pid = pid.trim();
+    // Reparented and reaped asynchronously once killed, so give it a moment.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        let state = Command::new("ps")
+            .args(["-o", "stat=", "-p", pid])
+            .output()
+            .unwrap();
+        let state = String::from_utf8_lossy(&state.stdout);
+        let state = state.trim();
+        if state.is_empty() || state.starts_with('Z') {
+            break;
+        }
+        if std::time::Instant::now() > deadline {
+            let _ = Command::new("kill").args(["-KILL", pid]).status();
+            panic!("the hung completion's child {pid} is still running ({state})");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+}
+
+#[test]
+fn test_delegate_offers_nothing_in_shells_it_cannot_ask() {
+    let fixture = DelegateFixture::new("unsupported");
+    for shell in ["powershell", "nu"] {
+        // `-o` is a flag-shaped word, so the file fallback stays off and the answer is empty
+        // rather than an error.
+        let out = fixture.complete(shell, &["wrap", "layer1", "plan", "-o"]);
+        assert_eq!(out, "", "{shell}");
+    }
+}
+
 /// Nushell's completer captures complete-word's stderr with `| complete`, so a
 /// line that doesn't parse yields no candidates and prints nothing.
 ///
