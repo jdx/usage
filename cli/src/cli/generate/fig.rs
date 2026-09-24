@@ -290,15 +290,21 @@ impl FigArg {
                 };
             }
         }
+        let guess = arg.choices.is_none();
         let mut fig_arg = Self {
             name,
             description: arg.help.clone(),
             is_variadic: arg.var,
             is_optional: !arg.required,
-            template: FigArg::get_template(&arg.name),
-            generators: FigArg::get_generator(&arg.name),
+            // Choices are the whole answer in `usage complete-word`, so an argument that has
+            // them gets no guess from its name: `<config_file>` with choices offers those
+            // choices, not files the parser would reject.
+            template: guess.then(|| FigArg::get_template(&arg.name)).flatten(),
+            generators: guess.then(|| FigArg::get_generator(&arg.name)).flatten(),
             suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
-            debounce: FigArg::get_generator(&arg.name).map(|_| true),
+            debounce: guess
+                .then(|| FigArg::get_generator(&arg.name).map(|_| true))
+                .flatten(),
             declared: false,
             has_choices: arg.choices.is_some(),
         };

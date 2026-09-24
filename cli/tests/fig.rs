@@ -359,3 +359,22 @@ complete "level" run="echo named"
     assert!(!fig.contains("echo inline"), "{fig}");
     assert!(!fig.contains("echo named"), "{fig}");
 }
+
+#[test]
+fn choices_displace_the_guess_from_a_file_like_name() {
+    // `<config_file>` would be guessed a path, but its choices are all `usage complete-word`
+    // offers and all the parser accepts, so Fig offers no files beside them.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+arg "<config_file>" help="config" {
+    choices "dev.toml" "prod.toml"
+    complete run="ls"
+}
+        "#,
+    );
+    assert!(fig.contains(r#""dev.toml""#), "{fig}");
+    assert!(!fig.contains("filepaths"), "{fig}");
+    assert!(!fig.contains("completionGeneratorTemplate(`ls`)"), "{fig}");
+}
