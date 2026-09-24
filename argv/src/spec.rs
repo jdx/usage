@@ -1101,6 +1101,229 @@ impl CommandMeta<'_> {
     };
 }
 
+/// Read access to every field, wherever it is stored.
+///
+/// Prefer these to the fields: a field can move between this struct and its cold `extra`
+/// half as tables are tuned for size, as 6.11.1 moved thirty-odd of them, and a getter keeps
+/// its name and type when that happens.
+impl<'a> CommandMeta<'a> {
+    /// The parse table this describes. Names, aliases, and structure come from
+    /// here rather than being repeated.
+    pub const fn cmd(&self) -> &'a Command<'a> {
+        self.cmd
+    }
+
+    pub const fn about(&self) -> Option<&'a str> {
+        self.about
+    }
+
+    pub const fn long_about(&self) -> Option<&'a str> {
+        self.long_about
+    }
+
+    /// Whether the command is hidden from help and completions.
+    pub const fn hide(&self) -> bool {
+        self.hide
+    }
+
+    /// Whether later single-valued occurrences replace earlier ones.
+    pub const fn args_override_self(&self) -> bool {
+        self.args_override_self
+    }
+
+    /// Metadata for `cmd.flags`, in the same order.
+    pub const fn flags(&self) -> &'a [FlagMeta<'a>] {
+        self.flags
+    }
+
+    /// Metadata for `cmd.args`, in the same order.
+    pub const fn args(&self) -> &'a [ArgMeta<'a>] {
+        self.args
+    }
+
+    /// Metadata for `cmd.subcommands`, in the same order.
+    pub const fn subcommands(&self) -> &'a [&'a CommandMeta<'a>] {
+        self.subcommands
+    }
+
+    /// Sets of this command's flags that relate to one another as a set.
+    ///
+    /// Cold like everything else here: a group is checked once the last token has been
+    /// read, by code the derive generates, and a successful parse never reads this.
+    pub const fn groups(&self) -> &'a [GroupMeta<'a>] {
+        self.groups
+    }
+
+    /// Which runs of [`Self::flags`] came from a flattened `Args` type.
+    ///
+    /// Only [`Spec::to_kdl`] reads this, and only to write a `flagset` once instead of the
+    /// same flags under every command that flattens the struct. It changes nothing about
+    /// parsing: the flags are in `flags` either way, which is why this is a description of
+    /// where they came from rather than a table anything binds against.
+    pub const fn flatten_groups(&self) -> &'a [FlattenGroup<'a>] {
+        self.flatten_groups
+    }
+
+    /// Why this command is deprecated, plus optional release milestones.
+    pub const fn deprecated(&self) -> Option<&'a str> {
+        self.extra.deprecated
+    }
+
+    pub const fn deprecated_warn_at(&self) -> Option<&'a str> {
+        self.extra.deprecated_warn_at
+    }
+
+    pub const fn deprecated_remove_at(&self) -> Option<&'a str> {
+        self.extra.deprecated_remove_at
+    }
+
+    /// Aliases that work but are not shown in help or completions. Everything in
+    /// `cmd.aliases` and not here is visible.
+    pub const fn hidden_aliases(&self) -> &'a [&'a str] {
+        self.extra.hidden_aliases
+    }
+
+    /// Help section this command appears under in its parent's command list.
+    pub const fn help_heading(&self) -> Option<&'a str> {
+        self.extra.help_heading
+    }
+
+    /// Named audience or compatibility surface this command belongs to.
+    pub const fn surface(&self) -> Option<&'a str> {
+        self.extra.surface
+    }
+
+    /// Descriptive availability conditions; they do not affect parsing.
+    pub const fn available_if(&self) -> &'a [&'a str] {
+        self.extra.available_if
+    }
+
+    /// Explicit placement within the parent's command section.
+    ///
+    /// Positions, bounds and widths in the metadata are `u32` or `u16` rather than `usize`,
+    /// which halves them in a table emitted for every command, flag and argument. A derive
+    /// saturates a larger declared value rather than wrapping it.
+    pub const fn display_order(&self) -> Option<u32> {
+        self.extra.display_order
+    }
+
+    /// What running this does to the world, for a caller deciding whether to
+    /// confirm first. clap cannot express this, which is why mise keeps a
+    /// 330-entry table to bolt it on afterwards.
+    pub const fn effect(&self) -> Option<Effect> {
+        self.extra.effect
+    }
+
+    /// A command to run at parse time to discover further subcommands.
+    ///
+    /// Only meaningful on a subcommand. The spec accepts `mount` inside a `cmd`
+    /// block and nowhere else, so setting this on the root is a mistake that
+    /// [`Spec::to_kdl`] catches in debug builds.
+    pub const fn mount(&self) -> Option<&'a str> {
+        self.extra.mount
+    }
+
+    /// A token that starts a fresh invocation of this command, such as mise's
+    /// `:::`.
+    pub const fn restart_token(&self) -> Option<&'a str> {
+        self.extra.restart_token
+    }
+
+    /// Metadata for a repeatable positional clause.
+    ///
+    /// Behind a reference for the reason [`Command::clause`] is.
+    pub const fn clause(&self) -> Option<&'a ClauseMeta<'a>> {
+        self.extra.clause
+    }
+
+    /// Whether this command cannot be run on its own: naming it and stopping is an
+    /// error, and one of its subcommands has to follow.
+    ///
+    /// Cold metadata rather than a parse table, because it is not how a word binds —
+    /// the derive already refuses the invocation from the type, a bare `T` subcommand
+    /// field against an `Option<T>`. It is here so the emitted spec can say it, since
+    /// everything reading that spec — help, docs, completions — otherwise describes a
+    /// command as runnable when it is not.
+    pub const fn subcommand_required(&self) -> bool {
+        self.extra.subcommand_required
+    }
+
+    /// Heading for the list of this command's subcommands.
+    pub const fn subcommand_help_heading(&self) -> Option<&'a str> {
+        self.extra.subcommand_help_heading
+    }
+
+    /// Placeholder used for a subcommand in the usage synopsis.
+    pub const fn subcommand_value_name(&self) -> Option<&'a str> {
+        self.extra.subcommand_value_name
+    }
+
+    /// Put each argument, flag, and subcommand description on the following line.
+    pub const fn next_line_help(&self) -> bool {
+        self.extra.next_line_help
+    }
+
+    /// Expand each visible subcommand's summary and arguments into this command's help page.
+    pub const fn flatten_help(&self) -> bool {
+        self.extra.flatten_help
+    }
+
+    /// Fixed help width. Zero disables wrapping.
+    pub const fn term_width(&self) -> Option<u16> {
+        self.extra.term_width
+    }
+
+    /// Maximum detected terminal width when `term_width` is unset. Zero disables the cap.
+    pub const fn max_term_width(&self) -> Option<u16> {
+        self.extra.max_term_width
+    }
+
+    /// Text printed above the usage line, and below everything else.
+    ///
+    /// The spec's `before_help`/`after_help` and their long forms. mise puts an Examples
+    /// section in `after_long_help` on 115 commands, which is where the reference renders it
+    /// from — so a help page without these is missing the part a reader came for.
+    pub const fn before_help(&self) -> Option<&'a str> {
+        self.extra.before_help
+    }
+
+    pub const fn before_long_help(&self) -> Option<&'a str> {
+        self.extra.before_long_help
+    }
+
+    pub const fn after_help(&self) -> Option<&'a str> {
+        self.extra.after_help
+    }
+
+    pub const fn after_long_help(&self) -> Option<&'a str> {
+        self.extra.after_long_help
+    }
+
+    pub const fn examples(&self) -> &'a [Example<'a>] {
+        self.extra.examples
+    }
+
+    /// Prose for this command's help sections, by heading title.
+    pub const fn headings(&self) -> &'a [HeadingMeta<'a>] {
+        self.extra.headings
+    }
+
+    /// What this command writes, and how a consumer should read it.
+    pub const fn outputs(&self) -> &'a [OutputMeta<'a>] {
+        self.extra.outputs
+    }
+
+    /// The flag whose value picks among [`Self::outputs`], e.g. `--format`.
+    pub const fn select(&self) -> Option<&'a str> {
+        self.extra.select
+    }
+
+    /// What this command's exit statuses mean.
+    pub const fn exit_codes(&self) -> &'a [ExitCodeMeta<'a>] {
+        self.extra.exit_codes
+    }
+}
+
 /// Cold metadata for a command's compiled clause table.
 #[derive(Debug, Clone, Copy)]
 pub struct ClauseMeta<'a> {
@@ -1454,6 +1677,309 @@ impl FlagMeta<'_> {
     };
 }
 
+/// Read access to every field, wherever it is stored.
+///
+/// Prefer these to the fields: a field can move between this struct and its cold `extra`
+/// half as tables are tuned for size, as 6.11.1 moved thirty-odd of them, and a getter keeps
+/// its name and type when that happens.
+impl<'a> FlagMeta<'a> {
+    pub const fn flag(&self) -> &'a Flag<'a> {
+        self.flag
+    }
+
+    /// A parser-supplied public entry point materialized in an exported spec.
+    ///
+    /// It belongs in flag listings and completions, but not in the command synopsis where the
+    /// runtime's implicit help and version flags have never appeared.
+    pub const fn builtin(&self) -> bool {
+        self.builtin
+    }
+
+    /// Short help, shown by `-h`.
+    pub const fn help(&self) -> Option<&'a str> {
+        self.help
+    }
+
+    /// Long help, shown by `--help`.
+    pub const fn long_help(&self) -> Option<&'a str> {
+        self.long_help
+    }
+
+    /// The placeholder for the flag's value, such as `n` in `--jobs <n>`.
+    pub const fn value_name(&self) -> Option<&'a str> {
+        self.value_name
+    }
+
+    pub const fn env(&self) -> Option<&'a str> {
+        self.env
+    }
+
+    pub const fn default(&self) -> &'a [&'a str] {
+        self.default
+    }
+
+    /// Canonical choices plus aliases accepted by the value type.
+    pub const fn accepted_choices(&self) -> &'a [&'a str] {
+        self.accepted_choices
+    }
+
+    pub const fn choices(&self) -> &'a [&'a str] {
+        self.choices
+    }
+
+    pub const fn ignore_case(&self) -> bool {
+        self.ignore_case
+    }
+
+    /// Accept values outside `choices` while retaining the list for help and completion.
+    pub const fn allow_unknown_choices(&self) -> bool {
+        self.allow_unknown_choices
+    }
+
+    pub const fn required(&self) -> bool {
+        self.required
+    }
+
+    /// Whether the flag's value may be left off, as in `--bump` or `--bump 5`.
+    ///
+    /// Help only, and deliberately: usage-lib's parser refuses a bare `--bump` exactly as it
+    /// refuses a bare `--port`, so this changes no binding — it changes the brackets, `[BUMP]`
+    /// rather than `<BUMP>`, which is what a spec's `arg "[BUMP]" required=#false` says. In
+    /// [`FlagMeta`] and not in [`Flag`] for that reason: a parse never reads it.
+    pub const fn value_optional(&self) -> bool {
+        self.value_optional
+    }
+
+    pub const fn hide(&self) -> bool {
+        self.hide
+    }
+
+    pub const fn hide_default_value(&self) -> bool {
+        self.hide_default_value
+    }
+
+    pub const fn hide_env(&self) -> bool {
+        self.hide_env
+    }
+
+    pub const fn hide_possible_values(&self) -> bool {
+        self.hide_possible_values
+    }
+
+    pub const fn hide_short_help(&self) -> bool {
+        self.hide_short_help
+    }
+
+    pub const fn hide_long_help(&self) -> bool {
+        self.hide_long_help
+    }
+
+    /// Whether repetition is counted rather than collected, as in `-vvv`.
+    pub const fn count(&self) -> bool {
+        self.count
+    }
+
+    /// What answers for this flag's value when a shell asks.
+    ///
+    /// The Rust counterpart of a spec's `run=`: it is written into the emitted KDL as a command
+    /// that asks *this binary*, so a spec stays complete for every other consumer while the
+    /// binary answers itself.
+    pub const fn complete(&self) -> Option<Completer> {
+        self.complete
+    }
+
+    /// Whether the flag may be given more than once. Distinct from
+    /// [`Flag::variadic`], which is one occurrence taking several values.
+    pub const fn repeatable(&self) -> bool {
+        self.repeatable
+    }
+
+    /// Heading to list this flag under in help output. Presentational: it groups
+    /// a long flag list into sections and changes nothing about parsing.
+    pub const fn help_heading(&self) -> Option<&'a str> {
+        self.help_heading
+    }
+
+    /// Explicit placement within its help section.
+    pub const fn display_order(&self) -> Option<u32> {
+        self.extra.display_order
+    }
+
+    /// Short forms accepted by the parser but omitted from help and completion.
+    pub const fn hidden_shorts(&self) -> &'a [u8] {
+        self.extra.hidden_shorts
+    }
+
+    /// Long forms accepted by the parser but omitted from help and completion.
+    pub const fn hidden_longs(&self) -> &'a [&'a str] {
+        self.extra.hidden_longs
+    }
+
+    /// Notes and warnings shown after the extended help text.
+    pub const fn admonitions(&self) -> &'a [AdmonitionMeta<'a>] {
+        self.extra.admonitions
+    }
+
+    /// Why this flag is deprecated, plus optional release milestones.
+    pub const fn deprecated(&self) -> Option<&'a str> {
+        self.extra.deprecated
+    }
+
+    pub const fn deprecated_warn_at(&self) -> Option<&'a str> {
+        self.extra.deprecated_warn_at
+    }
+
+    pub const fn deprecated_remove_at(&self) -> Option<&'a str> {
+        self.extra.deprecated_remove_at
+    }
+
+    /// Ordered placeholders for one fixed-arity occurrence.
+    pub const fn value_names(&self) -> &'a [&'a str] {
+        self.extra.value_names
+    }
+
+    pub const fn env_fallback(&self) -> &'a [&'a str] {
+        self.extra.env_fallback
+    }
+
+    pub const fn deprecated_env(&self) -> &'a [&'a str] {
+        self.extra.deprecated_env
+    }
+
+    /// Canonical-to-alias pairs used when emitting a lossless spec.
+    pub const fn choice_aliases(&self) -> &'a [(&'a str, &'a str)] {
+        self.extra.choice_aliases
+    }
+
+    /// Per-canonical presentation metadata used when emitting a lossless spec.
+    pub const fn choice_details(&self) -> &'a [ChoiceMeta<'a>] {
+        self.extra.choice_details
+    }
+
+    /// Portable expr expression evaluated for each raw value.
+    pub const fn validate(&self) -> Option<&'a str> {
+        self.extra.validate
+    }
+
+    /// Message reported when validation returns false.
+    pub const fn validate_error(&self) -> Option<&'a str> {
+        self.extra.validate_error
+    }
+
+    pub const fn hide_env_values(&self) -> bool {
+        self.extra.hide_env_values
+    }
+
+    /// A built-in completion class such as `path` or `dir`.
+    pub const fn complete_type(&self) -> Option<&'a str> {
+        self.extra.complete_type
+    }
+
+    pub const fn var_min(&self) -> Option<u32> {
+        self.extra.var_min
+    }
+
+    pub const fn var_max(&self) -> Option<u32> {
+        self.extra.var_max
+    }
+
+    /// Bounds on values consumed by one occurrence, distinct from the
+    /// flag-level occurrence bounds above.
+    pub const fn value_var_min(&self) -> Option<u32> {
+        self.extra.value_var_min
+    }
+
+    pub const fn value_var_max(&self) -> Option<u32> {
+        self.extra.value_var_max
+    }
+
+    /// Flags this one displaces when both are given.
+    pub const fn overrides(&self) -> &'a [&'a str] {
+        self.extra.overrides
+    }
+
+    /// Flags that cannot be given alongside this one.
+    ///
+    /// Where [`overrides`](Self::overrides) resolves a collision by letting the last
+    /// flag win, this reports it: the combination has no meaning, so honouring one
+    /// side silently would hide a mistake.
+    pub const fn conflicts(&self) -> &'a [&'a str] {
+        self.extra.conflicts
+    }
+
+    /// The character one word is split on to make several values, as clap's
+    /// `value_delimiter` does. Only ever set where several values can land.
+    pub const fn delimiter(&self) -> Option<char> {
+        self.extra.delimiter
+    }
+
+    /// Whether this flag must be given on its own.
+    ///
+    /// The whole-command form of [`conflicts`](Self::conflicts): everything the command
+    /// declares counts, positionals included.
+    pub const fn exclusive(&self) -> bool {
+        self.extra.exclusive
+    }
+
+    /// Flags that must also be given when this one is.
+    ///
+    /// The positive form of [`conflicts`](Self::conflicts), and the mirror image of
+    /// [`required_if`](Self::required_if): the same rule written on the flag that
+    /// imposes it rather than on the flag it lands on.
+    pub const fn requires(&self) -> &'a [&'a str] {
+        self.extra.requires
+    }
+
+    /// Value-triggered requirements declared by this flag.
+    pub const fn requires_if(&self) -> &'a [RequiresIf<'a>] {
+        self.extra.requires_if
+    }
+
+    /// Defaults that apply when another flag is given.
+    pub const fn default_if(&self) -> &'a [DefaultIf<'a>] {
+        self.extra.default_if
+    }
+
+    /// Flags that make this one necessary.
+    pub const fn required_if(&self) -> &'a [&'a str] {
+        self.extra.required_if
+    }
+
+    /// Selector/value conditions, any one of which makes this required.
+    pub const fn required_if_eq(&self) -> &'a [RequiredIfEq<'a>] {
+        self.extra.required_if_eq
+    }
+
+    /// Selector/value conditions which must all match to make this required.
+    pub const fn required_if_eq_all(&self) -> &'a [RequiredIfEq<'a>] {
+        self.extra.required_if_eq_all
+    }
+
+    /// Flags that make this one unnecessary.
+    pub const fn required_unless(&self) -> &'a [&'a str] {
+        self.extra.required_unless
+    }
+
+    /// All selectors must be present to make this unnecessary.
+    pub const fn required_unless_all(&self) -> &'a [&'a str] {
+        self.extra.required_unless_all
+    }
+
+    /// Named audience or compatibility surface this flag belongs to.
+    pub const fn surface(&self) -> Option<&'a str> {
+        self.extra.surface
+    }
+
+    /// Descriptive availability conditions; they do not affect parsing.
+    pub const fn available_if(&self) -> &'a [&'a str] {
+        self.extra.available_if
+    }
+
+    pub const fn effect(&self) -> Option<Effect> {
+        self.extra.effect
+    }
+}
+
 /// A flag required when the declaring flag is explicitly given `value`.
 #[derive(Debug, Clone, Copy)]
 pub struct RequiresIf<'a> {
@@ -1589,6 +2115,196 @@ impl ArgMeta<'_> {
         surface: None,
         available_if: &[],
     };
+}
+
+/// Read access to every field, wherever it is stored.
+///
+/// Prefer these to the fields: the fields are laid out for table size and may move behind
+/// a cold `extra` half the way [`FlagMeta`]'s did in 6.11.1, and a getter keeps its name and
+/// type when that happens.
+impl<'a> ArgMeta<'a> {
+    pub const fn arg(&self) -> &'a Arg<'a> {
+        self.arg
+    }
+
+    /// Explicit placement within its help section.
+    pub const fn display_order(&self) -> Option<u32> {
+        self.display_order
+    }
+
+    /// Ordered placeholders for a fixed-arity positional.
+    pub const fn value_names(&self) -> &'a [&'a str] {
+        self.value_names
+    }
+
+    pub const fn help(&self) -> Option<&'a str> {
+        self.help
+    }
+
+    pub const fn long_help(&self) -> Option<&'a str> {
+        self.long_help
+    }
+
+    /// Notes and warnings shown after the extended help text.
+    pub const fn admonitions(&self) -> &'a [AdmonitionMeta<'a>] {
+        self.admonitions
+    }
+
+    pub const fn env(&self) -> Option<&'a str> {
+        self.env
+    }
+
+    pub const fn env_fallback(&self) -> &'a [&'a str] {
+        self.env_fallback
+    }
+
+    pub const fn deprecated_env(&self) -> &'a [&'a str] {
+        self.deprecated_env
+    }
+
+    pub const fn default(&self) -> &'a [&'a str] {
+        self.default
+    }
+
+    /// Canonical choices plus aliases accepted by the value type.
+    pub const fn accepted_choices(&self) -> &'a [&'a str] {
+        self.accepted_choices
+    }
+
+    pub const fn choices(&self) -> &'a [&'a str] {
+        self.choices
+    }
+
+    /// Canonical-to-alias pairs used when emitting a lossless spec.
+    pub const fn choice_aliases(&self) -> &'a [(&'a str, &'a str)] {
+        self.choice_aliases
+    }
+
+    /// Per-canonical presentation metadata used when emitting a lossless spec.
+    pub const fn choice_details(&self) -> &'a [ChoiceMeta<'a>] {
+        self.choice_details
+    }
+
+    pub const fn ignore_case(&self) -> bool {
+        self.ignore_case
+    }
+
+    /// Accept values outside `choices` while retaining the list for help and completion.
+    pub const fn allow_unknown_choices(&self) -> bool {
+        self.allow_unknown_choices
+    }
+
+    /// Portable expr expression evaluated for each raw value.
+    pub const fn validate(&self) -> Option<&'a str> {
+        self.validate
+    }
+
+    /// Message reported when validation returns false.
+    pub const fn validate_error(&self) -> Option<&'a str> {
+        self.validate_error
+    }
+
+    /// Whether the argument must be filled. The parser does not enforce this —
+    /// it is checked once the last token has been read — but the spec has to say
+    /// it, and help output has to show it.
+    pub const fn required(&self) -> bool {
+        self.required
+    }
+
+    pub const fn hide(&self) -> bool {
+        self.hide
+    }
+
+    pub const fn hide_default_value(&self) -> bool {
+        self.hide_default_value
+    }
+
+    pub const fn hide_env(&self) -> bool {
+        self.hide_env
+    }
+
+    pub const fn hide_env_values(&self) -> bool {
+        self.hide_env_values
+    }
+
+    pub const fn hide_possible_values(&self) -> bool {
+        self.hide_possible_values
+    }
+
+    pub const fn hide_short_help(&self) -> bool {
+        self.hide_short_help
+    }
+
+    pub const fn hide_long_help(&self) -> bool {
+        self.hide_long_help
+    }
+
+    /// Entries that cannot be given alongside this positional.
+    pub const fn conflicts(&self) -> &'a [&'a str] {
+        self.conflicts
+    }
+
+    pub const fn requires(&self) -> &'a [&'a str] {
+        self.requires
+    }
+
+    pub const fn required_if(&self) -> &'a [&'a str] {
+        self.required_if
+    }
+
+    pub const fn required_if_eq(&self) -> &'a [RequiredIfEq<'a>] {
+        self.required_if_eq
+    }
+
+    pub const fn required_if_eq_all(&self) -> &'a [RequiredIfEq<'a>] {
+        self.required_if_eq_all
+    }
+
+    pub const fn required_unless(&self) -> &'a [&'a str] {
+        self.required_unless
+    }
+
+    pub const fn required_unless_all(&self) -> &'a [&'a str] {
+        self.required_unless_all
+    }
+
+    pub const fn var_min(&self) -> Option<u32> {
+        self.var_min
+    }
+
+    pub const fn var_max(&self) -> Option<u32> {
+        self.var_max
+    }
+
+    /// The character one word is split on to make several positional values.
+    pub const fn delimiter(&self) -> Option<char> {
+        self.delimiter
+    }
+
+    /// Heading to list this argument under in help output.
+    pub const fn help_heading(&self) -> Option<&'a str> {
+        self.help_heading
+    }
+
+    /// Named audience or compatibility surface this argument belongs to.
+    pub const fn surface(&self) -> Option<&'a str> {
+        self.surface
+    }
+
+    /// Descriptive availability conditions; they do not affect parsing.
+    pub const fn available_if(&self) -> &'a [&'a str] {
+        self.available_if
+    }
+
+    /// What answers for this argument when a shell asks. See [`FlagMeta::complete`].
+    pub const fn complete(&self) -> Option<Completer> {
+        self.complete
+    }
+
+    /// A built-in completion class such as `path` or `dir`.
+    pub const fn complete_type(&self) -> Option<&'a str> {
+        self.complete_type
+    }
 }
 
 /// A worked example, for documentation.
@@ -5437,6 +6153,32 @@ mod tests {
         for declared in [&DEPRECATED, &REQUIRED, &EXAMPLES] {
             assert!(core::ptr::eq(CommandExtra::shared(declared), declared));
         }
+    }
+
+    #[test]
+    fn getters_read_through_the_cold_half() {
+        const FLAG: FlagMeta<'static> = FlagMeta {
+            help: Some("where to look"),
+            extra: &FlagExtra {
+                env_fallback: &["OLD_PATH"],
+                ..FlagExtra::EMPTY
+            },
+            ..FlagMeta::EMPTY
+        };
+        const CMD: CommandMeta<'static> = CommandMeta {
+            about: Some("run it"),
+            extra: &CommandExtra {
+                deprecated: Some("use `new`"),
+                ..CommandExtra::EMPTY
+            },
+            ..CommandMeta::EMPTY
+        };
+        // `const` so a getter that stops being `const fn` fails here, not in an adopter's static.
+        const ENV: &[&str] = FLAG.env_fallback();
+        assert_eq!(FLAG.help(), Some("where to look"));
+        assert_eq!(ENV, ["OLD_PATH"]);
+        assert_eq!(CMD.about(), Some("run it"));
+        assert_eq!(CMD.deprecated(), Some("use `new`"));
     }
 
     #[test]

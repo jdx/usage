@@ -8,6 +8,9 @@ Do not manually change crate versions in `Cargo.toml`, generated manifests, or
 lockfiles. `release-plz` owns crate version updates and applies them as part of
 the release workflow.
 
+A change that would break a published crate's public API waits for the next major
+release. Ship the compatible part now and record the rest in `V7.md`.
+
 ## Conventional Commits
 
 All commit messages and PR titles MUST follow conventional commit format:
