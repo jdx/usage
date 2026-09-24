@@ -454,7 +454,7 @@ fn complete_subtree(
         if let Some(arg) = &flag.arg {
             candidates.extend(choice_candidates(arg, prefix));
             closed |= declares_its_own(spec, &parsed.cmd, arg);
-            files = completion_files(spec, &parsed.cmd, &arg.name);
+            files = completion_files(spec, &parsed.cmd, arg);
         }
     } else if flag_like {
         for (form, flag) in parsed.completion_flags() {
@@ -473,7 +473,7 @@ fn complete_subtree(
             at_cursor = Some(arg);
             candidates.extend(choice_candidates(arg, prefix));
             closed |= declares_its_own(spec, &parsed.cmd, arg);
-            files = completion_files(spec, &parsed.cmd, &arg.name);
+            files = completion_files(spec, &parsed.cmd, arg);
         }
         for command in parsed
             .cmd
@@ -523,7 +523,7 @@ fn declares_its_own(
     if arg.choices.is_some() {
         return true;
     }
-    completion_for(spec, command, &arg.name).is_some_and(|completion| {
+    completion_for(spec, command, arg).is_some_and(|completion| {
         completion.type_.as_deref().is_some_and(|type_| {
             !type_.eq_ignore_ascii_case("unknown") && files_kind(type_).is_none()
         })
@@ -577,8 +577,12 @@ fn hidden_flag_form(form: &str, flag: &usage_parser::SpecFlag) -> bool {
             .is_some_and(|short| flag.hidden_short_aliases.contains(&short))
 }
 
-fn completion_files(spec: &Spec, command: &usage_parser::SpecCommand, name: &str) -> Option<Files> {
-    files_kind(completion_for(spec, command, name)?.type_.as_deref()?)
+fn completion_files(
+    spec: &Spec,
+    command: &usage_parser::SpecCommand,
+    arg: &usage_parser::SpecArg,
+) -> Option<Files> {
+    files_kind(completion_for(spec, command, arg)?.type_.as_deref()?)
 }
 
 /// The path fallback a declared `complete` type asks for, if it asks for one at all.
@@ -603,15 +607,19 @@ fn files_kind(type_: &str) -> Option<Files> {
     }
 }
 
+/// The completer for `arg`: one written inside its own `arg` node first, being attached to the
+/// argument itself, then one naming it.
 fn completion_for<'a>(
     spec: &'a Spec,
     command: &'a usage_parser::SpecCommand,
-    name: &str,
+    arg: &'a usage_parser::SpecArg,
 ) -> Option<&'a usage_parser::SpecComplete> {
-    command
-        .complete
-        .get(name)
-        .or_else(|| spec.complete.get(name))
+    arg.complete.as_ref().or_else(|| {
+        command
+            .complete
+            .get(&arg.name)
+            .or_else(|| spec.complete.get(&arg.name))
+    })
 }
 
 impl<'a> Builder<'a> {

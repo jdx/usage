@@ -407,6 +407,9 @@ type Arg struct {
 	RequiredIfEqAll      []RequiredIfEq `json:"required_if_eq_all"`
 	RequiredUnless       []string       `json:"required_unless"`
 	RequiredUnlessAll    []string       `json:"required_unless_all"`
+	// Complete is a `complete` written inside this argument's own node. It wins
+	// over one found by name, being attached to the argument itself.
+	Complete *Completer `json:"complete"`
 }
 
 // Example is a worked invocation a page prints.
@@ -672,6 +675,16 @@ func (b *builder) completeType(name string) string {
 		return ""
 	}
 	return b.complete[strings.ToLower(name)].Type
+}
+
+// argCompleteType is completeType for an entry that may carry its own
+// completer: one written inside the `arg` node wins over one found by name, as
+// it does in the reference.
+func (b *builder) argCompleteType(a *Arg, name string) string {
+	if a != nil && a.Complete != nil {
+		return a.Complete.Type
+	}
+	return b.completeType(name)
 }
 
 func first(values ...string) string {
@@ -1070,7 +1083,7 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		RequiresIfBoolean:   f.Arg == nil,
 		Spelling:            spelling(f),
 		ValueName:           valueOf(f),
-		CompleteType:        b.completeType(first(valueOf(f), f.Name)),
+		CompleteType:        b.argCompleteType(f.Arg, first(valueOf(f), f.Name)),
 		Required:            f.Required,
 		RejectDuplicate:     strictDuplicates && !f.Var && !f.Count && (f.Arg == nil || !f.Arg.Var),
 		Choices:             f.choices(),
@@ -1156,7 +1169,7 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 	b.record(out.Key, argv.Meta{
 		Name:                a.Name,
 		Required:            a.Required,
-		CompleteType:        b.completeType(a.Name),
+		CompleteType:        b.argCompleteType(a, a.Name),
 		Choices:             a.Choices.visible(),
 		AcceptedChoices:     a.Choices.accepted(),
 		IgnoreCase:          a.Choices != nil && a.Choices.IgnoreCase,

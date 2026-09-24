@@ -14,7 +14,10 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
-use crate::{string, SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecRequiredIfEq};
+use crate::{
+    string, SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecComplete,
+    SpecRequiredIfEq,
+};
 
 /// A non-binding action performed when a flag is supplied.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -706,6 +709,27 @@ impl SpecFlag {
                             "flag must have value to have choices"
                         )
                     }
+                }
+                // Shorthand for a `complete` inside the flag's `arg`, the same way `choices`
+                // is: a flag has one value, so there is no doubt which one it completes.
+                "complete" => {
+                    let Some(arg) = &mut flag.arg else {
+                        bail_parse!(
+                            ctx,
+                            child.node.name().span(),
+                            "flag must have value to have a complete"
+                        )
+                    };
+                    if arg.complete.is_some() {
+                        bail_parse!(
+                            ctx,
+                            child.node.name().span(),
+                            "a flag's value may have only one complete"
+                        );
+                    }
+                    let mut complete = SpecComplete::parse_inline(ctx, &child)?;
+                    complete.name = arg.name.to_lowercase();
+                    arg.complete = Some(complete);
                 }
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported flag child {k}"),
             }

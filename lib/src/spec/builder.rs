@@ -34,7 +34,7 @@ use crate::spec::cmd::SpecExample;
 use crate::spec::effect::SpecCommandEffect;
 use crate::{
     spec::arg::SpecDoubleDashChoices, SpecAdmonition, SpecArg, SpecChoices, SpecCommand,
-    SpecDefaultIf, SpecFlag, SpecRequiredIfEq, SpecRequiresIf,
+    SpecComplete, SpecDefaultIf, SpecFlag, SpecRequiredIfEq, SpecRequiresIf,
 };
 
 /// Builder for SpecFlag
@@ -810,11 +810,24 @@ impl SpecArgBuilder {
         self
     }
 
+    /// Attach a completer to this argument itself, the builder form of a `complete` node
+    /// written inside `arg`. It wins over a `complete` found by name. The completer's name is
+    /// filled in from the argument's when it is left empty.
+    pub fn complete(mut self, complete: SpecComplete) -> Self {
+        self.inner.complete = Some(complete);
+        self
+    }
+
     /// Build the final SpecArg
     #[must_use]
     pub fn build(mut self) -> SpecArg {
         if self.inner.validate.is_none() {
             self.inner.validate_error = None;
+        }
+        if let Some(complete) = &mut self.inner.complete {
+            if complete.name.is_empty() {
+                complete.name = self.inner.name.to_lowercase();
+            }
         }
         if self.inner.value_names.len() > 1 {
             let arity = self.inner.value_names.len();

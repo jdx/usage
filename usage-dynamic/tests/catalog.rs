@@ -583,6 +583,43 @@ fn an_open_position_still_defers_to_the_shells_paths() {
 }
 
 #[test]
+fn a_plugins_complete_inside_an_arg_wins_over_a_named_one() {
+    // The named completer says directories; the one inside the arg says nothing belongs there.
+    // The one inside the arg is attached to it, so the position closes with no path fallback.
+    let catalog = Catalog::builder(Host::app())
+        .under(
+            "plugins",
+            plugin(
+                "formatter",
+                r#"
+complete "target" type="dir"
+arg "<target>" {
+    complete type="none"
+}
+cmd "named" {
+    arg "<target>"
+}
+"#,
+            ),
+        )
+        .build()
+        .unwrap();
+    let request = |words: &[&str]| {
+        let mut argv = vec![
+            OsString::from("__complete_word__"),
+            OsString::from("--words"),
+        ];
+        argv.extend(words.iter().map(OsString::from));
+        block_on(catalog.app().unwrap().completion_request(&argv)).unwrap()
+    };
+    let inline = request(&["host", "plugins", "formatter", "zz"]);
+    assert!(!inline.contains('\u{1}'), "{inline:?}");
+    // Where the arg has none of its own, the named one still answers.
+    let named = request(&["host", "plugins", "formatter", "named", ""]);
+    assert!(named.contains('\u{1}'), "{named:?}");
+}
+
+#[test]
 fn dispatch_never_builds_the_merged_tree() {
     // The point of the split: running a plugin command is the hot path, and the merged tree is
     // a KDL round trip of the whole host spec. A catalog that is only ever dispatched through

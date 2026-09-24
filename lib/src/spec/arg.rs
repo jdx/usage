@@ -11,7 +11,7 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
-use crate::{string, SpecAdmonition, SpecAdmonitionKind, SpecChoices};
+use crate::{string, SpecAdmonition, SpecAdmonitionKind, SpecChoices, SpecComplete};
 #[cfg(feature = "clap")]
 use crate::{SpecChoice, SpecChoiceAlias};
 
@@ -200,6 +200,13 @@ pub struct SpecArg {
     /// Explicit placement within its help section.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_order: Option<usize>,
+    /// A completer written inside this argument's own `arg` node.
+    ///
+    /// It wins over a `complete` node that names this argument, being attached to the
+    /// argument itself rather than found by name; [`crate::Spec::completer`] applies that
+    /// order. Its `name` is this argument's name, lowercased.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub complete: Option<SpecComplete>,
 }
 
 impl SpecArg {
@@ -398,6 +405,16 @@ impl SpecArg {
                 "required_unless" => arg.required_unless = string_args(&child)?,
                 "required_unless_all" => arg.required_unless_all = string_args(&child)?,
                 "double_dash" => arg.double_dash = child.arg(0)?.ensure_string()?.parse()?,
+                "complete" => {
+                    if arg.complete.is_some() {
+                        bail_parse!(
+                            ctx,
+                            child.node.name().span(),
+                            "an arg may have only one complete"
+                        );
+                    }
+                    arg.complete = Some(SpecComplete::parse_inline(ctx, &child)?);
+                }
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
         }
@@ -408,6 +425,10 @@ impl SpecArg {
         }
         if let Some(first) = arg.value_names.first() {
             arg.name.clone_from(first);
+        }
+        // Keyed the way a named `complete` is, so a consumer holding either sees the same name.
+        if let Some(complete) = &mut arg.complete {
+            complete.name = arg.name.to_lowercase();
         }
         if arg.value_names.len() > 1 {
             let arity = arg.value_names.len();
@@ -697,6 +718,10 @@ impl From<&SpecArg> for KdlNode {
         if let Some(choices) = &arg.choices {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(choices.into());
+        }
+        if let Some(complete) = &arg.complete {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(complete.to_inline_node());
         }
         node
     }
@@ -1116,6 +1141,9 @@ impl From<&clap::Arg> for SpecArg {
             surface: None,
             available_if: Vec::new(),
             display_order: Some(arg.get_display_order()),
+            // A value hint becomes a named `complete` on the command, where the conversion
+            // of the whole command can see it.
+            complete: None,
         };
         arg.choices = choices;
 
@@ -1725,5 +1753,119 @@ arg "<input>" {
         let rendered = spec.to_string();
         let reparsed: Spec = rendered.parse().unwrap();
         assert_eq!(reparsed.cmd.args[0].conflicts, spec.cmd.args[0].conflicts);
+    }
+
+    #[test]
+    fn a_complete_inside_an_arg_is_attached_to_it() {
+        let spec: Spec = r#"
+complete "file" run="echo named"
+arg "<FILE>" {
+    complete run="ls" descriptions=#true
+}
+arg "[other]"
+flag "--color <when>" {
+    arg "<when>" {
+        complete type="none"
+    }
+}
+flag "--out <path>" {
+    complete type="path"
+}
+cmd "sub" {
+    complete "other" run="echo cmd"
+}
+"#
+        .parse()
+        .unwrap();
+
+        let file = &spec.cmd.args[0];
+        let complete = file.complete.as_ref().expect("the arg's own completer");
+        assert_eq!(complete.name, "file");
+        assert_eq!(complete.run.as_deref(), Some("ls"));
+        assert!(complete.descriptions);
+        // The one inside the arg wins over the one naming it.
+        assert_eq!(
+            spec.completer(&spec.cmd, file).unwrap().run.as_deref(),
+            Some("ls")
+        );
+        // With none of its own, an arg still finds one by name.
+        let other = &spec.cmd.args[1];
+        assert!(other.complete.is_none());
+        assert!(spec.completer(&spec.cmd, other).is_none());
+        let sub = &spec.cmd.subcommands["sub"];
+        assert_eq!(
+            spec.completer(sub, other).unwrap().run.as_deref(),
+            Some("echo cmd")
+        );
+
+        let color = spec.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(color.complete.as_ref().unwrap().name, "when");
+        assert_eq!(
+            color.complete.as_ref().unwrap().type_.as_deref(),
+            Some("none")
+        );
+        // Written directly inside the flag, it lands on the flag's value.
+        let out = spec.cmd.flags[1].arg.as_ref().unwrap();
+        assert_eq!(out.complete.as_ref().unwrap().name, "path");
+        assert_eq!(
+            out.complete.as_ref().unwrap().type_.as_deref(),
+            Some("path")
+        );
+
+        assert_snapshot!(spec, @r#"
+        flag --color {
+            arg <when> {
+                complete type=none
+            }
+        }
+        flag --out {
+            arg <path> {
+                complete type=path
+            }
+        }
+        arg <FILE> {
+            complete run=ls descriptions=#true
+        }
+        arg "[other]" required=#false
+        complete file run="echo named"
+        cmd sub {
+            complete other run="echo cmd"
+        }
+        "#);
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.to_string(), spec.to_string());
+        assert_eq!(
+            reparsed.cmd.args[0]
+                .complete
+                .as_ref()
+                .unwrap()
+                .run
+                .as_deref(),
+            Some("ls")
+        );
+    }
+
+    #[test]
+    fn a_complete_inside_an_arg_takes_no_name_and_appears_once() {
+        let err = |kdl: &str| {
+            let err = kdl.parse::<Spec>().unwrap_err();
+            format!("{:?}", crate::miette::Error::from(err))
+        };
+        assert!(err(r#"arg "<file>" { complete "file" run="ls"; }"#).contains("takes no name"));
+        assert!(
+            err(r#"arg "<file>" { complete run="ls"; complete run="pwd"; }"#)
+                .contains("only one complete")
+        );
+        assert!(err(r#"arg "<file>" { complete run="ls" type="file"; }"#).contains("run or type"));
+        assert!(err(r#"flag "--force" { complete run="ls"; }"#).contains("must have value"));
+    }
+
+    #[test]
+    fn a_built_arg_names_its_completer_after_itself() {
+        let arg = SpecArg::builder()
+            .name("FILE")
+            .complete(crate::SpecComplete::default().run("ls"))
+            .build();
+        assert_eq!(arg.complete.unwrap().name, "file");
     }
 }
