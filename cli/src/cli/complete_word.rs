@@ -825,7 +825,7 @@ impl CompleteWord {
             let found = self
                 .complete_delegated(cx, arg, delegate, ctoken)
                 .into_iter()
-                .filter(|(name, _)| name.starts_with(ctoken))
+                .filter_map(|candidate| whole_word_candidate(candidate, ctoken))
                 .collect();
             // Open, like `run`: the other program saying nothing is not a claim that nothing
             // belongs here, and with bash's `-o default` it would have fallen back to files too.
@@ -1212,6 +1212,26 @@ struct Ctx<'a> {
     spec: &'a Spec,
     parsed: &'a ParseOutput,
     after_restart_token: bool,
+}
+
+/// A delegated candidate as a replacement for the whole word at the cursor, or `None` when it
+/// does not continue that word.
+///
+/// fish and zsh answer `-out=pl` with whole words (`-out=plan.tfplan`). A bash completion
+/// answers with the part after the last `=`, because `=` is a word break to readline and bash
+/// replaces only what follows it — so `plan.tfplan` is put back behind `-out=`, the whole-word
+/// form complete-word gives its own `--flag=value` completions. Checked against the cursor word
+/// only after that, so a candidate for some other word is still dropped.
+fn whole_word_candidate(
+    (name, description): (String, String),
+    ctoken: &str,
+) -> Option<(String, String)> {
+    if name.starts_with(ctoken) {
+        return Some((name, description));
+    }
+    let (head, _) = ctoken.rsplit_once('=')?;
+    let name = format!("{head}={name}");
+    name.starts_with(ctoken).then_some((name, description))
 }
 
 /// The words of the command line that `arg` has taken so far, as typed.

@@ -36,6 +36,11 @@ const FISH: &str = r#"complete -C (string join -- " " (string escape -- $argv[1.
 /// a line to the command it names: it finds that command's compspec (loading it on demand from
 /// the completion directories), then runs a `-F` function or a `-C` command against the
 /// `COMP_*` variables set here.
+///
+/// Those are built the way readline builds them, because bash-completion reassembles words by
+/// comparing the two: `COMP_LINE` is the text, and `COMP_WORDS` splits `-out=pl` into `-out`,
+/// `=`, `pl`, since `=` is a word break. The generated bash script already hands usage that
+/// split form, so a word that is just `=` is glued back to its neighbours in the text.
 const BASH: &str = r#"
 if ! declare -F _command_offset >/dev/null; then
   for f in "${BASH_COMPLETION:-}" /usr/share/bash-completion/bash_completion \
@@ -45,11 +50,23 @@ if ! declare -F _command_offset >/dev/null; then
   done
 fi
 declare -F _command_offset >/dev/null || exit 0
-COMP_WORDS=("$@")
-COMP_CWORD=$(($# - 1))
+COMP_WORDS=()
 COMP_LINE=
-for w in "${@:1:$#-1}"; do printf -v w '%q ' "$w"; COMP_LINE+=$w; done
-COMP_LINE+=${!#}
+i=0 prev=
+for w in "$@"; do
+  i=$((i + 1))
+  if [[ -n $COMP_LINE && $w != = && $prev != = ]]; then COMP_LINE+=' '; fi
+  if ((i < $#)); then printf -v q '%q' "$w"; COMP_LINE+=$q; else COMP_LINE+=$w; fi
+  rest=$w
+  while [[ $rest == *=* ]]; do
+    [[ -n ${rest%%=*} ]] && COMP_WORDS+=("${rest%%=*}")
+    COMP_WORDS+=(=)
+    rest=${rest#*=}
+  done
+  if [[ -n $rest ]] || ((i == $# && ${#w} == 0)); then COMP_WORDS+=("$rest"); fi
+  prev=$w
+done
+COMP_CWORD=$((${#COMP_WORDS[@]} - 1))
 COMP_POINT=${#COMP_LINE}
 COMP_TYPE=9 COMP_KEY=9
 export COMP_LINE COMP_POINT COMP_TYPE COMP_KEY

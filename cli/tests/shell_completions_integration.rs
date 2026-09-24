@@ -2487,6 +2487,7 @@ impl DelegateFixture {
 complete -c fakecmd -n __fish_use_subcommand -a plan -d 'Show a plan'
 complete -c fakecmd -n __fish_use_subcommand -a apply -d 'Apply it'
 complete -c fakecmd -n '__fish_seen_subcommand_from plan' -o out -d 'Write the plan'
+complete -c fakecmd -n '__fish_seen_subcommand_from plan; and string match -q -- "--*" (commandline -ct)' -l out -r -f -a 'plan.tfplan other.tfplan' -d 'Plan file'
 complete -c fakecmd -n '__fish_seen_subcommand_from plan' -o other
 complete -c fakecmd -n 'test (count (commandline -opc)) -eq 2' -a second -d 'Second word'
 "#,
@@ -2495,11 +2496,16 @@ complete -c fakecmd -n 'test (count (commandline -opc)) -eq 2' -a second -d 'Sec
         fs::write(
             bash.join("fakecmd"),
             r#"_fakecmd() {
-  local cur=${COMP_WORDS[COMP_CWORD]}
-  if ((COMP_CWORD == 1)); then
+  local cur prev words cword split
+  _init_completion -s || return
+  if ((cword == 1)); then
     COMPREPLY=($(compgen -W "plan apply" -- "$cur"))
-  elif [[ ${COMP_WORDS[1]} == plan ]]; then
-    COMPREPLY=($(compgen -W "-out -other" -- "$cur"))
+  elif [[ ${words[1]} == plan ]]; then
+    if [[ $prev == --out ]]; then
+      COMPREPLY=($(compgen -W "plan.tfplan other.tfplan" -- "$cur"))
+    else
+      COMPREPLY=($(compgen -W "-out -other" -- "$cur"))
+    fi
   fi
 }
 complete -F _fakecmd fakecmd
@@ -2531,8 +2537,12 @@ if (( CURRENT == 2 )); then
   local -a cmds=('plan:Show a plan' 'apply:Apply it')
   _describe command cmds
 elif [[ $words[2] == plan ]]; then
-  local -a opts=('-out:Write the plan' '-other')
-  _describe option opts
+  if compset -P '--out='; then
+    compadd -- plan.tfplan other.tfplan
+  else
+    local -a opts=('-out:Write the plan' '-other')
+    _describe option opts
+  fi
 elif [[ $words[2] == marker ]]; then
   compadd -- a__USAGE_DELEGATE_DONE b c
 fi
@@ -2691,6 +2701,31 @@ fn assert_delegated(fixture: &DelegateFixture, shell: &str) {
         delegated_values(&auto),
         ["-other", "-out"],
         "{shell}: {auto}"
+    );
+
+    // A value in the same word as the wrapped command's flag. Each shell's script hands it over
+    // the way that shell splits it: bash, where `=` is a word break, as `--out`, `=`, `pl`,
+    // and wants back only what follows the `=`; the others as one word, answered with whole
+    // words. A bash completion answers with the value alone either way.
+    let (words, expected): (&[&str], &[&str]) = if shell == "bash" {
+        (
+            &["wrap", "layer1", "plan", "--out", "=", "pl"],
+            &["plan.tfplan"],
+        )
+    } else {
+        (
+            &["wrap", "layer1", "plan", "--out=pl"],
+            &["--out=plan.tfplan"],
+        )
+    };
+    let value = fixture.complete(shell, words);
+    assert_eq!(delegated_values(&value), expected, "{shell}: {value}");
+    // One word in every shell, as `usage complete-word` may also be called: whole words back.
+    let value = fixture.complete(shell, &["wrap", "layer1", "plan", "--out="]);
+    assert_eq!(
+        delegated_values(&value),
+        ["--out=other.tfplan", "--out=plan.tfplan"],
+        "{shell}: {value}"
     );
 
     // A `complete` inside the argument delegates the same way, flag words included.
