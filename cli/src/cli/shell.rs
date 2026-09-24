@@ -254,6 +254,7 @@ impl Drop for ScriptCopy {
 
 /// A new directory under the system temp dir that no other user can read.
 fn private_temp_dir() -> usage::miette::Result<PathBuf> {
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut builder = std::fs::DirBuilder::new();
     #[cfg(unix)]
     std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
