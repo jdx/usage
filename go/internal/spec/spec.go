@@ -431,10 +431,15 @@ type Choices struct {
 	Details    []Choice `json:"details"`
 	IgnoreCase bool     `json:"ignore_case"`
 	Strict     *bool    `json:"strict"`
+	// Run is a shell command whose output lists further values. A table is built where
+	// the program is compiled, not where it runs, so it cannot know them.
+	Run string `json:"run"`
 }
 
+// allowUnknown also covers choices taken from a command: those values are left
+// unchecked rather than every one of them refused.
 func (c *Choices) allowUnknown() bool {
-	return c != nil && c.Strict != nil && !*c.Strict
+	return c != nil && (c.Strict != nil && !*c.Strict || c.Run != "")
 }
 
 type Choice struct {

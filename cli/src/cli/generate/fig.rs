@@ -111,6 +111,11 @@ struct FigArg {
     /// only decides which declaration wins while one is being built.
     #[serde(skip)]
     declared: bool,
+    /// Whether the argument declares `choices`. `usage complete-word` answers from them and
+    /// never runs a `complete run=` for such an argument, so neither does Fig. Not part of a
+    /// Fig spec.
+    #[serde(skip)]
+    has_choices: bool,
 }
 
 #[serde_as]
@@ -168,8 +173,7 @@ impl FigGenerator {
     fn get_generator_arg(&self) -> String {
         match self.type_ {
             GeneratorType::Complete => {
-                let postprocess = self.post_process.clone();
-                format!("(`{postprocess}`)")
+                format!("(`{}`)", escape_template_literal(&self.post_process))
             }
             _ => "".to_string(),
         }
@@ -181,6 +185,18 @@ impl FigGenerator {
 
         format!("{generator_name}{arg}")
     }
+}
+
+/// A `run=` command as the body of a JavaScript template literal.
+///
+/// Shell commands are full of what a template literal treats as syntax: `${HOME}` would be
+/// interpolated by JavaScript before the shell ever saw it, a backtick ends the literal, and a
+/// backslash starts an escape. Each is escaped so the command reaches Fig as written.
+fn escape_template_literal(command: &str) -> String {
+    command
+        .replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace("${", "\\${")
 }
 
 /// The Fig template for a portable `complete … type=`, where there is one.
@@ -236,17 +252,61 @@ impl FigArg {
             .to_ascii_lowercase()
     }
 
+    /// The placeholder a `run=` generator is written as, swapped for the generator call by
+    /// text once the spec is serialized. It has to tell two commands apart: the same argument
+    /// name with a different `run=` is ordinary (`<name>` on one command listing tasks and on
+    /// another listing tools), and would otherwise get whichever was replaced first. Both
+    /// `complete run=` and `choices run=` go through here.
+    fn run_placeholder(name: &str, run: &str) -> String {
+        let mut hasher = std::hash::DefaultHasher::new();
+        std::hash::Hash::hash(run, &mut hasher);
+        let id = std::hash::Hasher::finish(&hasher);
+        format!("${name}-{id:016x}$")
+    }
+
     pub fn parse_from_spec(arg: &SpecArg) -> Self {
+        let name = FigArg::get_name(&arg.name);
+        // `choices run=` is the command a `complete run=` would be, and Fig runs it the same
+        // way: when completing, never while this file is generated. It is a declaration, so
+        // it displaces the guesses from the argument's name and any `complete` node, as
+        // choices do in `usage complete-word`.
+        if let Some(choices) = &arg.choices {
+            if let Some(run) = choices.run() {
+                return Self {
+                    generators: Some(FigGenerator {
+                        type_: GeneratorType::Complete,
+                        post_process: run.to_string(),
+                        template_str: FigArg::run_placeholder(&name, run),
+                    }),
+                    name,
+                    description: arg.help.clone(),
+                    is_variadic: arg.var,
+                    is_optional: !arg.required,
+                    template: None,
+                    suggestions: choices.choices.clone(),
+                    debounce: None,
+                    declared: true,
+                    has_choices: true,
+                };
+            }
+        }
+        let guess = arg.choices.is_none();
         let mut fig_arg = Self {
-            name: FigArg::get_name(&arg.name),
+            name,
             description: arg.help.clone(),
             is_variadic: arg.var,
             is_optional: !arg.required,
-            template: FigArg::get_template(&arg.name),
-            generators: FigArg::get_generator(&arg.name),
+            // Choices are the whole answer in `usage complete-word`, so an argument that has
+            // them gets no guess from its name: `<config_file>` with choices offers those
+            // choices, not files the parser would reject.
+            template: guess.then(|| FigArg::get_template(&arg.name)).flatten(),
+            generators: guess.then(|| FigArg::get_generator(&arg.name)).flatten(),
             suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
-            debounce: FigArg::get_generator(&arg.name).map(|_| true),
+            debounce: guess
+                .then(|| FigArg::get_generator(&arg.name).map(|_| true))
+                .flatten(),
             declared: false,
+            has_choices: arg.choices.is_some(),
         };
         // A `complete` inside the `arg` is the nearest declaration there is, so it arrives
         // first and the named ones applied afterwards leave it alone.
@@ -271,6 +331,13 @@ impl FigArg {
         // A `complete` node with neither a command to run nor a type says nothing about
         // what this value is, so it displaces nothing.
         if spec.run.is_none() && spec.type_.is_none() {
+            return;
+        }
+        // Choices are a closed set that `usage complete-word` offers instead of running a
+        // command, so a `run=` beside them would offer values nothing else accepts. It is
+        // still the nearest declaration, so a farther one must not take its place.
+        if self.has_choices && spec.type_.is_none() {
+            self.declared = true;
             return;
         }
 
@@ -300,18 +367,10 @@ impl FigArg {
         // the two that reached Fig before, so a spec declaring both keeps the behaviour
         // it already had.
         if let Some(run) = spec.run {
-            // The placeholder is swapped for the generator call by text once the spec is
-            // serialized, so it has to tell two commands apart. A `complete` inside an `arg`
-            // makes the same name with a different `run=` ordinary: `<name>` on one command
-            // listing tasks and on another listing tools would otherwise both get whichever
-            // was replaced first.
-            let mut hasher = std::hash::DefaultHasher::new();
-            std::hash::Hash::hash(&run, &mut hasher);
-            let id = std::hash::Hasher::finish(&hasher);
             self.generators = Some(FigGenerator {
                 type_: GeneratorType::Complete,
+                template_str: FigArg::run_placeholder(&name, &run),
                 post_process: run,
-                template_str: format!("${name}-{id:016x}$"),
             });
             return;
         }

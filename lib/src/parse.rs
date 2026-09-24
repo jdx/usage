@@ -784,6 +784,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_collecting(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
+        // Held across both phases: defaults are checked against the same `choices run=`
+        // output the words were.
+        let _runs = crate::spec::choices::RunScope::enter();
         let custom_env = self.env.as_ref();
         let (mut out, overridden_flags) = parse_partial_with_env(
             self.spec,
@@ -1387,7 +1390,7 @@ fn default_flag_route(spec: &Spec, root: &SpecCommand, input: &VecDeque<Token>) 
         } else {
             for (offset, letter) in token.char_indices().skip(1) {
                 let key = format!("-{letter}");
-                if !parent.contains_key(&key) && supplied_short(spec, path, letter).is_some() {
+                if !parent.contains_key(&key) && supplies_short(spec, path, letter) {
                     continue;
                 }
                 let flag = parent.get(&key).or_else(|| child.get(&key));
@@ -1475,6 +1478,8 @@ fn parse_partial_traced(
     validate_clauses: bool,
     trace: &mut Trace,
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
+    // Each `choices run=` runs once per parse, however many values are checked against it.
+    let _runs = crate::spec::choices::RunScope::enter();
     if let Some(view) = input.first().and_then(|argv0| spec.view_for_program(argv0)) {
         let viewed = spec.for_view(view)?;
         return parse_partial_traced(
@@ -1652,7 +1657,7 @@ fn parse_partial_traced(
                     for short in input[idx].word[1..].chars() {
                         let key = format!("-{short}");
                         if out.available_flags.contains_key(&key)
-                            || supplied_short(spec, &out.cmds, short).is_some()
+                            || supplies_short(spec, &out.cmds, short)
                         {
                             found = true;
                             break;
@@ -2131,7 +2136,8 @@ fn parse_partial_traced(
                     },
                 );
                 if f.action != crate::SpecFlagAction::Set {
-                    out.errors.push(render_action_err(spec, &out.cmd, f, word));
+                    out.errors
+                        .push(render_action_err(spec, &out.cmd, f, word, custom_env));
                     record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                     return Ok((out, overridden_flags));
                 }
@@ -2239,7 +2245,7 @@ fn parse_partial_traced(
             }
             if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
-                    .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                    .push(render_help_err(spec, &out.cmd, w.len() > 2, custom_env));
                 trace.record(
                     argv,
                     TokenRole::Builtin {
@@ -2309,8 +2315,13 @@ fn parse_partial_traced(
                     .map(|(_, level)| *level)
                     .unwrap_or(out.cmds.len() - 1);
                 if f.action != crate::SpecFlagAction::Set {
-                    out.errors
-                        .push(render_action_err(spec, &out.cmd, f, &format!("-{short}")));
+                    out.errors.push(render_action_err(
+                        spec,
+                        &out.cmd,
+                        f,
+                        &format!("-{short}"),
+                        custom_env,
+                    ));
                     record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                     return Ok((out, overridden_flags));
                 }
@@ -2395,7 +2406,7 @@ fn parse_partial_traced(
             // The letter nothing declared may still be one the parser supplies, and it may
             // sit anywhere in the token: `-hv` asks for help as surely as `-vh` does, and
             // neither reaches the whole-token spellings below.
-            if let Some(err) = supplied_short(spec, &out.cmds, short) {
+            if let Some(err) = supplied_short(spec, &out.cmds, short, custom_env) {
                 out.errors.push(err);
                 trace.record(
                     argv,
@@ -2408,7 +2419,7 @@ fn parse_partial_traced(
             }
             if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
-                    .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                    .push(render_help_err(spec, &out.cmd, w.len() > 2, custom_env));
                 trace.record(
                     argv,
                     TokenRole::Builtin {
@@ -2770,7 +2781,7 @@ fn parse_partial_traced(
         }
         if is_help_arg(spec, &out.cmd, &w) {
             out.errors
-                .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                .push(render_help_err(spec, &out.cmd, w.len() > 2, custom_env));
             trace.record(
                 argv,
                 TokenRole::Builtin {
@@ -2950,7 +2961,8 @@ fn parse_partial_traced(
     };
 
     if out.cmd.arg_required_else_help && !command_has_argv {
-        out.errors.push(render_help_err(spec, &out.cmd, false));
+        out.errors
+            .push(render_help_err(spec, &out.cmd, false, custom_env));
     }
 
     // A command that says it needs a subcommand, given none. Checked on `out.cmd` and nowhere
@@ -4397,18 +4409,32 @@ fn apply_flag_overrides(
     attributed.remove(&flag.name);
 }
 
+/// The help a parse answers `--help` with. A parse is a program running, so its page lists
+/// what `choices run=` prints, run against the environment the parse was given.
 #[cfg(feature = "cli-help")]
-fn render_help_err(spec: &Spec, cmd: &SpecCommand, long: bool) -> UsageErr {
-    UsageErr::Help(docs::cli::render_help(spec, cmd, long))
+fn render_help_err(spec: &Spec, cmd: &SpecCommand, long: bool, env: Env<'_>) -> UsageErr {
+    UsageErr::Help(docs::cli::render_runtime_help(
+        spec,
+        cmd,
+        long,
+        docs::cli::Style::PLAIN,
+        env,
+    ))
 }
 
 #[cfg(feature = "cli-help")]
-fn render_help_all_err(spec: &Spec, cmd: &SpecCommand) -> UsageErr {
-    fn append(out: &mut String, spec: &Spec, cmd: &SpecCommand) {
+fn render_help_all_err(spec: &Spec, cmd: &SpecCommand, env: Env<'_>) -> UsageErr {
+    fn append(out: &mut String, spec: &Spec, cmd: &SpecCommand, env: Env<'_>) {
         if !out.is_empty() {
             out.push('\n');
         }
-        out.push_str(&docs::cli::render_help(spec, cmd, true));
+        out.push_str(&docs::cli::render_runtime_help(
+            spec,
+            cmd,
+            true,
+            docs::cli::Style::PLAIN,
+            env,
+        ));
         let mut children: Vec<_> = cmd
             .subcommands
             .values()
@@ -4416,22 +4442,22 @@ fn render_help_all_err(spec: &Spec, cmd: &SpecCommand) -> UsageErr {
             .collect();
         children.sort_by_key(|child| (child.display_order.unwrap_or(999), child.name.as_str()));
         for child in children {
-            append(out, spec, child);
+            append(out, spec, child, env);
         }
     }
 
     let mut out = String::new();
-    append(&mut out, spec, cmd);
+    append(&mut out, spec, cmd, env);
     UsageErr::Help(out)
 }
 
 #[cfg(not(feature = "cli-help"))]
-fn render_help_err(_spec: &Spec, _cmd: &SpecCommand, _long: bool) -> UsageErr {
+fn render_help_err(_spec: &Spec, _cmd: &SpecCommand, _long: bool, _env: Env<'_>) -> UsageErr {
     UsageErr::Help("help".to_string())
 }
 
 #[cfg(not(feature = "cli-help"))]
-fn render_help_all_err(_spec: &Spec, _cmd: &SpecCommand) -> UsageErr {
+fn render_help_all_err(_spec: &Spec, _cmd: &SpecCommand, _env: Env<'_>) -> UsageErr {
     UsageErr::Help("help".to_string())
 }
 
@@ -4446,13 +4472,22 @@ fn render_version_err(spec: &Spec, long: bool) -> UsageErr {
     UsageErr::Version(value.cloned().unwrap_or_default())
 }
 
-fn render_action_err(spec: &Spec, cmd: &SpecCommand, flag: &SpecFlag, spelling: &str) -> UsageErr {
+/// The environment a parse was given, which is also what a `choices run=` command runs with.
+type Env<'a> = Option<&'a HashMap<String, String>>;
+
+fn render_action_err(
+    spec: &Spec,
+    cmd: &SpecCommand,
+    flag: &SpecFlag,
+    spelling: &str,
+    env: Env<'_>,
+) -> UsageErr {
     use crate::SpecFlagAction;
     match flag.action {
-        SpecFlagAction::Help => render_help_err(spec, cmd, spelling.starts_with("--")),
-        SpecFlagAction::HelpShort => render_help_err(spec, cmd, false),
-        SpecFlagAction::HelpLong => render_help_err(spec, cmd, true),
-        SpecFlagAction::HelpAll => render_help_all_err(spec, cmd),
+        SpecFlagAction::Help => render_help_err(spec, cmd, spelling.starts_with("--"), env),
+        SpecFlagAction::HelpShort => render_help_err(spec, cmd, false, env),
+        SpecFlagAction::HelpLong => render_help_err(spec, cmd, true, env),
+        SpecFlagAction::HelpAll => render_help_all_err(spec, cmd, env),
         SpecFlagAction::Version => render_version_err(spec, spelling.starts_with("--")),
         SpecFlagAction::Set => unreachable!("binding actions are handled before this helper"),
     }
@@ -4512,7 +4547,7 @@ fn short_bundle_is_known(
             // bundle containing one is a bundle. Without this `-vh` was not read as one at
             // all and fell through to `unexpected word`, while usage-argv, usage-go and
             // clap all answer it with help.
-            None if supplied_short(spec, cmds, c).is_some() => {}
+            None if supplies_short(spec, cmds, c) => {}
             None => return false,
             Some(f) if f.arg.is_some() => return true,
             Some(_) => {}
@@ -4530,13 +4565,28 @@ fn short_bundle_is_known(
 /// Always the short response: `-h` is short help however many letters share its token,
 /// and `-V` the concise version. The long forms belong to the long spellings. `-?` is not
 /// here — it is a whole-token spelling of `-h` rather than a letter anyone bundles.
-fn supplied_short(spec: &Spec, cmds: &[SpecCommand], letter: char) -> Option<UsageErr> {
+fn supplied_short(
+    spec: &Spec,
+    cmds: &[SpecCommand],
+    letter: char,
+    env: Env<'_>,
+) -> Option<UsageErr> {
     let cmd = cmds.last()?;
     match letter {
-        'h' if is_help_arg(spec, cmd, "-h") => Some(render_help_err(spec, cmd, false)),
+        'h' if is_help_arg(spec, cmd, "-h") => Some(render_help_err(spec, cmd, false, env)),
         'V' if is_version_arg(spec, cmds, "-V") => Some(render_version_err(spec, false)),
         _ => None,
     }
+}
+
+/// Whether [`supplied_short`] would answer for `letter`, without drawing the page it would
+/// answer with — which can mean running `choices run=` commands.
+fn supplies_short(spec: &Spec, cmds: &[SpecCommand], letter: char) -> bool {
+    cmds.last().is_some_and(|cmd| match letter {
+        'h' => is_help_arg(spec, cmd, "-h"),
+        'V' => is_version_arg(spec, cmds, "-V"),
+        _ => false,
+    })
 }
 
 /// Refuse a flag-like token that named nothing, if this command asked for that.
@@ -5082,9 +5132,29 @@ fn choice_error(
     if !choices.strict {
         return None;
     }
-    let values = choices.values_with_env(custom_env);
-    if choices.matches_with_env(value, custom_env) {
-        return None;
+    // The declared values and `env=` first, so a value they accept never costs a command.
+    match choices.matches_resolved(value, custom_env) {
+        Ok(true) => return None,
+        Ok(false) => {}
+        Err(err) => {
+            return Some(format!(
+                "Could not check {} {}: {value} against its choices: {err}",
+                target.kind, target.name,
+            ));
+        }
+    }
+    // Already run by the check above, so this reads what it printed rather than running it
+    // again.
+    let values = choices
+        .resolved_values(custom_env)
+        .unwrap_or_else(|_| choices.values_with_env(custom_env));
+    if let Some(run) = choices.run() {
+        if values.is_empty() {
+            return Some(format!(
+                "Invalid choice for {} {}: {value}, `{run}` printed no choices",
+                target.kind, target.name,
+            ));
+        }
     }
     if let Some(env) = choices.env() {
         if values.is_empty() {
@@ -5111,11 +5181,15 @@ fn validate_choices(
     choices: Option<&SpecChoices>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
+    // A choice named like a help flag is a value, whether it was declared or printed by
+    // `run=`. A command that cannot be run leaves the word to mean help, which is what a
+    // user typing it most likely wanted.
     if is_help_arg(spec, cmd, value)
-        && choices
-            .is_some_and(|choices| choices.strict && !choices.matches_with_env(value, custom_env))
+        && choices.is_some_and(|choices| {
+            choices.strict && !choices.matches_resolved(value, custom_env).unwrap_or(false)
+        })
     {
-        errors.push(render_help_err(spec, cmd, value.len() > 2));
+        errors.push(render_help_err(spec, cmd, value.len() > 2, custom_env));
         return Ok(true);
     }
 
@@ -5760,7 +5834,8 @@ cmd "run"
             long_version: Some("1.2.3\ncommit abc123".to_string()),
             ..Default::default()
         };
-        let UsageErr::Version(version) = render_action_err(&spec, &spec.cmd, &flag, "-R") else {
+        let UsageErr::Version(version) = render_action_err(&spec, &spec.cmd, &flag, "-R", None)
+        else {
             panic!("expected version action")
         };
         assert_eq!(version, "1.2.3\ncommit abc123");

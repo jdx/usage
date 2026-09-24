@@ -258,6 +258,24 @@ func TestRichChoicesSeparateAcceptanceFromVisibility(t *testing.T) {
 	}
 }
 
+// A table cannot run `choices run=`, so it leaves the values unchecked.
+func TestChoicesFromACommandAcceptUnlistedValues(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Args: []Arg{{
+			Name:    "service",
+			Choices: &Choices{Choices: []string{"local"}, Run: "docker compose config --services"},
+		}}},
+	})
+	entry := metaFor(t, meta, root, "service")
+	if !entry.AllowUnknownChoices {
+		t.Error("choices from a command should accept values the table cannot list")
+	}
+	if !reflect.DeepEqual(entry.Choices, []string{"local"}) {
+		t.Errorf("visible choices: %q", entry.Choices)
+	}
+}
+
 func TestValidationIsReadThroughTheValue(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",

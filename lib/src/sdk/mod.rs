@@ -43,6 +43,17 @@ pub fn generate(spec: &Spec, opts: &SdkOptions) -> SdkOutput {
     }
 }
 
+/// The choices a generated type can spell out as a union of literals.
+///
+/// None for `choices run=`: its values come from a command where the program runs, so a
+/// type fixed at generation time would refuse ones the program accepts. Such a value is
+/// typed as a plain string.
+pub(crate) fn typed_choices(arg: &crate::SpecArg) -> Option<&crate::SpecChoices> {
+    arg.choices
+        .as_ref()
+        .filter(|choices| choices.run().is_none())
+}
+
 /// Escape JSDoc-terminating sequences in comment text.
 pub(crate) fn escape_jsdoc(s: &str) -> String {
     s.replace("*/", r"*\/")
@@ -414,7 +425,7 @@ fn collect_choice_entries(cmd: &SpecCommand, entries: &mut Vec<ChoiceEntry>) {
         if arg.hide {
             continue;
         }
-        if let Some(choices) = &arg.choices {
+        if let Some(choices) = typed_choices(arg) {
             let base_name = format!("{}Choice", AsPascalCase(&arg.name));
             entries.push(ChoiceEntry {
                 base_name,
@@ -431,7 +442,7 @@ fn collect_choice_entries(cmd: &SpecCommand, entries: &mut Vec<ChoiceEntry>) {
             continue;
         }
         if let Some(arg) = &flag.arg {
-            if let Some(choices) = &arg.choices {
+            if let Some(choices) = typed_choices(arg) {
                 let base_name = format!("{}Choice", AsPascalCase(&flag.name));
                 entries.push(ChoiceEntry {
                     base_name,
@@ -486,7 +497,7 @@ fn collect_type_imports_recursive(
     }
 
     for arg in &cmd.args {
-        if !arg.hide && arg.choices.is_some() {
+        if !arg.hide && typed_choices(arg).is_some() {
             if let Some(type_name) = choice_types.lookup(&cmd.name, &arg.name) {
                 imports.push(type_name.to_string());
             }
@@ -495,7 +506,7 @@ fn collect_type_imports_recursive(
     for flag in &cmd.flags {
         if !flag.hide {
             if let Some(arg) = &flag.arg {
-                if arg.choices.is_some() {
+                if typed_choices(arg).is_some() {
                     if let Some(type_name) = choice_types.lookup(&cmd.name, &flag.name) {
                         imports.push(type_name.to_string());
                     }

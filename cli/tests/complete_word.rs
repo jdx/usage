@@ -406,6 +406,32 @@ fn complete_word_choices_from_env() {
         .stdout("foo\nbar\nbaz\n");
 }
 
+/// `choices run=` completes like `complete run=` would, so a spec says it once.
+#[cfg(unix)]
+#[test]
+fn complete_word_choices_from_a_command() {
+    cmd("choices-run.sh", Some("fish"))
+        .args(["d"])
+        .assert()
+        .success()
+        .stdout("database\n");
+}
+
+/// A `choices run=` that fails still leaves the declared values to offer, and says nothing
+/// over the prompt.
+#[cfg(unix)]
+#[test]
+fn complete_word_choices_from_a_failing_command_keep_the_declared_values() {
+    Command::new(cargo::cargo_bin!("usage"))
+        .args(["cw", "--shell", "fish", "--spec"])
+        .arg(r#"bin "mycli"; arg "<service>" { choices "local" run="exit 1"; }"#)
+        .args(["mycli", ""])
+        .assert()
+        .success()
+        .stdout("local\n")
+        .stderr("");
+}
+
 #[test]
 fn complete_word_choices_from_env_unset_returns_empty() {
     cmd("env-choices.usage.kdl", Some("fish"))

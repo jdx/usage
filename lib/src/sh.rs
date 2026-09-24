@@ -83,10 +83,23 @@ fn non_utf8_message(shell: &str, flag: &str, script: &str, err: &FromUtf8Error) 
 /// English locales, and a mount's output is parsed as a spec — replacement characters there
 /// would resurface as a baffling KDL syntax error instead of an encoding one.
 pub fn sh(script: &str) -> Result<String> {
+    sh_with_env(script, None)
+}
+
+/// [`sh`], with extra environment variables set on top of the inherited environment.
+///
+/// For a caller that parses against an environment other than its own — a task runner
+/// handing [`crate::Parser::with_env`] a task's variables — so a script it runs sees the same
+/// variables the parse does. They are added to the process environment, not substituted for
+/// it: a map without `PATH` should not leave the script unable to find anything.
+pub fn sh_with_env(
+    script: &str,
+    env: Option<&std::collections::HashMap<String, String>>,
+) -> Result<String> {
     let mut kind = ShellKind::Posix;
     let output = loop {
         let (shell, flag) = shell_argv(kind);
-        let err = match run(shell, flag, script) {
+        let err = match run(shell, flag, script, env) {
             Ok(output) => break output,
             Err(err) => err,
         };
@@ -126,14 +139,22 @@ fn status_failure(status: ExitStatus) -> Option<String> {
     })
 }
 
-fn run(shell: &str, flag: &str, script: &str) -> io::Result<std::process::Output> {
-    Command::new(shell)
+fn run(
+    shell: &str,
+    flag: &str,
+    script: &str,
+    env: Option<&std::collections::HashMap<String, String>>,
+) -> io::Result<std::process::Output> {
+    let mut command = Command::new(shell);
+    command
         .arg(flag)
         .arg(script)
         .stdin(std::process::Stdio::null())
-        .stderr(std::process::Stdio::inherit())
-        .env("__USAGE", env!("CARGO_PKG_VERSION"))
-        .output()
+        .stderr(std::process::Stdio::inherit());
+    if let Some(env) = env {
+        command.envs(env);
+    }
+    command.env("__USAGE", env!("CARGO_PKG_VERSION")).output()
 }
 
 #[cfg(test)]
@@ -217,6 +238,25 @@ mod tests {
     #[test]
     fn sh_fails_on_a_nonzero_exit() {
         assert!(sh("exit 1").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn sh_with_env_adds_to_the_inherited_environment() {
+        let env = std::collections::HashMap::from([(
+            "USAGE_TEST_SH_WITH_ENV".to_string(),
+            "from the map".to_string(),
+        )]);
+        // `$PATH` is not in the map and still reaches the script: added, not substituted.
+        assert_eq!(
+            sh_with_env(
+                "echo \"$USAGE_TEST_SH_WITH_ENV${PATH:+ with path}\"",
+                Some(&env)
+            )
+            .unwrap()
+            .trim(),
+            "from the map with path"
+        );
     }
 
     #[cfg(unix)]

@@ -787,9 +787,16 @@ impl CompleteWord {
         }
 
         if let Some(choices) = &arg.choices {
+            // Declared values and whatever `run=` prints, as one list: a `choices run=` is
+            // the same command a `complete run=` would be, with help and validation to match.
+            // A command that fails still leaves the declared values to offer, and its error
+            // goes to the trace log rather than over the prompt.
+            let values = choices.resolved_values(None).unwrap_or_else(|err| {
+                trace!("choices run= failed: {err}");
+                choices.values()
+            });
             return Ok((
-                choices
-                    .values()
+                values
                     .into_iter()
                     .filter(|c| c.starts_with(ctoken))
                     .map(|value| {
