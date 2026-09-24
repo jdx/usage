@@ -142,10 +142,12 @@ impl Shell {
         cmd.stdin(Stdio::inherit());
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
-        let script_path = self.script.to_str().ok_or_else(|| {
-            usage::miette::miette!("Invalid file path: {}", self.script.display())
-        })?;
-        let args = std::iter::once(script_path.to_string())
+        let run_path = _copy.as_ref().map_or(&self.script, |copy| &copy.run_path);
+        let script_path = run_path
+            .to_str()
+            .ok_or_else(|| usage::miette::miette!("Invalid file path: {}", run_path.display()))?
+            .to_string();
+        let args = std::iter::once(script_path.clone())
             .chain(self.args.clone())
             .collect_vec();
         cmd.args(&args);
@@ -169,7 +171,7 @@ impl Shell {
             // `exit` skips destructors, so the copy is removed here or not at all.
             drop(_copy);
             if cfg!(windows) && overridden.is_none() {
-                if let Some(hint) = wsl_path_hint(shell, code, script_path) {
+                if let Some(hint) = wsl_path_hint(shell, code, &script_path) {
                     eprintln!("{hint}");
                 }
             }
@@ -201,7 +203,12 @@ impl Shell {
 /// once into a directory only this user can open, and both the spec and the shell read that.
 struct ScriptCopy {
     dir: PathBuf,
+    /// The copy the spec is read from, under the original file name so that a spec without
+    /// `bin` infers the same name it would have from the original path.
     path: PathBuf,
+    /// The copy the shell runs. The same file, except for PowerShell, which runs a file only
+    /// when it ends in `.ps1`.
+    run_path: PathBuf,
 }
 
 impl ScriptCopy {
@@ -214,19 +221,27 @@ impl ScriptCopy {
         }
         let content = std::fs::read(script).into_diagnostic()?;
         let dir = private_temp_dir()?;
-        // Keep the name the spec's `bin` is inferred from. PowerShell runs a file only when it
-        // ends in `.ps1`.
-        let mut name = script
+        let name = script
             .file_name()
             .map_or_else(|| "script".into(), |n| n.to_os_string());
-        if shell == "pwsh" {
-            name.push(".ps1");
-        }
-        let copy = Self {
-            path: dir.join(name),
-            dir,
+        let path = dir.join(&name);
+        let run_path = if shell == "pwsh" {
+            let mut ps1 = name;
+            ps1.push(".ps1");
+            dir.join(ps1)
+        } else {
+            path.clone()
         };
-        std::fs::write(&copy.path, content).into_diagnostic()?;
+        // Owned by `copy` from here, so a failed write still removes the directory.
+        let copy = Self {
+            dir,
+            path,
+            run_path,
+        };
+        std::fs::write(&copy.path, &content).into_diagnostic()?;
+        if copy.run_path != copy.path {
+            std::fs::write(&copy.run_path, &content).into_diagnostic()?;
+        }
         Ok(Some(copy))
     }
 }
