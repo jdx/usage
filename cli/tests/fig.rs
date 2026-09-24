@@ -223,3 +223,26 @@ arg "<service_file>" help="service" {
     assert!(fig.contains(r#""local""#), "{fig}");
     assert!(!fig.contains("template\":"), "{fig}");
 }
+
+#[test]
+fn a_command_reaches_the_template_literal_as_written() {
+    // `${HOME}` would be interpolated by JavaScript, a backtick would end the literal, and a
+    // backslash would start an escape. `complete run=` and `choices run=` share the path.
+    let fig = fig_of(
+        r##"
+name "ex"
+bin "ex"
+arg "<a>" help="a" {
+    choices run=#"ls ${HOME} `pwd` a\b"#
+}
+arg "<b>" help="b"
+complete "b" run=#"ls ${HOME} `pwd` a\b"#
+        "##,
+    );
+    assert_eq!(
+        fig.matches(r#"completionGeneratorTemplate(`ls \${HOME} \`pwd\` a\\b`)"#)
+            .count(),
+        2,
+        "{fig}"
+    );
+}

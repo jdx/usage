@@ -168,8 +168,7 @@ impl FigGenerator {
     fn get_generator_arg(&self) -> String {
         match self.type_ {
             GeneratorType::Complete => {
-                let postprocess = self.post_process.clone();
-                format!("(`{postprocess}`)")
+                format!("(`{}`)", escape_template_literal(&self.post_process))
             }
             _ => "".to_string(),
         }
@@ -181,6 +180,18 @@ impl FigGenerator {
 
         format!("{generator_name}{arg}")
     }
+}
+
+/// A `run=` command as the body of a JavaScript template literal.
+///
+/// Shell commands are full of what a template literal treats as syntax: `${HOME}` would be
+/// interpolated by JavaScript before the shell ever saw it, a backtick ends the literal, and a
+/// backslash starts an escape. Each is escaped so the command reaches Fig as written.
+fn escape_template_literal(command: &str) -> String {
+    command
+        .replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace("${", "\\${")
 }
 
 /// The Fig template for a portable `complete … type=`, where there is one.

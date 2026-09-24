@@ -4,10 +4,14 @@
 //! The command-running cases are Unix-only because their commands are `sh` pipelines, which
 //! the `cmd /c` fallback on a Windows machine without `sh` cannot run.
 
+#[cfg(unix)]
 use std::collections::HashMap;
 
+#[cfg(unix)]
 use usage::docs::cli::{render_help, render_runtime_help, Style};
-use usage::{Parser, Spec};
+#[cfg(unix)]
+use usage::Parser;
+use usage::Spec;
 
 fn spec(choices: &str) -> Spec {
     format!(
@@ -23,6 +27,7 @@ arg "<service>" help="The service to build" {{
     .unwrap()
 }
 
+#[cfg(unix)]
 fn args(words: &[&str]) -> Vec<String> {
     std::iter::once("build")
         .chain(words.iter().copied())
@@ -216,6 +221,47 @@ fn help_describes_a_command_that_fails_instead_of_listing_nothing() {
         page.contains("[possible values: output of `exit 1`]"),
         "{page}"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_command_value_named_like_help_is_a_value_not_a_help_request() {
+    let named_help = spec(r#"choices run="echo help; echo app""#);
+    let parsed = usage::parse(&named_help, &args(&["help"])).unwrap();
+    assert_eq!(parsed.as_env()["usage_service"], "help");
+
+    // Not one of the choices, so still a request for help.
+    let other = spec(r#"choices run="echo app""#);
+    let err = usage::parse(&other, &args(&["help"]))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("Usage: build <service>"), "{err}");
+}
+
+#[cfg(unix)]
+#[test]
+fn hidden_possible_values_are_not_worth_running_a_command_for() {
+    let dir = tempfile::tempdir().unwrap();
+    let marker = dir.path().join("ran");
+    let spec: Spec = format!(
+        r#"
+bin "build"
+arg "<service>" hide_possible_values=#true {{
+    choices run="touch '{0}'; echo app"
+}}
+flag "--also <service>" hide_possible_values=#true {{
+    choices run="touch '{0}'; echo app"
+}}
+"#,
+        marker.display()
+    )
+    .parse()
+    .unwrap();
+    for long in [false, true] {
+        let page = render_runtime_help(&spec, &spec.cmd, long, Style::PLAIN, None);
+        assert!(!page.contains("app"), "{page}");
+    }
+    assert!(!marker.exists(), "the command ran for a hidden list");
 }
 
 #[test]

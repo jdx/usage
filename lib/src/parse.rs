@@ -5181,9 +5181,13 @@ fn validate_choices(
     choices: Option<&SpecChoices>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
+    // A choice named like a help flag is a value, whether it was declared or printed by
+    // `run=`. A command that cannot be run leaves the word to mean help, which is what a
+    // user typing it most likely wanted.
     if is_help_arg(spec, cmd, value)
-        && choices
-            .is_some_and(|choices| choices.strict && !choices.matches_with_env(value, custom_env))
+        && choices.is_some_and(|choices| {
+            choices.strict && !choices.matches_resolved(value, custom_env).unwrap_or(false)
+        })
     {
         errors.push(render_help_err(spec, cmd, value.len() > 2, custom_env));
         return Ok(true);

@@ -338,6 +338,11 @@ fn resolve_flag_choices(
     flag: &mut crate::docs::models::SpecFlag,
     env: Option<&HashMap<String, String>>,
 ) {
+    // The page reads the flag's own `hide_possible_values`, so a hidden list is not worth
+    // running a command for.
+    if flag.hide_possible_values {
+        return;
+    }
     if let Some(arg) = &mut flag.arg {
         resolve_arg_choices(arg, env);
     }
@@ -347,6 +352,9 @@ fn resolve_arg_choices(
     arg: &mut crate::docs::models::SpecArg,
     env: Option<&HashMap<String, String>>,
 ) {
+    if arg.hide_possible_values {
+        return;
+    }
     if let Some(choices) = arg.choices.as_mut().filter(|c| c.run.is_some()) {
         choices.resolve_for_help(env);
     }
