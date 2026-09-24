@@ -1514,6 +1514,9 @@ POINT=9 run_case init-midline _usage_default_complete "ex --out= x" 2 ex --out =
 # The cursor sits inside the value: `--out=a|X`.
 POINT=13 run_case bin-midword _mycli "mycli --out=aX" 3 mycli --out = aX
 POINT=10 run_case init-midword _usage_default_complete "ex --out=aX" 3 ex --out = aX
+# The cursor sits in the flag name, before an attached value: `--o|=a`.
+POINT=9 run_case bin-before-eq _mycli "mycli --o=a" 1 mycli --o = a
+POINT=6 run_case init-before-eq _usage_default_complete "ex --o=a" 1 ex --o = a
 "#,
         bin_dir = path_var_entry("bash", &bin_dir),
         usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
@@ -1545,6 +1548,8 @@ POINT=10 run_case init-midword _usage_default_complete "ex --out=aX" 3 ex --out 
         "[init-midline] <a b>",
         "[bin-midword] <a>",
         "[init-midword] <a>",
+        "[bin-before-eq] <--out>",
+        "[init-before-eq] <--out>",
     ] {
         assert!(
             stdout.contains(expected),
