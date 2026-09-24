@@ -1469,7 +1469,7 @@ flag "--out <file>" {
     let script_path = bin_dir.join("ex");
     fs::write(
         &script_path,
-        "#!/usr/bin/env -S usage bash\n#USAGE bin \"ex\"\n#USAGE flag \"--out <file>\" {\n#USAGE   choices \"a\" \"b\"\n#USAGE }\necho $usage_out\n",
+        "#!/usr/bin/env -S usage bash\n#USAGE bin \"ex\"\n#USAGE flag \"--out <file>\" {\n#USAGE   choices \"a\" \"b\"\n#USAGE }\n#USAGE arg \"[name]\"\necho $usage_out\n",
     )
     .unwrap();
     #[cfg(unix)]
@@ -1517,6 +1517,8 @@ POINT=10 run_case init-midword _usage_default_complete "ex --out=aX" 3 ex --out 
 # The cursor sits in the flag name, before an attached value: `--o|=a`.
 POINT=9 run_case bin-before-eq _mycli "mycli --o=a" 1 mycli --o = a
 POINT=6 run_case init-before-eq _usage_default_complete "ex --o=a" 1 ex --o = a
+# COMP_WORDS keeps a quoted word as typed, quotes and all, so the offsets still line up.
+POINT=21 run_case init-quoted _usage_default_complete 'ex "hi there" --out=aX' 4 ex '"hi there"' --out = aX
 "#,
         bin_dir = path_var_entry("bash", &bin_dir),
         usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
@@ -1550,6 +1552,7 @@ POINT=6 run_case init-before-eq _usage_default_complete "ex --o=a" 1 ex --o = a
         "[init-midword] <a>",
         "[bin-before-eq] <--out>",
         "[init-before-eq] <--out>",
+        "[init-quoted] <a>",
     ] {
         assert!(
             stdout.contains(expected),
