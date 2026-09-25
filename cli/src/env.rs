@@ -94,6 +94,12 @@ pub fn apply_parsed_env(cmd: &mut Command, env: &BTreeMap<String, String>) {
     for (key, val) in env {
         cmd.env(key, val);
     }
+    // `usage_cmd` is the subcommand path this parse chose, and absent when it chose none. A
+    // script run from another usage script would otherwise inherit the caller's path and
+    // dispatch on a subcommand nobody typed.
+    if !env.contains_key("usage_cmd") {
+        cmd.env_remove("usage_cmd");
+    }
     if env.is_empty() {
         return;
     }

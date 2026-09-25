@@ -142,11 +142,13 @@ Migrating
 ```
 
 An alias reaches the script as the name it stands for, so `case` needs no arm for it. At the top
-level, with no subcommand chosen, `usage_cmd` is unset.
+level, with no subcommand chosen, `usage_cmd` is unset. It is unset even when the script was
+run from another usage script that had one, so a nested script never dispatches on its caller's
+subcommand.
 
 A flag or argument that the spec itself names `cmd`, declared on the chosen subcommand or any
-command above it, keeps `usage_cmd` for its own value, and the path is not exported. This holds
-even when that flag or argument is left out.
+command above it (clauses included), keeps `usage_cmd` for its own value, and the path is not
+exported. This holds even when that flag or argument is left out.
 
 ## Shell escaping
 

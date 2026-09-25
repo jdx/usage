@@ -5426,13 +5426,20 @@ impl ParseOutput {
         // The subcommand path, canonical names joined by spaces (`db migrate`), so a script can
         // dispatch on it without re-reading argv. Unset at the root, where there is nothing to
         // dispatch on. `cmd` is also an ordinary argument name, so a flag or arg the spec
-        // declares under it anywhere on the path keeps the variable: a script reading
-        // `$usage_cmd` for its own `<cmd>` must never get the path instead, even when the arg
-        // was left out.
+        // declares under it anywhere on the path, clauses included, keeps the variable: a
+        // script reading `$usage_cmd` for its own `<cmd>` must never get the path instead,
+        // even when the arg was left out.
         let path = self.cmds.iter().skip(1).map(|c| c.name.as_str()).join(" ");
         let declared = |c: &SpecCommand| {
-            c.args.iter().any(|a| crate::case::snake(&a.name) == "cmd")
-                || c.flags.iter().any(|f| crate::case::snake(&f.name) == "cmd")
+            let clause = c.clause.as_ref();
+            c.args
+                .iter()
+                .chain(clause.into_iter().flat_map(|cl| &cl.args))
+                .any(|a| crate::case::snake(&a.name) == "cmd")
+                || c.flags
+                    .iter()
+                    .chain(clause.into_iter().flat_map(|cl| &cl.flags))
+                    .any(|f| crate::case::snake(&f.name) == "cmd")
         };
         if !path.is_empty() && !self.cmds.iter().any(declared) {
             env.entry("usage_cmd".to_string()).or_insert(path);
@@ -6489,6 +6496,22 @@ flag "--file <file>" required_unless="--stdin"
         let spec: Spec = r#"
             flag "--cmd <cmd>" global=#true
             cmd "run"
+            "#
+        .parse()
+        .unwrap();
+        let input = ["test", "run"].map(String::from);
+        assert!(!parse(&spec, &input)
+            .unwrap()
+            .as_env()
+            .contains_key("usage_cmd"));
+
+        // Declared inside a clause, and the clause left out.
+        let spec: Spec = r#"
+            cmd "run" {
+                clause "steps" separator=":::" {
+                    arg "[cmd]"
+                }
+            }
             "#
         .parse()
         .unwrap();
