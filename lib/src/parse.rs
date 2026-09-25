@@ -5423,6 +5423,20 @@ impl ParseOutput {
             let key = format!("usage_{}", crate::case::snake(&arg.name));
             env.insert(key, val.to_string());
         }
+        // The subcommand path, canonical names joined by spaces (`db migrate`), so a script can
+        // dispatch on it without re-reading argv. Unset at the root, where there is nothing to
+        // dispatch on. `cmd` is also an ordinary argument name, so a flag or arg the spec
+        // declares under it anywhere on the path keeps the variable: a script reading
+        // `$usage_cmd` for its own `<cmd>` must never get the path instead, even when the arg
+        // was left out.
+        let path = self.cmds.iter().skip(1).map(|c| c.name.as_str()).join(" ");
+        let declared = |c: &SpecCommand| {
+            c.args.iter().any(|a| crate::case::snake(&a.name) == "cmd")
+                || c.flags.iter().any(|f| crate::case::snake(&f.name) == "cmd")
+        };
+        if !path.is_empty() && !self.cmds.iter().any(declared) {
+            env.entry("usage_cmd".to_string()).or_insert(path);
+        }
         env
     }
 }
@@ -6414,6 +6428,75 @@ flag "--file <file>" required_unless="--stdin"
         assert_eq!(env.len(), 2);
         assert_eq!(env.get("usage_flag"), Some(&"true".to_string()));
         assert_eq!(env.get("usage_force"), Some(&"false".to_string()));
+    }
+
+    #[test]
+    fn as_env_names_the_subcommand_path() {
+        let spec: Spec = r#"
+            flag "-v --verbose"
+            cmd "db" {
+                cmd "migrate" {
+                    alias "m"
+                    arg "[target]"
+                }
+            }
+            "#
+        .parse()
+        .unwrap();
+        let env = |args: &[&str]| {
+            let input: Vec<String> = std::iter::once("test")
+                .chain(args.iter().copied())
+                .map(String::from)
+                .collect();
+            parse(&spec, &input).unwrap().as_env()
+        };
+
+        // The canonical name, not the alias that was typed.
+        let nested = env(&["db", "m", "v2"]);
+        assert_eq!(
+            nested.get("usage_cmd").map(String::as_str),
+            Some("db migrate")
+        );
+        assert_eq!(nested.get("usage_target").map(String::as_str), Some("v2"));
+        assert_eq!(
+            env(&["db"]).get("usage_cmd").map(String::as_str),
+            Some("db")
+        );
+        assert!(!env(&["-v"]).contains_key("usage_cmd"));
+    }
+
+    #[test]
+    fn as_env_leaves_usage_cmd_to_a_declared_cmd() {
+        // Declared on the chosen command, and supplied: the value is the arg's.
+        let spec: Spec = r#"
+            cmd "run" {
+                arg "[cmd]"
+            }
+            "#
+        .parse()
+        .unwrap();
+        let input = ["test", "run", "build"].map(String::from);
+        let env = parse(&spec, &input).unwrap().as_env();
+        assert_eq!(env.get("usage_cmd").map(String::as_str), Some("build"));
+        // Declared but left out: still the arg's, so unset rather than the path.
+        let input = ["test", "run"].map(String::from);
+        assert!(!parse(&spec, &input)
+            .unwrap()
+            .as_env()
+            .contains_key("usage_cmd"));
+
+        // Declared as a global flag on an ancestor.
+        let spec: Spec = r#"
+            flag "--cmd <cmd>" global=#true
+            cmd "run"
+            "#
+        .parse()
+        .unwrap();
+        let input = ["test", "run"].map(String::from);
+        assert!(!parse(&spec, &input)
+            .unwrap()
+            .as_env()
+            .contains_key("usage_cmd"));
     }
 
     #[test]

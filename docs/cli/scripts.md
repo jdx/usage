@@ -111,6 +111,43 @@ Option B is set
 Option C is set
 ```
 
+## Subcommands
+
+The subcommand that was chosen arrives as `usage_cmd`: its canonical name, with the names of
+nested subcommands joined by spaces, so a script can dispatch on it without reading argv
+itself:
+
+```bash
+#!/usr/bin/env -S usage bash
+#USAGE cmd "deploy" help="Deploy the app" {
+#USAGE   arg "<env>"
+#USAGE }
+#USAGE cmd "db" help="Manage the database" {
+#USAGE   cmd "migrate" help="Run migrations"
+#USAGE   cmd "seed" help="Load fixtures"
+#USAGE }
+
+case "$usage_cmd" in
+  deploy) echo "Deploying to $usage_env" ;;
+  "db migrate") echo "Migrating" ;;
+  "db seed") echo "Seeding" ;;
+esac
+```
+
+```console
+$ ./mycli deploy prod
+Deploying to prod
+$ ./mycli db migrate
+Migrating
+```
+
+An alias reaches the script as the name it stands for, so `case` needs no arm for it. At the top
+level, with no subcommand chosen, `usage_cmd` is unset.
+
+A flag or argument that the spec itself names `cmd`, declared on the chosen subcommand or any
+command above it, keeps `usage_cmd` for its own value, and the path is not exported. This holds
+even when that flag or argument is left out.
+
 ## Shell escaping
 
 ### `var=#true`
