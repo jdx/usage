@@ -1,5 +1,52 @@
 # Changelog
 
+## [6.12.0](https://github.com/jdx/usage/compare/v6.11.1..v6.12.0) - 2026-09-26
+
+### 🚀 Features
+
+- **(complete)** complete a wrapped command's arguments with its own shell completion via delegate= by [@jdx](https://github.com/jdx) in [#1498](https://github.com/jdx/usage/pull/1498)
+- **(lib)** add getters that read FlagMeta, CommandMeta and ArgMeta fields wherever they live by [@jdx](https://github.com/jdx) in [#1491](https://github.com/jdx/usage/pull/1491)
+- **(lib)** export the chosen subcommand to scripts as usage_cmd by [@jdx](https://github.com/jdx) in [#1505](https://github.com/jdx/usage/pull/1505)
+- **(spec)** let a complete node sit inside the arg it completes by [@jdx](https://github.com/jdx) in [#1496](https://github.com/jdx/usage/pull/1496)
+- **(spec)** list an arg's possible values from a command with `choices run=` by [@jdx](https://github.com/jdx) in [#1497](https://github.com/jdx/usage/pull/1497)
+
+### 🐛 Bug Fixes
+
+- **(bash)** complete `--flag=` values when the cursor sits after `=` by [@jdx](https://github.com/jdx) in [#1499](https://github.com/jdx/usage/pull/1499)
+- **(cli)** run scripts passed to usage bash through a pipe or process substitution by [@jdx](https://github.com/jdx) in [#1494](https://github.com/jdx/usage/pull/1494)
+- **(cli)** keep usage explain from running a spec's choices run= commands by [@jdx](https://github.com/jdx) in [#1503](https://github.com/jdx/usage/pull/1503)
+- **(complete)** read --line=LINE in completion requests from typed completers by [@jdx](https://github.com/jdx) in [#1487](https://github.com/jdx/usage/pull/1487)
+- **(complete)** show completion parse errors without garbling the prompt by [@jdx](https://github.com/jdx) in [#1495](https://github.com/jdx/usage/pull/1495)
+- **(derive)** ignore closed pipes instead of panicking in generated parse() by [@jdx](https://github.com/jdx) in [#1484](https://github.com/jdx/usage/pull/1484)
+- **(derive)** keep generated async dispatch from reserving stack for every command by [@jdx](https://github.com/jdx) in [#1488](https://github.com/jdx/usage/pull/1488)
+- **(fish)** complete words the user has started quoting by [@jdx](https://github.com/jdx) in [#1500](https://github.com/jdx/usage/pull/1500)
+- **(zsh)** stop the completion-init handler from breaking file completion for other commands by [@jdx](https://github.com/jdx) in [#1493](https://github.com/jdx/usage/pull/1493)
+
+### 📚 Documentation
+
+- **(cli)** describe fig output as the legacy Fig format by [@jdx](https://github.com/jdx) in [2a1bef6](https://github.com/jdx/usage/commit/2a1bef69da3d94e4dc21d27e485bf873b4f9c892)
+- clarify CLI frameworks and generators on the homepage by [@jdx](https://github.com/jdx) in [#1482](https://github.com/jdx/usage/pull/1482)
+
+### 🛡️ Security
+
+- remove Entire trail runners by [@jdx](https://github.com/jdx) in [#1485](https://github.com/jdx/usage/pull/1485)
+
+### 🔍 Other Changes
+
+- float jdx tools and aube on latest without a release-age delay by [@jdx](https://github.com/jdx) in [#1486](https://github.com/jdx/usage/pull/1486)
+- run cargo-semver-checks on every published crate by [@jdx](https://github.com/jdx) in [#1490](https://github.com/jdx/usage/pull/1490)
+- fail pull requests that grow the usage CLI or a derived CLI by more than 1% by [@jdx](https://github.com/jdx) in [#1492](https://github.com/jdx/usage/pull/1492)
+- make the binary-size check measure the pull request's own code by [@jdx](https://github.com/jdx) in [#1501](https://github.com/jdx/usage/pull/1501)
+
+### 📦️ Dependency Updates
+
+- bump jdx/renovate-config workflows to c736149 by [@jdx](https://github.com/jdx) in [06f2f1b](https://github.com/jdx/usage/commit/06f2f1bd62faab997d0b4517af2efd41e81a25d2)
+- bump jdx/renovate-config workflows to aa49efc by [@jdx](https://github.com/jdx) in [9aaedef](https://github.com/jdx/usage/commit/9aaedefb122133fae2ce17f0e038e312ca188840)
+- bump jdx/renovate-config workflows to 5b46432 by [@jdx](https://github.com/jdx) in [36f8681](https://github.com/jdx/usage/commit/36f86819390832a31bf9abd1a62c8d2003a303eb)
+- pin jdx/renovate-config workflows to v1.0.0 by [@jdx](https://github.com/jdx) in [a31ae2f](https://github.com/jdx/usage/commit/a31ae2f3a5055d535b87542e88fd66e3ee8aadfc)
+- update communique to 1.4.2 in mise.lock by [@jdx](https://github.com/jdx) in [805396f](https://github.com/jdx/usage/commit/805396f226c38973d2c14c38613cd411e5a4a110)
+- upgrade locked mise tools by [@jdx](https://github.com/jdx) in [d8b761d](https://github.com/jdx/usage/commit/d8b761d7ef7f4538a59ae1596bfeacd2852a86a9)
+
 ## [6.11.1](https://github.com/jdx/usage/compare/v6.11.0..v6.11.1) - 2026-09-23
 
 ### 🐛 Bug Fixes
