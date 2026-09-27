@@ -244,20 +244,19 @@ usage = { package = "usage-rs", version = "5" }
     }
 
     #[test]
-    fn keeps_target_dependency_declaration_order() {
+    fn keeps_dependency_declaration_order() {
         let manifest = parse(
             r#"
 [package]
 name = "app"
-[target.'cfg(windows)'.dependencies]
-windows_usage = { package = "usage-rs", version = "6" }
-[target.'cfg(unix)'.dependencies]
-unix_usage = { package = "usage-rs", version = "6" }
+[dependencies]
+z_usage = { package = "usage-rs", version = "6" }
+a_usage = { package = "usage-rs", version = "6" }
 "#,
         );
         assert_eq!(
             find_in_manifest(&manifest, "usage-rs"),
-            Ok(FoundCrate::Name("windows_usage".into()))
+            Ok(FoundCrate::Name("z_usage".into()))
         );
     }
 
