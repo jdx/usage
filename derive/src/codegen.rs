@@ -82,8 +82,8 @@ fn validated_value(cli: &Cli, built: &TokenStream) -> TokenStream {
 /// the runtime as `usage::argv`, keeping derives, tables, and their versions behind one
 /// dependency.
 ///
-/// Resolved by reading the adopter's `Cargo.toml` directly rather than via `proc-macro-crate`,
-/// so the derive does not drag `toml_edit` into every compile.
+/// Resolved by parsing the adopter's `Cargo.toml` directly rather than via
+/// `proc-macro-crate`, so the derive does not need an editing-oriented TOML parser.
 fn runtime_path() -> TokenStream {
     match crate_name("usage-argv") {
         Ok(FoundCrate::Name(name)) => {

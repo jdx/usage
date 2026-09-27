@@ -1,8 +1,6 @@
 //! Case conversion for `rename_all`, in the shapes clap's derive produces.
 //!
-//! Replaces `heck`, so the only third-party crates an adopter compiles for the derive are
-//! `proc-macro2`, `quote` and `syn` — the ones a proc macro cannot do without. Same reasoning
-//! as `crate_name.rs`, which replaced `proc-macro-crate`.
+//! Replaces `heck` so the derive need not compile it solely for case conversion.
 //!
 //! usage's `rename_all` vocabulary is a clone of `clap_derive`'s, and `clap_derive` uses heck.
 //! So this reproduces heck 0.5's word boundaries rather than something merely reasonable: a
