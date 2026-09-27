@@ -84,11 +84,8 @@ fn find_in_manifest(text: &str, package: &str) -> Result<FoundCrate, ()> {
 
         if open.is_some() {
             // The body of a `{ … }` dependency, possibly ending on this line. Read a `package`
-            // field from the part before any `}`, then close the table when the `}` arrives.
-            let (fields, closed) = match line.split_once('}') {
-                Some((before, _)) => (before, true),
-                None => (line, false),
-            };
+            // field before an unquoted `}`, then close the table at that brace.
+            let (fields, closed) = split_on_table_close(line);
             if let Some(pkg) = package_from_fields(fields) {
                 if let Some(t) = open.as_mut() {
                     t.package = Some(pkg);
@@ -272,9 +269,10 @@ fn workspace_dependency_resolves(text: &str, key: &str, package: &str) -> bool {
             continue;
         }
         if let Some(table) = open.as_mut() {
-            let (fields, closed) = match line.split_once('}') {
-                Some((before, _)) if inline_open => (before, true),
-                _ => (line, false),
+            let (fields, closed) = if inline_open {
+                split_on_table_close(line)
+            } else {
+                (line, false)
             };
             if let Some(pkg) = package_from_fields(fields) {
                 table.package = Some(pkg);
@@ -353,6 +351,28 @@ fn package_from_fields(body: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// Split at an inline table's closing brace, ignoring braces in quoted values.
+fn split_on_table_close(line: &str) -> (&str, bool) {
+    let mut quote = None;
+    let mut escaped = false;
+    for (index, ch) in line.char_indices() {
+        if let Some(delimiter) = quote {
+            if escaped {
+                escaped = false;
+            } else if delimiter == '"' && ch == '\\' {
+                escaped = true;
+            } else if ch == delimiter {
+                quote = None;
+            }
+        } else if ch == '"' || ch == '\'' {
+            quote = Some(ch);
+        } else if ch == '}' {
+            return (&line[..index], true);
+        }
+    }
+    (line, false)
 }
 
 fn inline_table_package(table: &str) -> Option<String> {
@@ -509,6 +529,23 @@ usage = {
     }
 
     #[test]
+    fn finds_multiline_rename_with_brace_in_quoted_field() {
+        let manifest = r#"
+[package]
+name = "app"
+[dependencies]
+usage = {
+    path = "vendor/}foo",
+    package = "usage-rs",
+}
+"#;
+        assert_eq!(
+            find_in_manifest(manifest, "usage-rs").unwrap(),
+            FoundCrate::Name("usage".into())
+        );
+    }
+
+    #[test]
     fn finds_package_on_the_opening_brace_line() {
         let manifest = r#"
 [package]
@@ -642,6 +679,20 @@ other = "1"
         ));
         assert!(!workspace_dependency_resolves(
             workspace, "other", "usage-rs"
+        ));
+    }
+
+    #[test]
+    fn ignores_brace_in_quoted_workspace_dependency_value() {
+        let workspace = r#"
+[workspace.dependencies]
+usage = {
+    path = "vendor/}foo",
+    package = "usage-rs",
+}
+"#;
+        assert!(workspace_dependency_resolves(
+            workspace, "usage", "usage-rs"
         ));
     }
 
