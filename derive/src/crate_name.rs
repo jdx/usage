@@ -1,13 +1,11 @@
 //! Resolve how the adopter depended on usage's runtime and derive crates.
 //!
-//! Replaces `proc-macro-crate` so the derive does not pull `toml_edit` and friends into
-//! every adopter's compile. Only the dependency forms usage actually documents are
-//! recognised: a bare key, a `{ package = "…", … }` rename, a multi-line `{ … }` table,
-//! a `[dependencies.foo]` header, and workspace inheritance. That covers the facade alias,
-//! direct `usage-argv` / `usage-derive`, and the external fixtures.
+//! Cargo manifests are TOML; parse them rather than approximating the syntax so quoted values,
+//! comments, inline tables, and dotted keys follow TOML rules.
 
 use std::fs;
 use std::path::PathBuf;
+use toml::{Table, Value};
 
 /// How the searched package appears in the adopter's crate graph.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,20 +18,22 @@ pub enum FoundCrate {
 
 /// Look up `package` in the crate currently being compiled.
 pub fn crate_name(package: &str) -> Result<FoundCrate, ()> {
-    let dir = std::env::var_os("CARGO_MANIFEST_DIR").ok_or(())?;
-    let dir = PathBuf::from(dir);
-    let manifest = dir.join("Cargo.toml");
-    let text = fs::read_to_string(manifest).map_err(|_| ())?;
-    if let Ok(found) = find_in_manifest(&text, package) {
+    let dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").ok_or(())?);
+    let text = fs::read_to_string(dir.join("Cargo.toml")).map_err(|_| ())?;
+    let manifest = text.parse::<Table>().map_err(|_| ())?;
+    if let Ok(found) = find_in_manifest(&manifest, package) {
         return Ok(found);
     }
 
-    let inherited = workspace_dependency_keys(&text);
+    let inherited = workspace_dependency_keys(&manifest);
     if inherited.is_empty() {
         return Err(());
     }
     for ancestor in dir.ancestors() {
-        let Ok(workspace) = fs::read_to_string(ancestor.join("Cargo.toml")) else {
+        let Ok(text) = fs::read_to_string(ancestor.join("Cargo.toml")) else {
+            continue;
+        };
+        let Ok(workspace) = text.parse::<Table>() else {
             continue;
         };
         for key in &inherited {
@@ -45,575 +45,215 @@ pub fn crate_name(package: &str) -> Result<FoundCrate, ()> {
     Err(())
 }
 
-fn find_in_manifest(text: &str, package: &str) -> Result<FoundCrate, ()> {
-    let pkg_name = package_name(text).ok_or(())?;
+fn find_in_manifest(manifest: &Table, package: &str) -> Result<FoundCrate, ()> {
+    let pkg_name = manifest
+        .get("package")
+        .and_then(Value::as_table)
+        .and_then(|table| table.get("name"))
+        .and_then(Value::as_str)
+        .ok_or(())?;
     if pkg_name == package {
         return Ok(FoundCrate::Itself);
     }
 
-    let mut in_dependencies = false;
-    // Open multi-line dependency table: key is the rustc rename, package field may follow.
-    let mut open: Option<OpenTable> = None;
-
-    for raw in text.lines() {
-        let line = strip_comment(raw).trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        if let Some(header) = section_header(line) {
-            if let Some(found) = finish_open(&mut open, package) {
-                return Ok(found);
+    for dependencies in dependency_tables(manifest) {
+        for (key, value) in dependencies {
+            if resolved_package(key, value) == package {
+                return Ok(FoundCrate::Name(key.replace('-', "_")));
             }
-            if let Some(key) = dependency_table_key(header) {
-                // `[dependencies.usage-argv]` or `[dependencies.usage]` — body may set package.
-                in_dependencies = true;
-                open = Some(OpenTable {
-                    key: key.to_string(),
-                    package: None,
-                });
-                continue;
-            }
-            in_dependencies = is_dependencies_section(header);
-            continue;
         }
+    }
+    Err(())
+}
 
-        if !in_dependencies {
-            continue;
+fn dependency_tables(manifest: &Table) -> Vec<&Table> {
+    let mut tables = Vec::new();
+    for name in ["dependencies", "dev-dependencies", "build-dependencies"] {
+        if let Some(table) = manifest.get(name).and_then(Value::as_table) {
+            tables.push(table);
         }
-
-        if open.is_some() {
-            // The body of a `{ … }` dependency, possibly ending on this line. Read a `package`
-            // field before an unquoted `}`, then close the table at that brace.
-            let (fields, closed) = split_on_table_close(line);
-            if let Some(pkg) = package_from_fields(fields) {
-                if let Some(t) = open.as_mut() {
-                    t.package = Some(pkg);
+    }
+    if let Some(targets) = manifest.get("target").and_then(Value::as_table) {
+        for target in targets.values().filter_map(Value::as_table) {
+            for name in ["dependencies", "dev-dependencies", "build-dependencies"] {
+                if let Some(table) = target.get(name).and_then(Value::as_table) {
+                    tables.push(table);
                 }
             }
-            if closed {
-                if let Some(found) = finish_open(&mut open, package) {
-                    return Ok(found);
-                }
-            }
-            continue;
-        }
-
-        if let Some((key, value)) = inline_dependency(line) {
-            if let Some(found) = match_dep(&key, value.as_deref(), package) {
-                return Ok(found);
-            }
-            continue;
-        }
-
-        if let Some((key, package)) = multiline_table_start(line) {
-            open = Some(OpenTable { key, package });
         }
     }
-
-    finish_open(&mut open, package).ok_or(())
+    tables
 }
 
-struct OpenTable {
-    key: String,
-    package: Option<String>,
+fn resolved_package<'a>(key: &'a str, value: &'a Value) -> &'a str {
+    value
+        .as_table()
+        .and_then(|table| table.get("package"))
+        .and_then(Value::as_str)
+        .unwrap_or(key)
 }
 
-fn finish_open(open: &mut Option<OpenTable>, wanted: &str) -> Option<FoundCrate> {
-    let table = open.take()?;
-    match_dep(&table.key, table.package.as_deref(), wanted)
+fn workspace_dependency_keys(manifest: &Table) -> Vec<String> {
+    dependency_tables(manifest)
+        .into_iter()
+        .flat_map(|table| table.iter())
+        .filter(|(_, value)| {
+            value
+                .as_table()
+                .and_then(|table| table.get("workspace"))
+                .and_then(Value::as_bool)
+                == Some(true)
+        })
+        .map(|(key, _)| key.clone())
+        .collect()
 }
 
-fn match_dep(key: &str, package_field: Option<&str>, wanted: &str) -> Option<FoundCrate> {
-    let resolved = package_field.unwrap_or(key);
-    if resolved != wanted {
-        return None;
-    }
-    Some(FoundCrate::Name(key.replace('-', "_")))
-}
-
-fn package_name(text: &str) -> Option<String> {
-    let mut in_package = false;
-    for raw in text.lines() {
-        let line = strip_comment(raw).trim();
-        if line.is_empty() {
-            continue;
-        }
-        if let Some(header) = section_header(line) {
-            in_package = header == "package";
-            continue;
-        }
-        if in_package {
-            if let Some(name) = string_assignment(line, "name") {
-                return Some(name);
-            }
-        }
-    }
-    None
-}
-
-fn section_header(line: &str) -> Option<&str> {
-    let line = line.trim();
-    if !line.starts_with('[') || !line.ends_with(']') {
-        return None;
-    }
-    Some(line[1..line.len() - 1].trim())
-}
-
-fn is_dependencies_section(header: &str) -> bool {
-    matches!(
-        header,
-        "dependencies" | "dev-dependencies" | "build-dependencies"
-    ) || header.starts_with("target.")
-        && (header.ends_with(".dependencies")
-            || header.ends_with(".dev-dependencies")
-            || header.ends_with(".build-dependencies"))
-}
-
-fn dependency_table_key(header: &str) -> Option<&str> {
-    for prefix in ["dependencies.", "dev-dependencies.", "build-dependencies."] {
-        if let Some(key) = header.strip_prefix(prefix) {
-            if is_ident_key(key) {
-                return Some(key);
-            }
-        }
-    }
-    None
-}
-
-fn workspace_dependency_table_key(header: &str) -> Option<&str> {
-    header
-        .strip_prefix("workspace.dependencies.")
-        .filter(|key| is_ident_key(key))
-}
-
-fn workspace_dependency_keys(text: &str) -> Vec<String> {
-    let mut keys = Vec::new();
-    let mut in_dependencies = false;
-    let mut table: Option<(String, bool)> = None;
-
-    for raw in text.lines() {
-        let line = strip_comment(raw).trim();
-        if line.is_empty() {
-            continue;
-        }
-        if let Some(header) = section_header(line) {
-            if let Some((key, true)) = table.take() {
-                keys.push(key);
-            }
-            if let Some(key) = dependency_table_key(header) {
-                in_dependencies = true;
-                table = Some((key.to_string(), false));
-            } else {
-                in_dependencies = is_dependencies_section(header);
-            }
-            continue;
-        }
-        if !in_dependencies {
-            continue;
-        }
-        if let Some((_, inherited)) = table.as_mut() {
-            if bool_assignment(line, "workspace") == Some(true) {
-                *inherited = true;
-            }
-            continue;
-        }
-        let Some((key, value)) = split_assignment(line) else {
-            continue;
-        };
-        if let Some(key) = key.strip_suffix(".workspace") {
-            if is_ident_key(key) && parse_bool(value) == Some(true) {
-                keys.push(key.to_string());
-            }
-        } else if is_ident_key(key) && inline_table_bool(value, "workspace") == Some(true) {
-            keys.push(key.to_string());
-        }
-    }
-    if let Some((key, true)) = table {
-        keys.push(key);
-    }
-    keys
-}
-
-fn workspace_dependency_resolves(text: &str, key: &str, package: &str) -> bool {
-    let mut in_dependencies = false;
-    let mut open: Option<OpenTable> = None;
-    let mut inline_open = false;
-
-    for raw in text.lines() {
-        let line = strip_comment(raw).trim();
-        if line.is_empty() {
-            continue;
-        }
-        if let Some(header) = section_header(line) {
-            inline_open = false;
-            if let Some(table) = open.take() {
-                if table.key == key
-                    && match_dep(&table.key, table.package.as_deref(), package).is_some()
-                {
-                    return true;
-                }
-            }
-            if let Some(table_key) = workspace_dependency_table_key(header) {
-                in_dependencies = true;
-                open = Some(OpenTable {
-                    key: table_key.to_string(),
-                    package: None,
-                });
-            } else {
-                in_dependencies = header == "workspace.dependencies";
-            }
-            continue;
-        }
-        if !in_dependencies {
-            continue;
-        }
-        if let Some(table) = open.as_mut() {
-            let (fields, closed) = if inline_open {
-                split_on_table_close(line)
-            } else {
-                (line, false)
-            };
-            if let Some(pkg) = package_from_fields(fields) {
-                table.package = Some(pkg);
-            }
-            if closed {
-                let table = open.take().unwrap();
-                inline_open = false;
-                if table.key == key
-                    && match_dep(&table.key, table.package.as_deref(), package).is_some()
-                {
-                    return true;
-                }
-            }
-            continue;
-        }
-        if let Some((candidate, value)) = inline_dependency(line) {
-            if candidate == key && match_dep(&candidate, value.as_deref(), package).is_some() {
-                return true;
-            }
-            continue;
-        }
-        if let Some((candidate, package_field)) = multiline_table_start(line) {
-            open = Some(OpenTable {
-                key: candidate,
-                package: package_field,
-            });
-            inline_open = true;
-        }
-    }
-
-    open.is_some_and(|table| {
-        table.key == key && match_dep(&table.key, table.package.as_deref(), package).is_some()
-    })
-}
-
-fn inline_dependency(line: &str) -> Option<(String, Option<String>)> {
-    let (key, rest) = split_assignment(line)?;
-    if !is_ident_key(key) {
-        return None;
-    }
-    let rest = rest.trim();
-    if rest.starts_with('{') && rest.contains('}') {
-        let package = inline_table_package(rest);
-        return Some((key.to_string(), package));
-    }
-    if is_string_literal(rest) || rest.chars().all(|c| c.is_ascii_digit() || c == '.') {
-        return Some((key.to_string(), None));
-    }
-    None
-}
-
-fn multiline_table_start(line: &str) -> Option<(String, Option<String>)> {
-    let (key, rest) = split_assignment(line)?;
-    if !is_ident_key(key) {
-        return None;
-    }
-    let rest = rest.trim();
-    if rest == "{" || (rest.starts_with('{') && !rest.contains('}')) {
-        // Fields may already sit on the opening line, e.g. `usage = { package = "usage-rs",`.
-        let body = rest.strip_prefix('{').unwrap_or(rest);
-        let package = package_from_fields(body);
-        return Some((key.to_string(), package));
-    }
-    None
-}
-
-/// Find `package = "…"` among comma-separated `key = value` fields, tolerating a trailing comma.
-fn package_from_fields(body: &str) -> Option<String> {
-    for part in body.split(',') {
-        let part = part.trim();
-        if part.is_empty() {
-            continue;
-        }
-        if let Some(pkg) = string_assignment(part, "package") {
-            return Some(pkg);
-        }
-    }
-    None
-}
-
-/// Split at an inline table's closing brace, ignoring braces in quoted values.
-fn split_on_table_close(line: &str) -> (&str, bool) {
-    let mut quote = None;
-    let mut escaped = false;
-    for (index, ch) in line.char_indices() {
-        if let Some(delimiter) = quote {
-            if escaped {
-                escaped = false;
-            } else if delimiter == '"' && ch == '\\' {
-                escaped = true;
-            } else if ch == delimiter {
-                quote = None;
-            }
-        } else if ch == '"' || ch == '\'' {
-            quote = Some(ch);
-        } else if ch == '}' {
-            return (&line[..index], true);
-        }
-    }
-    (line, false)
-}
-
-fn inline_table_package(table: &str) -> Option<String> {
-    let mut body = table.trim();
-    body = body.strip_prefix('{')?.trim();
-    body = body.strip_suffix('}')?.trim();
-    package_from_fields(body)
-}
-
-fn string_assignment(line: &str, field: &str) -> Option<String> {
-    let (key, rest) = split_assignment(line)?;
-    if key != field {
-        return None;
-    }
-    parse_string(rest.trim())
-}
-
-fn split_assignment(line: &str) -> Option<(&str, &str)> {
-    let eq = line.find('=')?;
-    let key = line[..eq].trim();
-    let rest = line[eq + 1..].trim();
-    Some((key, rest))
-}
-
-fn parse_string(value: &str) -> Option<String> {
-    // A field inside an inline table carries its separator: `package = "usage-rs",`. Drop a
-    // single trailing comma before matching the quotes.
-    let value = value.trim().trim_end_matches(',').trim();
-    if let Some(v) = value.strip_prefix('"').and_then(|v| v.strip_suffix('"')) {
-        return Some(v.to_string());
-    }
-    if let Some(v) = value.strip_prefix('\'').and_then(|v| v.strip_suffix('\'')) {
-        return Some(v.to_string());
-    }
-    None
-}
-
-fn is_string_literal(value: &str) -> bool {
-    parse_string(value).is_some()
-}
-
-fn bool_assignment(line: &str, field: &str) -> Option<bool> {
-    let (key, value) = split_assignment(line)?;
-    (key == field).then(|| parse_bool(value)).flatten()
-}
-
-fn inline_table_bool(table: &str, field: &str) -> Option<bool> {
-    let mut body = table.trim().strip_prefix('{')?.trim();
-    body = body.strip_suffix('}')?.trim();
-    body.split(',')
-        .find_map(|part| bool_assignment(part.trim(), field))
-}
-
-fn parse_bool(value: &str) -> Option<bool> {
-    match value.trim().trim_end_matches(',').trim() {
-        "true" => Some(true),
-        "false" => Some(false),
-        _ => None,
-    }
-}
-
-fn is_ident_key(key: &str) -> bool {
-    !key.is_empty()
-        && key
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-}
-
-fn strip_comment(line: &str) -> &str {
-    // Dependency lines usage writes never put `#` inside a string; keep this dumb on purpose.
-    line.split('#').next().unwrap_or(line)
+fn workspace_dependency_resolves(workspace: &Table, key: &str, package: &str) -> bool {
+    workspace
+        .get("workspace")
+        .and_then(Value::as_table)
+        .and_then(|table| table.get("dependencies"))
+        .and_then(Value::as_table)
+        .and_then(|table| table.get(key))
+        .is_some_and(|value| resolved_package(key, value) == package)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn parse(text: &str) -> Table {
+        text.parse().unwrap()
+    }
+
     #[test]
     fn finds_a_renamed_facade() {
-        let manifest = r#"
+        let manifest = parse(
+            r#"
 [package]
 name = "app"
-
 [dependencies]
 usage = { package = "usage-rs", version = "5" }
-"#;
+"#,
+        );
         assert_eq!(
-            find_in_manifest(manifest, "usage-rs").unwrap(),
-            FoundCrate::Name("usage".into())
+            find_in_manifest(&manifest, "usage-rs"),
+            Ok(FoundCrate::Name("usage".into()))
         );
     }
 
     #[test]
     fn finds_direct_argv() {
-        let manifest = r#"
+        let manifest = parse(
+            r#"
 [package]
 name = "app"
 [dependencies]
 usage-argv = { path = "../argv", features = ["spec"] }
-"#;
+"#,
+        );
         assert_eq!(
-            find_in_manifest(manifest, "usage-argv").unwrap(),
-            FoundCrate::Name("usage_argv".into())
+            find_in_manifest(&manifest, "usage-argv"),
+            Ok(FoundCrate::Name("usage_argv".into()))
         );
     }
 
     #[test]
     fn itself_when_expanding_inside_the_package() {
-        let manifest = r#"
+        let manifest = parse(
+            r#"
 [package]
 name = "usage-rs"
 [dependencies]
 usage-argv = { path = "../argv" }
-"#;
+"#,
+        );
         assert_eq!(
-            find_in_manifest(manifest, "usage-rs").unwrap(),
-            FoundCrate::Itself
+            find_in_manifest(&manifest, "usage-rs"),
+            Ok(FoundCrate::Itself)
         );
     }
 
     #[test]
-    fn finds_multiline_rename() {
-        let manifest = r#"
-[package]
-name = "app"
-[dependencies]
-usage = {
-  package = "usage-rs"
-  version = "5"
-}
-"#;
-        assert_eq!(
-            find_in_manifest(manifest, "usage-rs").unwrap(),
-            FoundCrate::Name("usage".into())
-        );
-    }
-
-    #[test]
-    fn finds_multiline_rename_with_trailing_commas() {
-        // Cargo's TOML 1.1 multi-line inline table: each field carries a trailing comma.
-        let manifest = r#"
-[package]
-name = "app"
-[dependencies]
-usage = {
-    package = "usage-rs",
-    version = "5",
-}
-"#;
-        assert_eq!(
-            find_in_manifest(manifest, "usage-rs").unwrap(),
-            FoundCrate::Name("usage".into())
-        );
-    }
-
-    #[test]
-    fn finds_multiline_rename_with_brace_in_quoted_field() {
-        let manifest = r#"
+    fn finds_multiline_rename_with_quoted_brace() {
+        let manifest = parse(
+            r#"
 [package]
 name = "app"
 [dependencies]
 usage = {
     path = "vendor/}foo",
     package = "usage-rs",
+    version = "5",
 }
-"#;
-        assert_eq!(
-            find_in_manifest(manifest, "usage-rs").unwrap(),
-            FoundCrate::Name("usage".into())
+"#,
         );
-    }
-
-    #[test]
-    fn finds_package_on_the_opening_brace_line() {
-        let manifest = r#"
-[package]
-name = "app"
-[dependencies]
-usage = { package = "usage-rs",
-          version = "5" }
-"#;
         assert_eq!(
-            find_in_manifest(manifest, "usage-rs").unwrap(),
-            FoundCrate::Name("usage".into())
-        );
-    }
-
-    #[test]
-    fn finds_package_sharing_the_closing_brace_line() {
-        let manifest = r#"
-[package]
-name = "app"
-[dependencies]
-usage = {
-  version = "5",
-  package = "usage-rs" }
-"#;
-        assert_eq!(
-            find_in_manifest(manifest, "usage-rs").unwrap(),
-            FoundCrate::Name("usage".into())
+            find_in_manifest(&manifest, "usage-rs"),
+            Ok(FoundCrate::Name("usage".into()))
         );
     }
 
     #[test]
     fn finds_named_dependency_table() {
-        let manifest = r#"
+        let manifest = parse(
+            r#"
 [package]
 name = "app"
 [dependencies.usage-argv]
 path = "../argv"
-"#;
+"#,
+        );
         assert_eq!(
-            find_in_manifest(manifest, "usage-argv").unwrap(),
-            FoundCrate::Name("usage_argv".into())
+            find_in_manifest(&manifest, "usage-argv"),
+            Ok(FoundCrate::Name("usage_argv".into()))
         );
     }
 
     #[test]
     fn finds_renamed_named_dependency_table() {
-        let manifest = r#"
+        let manifest = parse(
+            r#"
 [package]
 name = "app"
 [dependencies.usage]
 package = "usage-rs"
 version = "5"
-"#;
+"#,
+        );
         assert_eq!(
-            find_in_manifest(manifest, "usage-rs").unwrap(),
-            FoundCrate::Name("usage".into())
+            find_in_manifest(&manifest, "usage-rs"),
+            Ok(FoundCrate::Name("usage".into()))
+        );
+    }
+
+    #[test]
+    fn finds_target_specific_dependency() {
+        let manifest = parse(
+            r#"
+[package]
+name = "app"
+[target.'cfg(unix)'.dependencies]
+usage = { package = "usage-rs", version = "5" }
+"#,
+        );
+        assert_eq!(
+            find_in_manifest(&manifest, "usage-rs"),
+            Ok(FoundCrate::Name("usage".into()))
         );
     }
 
     #[test]
     fn prefers_nothing_when_absent() {
-        let manifest = r#"
+        let manifest = parse(
+            r#"
 [package]
 name = "app"
 [dependencies]
 serde = "1"
-"#;
-        assert!(find_in_manifest(manifest, "usage-rs").is_err());
+"#,
+        );
+        assert!(find_in_manifest(&manifest, "usage-rs").is_err());
     }
 
     #[test]
@@ -638,75 +278,66 @@ name = "app"
 workspace = true
 "#,
         ] {
-            assert_eq!(workspace_dependency_keys(member), ["usage"]);
+            assert_eq!(workspace_dependency_keys(&parse(member)), ["usage"]);
         }
 
-        let workspace = r#"
+        let workspace = parse(
+            r#"
 [workspace]
 [workspace.dependencies]
 usage = { package = "usage-rs", version = "5" }
-"#;
+"#,
+        );
         assert!(workspace_dependency_resolves(
-            workspace, "usage", "usage-rs"
+            &workspace, "usage", "usage-rs"
         ));
     }
 
     #[test]
     fn finds_workspace_dependency_after_multiline_inline_table() {
-        let workspace = r#"
+        let workspace = parse(
+            r#"
 [workspace.dependencies]
 some-crate = {
     path = "some-crate",
 }
 usage = { package = "usage-rs", version = "6" }
-"#;
+"#,
+        );
         assert!(workspace_dependency_resolves(
-            workspace, "usage", "usage-rs"
-        ));
-    }
-
-    #[test]
-    fn finds_workspace_dependency_with_package_on_closing_line() {
-        let workspace = r#"
-[workspace.dependencies]
-usage = {
-    version = "6",
-    package = "usage-rs" }
-other = "1"
-"#;
-        assert!(workspace_dependency_resolves(
-            workspace, "usage", "usage-rs"
-        ));
-        assert!(!workspace_dependency_resolves(
-            workspace, "other", "usage-rs"
-        ));
-    }
-
-    #[test]
-    fn ignores_brace_in_quoted_workspace_dependency_value() {
-        let workspace = r#"
-[workspace.dependencies]
-usage = {
-    path = "vendor/}foo",
-    package = "usage-rs",
-}
-"#;
-        assert!(workspace_dependency_resolves(
-            workspace, "usage", "usage-rs"
+            &workspace, "usage", "usage-rs"
         ));
     }
 
     #[test]
     fn finds_workspace_dependency_in_named_table() {
-        let workspace = r#"
+        let workspace = parse(
+            r#"
 [workspace.dependencies.usage]
 version = "6"
 package = "usage-rs"
 [workspace.dependencies.other]
 version = "1"
-"#;
+"#,
+        );
         assert!(workspace_dependency_resolves(
-            workspace, "usage", "usage-rs"
+            &workspace, "usage", "usage-rs"
+        ));
+    }
+
+    #[test]
+    fn ignores_braces_and_comments_in_quoted_values() {
+        let workspace = parse(
+            r#"
+[workspace.dependencies]
+other = {
+    path = 'vendor/}#foo',
+}
+usage = { package = "usage-rs", version = "6" }
+"#,
+        );
+        assert!(workspace_dependency_resolves(
+            &workspace, "usage", "usage-rs"
         ));
     }
 }
