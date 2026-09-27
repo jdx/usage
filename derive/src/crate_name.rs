@@ -261,6 +261,25 @@ a_usage = { package = "usage-rs", version = "6" }
     }
 
     #[test]
+    fn keeps_target_table_declaration_order() {
+        let manifest = parse(
+            r#"
+[package]
+name = "app"
+[target.'cfg(windows)'.dependencies]
+windows_usage = { package = "usage-rs", version = "6" }
+[target.'cfg(unix)'.dependencies]
+unix_usage = { package = "usage-rs", version = "6" }
+"#,
+        );
+        let keys: Vec<_> = dependency_tables(&manifest)
+            .into_iter()
+            .flat_map(|table| table.keys().map(String::as_str))
+            .collect();
+        assert_eq!(keys, ["windows_usage", "unix_usage"]);
+    }
+
+    #[test]
     fn prefers_nothing_when_absent() {
         let manifest = parse(
             r#"
