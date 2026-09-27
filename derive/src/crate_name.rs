@@ -241,6 +241,7 @@ fn workspace_dependency_keys(text: &str) -> Vec<String> {
 fn workspace_dependency_resolves(text: &str, key: &str, package: &str) -> bool {
     let mut in_dependencies = false;
     let mut open: Option<OpenTable> = None;
+    let mut inline_open = false;
 
     for raw in text.lines() {
         let line = strip_comment(raw).trim();
@@ -248,6 +249,7 @@ fn workspace_dependency_resolves(text: &str, key: &str, package: &str) -> bool {
             continue;
         }
         if let Some(header) = section_header(line) {
+            inline_open = false;
             if let Some(table) = open.take() {
                 if table.key == key
                     && match_dep(&table.key, table.package.as_deref(), package).is_some()
@@ -270,8 +272,21 @@ fn workspace_dependency_resolves(text: &str, key: &str, package: &str) -> bool {
             continue;
         }
         if let Some(table) = open.as_mut() {
-            if let Some(pkg) = string_assignment(line, "package") {
+            let (fields, closed) = match line.split_once('}') {
+                Some((before, _)) if inline_open => (before, true),
+                _ => (line, false),
+            };
+            if let Some(pkg) = package_from_fields(fields) {
                 table.package = Some(pkg);
+            }
+            if closed {
+                let table = open.take().unwrap();
+                inline_open = false;
+                if table.key == key
+                    && match_dep(&table.key, table.package.as_deref(), package).is_some()
+                {
+                    return true;
+                }
             }
             continue;
         }
@@ -286,6 +301,7 @@ fn workspace_dependency_resolves(text: &str, key: &str, package: &str) -> bool {
                 key: candidate,
                 package: package_field,
             });
+            inline_open = true;
         }
     }
 
@@ -592,6 +608,51 @@ workspace = true
 [workspace]
 [workspace.dependencies]
 usage = { package = "usage-rs", version = "5" }
+"#;
+        assert!(workspace_dependency_resolves(
+            workspace, "usage", "usage-rs"
+        ));
+    }
+
+    #[test]
+    fn finds_workspace_dependency_after_multiline_inline_table() {
+        let workspace = r#"
+[workspace.dependencies]
+some-crate = {
+    path = "some-crate",
+}
+usage = { package = "usage-rs", version = "6" }
+"#;
+        assert!(workspace_dependency_resolves(
+            workspace, "usage", "usage-rs"
+        ));
+    }
+
+    #[test]
+    fn finds_workspace_dependency_with_package_on_closing_line() {
+        let workspace = r#"
+[workspace.dependencies]
+usage = {
+    version = "6",
+    package = "usage-rs" }
+other = "1"
+"#;
+        assert!(workspace_dependency_resolves(
+            workspace, "usage", "usage-rs"
+        ));
+        assert!(!workspace_dependency_resolves(
+            workspace, "other", "usage-rs"
+        ));
+    }
+
+    #[test]
+    fn finds_workspace_dependency_in_named_table() {
+        let workspace = r#"
+[workspace.dependencies.usage]
+version = "6"
+package = "usage-rs"
+[workspace.dependencies.other]
+version = "1"
 "#;
         assert!(workspace_dependency_resolves(
             workspace, "usage", "usage-rs"
