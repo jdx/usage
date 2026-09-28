@@ -59,8 +59,11 @@ fi
 
 Usage exports parsed values as `usage_<name>` environment variables. Boolean
 values are strings such as `true`; quote values when passing them to the shell.
-`usage_cmd` contains the canonical subcommand path for dispatch. For other
-interpreters, use a shebang such as `#!/usr/bin/env -S usage exec node` and the
+When a subcommand is selected, `usage_cmd` contains its canonical path for
+dispatch; it is unset at the root. A flag or argument named `cmd` on that
+command or an ancestor reserves `usage_cmd` for its own value, even when the
+flag or argument is omitted. For other interpreters, use a shebang such as
+`#!/usr/bin/env -S usage exec node` and the
 language's comment prefix (`//USAGE` for JavaScript). A sibling
 `.<script>.usage.kdl` takes precedence over embedded comments.
 
