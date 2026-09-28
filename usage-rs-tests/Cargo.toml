@@ -2,7 +2,7 @@
 name = "usage-rs-workspace-tests"
 description = "Workspace-only integration tests for the usage Rust facade"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 publish = false
 homepage = { workspace = true }
 documentation = { workspace = true }
