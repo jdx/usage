@@ -1,0 +1,25 @@
+[package]
+name = "usage-rs-workspace-tests"
+description = "Workspace-only integration tests for the usage Rust facade"
+version = "0.0.0"
+edition = "2021"
+publish = false
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# These tests compare against usage-lib and launch nested fixture projects.
+# Neither is available in the published usage-rs crate. Keep them in the
+# workspace test suite so the published library can be tested independently.
+[dev-dependencies]
+usage-argv = { workspace = true, features = ["spec"] }
+usage-rs = { workspace = true }
+usage-parser = { package = "usage-lib", path = "../lib", features = ["docs"] }
+serde = { version = "1", features = ["derive"] }
+
+[features]
+default = ["spec", "completions"]
+spec = ["usage-rs/spec"]
+completions = ["usage-rs/completions"]
