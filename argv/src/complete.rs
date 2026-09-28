@@ -2369,7 +2369,7 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
     // escaped character was never noticed, and the split described the last word of the line
     // instead of the one being typed.
     macro_rules! reached {
-        ($idx:expr) => {
+        ($idx:expr_2021) => {
             if $idx == cursor && prefix_len.is_none() {
                 cword = Some(words.len());
                 prefix_len = Some(word.len());

@@ -284,10 +284,10 @@ fn expand_tabs(value: &str, tab_width: usize) -> String {
 
 #[macro_export]
 macro_rules! __usage_miette {
-    ($fmt:literal $(, $arg:expr)* $(,)?) => {
+    ($fmt:literal $(, $arg:expr_2021)* $(,)?) => {
         $crate::miette::Error::msg(format!($fmt $(, $arg)*))
     };
-    ($err:expr $(,)?) => {
+    ($err:expr_2021 $(,)?) => {
         $crate::miette::Error::msg($err.to_string())
     };
 }

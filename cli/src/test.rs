@@ -2,7 +2,8 @@ use crate::{cli::Cli, env};
 
 #[ctor::ctor(unsafe)]
 fn init() {
-    env::set_var("USAGE_BIN", "usage");
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("USAGE_BIN", "usage") };
 }
 
 #[test]

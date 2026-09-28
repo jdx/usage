@@ -185,7 +185,7 @@ macro_rules! command {
             ::std::iter::empty::<&::std::ffi::OsStr>(),
         )
     };
-    ($bin:literal, $($arg:expr),+ $(,)?) => {
+    ($bin:literal, $($arg:expr_2021),+ $(,)?) => {
         $crate::__command(
             env!(
                 concat!("CARGO_BIN_EXE_", $bin),

@@ -2,7 +2,7 @@
 name = "usage-test"
 description = "Test helpers for CLIs built with usage"
 version = "6.11.1"
-edition = "2021"
+edition = "2024"
 rust-version = "1.91"
 homepage = { workspace = true }
 documentation = { workspace = true }

@@ -1,6 +1,6 @@
 [package]
 name = "usage-lib"
-edition = "2021"
+edition = "2024"
 version = "6.11.1"
 rust-version = "1.91"
 include = [

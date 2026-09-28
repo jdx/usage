@@ -33,10 +33,9 @@ pub(crate) fn try_parse<'a, P: ModalParser<Input<'a>, T, KdlParseError>, T>(
     input: &'a str,
 ) -> Result<T, KdlError> {
     let (_, maybe_val, errs) = parser.recoverable_parse(LocatingSlice::new(input));
-    if let (Some(v), true) = (maybe_val, errs.is_empty()) {
-        Ok(v)
-    } else {
-        Err(failure_from_errs(errs, input))
+    match (maybe_val, errs.is_empty()) {
+        (Some(v), true) => Ok(v),
+        _ => Err(failure_from_errs(errs, input)),
     }
 }
 
@@ -242,10 +241,13 @@ where
     };
     let err_start = i.checkpoint();
     if recover.parse_next(i).is_ok() {
-        if let Err(err_) = i.record_err(&token_start, &err_start, err) {
-            err = err_;
-        } else {
-            return Ok(None);
+        match i.record_err(&token_start, &err_start, err) {
+            Err(err_) => {
+                err = err_;
+            }
+            _ => {
+                return Ok(None);
+            }
         }
     }
 

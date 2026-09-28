@@ -2,7 +2,7 @@ use pretty_assertions::assert_str_eq;
 use usage::Spec;
 
 macro_rules! tests_same {
-    ($($name:ident: $spec:expr,)*) => {
+    ($($name:ident: $spec:expr_2021,)*) => {
     $(
         #[test]
         fn $name() {

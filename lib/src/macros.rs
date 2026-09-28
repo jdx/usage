@@ -60,7 +60,7 @@ macro_rules! spec_flag {
     }};
 
     // Pattern: spec_flag!("-s", "--long"; key = value, ...)
-    ($short:literal, $long:literal; $($key:ident = $value:expr),* $(,)?) => {{
+    ($short:literal, $long:literal; $($key:ident = $value:expr_2021),* $(,)?) => {{
         let mut builder = $crate::SpecFlagBuilder::new()
             .short($short.chars().nth(1).expect("short flag must be -X format"))
             .long(&$long[2..]);
@@ -76,7 +76,7 @@ macro_rules! spec_flag {
     }};
 
     // Pattern: spec_flag!("--long"; key = value, ...)
-    ($long:literal; $($key:ident = $value:expr),* $(,)?) => {{
+    ($long:literal; $($key:ident = $value:expr_2021),* $(,)?) => {{
         let mut builder = $crate::SpecFlagBuilder::new()
             .long(&$long[2..]);
         $(builder = $crate::__spec_flag_attr!(builder, $key, $value);)*
@@ -93,7 +93,7 @@ macro_rules! spec_flag {
     }};
 
     // Pattern: spec_flag!("--long" => "<arg>"; key = value, ...)
-    ($long:literal => $arg:literal; $($key:ident = $value:expr),* $(,)?) => {{
+    ($long:literal => $arg:literal; $($key:ident = $value:expr_2021),* $(,)?) => {{
         let arg: $crate::SpecArg = $arg.parse().expect("invalid arg format");
         let mut builder = $crate::SpecFlagBuilder::new()
             .long(&$long[2..])
@@ -113,7 +113,7 @@ macro_rules! spec_flag {
     }};
 
     // Pattern: spec_flag!("-s", "--long" => "<arg>"; key = value, ...)
-    ($short:literal, $long:literal => $arg:literal; $($key:ident = $value:expr),* $(,)?) => {{
+    ($short:literal, $long:literal => $arg:literal; $($key:ident = $value:expr_2021),* $(,)?) => {{
         let arg: $crate::SpecArg = $arg.parse().expect("invalid arg format");
         let mut builder = $crate::SpecFlagBuilder::new()
             .short($short.chars().nth(1).expect("short flag must be -X format"))
@@ -128,34 +128,34 @@ macro_rules! spec_flag {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __spec_flag_attr {
-    ($builder:expr, help, $value:expr) => {
+    ($builder:expr_2021, help, $value:expr_2021) => {
         $builder.help($value)
     };
-    ($builder:expr, help_long, $value:expr) => {
+    ($builder:expr_2021, help_long, $value:expr_2021) => {
         $builder.help_long($value)
     };
-    ($builder:expr, var, $value:expr) => {
+    ($builder:expr_2021, var, $value:expr_2021) => {
         $builder.var($value)
     };
-    ($builder:expr, var_min, $value:expr) => {
+    ($builder:expr_2021, var_min, $value:expr_2021) => {
         $builder.var_min($value)
     };
-    ($builder:expr, var_max, $value:expr) => {
+    ($builder:expr_2021, var_max, $value:expr_2021) => {
         $builder.var_max($value)
     };
-    ($builder:expr, required, $value:expr) => {
+    ($builder:expr_2021, required, $value:expr_2021) => {
         $builder.required($value)
     };
-    ($builder:expr, global, $value:expr) => {
+    ($builder:expr_2021, global, $value:expr_2021) => {
         $builder.global($value)
     };
-    ($builder:expr, hide, $value:expr) => {
+    ($builder:expr_2021, hide, $value:expr_2021) => {
         $builder.hide($value)
     };
-    ($builder:expr, count, $value:expr) => {
+    ($builder:expr_2021, count, $value:expr_2021) => {
         $builder.count($value)
     };
-    ($builder:expr, env, $value:expr) => {
+    ($builder:expr_2021, env, $value:expr_2021) => {
         $builder.env($value)
     };
 }
@@ -194,7 +194,7 @@ macro_rules! spec_arg {
     }};
 
     // Pattern: spec_arg!("name"; key = value, ...)
-    ($name:literal; $($key:ident = $value:expr),* $(,)?) => {{
+    ($name:literal; $($key:ident = $value:expr_2021),* $(,)?) => {{
         let mut builder = $crate::SpecArgBuilder::new()
             .name($name);
         $(builder = $crate::__spec_arg_attr!(builder, $key, $value);)*
@@ -206,28 +206,28 @@ macro_rules! spec_arg {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __spec_arg_attr {
-    ($builder:expr, help, $value:expr) => {
+    ($builder:expr_2021, help, $value:expr_2021) => {
         $builder.help($value)
     };
-    ($builder:expr, help_long, $value:expr) => {
+    ($builder:expr_2021, help_long, $value:expr_2021) => {
         $builder.help_long($value)
     };
-    ($builder:expr, var, $value:expr) => {
+    ($builder:expr_2021, var, $value:expr_2021) => {
         $builder.var($value)
     };
-    ($builder:expr, var_min, $value:expr) => {
+    ($builder:expr_2021, var_min, $value:expr_2021) => {
         $builder.var_min($value)
     };
-    ($builder:expr, var_max, $value:expr) => {
+    ($builder:expr_2021, var_max, $value:expr_2021) => {
         $builder.var_max($value)
     };
-    ($builder:expr, required, $value:expr) => {
+    ($builder:expr_2021, required, $value:expr_2021) => {
         $builder.required($value)
     };
-    ($builder:expr, hide, $value:expr) => {
+    ($builder:expr_2021, hide, $value:expr_2021) => {
         $builder.hide($value)
     };
-    ($builder:expr, env, $value:expr) => {
+    ($builder:expr_2021, env, $value:expr_2021) => {
         $builder.env($value)
     };
 }
@@ -266,7 +266,7 @@ macro_rules! spec_cmd {
     }};
 
     // Pattern: spec_cmd!("name"; key = value, ...)
-    ($name:literal; $($key:ident = $value:expr),* $(,)?) => {{
+    ($name:literal; $($key:ident = $value:expr_2021),* $(,)?) => {{
         let mut builder = $crate::SpecCommandBuilder::new()
             .name($name);
         $(builder = $crate::__spec_cmd_attr!(builder, $key, $value);)*
@@ -278,31 +278,31 @@ macro_rules! spec_cmd {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __spec_cmd_attr {
-    ($builder:expr, help, $value:expr) => {
+    ($builder:expr_2021, help, $value:expr_2021) => {
         $builder.help($value)
     };
-    ($builder:expr, help_long, $value:expr) => {
+    ($builder:expr_2021, help_long, $value:expr_2021) => {
         $builder.help_long($value)
     };
-    ($builder:expr, hide, $value:expr) => {
+    ($builder:expr_2021, hide, $value:expr_2021) => {
         $builder.hide($value)
     };
-    ($builder:expr, subcommand_required, $value:expr) => {
+    ($builder:expr_2021, subcommand_required, $value:expr_2021) => {
         $builder.subcommand_required($value)
     };
-    ($builder:expr, subcommand_help_heading, $value:expr) => {
+    ($builder:expr_2021, subcommand_help_heading, $value:expr_2021) => {
         $builder.subcommand_help_heading($value)
     };
-    ($builder:expr, subcommand_value_name, $value:expr) => {
+    ($builder:expr_2021, subcommand_value_name, $value:expr_2021) => {
         $builder.subcommand_value_name($value)
     };
-    ($builder:expr, external_subcommand, $value:expr) => {
+    ($builder:expr_2021, external_subcommand, $value:expr_2021) => {
         $builder.external_subcommand($value)
     };
-    ($builder:expr, aliases, $value:expr) => {
+    ($builder:expr_2021, aliases, $value:expr_2021) => {
         $builder.aliases($value)
     };
-    ($builder:expr, hidden_aliases, $value:expr) => {
+    ($builder:expr_2021, hidden_aliases, $value:expr_2021) => {
         $builder.hidden_aliases($value)
     };
 }
@@ -319,7 +319,7 @@ macro_rules! __spec_cmd_attr {
 /// ```
 #[macro_export]
 macro_rules! defaults {
-    [$($value:expr),* $(,)?] => {
+    [$($value:expr_2021),* $(,)?] => {
         vec![$($value.to_string()),*]
     };
 }

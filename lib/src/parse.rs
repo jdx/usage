@@ -6542,7 +6542,8 @@ flag "--file <file>" required_unless="--stdin"
         };
 
         // Set env var
-        std::env::set_var("TEST_ARG_INPUT", "test_file.txt");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("TEST_ARG_INPUT", "test_file.txt") };
 
         let input = vec!["test".to_string()];
         let parsed = parse(&spec, &input).unwrap();
@@ -6554,7 +6555,8 @@ flag "--file <file>" required_unless="--stdin"
         assert_eq!(value.to_string(), "test_file.txt");
 
         // Clean up
-        std::env::remove_var("TEST_ARG_INPUT");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("TEST_ARG_INPUT") };
     }
 
     #[test]
@@ -6577,7 +6579,8 @@ flag "--file <file>" required_unless="--stdin"
         };
 
         // Set env var
-        std::env::set_var("TEST_FLAG_OUTPUT", "output.txt");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("TEST_FLAG_OUTPUT", "output.txt") };
 
         let input = vec!["test".to_string()];
         let parsed = parse(&spec, &input).unwrap();
@@ -6589,7 +6592,8 @@ flag "--file <file>" required_unless="--stdin"
         assert_eq!(value.to_string(), "output.txt");
 
         // Clean up
-        std::env::remove_var("TEST_FLAG_OUTPUT");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("TEST_FLAG_OUTPUT") };
     }
 
     #[test]
@@ -6611,7 +6615,8 @@ flag "--file <file>" required_unless="--stdin"
         };
 
         // Set env var to true
-        std::env::set_var("TEST_FLAG_VERBOSE", "true");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("TEST_FLAG_VERBOSE", "true") };
 
         let input = vec!["test".to_string()];
         let parsed = parse(&spec, &input).unwrap();
@@ -6623,7 +6628,8 @@ flag "--file <file>" required_unless="--stdin"
         assert_eq!(value.to_string(), "true");
 
         // Clean up
-        std::env::remove_var("TEST_FLAG_VERBOSE");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("TEST_FLAG_VERBOSE") };
     }
 
     #[test]
@@ -6647,7 +6653,8 @@ flag "--file <file>" required_unless="--stdin"
         };
 
         // Set env var
-        std::env::set_var("TEST_PRECEDENCE_INPUT", "env_file.txt");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("TEST_PRECEDENCE_INPUT", "env_file.txt") };
 
         let input = vec!["test".to_string(), "cli_file.txt".to_string()];
         let parsed = parse(&spec, &input).unwrap();
@@ -6658,7 +6665,8 @@ flag "--file <file>" required_unless="--stdin"
         assert_eq!(value.to_string(), "cli_file.txt");
 
         // Clean up
-        std::env::remove_var("TEST_PRECEDENCE_INPUT");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("TEST_PRECEDENCE_INPUT") };
     }
 
     #[test]
@@ -9855,7 +9863,8 @@ cmd "run" {
                 .required(true)
                 .build(),
         );
-        std::env::remove_var("NAME");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("NAME") };
 
         let parsed = parse_with_env(&spec, &["test"], &[("NAME", "john")])
             .expect("parse should succeed with custom env");
@@ -9873,7 +9882,8 @@ cmd "run" {
                 .arg(SpecArg::builder().name("name").build())
                 .build(),
         );
-        std::env::remove_var("NAME");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("NAME") };
 
         let parsed = parse_with_env(&spec, &["test"], &[("NAME", "jane")])
             .expect("parse should succeed with custom env");
@@ -10005,7 +10015,8 @@ cmd "run" {
                 .required(true)
                 .build(),
         );
-        std::env::remove_var("NAME");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("NAME") };
         assert!(parse_with_env(&spec, &["test"], &[]).is_err());
     }
 

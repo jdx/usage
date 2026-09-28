@@ -238,13 +238,13 @@ impl ::miette::Diagnostic for UsageErr {
 
 #[macro_export]
 macro_rules! bail_parse {
-    ($ctx:expr, $span:expr, $fmt:literal) => {{
+    ($ctx:expr_2021, $span:expr_2021, $fmt:literal) => {{
         let span: $crate::miette::SourceSpan = ($span.offset(), $span.len()).into();
         let msg = format!($fmt);
         let err = $ctx.build_err(msg, span);
         return std::result::Result::Err(err);
     }};
-    ($ctx:expr, $span:expr, $fmt:literal, $($arg:tt)*) => {{
+    ($ctx:expr_2021, $span:expr_2021, $fmt:literal, $($arg:tt)*) => {{
         let span: $crate::miette::SourceSpan = ($span.offset(), $span.len()).into();
         let msg = format!($fmt, $($arg)*);
         let err = $ctx.build_err(msg, span);

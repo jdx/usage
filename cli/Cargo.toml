@@ -1,6 +1,6 @@
 [package]
 name = "usage-cli"
-edition = "2021"
+edition = "2024"
 rust-version = "1.91"
 version = "6.11.1"
 description = "CLI for working with usage-based CLIs"

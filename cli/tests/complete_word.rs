@@ -474,7 +474,8 @@ fn complete_word_mounted() {
             .join("debug"),
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
-    env::set_var("PATH", env::join_paths(path).unwrap());
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("PATH", env::join_paths(path).unwrap()) };
     assert_cmd("mounted.sh", &["--", "-"]).stdout("--mount\tDisplay kdl spec for mounted tasks\n");
     assert_cmd("mounted.sh", &["--", ""]).stdout("exec-task\n");
     assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("task-a\ntask-b\n");
@@ -495,7 +496,8 @@ fn complete_word_mounted_with_global_flags() {
             .join("debug"),
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
-    env::set_var("PATH", env::join_paths(path).unwrap());
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("PATH", env::join_paths(path).unwrap()) };
 
     // Without --dir flag, should get default tasks
     assert_cmd("mounted-global-flags.sh", &["--", "run", ""])
@@ -539,7 +541,8 @@ fn complete_word_mounted_global_flag_choices() {
             .join("debug"),
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
-    env::set_var("PATH", env::join_paths(path).unwrap());
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("PATH", env::join_paths(path).unwrap()) };
 
     // Baseline: no global flag prefix. The mount sees no `usage_cd`, so it returns the
     // default choices. This must complete (not error) and not be polluted by stray tokens.
@@ -593,7 +596,8 @@ fn complete_word_mounted_orphan_short_flag_choices() {
             .join("debug"),
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
-    env::set_var("PATH", env::join_paths(path).unwrap());
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("PATH", env::join_paths(path).unwrap()) };
 
     // Orphan short `-r` before the mounted task (the failing case).
     assert_cmd(
@@ -641,7 +645,8 @@ fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
             .join("debug"),
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
-    env::set_var("PATH", env::join_paths(path).unwrap());
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("PATH", env::join_paths(path).unwrap()) };
 
     // Only the mounted task's own flags are offered. Previously this also listed the root's
     // `--env`/`--silent`, which the mounted program rejects.
@@ -733,7 +738,8 @@ fn complete_word_boolean_flags_dont_consume_subcommands() {
             .join("debug"),
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
-    env::set_var("PATH", env::join_paths(path).unwrap());
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("PATH", env::join_paths(path).unwrap()) };
 
     // Boolean flag --verbose before subcommand 'run' should not consume 'run'
     assert_cmd("test-boolean-flags.sh", &["--", "--verbose", "run", ""])
@@ -770,7 +776,8 @@ fn complete_word_non_global_flags_do_not_stop_search() {
             .join("debug"),
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
-    env::set_var("PATH", env::join_paths(path).unwrap());
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("PATH", env::join_paths(path).unwrap()) };
 
     // A non-global flag before a subcommand is consumed like a global one, so the subcommand
     // (and its mount) is still found. It used to stop the search, leaving `run` to be read as a
@@ -802,7 +809,8 @@ fn complete_word_mixed_global_flags() {
             .join("debug"),
     );
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
-    env::set_var("PATH", env::join_paths(path).unwrap());
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { env::set_var("PATH", env::join_paths(path).unwrap()) };
 
     // Mix of boolean and valued flags, long and short, with embedded values
     // This test uses the test-boolean-flags fixture but we only care about

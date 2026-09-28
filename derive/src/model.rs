@@ -5136,18 +5136,16 @@ fn exit_code_decl(meta: &Meta) -> syn::Result<ExitCodeDecl> {
 }
 fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
     let found: Vec<String> = match meta {
-        Meta::List(list) => {
-            if let Ok(array) = syn::parse2::<syn::ExprArray>(list.tokens.clone()) {
-                string_array(&array)?
-            } else {
-                list.parse_args_with(
+        Meta::List(list) => match syn::parse2::<syn::ExprArray>(list.tokens.clone()) {
+            Ok(array) => string_array(&array)?,
+            _ => list
+                .parse_args_with(
                     syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
                 )?
                 .into_iter()
                 .map(|lit| lit.value())
-                .collect()
-            }
-        }
+                .collect(),
+        },
         Meta::NameValue(value) => match &value.value {
             syn::Expr::Array(array) => string_array(array)?,
             syn::Expr::Reference(reference) => match reference.expr.as_ref() {

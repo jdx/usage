@@ -2083,7 +2083,7 @@ fn write_crate(dir: &Path, bin: &str, lib: &str, dialect: Dialect) {
          [package]\n\
          name = {name:?}\n\
          version = \"0.0.0\"\n\
-         edition = \"2021\"\n\
+         edition = \"2024\"\n\
          publish = false\n\n\
          [lib]\n\
          # The doc comments are copied help text, and mise's help is full of indented\n\
@@ -2108,7 +2108,7 @@ fn write_crate(dir: &Path, bin: &str, lib: &str, dialect: Dialect) {
 
 fn rustfmt(path: &Path) {
     match std::process::Command::new("rustfmt")
-        .args(["--edition", "2021"])
+        .args(["--edition", "2024"])
         .arg(path)
         .status()
     {

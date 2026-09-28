@@ -1,7 +1,7 @@
 [package]
 name = "xtask"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 # No `rust-version`, for the reason in `conformance/Cargo.toml`: unpublished, and its 1.91 was
 # contradicted by its own dependency on `usage-lib`.
 license.workspace = true

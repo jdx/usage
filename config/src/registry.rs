@@ -353,7 +353,7 @@ impl Registry {
     ///
     /// Several names per setting are aliases in descending precedence, which the env layer
     /// honours by taking the first one that is present.
-    pub fn ids(&self) -> impl Iterator<Item = PropId> {
+    pub fn ids(&self) -> impl Iterator<Item = PropId> + use<> {
         (0..self.props.len()).map(|i| PropId(i as u16))
     }
 

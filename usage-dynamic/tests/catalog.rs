@@ -279,12 +279,14 @@ fn canonical_alias_unknown_help_version_and_invalid_argv_are_typed() {
     assert!(!parsed.output.tokens.is_empty());
     assert!(!parsed.output.flags.is_empty(), "default should be applied");
 
-    std::env::set_var("USAGE_DYNAMIC_TEST_COLOR", "never");
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("USAGE_DYNAMIC_TEST_COLOR", "never") };
     let from_env = catalog
         .parse_external("plugins", &[OsString::from("formatter")])
         .unwrap()
         .unwrap();
-    std::env::remove_var("USAGE_DYNAMIC_TEST_COLOR");
+    // FIXME: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::remove_var("USAGE_DYNAMIC_TEST_COLOR") };
     let Outcome::Parsed(from_env) = from_env else {
         panic!("expected parsed")
     };

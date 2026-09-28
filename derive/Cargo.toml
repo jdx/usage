@@ -2,7 +2,7 @@
 name = "usage-derive"
 description = "Derive macro that compiles a CLI definition into parse tables and a usage spec"
 version = "6.11.1"
-edition = "2021"
+edition = "2024"
 rust-version = "1.91"
 homepage = { workspace = true }
 documentation = { workspace = true }
