@@ -37,14 +37,15 @@ fn ordinary_arguments_still_parse() {
     );
 }
 
-#[cfg(not(feature = "help-advanced"))]
+// The test feature enables usage-argv/help-advanced through usage-test too.
+#[cfg(not(any(feature = "help-advanced", feature = "test")))]
 #[test]
 #[should_panic(expected = "require the `help-advanced` feature")]
 fn recursive_help_is_explicitly_unavailable_in_the_small_build() {
     usage_rs::help::render_all(StaticSpec::spec(), StaticSpec::command());
 }
 
-#[cfg(not(feature = "help-advanced"))]
+#[cfg(not(any(feature = "help-advanced", feature = "test")))]
 #[test]
 #[should_panic(expected = "require the `help-advanced` feature")]
 fn hand_written_flattened_metadata_is_not_silently_ignored() {

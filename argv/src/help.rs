@@ -4937,6 +4937,7 @@ mod style_tests {
     }
 
     #[test]
+    #[cfg(feature = "help-advanced")]
     fn flattened_descendant_rows_receive_argument_and_flag_styles() {
         let file = Arg {
             name: "file",

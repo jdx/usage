@@ -74,9 +74,11 @@ fn a_failure_comes_back_as_the_text_a_user_reads() {
     let message = harness::parse(Ex::spec(), &words.words(), Ex::parse_from)
         .expect_err("`many` is not a number of jobs");
 
-    // The rendered diagnostic, not a debug-printed error code: what the user is shown is what
-    // a test about the user's experience has to be able to assert on.
+    // The diagnostics feature renders prose; without it the error uses Debug.
+    #[cfg(feature = "diagnostics")]
     assert!(message.contains("invalid value 'many'"), "{message}");
+    #[cfg(not(feature = "diagnostics"))]
+    assert!(message.contains(r#"value: "many""#), "{message}");
     assert!(message.contains("invalid digit"), "{message}");
 }
 
@@ -109,7 +111,13 @@ fn an_unknown_flag_falls_through_where_a_cli_stays_lax() {
     let message = harness::parse(Ex::spec(), &words.words(), Ex::parse_from)
         .expect_err("`release` has already filled the one argument `build` declares");
 
+    #[cfg(feature = "diagnostics")]
     assert!(message.contains("'release'"), "{message}");
+    #[cfg(not(feature = "diagnostics"))]
+    assert!(
+        message.contains(&format!("UnexpectedArg {{ token: {:?} }}", b"release")),
+        "{message}"
+    );
 }
 
 #[test]
@@ -118,7 +126,13 @@ fn a_missing_required_argument_names_itself() {
     let message = harness::parse(Ex::spec(), &words.words(), Ex::parse_from)
         .expect_err("`build` requires a target");
 
+    #[cfg(feature = "diagnostics")]
     assert!(message.contains("<TARGET>"), "{message}");
+    #[cfg(not(feature = "diagnostics"))]
+    assert!(
+        message.contains(r#"MissingRequired { name: "TARGET" }"#),
+        "{message}"
+    );
 }
 
 #[test]

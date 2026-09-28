@@ -107,6 +107,14 @@ jobs:
           cargo clippy -p usage-rs --no-default-features -- -D warnings
           cargo test -p usage-rs --no-default-features --features help,diagnostics,completions --lib --test static_endpoint
           cargo clippy -p usage-config --no-default-features -- -D warnings
+      # Keep these invocations separate: workspace feature unification and defaults
+      # otherwise hide failures in the feature sets downstream packagers test.
+      - name: test library features independently
+        run: |
+          for feature in complete diagnostics spec; do
+            cargo test --locked -p usage-argv --no-default-features --features "$feature"
+          done
+          cargo test --locked -p usage-rs --no-default-features --features test
       - run: mise r render
       # Same reasoning as `render`: the shadow is checked in, so a change to the derive's
       # vocabulary that would alter it has to be committed rather than discovered later.
