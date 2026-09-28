@@ -272,10 +272,10 @@ pub(crate) fn document(input: &mut Input<'_>) -> PResult<KdlDocument> {
         opt(bom).void().parse_next(input)?;
         nodes.void().parse_next(input)?;
     }
-    if let Some(bom) = leading_bom {
-        if let Some(fmt) = doc.format_mut() {
-            fmt.leading = format!("{bom}{}", fmt.leading);
-        }
+    if let Some(bom) = leading_bom
+        && let Some(fmt) = doc.format_mut()
+    {
+        fmt.leading = format!("{bom}{}", fmt.leading);
     }
     Ok(doc)
 }
@@ -302,11 +302,11 @@ fn nodes(input: &mut Input<'_>) -> PResult<KdlDocument> {
 
     // If there is a node, let it have the leading format
     // This gives more consistent behavior
-    if let Some(first_node) = ns.get_mut(0) {
-        if let Some(first_node_format) = first_node.format_mut() {
-            first_node_format.leading = leading.into();
-            leading = "";
-        }
+    if let Some(first_node) = ns.get_mut(0)
+        && let Some(first_node_format) = first_node.format_mut()
+    {
+        first_node_format.leading = leading.into();
+        leading = "";
     }
 
     Ok(KdlDocument {

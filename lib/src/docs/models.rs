@@ -1011,10 +1011,10 @@ fn reference_usage(flag: &crate::SpecFlag) -> String {
         .collect();
     // A flag whose only spelling is its negation — clap's `SetFalse`, tak's `--no-credit` —
     // has no long or short form to list, so without this the reference heading was empty.
-    if forms.is_empty() {
-        if let Some(negate) = &flag.negate {
-            forms.push(negate.clone());
-        }
+    if forms.is_empty()
+        && let Some(negate) = &flag.negate
+    {
+        forms.push(negate.clone());
     }
     if flag.usage.trim().starts_with(&format!("{}:", flag.name)) {
         forms.insert(0, format!("{}:", flag.name));
@@ -1187,20 +1187,20 @@ impl SpecCommand {
             return;
         }
         self.rendered = true;
-        if self.before_help_md.is_none() {
-            if let Some(h) = self.before_help_long.clone().or(self.before_help.clone()) {
-                self.before_help_md = Some(renderer.fence_indented_blocks(h));
-            }
+        if self.before_help_md.is_none()
+            && let Some(h) = self.before_help_long.clone().or(self.before_help.clone())
+        {
+            self.before_help_md = Some(renderer.fence_indented_blocks(h));
         }
-        if self.help_md.is_none() {
-            if let Some(h) = self.help_long.clone().or(self.help.clone()) {
-                self.help_md = Some(renderer.fence_indented_blocks(h));
-            }
+        if self.help_md.is_none()
+            && let Some(h) = self.help_long.clone().or(self.help.clone())
+        {
+            self.help_md = Some(renderer.fence_indented_blocks(h));
         }
-        if self.after_help_md.is_none() {
-            if let Some(h) = self.after_help_long.clone().or(self.after_help.clone()) {
-                self.after_help_md = Some(renderer.fence_indented_blocks(h));
-            }
+        if self.after_help_md.is_none()
+            && let Some(h) = self.after_help_long.clone().or(self.after_help.clone())
+        {
+            self.after_help_md = Some(renderer.fence_indented_blocks(h));
         }
         for flag in &mut self.flags {
             flag.render_md(renderer);
@@ -1240,10 +1240,10 @@ impl SpecFlag {
             return;
         }
         self.rendered = true;
-        if self.help_md.is_none() {
-            if let Some(h) = self.help_long.clone().or(self.help.clone()) {
-                self.help_md = Some(renderer.fence_indented_blocks(h));
-            }
+        if self.help_md.is_none()
+            && let Some(h) = self.help_long.clone().or(self.help.clone())
+        {
+            self.help_md = Some(renderer.fence_indented_blocks(h));
         }
         self.aliases = self
             .short
@@ -1262,10 +1262,10 @@ impl SpecArg {
             return;
         }
         self.rendered = true;
-        if self.help_md.is_none() {
-            if let Some(h) = self.help_long.clone().or(self.help.clone()) {
-                self.help_md = Some(renderer.fence_indented_blocks(h));
-            }
+        if self.help_md.is_none()
+            && let Some(h) = self.help_long.clone().or(self.help.clone())
+        {
+            self.help_md = Some(renderer.fence_indented_blocks(h));
         }
     }
 }

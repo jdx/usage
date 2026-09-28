@@ -270,25 +270,25 @@ impl FigArg {
         // way: when completing, never while this file is generated. It is a declaration, so
         // it displaces the guesses from the argument's name and any `complete` node, as
         // choices do in `usage complete-word`.
-        if let Some(choices) = &arg.choices {
-            if let Some(run) = choices.run() {
-                return Self {
-                    generators: Some(FigGenerator {
-                        type_: GeneratorType::Complete,
-                        post_process: run.to_string(),
-                        template_str: FigArg::run_placeholder(&name, run),
-                    }),
-                    name,
-                    description: arg.help.clone(),
-                    is_variadic: arg.var,
-                    is_optional: !arg.required,
-                    template: None,
-                    suggestions: choices.choices.clone(),
-                    debounce: None,
-                    declared: true,
-                    has_choices: true,
-                };
-            }
+        if let Some(choices) = &arg.choices
+            && let Some(run) = choices.run()
+        {
+            return Self {
+                generators: Some(FigGenerator {
+                    type_: GeneratorType::Complete,
+                    post_process: run.to_string(),
+                    template_str: FigArg::run_placeholder(&name, run),
+                }),
+                name,
+                description: arg.help.clone(),
+                is_variadic: arg.var,
+                is_optional: !arg.required,
+                template: None,
+                suggestions: choices.choices.clone(),
+                debounce: None,
+                declared: true,
+                has_choices: true,
+            };
         }
         let guess = arg.choices.is_none();
         let mut fig_arg = Self {

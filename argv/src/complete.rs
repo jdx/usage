@@ -196,10 +196,10 @@ fn walk_inner<'t>(
 
     let next_arg = parser.pending_arg();
     let mut flags: Vec<_> = parser.flags_in_scope().collect();
-    if parser.command().default_subcommand_flags {
-        if let Some(default) = parser.command().default_subcommand {
-            flags.extend_from_slice(default.flags);
-        }
+    if parser.command().default_subcommand_flags
+        && let Some(default) = parser.command().default_subcommand
+    {
+        flags.extend_from_slice(default.flags);
     }
     Position {
         path: parser.command_path(),
@@ -264,18 +264,18 @@ fn for_name_at<'a>(
                 .into_iter()
                 .flat_map(|clause| clause.args.iter()),
         ) {
-            if arg.arg.name.eq_ignore_ascii_case(name) {
-                if let Some(completer) = arg.complete {
-                    return Some(completer);
-                }
+            if arg.arg.name.eq_ignore_ascii_case(name)
+                && let Some(completer) = arg.complete
+            {
+                return Some(completer);
             }
         }
         for flag in meta.flags {
             let value = flag.value_name.unwrap_or(flag.flag.name);
-            if value.eq_ignore_ascii_case(name) {
-                if let Some(completer) = flag.complete {
-                    return Some(completer);
-                }
+            if value.eq_ignore_ascii_case(name)
+                && let Some(completer) = flag.complete
+            {
+                return Some(completer);
             }
         }
         None
@@ -1044,30 +1044,29 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
             .bash_wordbreaks
             .as_deref()
             .is_some_and(|wordbreaks| wordbreaks.contains(':'))
+        && let Some(word) = request.bash_word.as_deref()
     {
-        if let Some(word) = request.bash_word.as_deref() {
-            // COMP_WORDS holds the entire Readline fragment even when the cursor is in its
-            // middle. Find the colon whose remaining fragment starts that word. This cannot
-            // simply take the last normalized colon: an escaped colon remains inside Bash's
-            // word but is indistinguishable in the unescaped Split::prefix.
-            let marked_prefix = request
-                .bash_marked_prefix
-                .as_deref()
-                .unwrap_or(&request.split.prefix);
-            let prefix = marked_prefix
-                .match_indices(':')
-                .rev()
-                .find_map(|(colon, _)| {
-                    let fragment = marked_prefix[colon + 1..].replace(BASH_NONBREAKING_COLON, ":");
-                    ((fragment.is_empty() && word == ":")
-                        || (!fragment.is_empty() && word.starts_with(&fragment)))
-                    .then(|| marked_prefix[..=colon].replace(BASH_NONBREAKING_COLON, ":"))
-                });
-            if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
-                out.push_str("\u{1}prefix\t");
-                out.push_str(&prefix);
-                out.push('\n');
-            }
+        // COMP_WORDS holds the entire Readline fragment even when the cursor is in its
+        // middle. Find the colon whose remaining fragment starts that word. This cannot
+        // simply take the last normalized colon: an escaped colon remains inside Bash's
+        // word but is indistinguishable in the unescaped Split::prefix.
+        let marked_prefix = request
+            .bash_marked_prefix
+            .as_deref()
+            .unwrap_or(&request.split.prefix);
+        let prefix = marked_prefix
+            .match_indices(':')
+            .rev()
+            .find_map(|(colon, _)| {
+                let fragment = marked_prefix[colon + 1..].replace(BASH_NONBREAKING_COLON, ":");
+                ((fragment.is_empty() && word == ":")
+                    || (!fragment.is_empty() && word.starts_with(&fragment)))
+                .then(|| marked_prefix[..=colon].replace(BASH_NONBREAKING_COLON, ":"))
+            });
+        if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
+            out.push_str("\u{1}prefix\t");
+            out.push_str(&prefix);
+            out.push('\n');
         }
     }
     out
@@ -1908,10 +1907,10 @@ fn candidates_at<'a>(
         found
     } else {
         let mut found = Vec::new();
-        if let Some(arg) = position.next_arg {
-            if let Some(m) = arg_meta(spec.root, arg) {
-                found.extend(positional(m, position, split, token));
-            }
+        if let Some(arg) = position.next_arg
+            && let Some(m) = arg_meta(spec.root, arg)
+        {
+            found.extend(positional(m, position, split, token));
         }
         if let Some(meta) = meta {
             found.extend(subcommands(meta, token));

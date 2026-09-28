@@ -197,23 +197,23 @@ impl CompleteWord {
         // Not `available_flags`: inside a mounted command, the mounting CLI's flags stay
         // recognized for parsing but are not accepted there, so they must not be offered.
         let mut flags = parsed.completion_flags();
-        if spec.default_subcommand_flags && parsed.cmds.len() == 1 {
-            if let Some(default) = spec
+        if spec.default_subcommand_flags
+            && parsed.cmds.len() == 1
+            && let Some(default) = spec
                 .default_subcommand
                 .as_deref()
                 .and_then(|name| spec.cmd.find_subcommand(name))
-            {
-                for flag in &default.flags {
-                    let flag = Arc::new(flag.clone());
-                    for key in flag
-                        .long
-                        .iter()
-                        .map(|name| format!("--{name}"))
-                        .chain(flag.short.iter().map(|name| format!("-{name}")))
-                        .chain(flag.negate.iter().cloned())
-                    {
-                        flags.entry(key).or_insert_with(|| Arc::clone(&flag));
-                    }
+        {
+            for flag in &default.flags {
+                let flag = Arc::new(flag.clone());
+                for key in flag
+                    .long
+                    .iter()
+                    .map(|name| format!("--{name}"))
+                    .chain(flag.short.iter().map(|name| format!("-{name}")))
+                    .chain(flag.negate.iter().cloned())
+                {
+                    flags.entry(key).or_insert_with(|| Arc::clone(&flag));
                 }
             }
         }
@@ -371,41 +371,42 @@ impl CompleteWord {
                 choices.extend(self.complete_subcommands(&parsed.cmd, &ctoken));
             }
             // If at root command with default_subcommand, also include completions from it
-            if parsed.cmd.name == spec.cmd.name {
-                if let Some(default_name) = &spec.default_subcommand {
-                    if let Some(default_cmd) = spec.cmd.find_subcommand(default_name) {
-                        // Include completions from default subcommand's first ordinary arg.
-                        //
-                        // The `constrained` half is dropped on purpose: unlike the two call
-                        // sites above, this arg belongs to a *different* command and is only
-                        // a guess that the user means to elide the subcommand name. Letting
-                        // its choices set `has_explicit_choices` would suppress the root
-                        // command's own file fallback whenever the token failed to match
-                        // them — see `complete_word_default_subcommand_choices_do_not_block_
-                        // root_file_fallback`. The `double_dash="required"` rule does apply,
-                        // which is why this goes through the helper at all.
-                        if let Some(arg) = first_active_arg(default_cmd) {
-                            let (found, _) = self.complete_positional(
-                                &cx,
-                                default_cmd,
-                                arg,
-                                &ctoken,
-                                parsed.double_dash_seen,
-                            )?;
-                            choices.extend(found);
-                        }
-                    }
+            if parsed.cmd.name == spec.cmd.name
+                && let Some(default_name) = &spec.default_subcommand
+                && let Some(default_cmd) = spec.cmd.find_subcommand(default_name)
+            {
+                // Include completions from default subcommand's first ordinary arg.
+                //
+                // The `constrained` half is dropped on purpose: unlike the two call
+                // sites above, this arg belongs to a *different* command and is only
+                // a guess that the user means to elide the subcommand name. Letting
+                // its choices set `has_explicit_choices` would suppress the root
+                // command's own file fallback whenever the token failed to match
+                // them — see `complete_word_default_subcommand_choices_do_not_block_
+                // root_file_fallback`. The `double_dash="required"` rule does apply,
+                // which is why this goes through the helper at all.
+                if let Some(arg) = first_active_arg(default_cmd) {
+                    let (found, _) = self.complete_positional(
+                        &cx,
+                        default_cmd,
+                        arg,
+                        &ctoken,
+                        parsed.double_dash_seen,
+                    )?;
+                    choices.extend(found);
                 }
             }
             choices
         };
-        if flags_possible && attached_long_value.is_none() && sigil_arg.is_none() {
-            if let Some(arg) = self.delegated_arg_at_flag(&cx, &ctoken) {
-                let (found, _) = self.complete_arg(&cx, &parsed.cmd, arg, &ctoken)?;
-                for candidate in found {
-                    if !choices.iter().any(|(name, _)| *name == candidate.0) {
-                        choices.push(candidate);
-                    }
+        if flags_possible
+            && attached_long_value.is_none()
+            && sigil_arg.is_none()
+            && let Some(arg) = self.delegated_arg_at_flag(&cx, &ctoken)
+        {
+            let (found, _) = self.complete_arg(&cx, &parsed.cmd, arg, &ctoken)?;
+            for candidate in found {
+                if !choices.iter().any(|(name, _)| *name == candidate.0) {
+                    choices.push(candidate);
                 }
             }
         }
@@ -1131,10 +1132,10 @@ fn resolve_path_dirs(base: &Path, path: &Path) -> Vec<PathBuf> {
 fn complete_usernames(prefix: &str) -> Vec<(String, String)> {
     let mut found = BTreeSet::new();
     for key in ["USER", "USERNAME"] {
-        if let Ok(value) = env::var(key) {
-            if value.starts_with(prefix) {
-                found.insert(value);
-            }
+        if let Ok(value) = env::var(key)
+            && value.starts_with(prefix)
+        {
+            found.insert(value);
         }
     }
     if let Ok(passwd) = std::fs::read_to_string("/etc/passwd") {
@@ -1157,10 +1158,10 @@ fn complete_usernames(prefix: &str) -> Vec<(String, String)> {
 fn complete_hostnames(prefix: &str) -> Vec<(String, String)> {
     let mut found = BTreeSet::new();
     for key in ["HOSTNAME", "COMPUTERNAME"] {
-        if let Ok(value) = env::var(key) {
-            if value.starts_with(prefix) {
-                found.insert(value);
-            }
+        if let Ok(value) = env::var(key)
+            && value.starts_with(prefix)
+        {
+            found.insert(value);
         }
     }
     if let Ok(hosts) = std::fs::read_to_string("/etc/hosts") {

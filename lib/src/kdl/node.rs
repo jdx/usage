@@ -284,10 +284,10 @@ impl KdlNode {
             if !terminator.starts_with('\n') {
                 *terminator = "\n".into();
             }
-            if let Some(c) = trailing.chars().next() {
-                if !c.is_whitespace() {
-                    trailing.insert(0, ' ');
-                }
+            if let Some(c) = trailing.chars().next()
+                && !c.is_whitespace()
+            {
+                trailing.insert(0, ' ');
             }
 
             *before_children = " ".into();

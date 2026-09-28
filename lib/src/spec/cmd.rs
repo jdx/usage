@@ -793,12 +793,12 @@ impl SpecCommand {
 
     pub(crate) fn validate_clause_flag_spellings(&self) -> Result<(), String> {
         fn validate(cmd: &SpecCommand) -> Result<(), String> {
-            if let Some(clause) = &cmd.clause {
-                if let Some(spelling) = clause.conflicting_flag_spelling(&cmd.flags) {
-                    return Err(format!(
-                        "clause flag spelling {spelling:?} conflicts with another flag on this command"
-                    ));
-                }
+            if let Some(clause) = &cmd.clause
+                && let Some(spelling) = clause.conflicting_flag_spelling(&cmd.flags)
+            {
+                return Err(format!(
+                    "clause flag spelling {spelling:?} conflicts with another flag on this command"
+                ));
             }
             for subcommand in cmd.subcommands.values() {
                 validate(subcommand)?;

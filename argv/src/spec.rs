@@ -3784,10 +3784,10 @@ fn write_flag(
         if let Some(validate) = meta.extra.validate {
             write!(out, " validate={}", quoted(validate))?;
         }
-        if meta.extra.validate.is_some() {
-            if let Some(error) = meta.extra.validate_error {
-                write!(out, " validate_error={}", quoted(error))?;
-            }
+        if meta.extra.validate.is_some()
+            && let Some(error) = meta.extra.validate_error
+        {
+            write!(out, " validate_error={}", quoted(error))?;
         }
         if meta.choices.is_empty()
             && meta.accepted_choices.is_empty()
@@ -3942,10 +3942,10 @@ fn write_arg(
     if let Some(validate) = meta.validate {
         write!(out, " validate={}", quoted(validate))?;
     }
-    if meta.validate.is_some() {
-        if let Some(error) = meta.validate_error {
-            write!(out, " validate_error={}", quoted(error))?;
-        }
+    if meta.validate.is_some()
+        && let Some(error) = meta.validate_error
+    {
+        write!(out, " validate_error={}", quoted(error))?;
     }
     write_single_default(out, meta.default)?;
     write_single_selectors(out, "requires", meta.requires, canonical)?;
@@ -5289,10 +5289,10 @@ pub const fn flag_selector_count(command: &Command<'_>, selector: &str) -> usize
                 }
                 long += 1;
             }
-            if let Some(negate) = flag.negate {
-                if long_selector_equal(selector, negate.as_bytes()) {
-                    matched = true;
-                }
+            if let Some(negate) = flag.negate
+                && long_selector_equal(selector, negate.as_bytes())
+            {
+                matched = true;
             }
         }
         if matched {

@@ -844,14 +844,14 @@ impl Field {
             })?,
         };
 
-        if let Some(optional) = explicit_optional {
-            if optional != prop.optional_field {
-                return Err(syn::Error::new(
-                    ident.span(),
-                    "`optional` and the field's type disagree: `Option<T>` is how a field \
+        if let Some(optional) = explicit_optional
+            && optional != prop.optional_field
+        {
+            return Err(syn::Error::new(
+                ident.span(),
+                "`optional` and the field's type disagree: `Option<T>` is how a field \
                      says a setting may be absent",
-                ));
-            }
+            ));
         }
         if prop.optional_field && prop.default.is_some() {
             return Err(syn::Error::new(
@@ -992,16 +992,13 @@ fn type_name(ty: &Ty) -> String {
 
 /// `Option<T>` peeled to `T`, and whether there was one to peel.
 fn peel_option(ty: &syn::Type) -> (bool, syn::Type) {
-    if let syn::Type::Path(path) = ty {
-        if let Some(last) = path.path.segments.last() {
-            if last.ident == "Option" {
-                if let syn::PathArguments::AngleBracketed(args) = &last.arguments {
-                    if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                        return (true, inner.clone());
-                    }
-                }
-            }
-        }
+    if let syn::Type::Path(path) = ty
+        && let Some(last) = path.path.segments.last()
+        && last.ident == "Option"
+        && let syn::PathArguments::AngleBracketed(args) = &last.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+    {
+        return (true, inner.clone());
     }
     (false, ty.clone())
 }

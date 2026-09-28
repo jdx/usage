@@ -145,27 +145,26 @@ impl Cli {
         // wrapped script, not this command. With no script to describe, answer the ordinary
         // command-help request before its required positionals are checked. `usage help exec`
         // reaches the same page through the parser's synthesized help command.
-        if let [command, help] = words.as_slice() {
-            if matches!(command.to_str(), Some("exec" | "x"))
-                && matches!(help.to_str(), Some("-h" | "--help"))
-            {
-                let spec = Self::spec();
-                let exec = spec
-                    .root
-                    .subcommands
-                    .iter()
-                    .find(|subcommand| subcommand.cmd.name == "exec")
-                    .expect("the CLI declares its exec command");
-                if let Some(page) = usage_rs::help::render_styled(
-                    spec,
-                    exec.cmd,
-                    *help == OsStr::new("--help"),
-                    usage_rs::help::Style::auto(),
-                ) {
-                    print!("{page}");
-                }
-                return Ok(());
+        if let [command, help] = words.as_slice()
+            && matches!(command.to_str(), Some("exec" | "x"))
+            && matches!(help.to_str(), Some("-h" | "--help"))
+        {
+            let spec = Self::spec();
+            let exec = spec
+                .root
+                .subcommands
+                .iter()
+                .find(|subcommand| subcommand.cmd.name == "exec")
+                .expect("the CLI declares its exec command");
+            if let Some(page) = usage_rs::help::render_styled(
+                spec,
+                exec.cmd,
+                *help == OsStr::new("--help"),
+                usage_rs::help::Style::auto(),
+            ) {
+                print!("{page}");
             }
+            return Ok(());
         }
         let cli = match Self::parse_from(&words) {
             Ok(cli) => cli,

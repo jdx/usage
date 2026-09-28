@@ -127,14 +127,14 @@ impl usage_rs::Run for Markdown {
             // No CLI in the fleet has a `configuration` command — they call it `config` — so
             // this asks the one author who ever hits it to pick a name, rather than quietly
             // losing a page for everybody who does not.
-            if !ctx.render_config()?.trim().is_empty() {
-                if let Some(cmd) = ctx.config_page_collision() {
-                    usage::miette::bail!(
-                        "the `{cmd}` command's page and the settings page would both be written \
+            if !ctx.render_config()?.trim().is_empty()
+                && let Some(cmd) = ctx.config_page_collision()
+            {
+                usage::miette::bail!(
+                    "the `{cmd}` command's page and the settings page would both be written \
                          to {}; rename the command, or hide it, to generate both",
-                        ctx.config_page()
-                    );
-                }
+                    ctx.config_page()
+                );
             }
             let commands = spec.cmd.all_subcommands().into_iter().filter(|c| !c.hide);
             for cmd in commands {

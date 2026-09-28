@@ -540,10 +540,10 @@ impl SpecConfigProp {
         }
         // Only when it is the whole story: several go in a child node, and writing both
         // would say it twice.
-        if self.envs.len() <= 1 {
-            if let Some(env) = &self.env {
-                node.push(string_entry(Some("env"), env));
-            }
+        if self.envs.len() <= 1
+            && let Some(env) = &self.env
+        {
+            node.push(string_entry(Some("env"), env));
         }
         if let Some(help) = &self.help {
             node.push(string_entry(Some("help"), help));
@@ -868,10 +868,10 @@ impl SpecConfigProp {
         // Syncing only when one side was empty left a prop that wrote *both* with two fields
         // saying different things — `usage g json` exposing the pair, and a writer that picks
         // between them by list length, so one of the values disappeared on a round trip.
-        if let Some(env) = prop.env.take() {
-            if !prop.envs.contains(&env) {
-                prop.envs.insert(0, env);
-            }
+        if let Some(env) = prop.env.take()
+            && !prop.envs.contains(&env)
+        {
+            prop.envs.insert(0, env);
         }
         prop.env = prop.envs.first().cloned();
         Ok(prop)

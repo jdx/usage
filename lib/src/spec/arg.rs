@@ -418,10 +418,10 @@ impl SpecArg {
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
         }
-        if let Some(sigil) = &arg.sigil {
-            if let Some(name) = arg.name.strip_prefix(sigil) {
-                arg.name = name.to_string();
-            }
+        if let Some(sigil) = &arg.sigil
+            && let Some(name) = arg.name.strip_prefix(sigil)
+        {
+            arg.name = name.to_string();
         }
         if let Some(first) = arg.value_names.first() {
             arg.name.clone_from(first);
@@ -508,14 +508,14 @@ impl SpecArg {
             }
         }
         #[cfg(feature = "validation")]
-        if let Some(expression) = &arg.validate {
-            if let Err(error) = usage_validation::check(expression) {
-                bail_parse!(
-                    ctx,
-                    node.node.name().span(),
-                    "invalid validation expression: {error}"
-                );
-            }
+        if let Some(expression) = &arg.validate
+            && let Err(error) = usage_validation::check(expression)
+        {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "invalid validation expression: {error}"
+            );
         }
         arg.usage = arg.usage();
         if let Some(help) = &arg.help {
@@ -697,10 +697,10 @@ impl From<&SpecArg> for KdlNode {
         if let Some(validate) = &arg.validate {
             node.push(string_entry(Some("validate"), validate));
         }
-        if arg.validate.is_some() {
-            if let Some(error) = &arg.validate_error {
-                node.push(string_entry(Some("validate_error"), error));
-            }
+        if arg.validate.is_some()
+            && let Some(error) = &arg.validate_error
+        {
+            node.push(string_entry(Some("validate_error"), error));
         }
         if let Some(help_heading) = &arg.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
@@ -861,15 +861,14 @@ impl From<&str> for SpecArg {
             arg.name = name.to_string();
         }
         // Also handle ellipsis inside brackets: "[args...]" or "<args...>"
-        if !arg.var {
-            if let Some(name) = arg
+        if !arg.var
+            && let Some(name) = arg
                 .name
                 .strip_suffix("...")
                 .or_else(|| arg.name.strip_suffix("…"))
-            {
-                arg.var = true;
-                arg.name = name.to_string();
-            }
+        {
+            arg.var = true;
+            arg.name = name.to_string();
         }
         // As `SpecArg::parse` does for the KDL child-node spelling. Without it, an arg
         // written inline on a flag (`flag "--format <FMT>"`) carried an empty `usage`

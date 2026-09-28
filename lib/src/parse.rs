@@ -1042,16 +1042,16 @@ impl<'a> Parser<'a> {
                 )?;
                 continue;
             }
-            if let Some(arg) = flag.arg.as_ref() {
-                if !arg.default.is_empty() {
-                    bind_flag_fallback(
-                        flag,
-                        &arg.default,
-                        &mut out,
-                        custom_env,
-                        ValueOrigin::Default,
-                    )?;
-                }
+            if let Some(arg) = flag.arg.as_ref()
+                && !arg.default.is_empty()
+            {
+                bind_flag_fallback(
+                    flag,
+                    &arg.default,
+                    &mut out,
+                    custom_env,
+                    ValueOrigin::Default,
+                )?;
             }
         }
         // The binding phase leaves the last clause instance in `args`/`flags` so
@@ -1100,33 +1100,33 @@ impl<'a> Parser<'a> {
                         continue;
                     };
                     if let (true, ParseValue::MultiString(values)) = (arg.var, value) {
-                        if let Some(min) = arg.var_min {
-                            if values.len() < min {
-                                clause_errors.push(UsageErr::VarArgTooFew {
-                                    name: format!(
-                                        "{} instance {}: {}",
-                                        clause.name,
-                                        index + 1,
-                                        arg.name
-                                    ),
-                                    min,
-                                    got: values.len(),
-                                });
-                            }
+                        if let Some(min) = arg.var_min
+                            && values.len() < min
+                        {
+                            clause_errors.push(UsageErr::VarArgTooFew {
+                                name: format!(
+                                    "{} instance {}: {}",
+                                    clause.name,
+                                    index + 1,
+                                    arg.name
+                                ),
+                                min,
+                                got: values.len(),
+                            });
                         }
-                        if let Some(max) = arg.var_max {
-                            if values.len() > max {
-                                clause_errors.push(UsageErr::VarArgTooMany {
-                                    name: format!(
-                                        "{} instance {}: {}",
-                                        clause.name,
-                                        index + 1,
-                                        arg.name
-                                    ),
-                                    max,
-                                    got: values.len(),
-                                });
-                            }
+                        if let Some(max) = arg.var_max
+                            && values.len() > max
+                        {
+                            clause_errors.push(UsageErr::VarArgTooMany {
+                                name: format!(
+                                    "{} instance {}: {}",
+                                    clause.name,
+                                    index + 1,
+                                    arg.name
+                                ),
+                                max,
+                                got: values.len(),
+                            });
                         }
                     }
                 }
@@ -1200,10 +1200,11 @@ pub fn multicall_applet<'a>(argv0: &'a str, name: &str, bin: Option<&str>) -> Op
     if !name.is_empty() && base == multicall_basename(name) {
         return None;
     }
-    if let Some(bin) = bin {
-        if !bin.is_empty() && base == multicall_basename(bin) {
-            return None;
-        }
+    if let Some(bin) = bin
+        && !bin.is_empty()
+        && base == multicall_basename(bin)
+    {
+        return None;
     }
     Some(base)
 }
@@ -1517,16 +1518,15 @@ fn parse_partial_traced(
     if let Some(argv0) = argv0.as_ref() {
         trace.record(argv0.argv, TokenRole::Program);
     }
-    if spec.multicall {
-        if let Some(raw) = argv0 {
-            if let Some(applet) = multicall_applet(&raw.word, &spec.name, Some(spec.bin.as_str())) {
-                // A symlink invocation reads a word the caller never typed — the basename of
-                // the program itself — so argv[0] is both the program and, below, whatever
-                // that word selects.
-                trace.note_synthesized(raw.argv);
-                input.push_front(Token::new(applet.to_string(), raw.argv));
-            }
-        }
+    if spec.multicall
+        && let Some(raw) = argv0
+        && let Some(applet) = multicall_applet(&raw.word, &spec.name, Some(spec.bin.as_str()))
+    {
+        // A symlink invocation reads a word the caller never typed — the basename of
+        // the program itself — so argv[0] is both the program and, below, whatever
+        // that word selects.
+        trace.note_synthesized(raw.argv);
+        input.push_front(Token::new(applet.to_string(), raw.argv));
     }
     // The policy observes the selected command's own argv, not values eventually filled from
     // env/default. Start at the root, then reset on every explicit descent. A default
@@ -1809,45 +1809,44 @@ fn parse_partial_traced(
             // unrelated command acquires a default because a name matched one level down:
             // with `default_subcommand "ls"` at the top, `ex config zzz` descended into
             // `config ls`.
-            if !used_default_subcommand && out.cmds.len() == 1 {
-                if let Some(default_name) = &spec.default_subcommand {
-                    if let Some(subcommand) = out
-                        .cmd
-                        .find_subcommand(default_name)
-                        .filter(|_| default_accepts_word(&out.cmd, default_name, &input[idx].word))
-                    {
-                        if out.cmd.args_conflicts_with_subcommands && command_arg_found {
-                            bail!(
-                                "subcommand '{}' cannot be used with arguments on its parent command",
-                                subcommand.name
-                            );
-                        }
-                        let mut subcommand = subcommand.clone();
-                        // Pass prefix words (global flags before this) to mount
-                        subcommand.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
-                        let crossing_mount = subcommand.mounted && !out.cmd.mounted;
-                        merge_subcommand_flags(
-                            &mut out.available_flags,
-                            gather_flags(&subcommand),
-                            crossing_mount,
-                        );
-                        out.cmds.push(subcommand.clone());
-                        out.cmd = subcommand.clone();
-                        command_has_argv = true;
-                        prefix_flags.clear();
-                        command_arg_found = false;
-                        variadic_flag_active = false;
-                        // This descent ran the new command's mounts, so lazy
-                        // discovery must not run them a second time.
-                        mounts_resolved = true;
-                        used_default_subcommand = true;
-                        // Continue the loop to check if this word is a subcommand of the
-                        // default subcommand (e.g., a task name added via mount).
-                        // If it's not a subcommand, the next iteration will break and
-                        // Phase 2 will handle it as a positional arg.
-                        continue;
-                    }
+            if !used_default_subcommand
+                && out.cmds.len() == 1
+                && let Some(default_name) = &spec.default_subcommand
+                && let Some(subcommand) = out
+                    .cmd
+                    .find_subcommand(default_name)
+                    .filter(|_| default_accepts_word(&out.cmd, default_name, &input[idx].word))
+            {
+                if out.cmd.args_conflicts_with_subcommands && command_arg_found {
+                    bail!(
+                        "subcommand '{}' cannot be used with arguments on its parent command",
+                        subcommand.name
+                    );
                 }
+                let mut subcommand = subcommand.clone();
+                // Pass prefix words (global flags before this) to mount
+                subcommand.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
+                let crossing_mount = subcommand.mounted && !out.cmd.mounted;
+                merge_subcommand_flags(
+                    &mut out.available_flags,
+                    gather_flags(&subcommand),
+                    crossing_mount,
+                );
+                out.cmds.push(subcommand.clone());
+                out.cmd = subcommand.clone();
+                command_has_argv = true;
+                prefix_flags.clear();
+                command_arg_found = false;
+                variadic_flag_active = false;
+                // This descent ran the new command's mounts, so lazy
+                // discovery must not run them a second time.
+                mounts_resolved = true;
+                used_default_subcommand = true;
+                // Continue the loop to check if this word is a subcommand of the
+                // default subcommand (e.g., a task name added via mount).
+                // If it's not a subcommand, the next iteration will break and
+                // Phase 2 will handle it as a positional arg.
+                continue;
             }
             // Sigil-classified positionals do not occupy the ordinary positional cursor and
             // therefore do not close subcommand routing. Phase 2 binds and strips them. A
@@ -1951,69 +1950,68 @@ fn parse_partial_traced(
 
         // A clause boundary is syntax even after an automatic trailing argument disabled
         // flags. Only an explicit `--` protects a literal separator.
-        if !seen_double_dash {
-            if let Some(clause) = out.cmd.clause.as_ref() {
-                if clause.separator.as_deref() == Some(w.as_str()) {
-                    while try_bind_default_missing(
-                        &mut out.flags,
-                        &mut out.flag_awaiting_value,
-                        custom_env,
-                        &mut out.flag_origins,
-                    )? {}
-                    if let Some(flag) = out.flag_awaiting_value.first() {
-                        let spelling = flag
-                            .long
-                            .first()
-                            .map(|long| format!("--{long}"))
-                            .or_else(|| flag.short.first().map(|short| format!("-{short}")))
-                            .unwrap_or_else(|| flag.name.clone());
-                        return Err(UsageErr::InvalidFlag {
-                            token: spelling.clone(),
-                            reason: "requires an argument".to_string(),
-                            span: (0, spelling.len()).into(),
-                            input: spelling,
-                        }
-                        .into());
-                    }
-                    let name = clause.name.clone();
-                    if out.cmds.len() == 1 {
-                        root_clause_separator_seen = true;
-                    }
-                    finalize_current_clause(&mut out);
-                    out.arg_origins.clear();
-                    trace.record(argv, TokenRole::ClauseSeparator { name });
-                    next_arg_idx = 0;
-                    out.flag_awaiting_value.clear();
-                    reset_clause_scalar_occurrences(&out, &mut scalar_occurrences);
-                    enable_flags = true;
-                    seen_double_dash = false;
-                    continue;
+        if !seen_double_dash
+            && let Some(clause) = out.cmd.clause.as_ref()
+            && clause.separator.as_deref() == Some(w.as_str())
+        {
+            while try_bind_default_missing(
+                &mut out.flags,
+                &mut out.flag_awaiting_value,
+                custom_env,
+                &mut out.flag_origins,
+            )? {}
+            if let Some(flag) = out.flag_awaiting_value.first() {
+                let spelling = flag
+                    .long
+                    .first()
+                    .map(|long| format!("--{long}"))
+                    .or_else(|| flag.short.first().map(|short| format!("-{short}")))
+                    .unwrap_or_else(|| flag.name.clone());
+                return Err(UsageErr::InvalidFlag {
+                    token: spelling.clone(),
+                    reason: "requires an argument".to_string(),
+                    span: (0, spelling.len()).into(),
+                    input: spelling,
                 }
+                .into());
             }
+            let name = clause.name.clone();
+            if out.cmds.len() == 1 {
+                root_clause_separator_seen = true;
+            }
+            finalize_current_clause(&mut out);
+            out.arg_origins.clear();
+            trace.record(argv, TokenRole::ClauseSeparator { name });
+            next_arg_idx = 0;
+            out.flag_awaiting_value.clear();
+            reset_clause_scalar_occurrences(&out, &mut scalar_occurrences);
+            enable_flags = true;
+            seen_double_dash = false;
+            continue;
         }
 
         // Check for restart_token - resets argument parsing for multiple command invocations
         // e.g., `mise run lint ::: test ::: check` with restart_token=":::"
-        if let Some(ref restart_token) = out.cmd.restart_token {
-            if w == *restart_token {
-                // Reset argument parsing state for a fresh command invocation, keeping the
-                // flags. `double_dash_violations` is deliberately *not* cleared: `out.errors`
-                // is not cleared here either, so clearing it would let one arg report the same
-                // violation once per invocation.
-                out.args.clear();
-                // With the values gone, so is where they came from — otherwise the second
-                // invocation of `run lint ::: test` reports the first one's provenance. The
-                // token trace is *not* cleared: those words were read, and a report that
-                // dropped them would show a command line with a hole in it.
-                out.arg_origins.clear();
-                trace.record(argv, TokenRole::Restart);
-                next_arg_idx = cursor_skip_sigils(&out.cmd, 0);
-                restart_seen = true;
-                out.flag_awaiting_value.clear(); // Clear any pending flag values
-                enable_flags = true; // Reset -- separator effect
-                seen_double_dash = false; // The next invocation needs its own `--`
-                continue;
-            }
+        if let Some(ref restart_token) = out.cmd.restart_token
+            && w == *restart_token
+        {
+            // Reset argument parsing state for a fresh command invocation, keeping the
+            // flags. `double_dash_violations` is deliberately *not* cleared: `out.errors`
+            // is not cleared here either, so clearing it would let one arg report the same
+            // violation once per invocation.
+            out.args.clear();
+            // With the values gone, so is where they came from — otherwise the second
+            // invocation of `run lint ::: test` reports the first one's provenance. The
+            // token trace is *not* cleared: those words were read, and a report that
+            // dropped them would show a command line with a hole in it.
+            out.arg_origins.clear();
+            trace.record(argv, TokenRole::Restart);
+            next_arg_idx = cursor_skip_sigils(&out.cmd, 0);
+            restart_seen = true;
+            out.flag_awaiting_value.clear(); // Clear any pending flag values
+            enable_flags = true; // Reset -- separator effect
+            seen_double_dash = false; // The next invocation needs its own `--`
+            continue;
         }
 
         // A flag declared `allow_hyphen_values` takes the next token whatever it looks
@@ -2361,12 +2359,10 @@ fn parse_partial_traced(
                     &mut overridden_flags,
                     &mut out.overridden_flags,
                 );
-                if !attached_continuation {
-                    if let Some(pending) = out.flag_awaiting_value.first() {
-                        out.errors.push(render_missing_flag_value(pending, &w));
-                        record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
-                        return Ok((out, overridden_flags));
-                    }
+                if !attached_continuation && let Some(pending) = out.flag_awaiting_value.first() {
+                    out.errors.push(render_missing_flag_value(pending, &w));
+                    record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                    return Ok((out, overridden_flags));
                 }
                 let rest = &w[1 + short.len_utf8()..];
                 if !rest.is_empty() {
@@ -3364,26 +3360,26 @@ fn parse_partial_traced(
 
     // Validate var_min/var_max constraints for variadic args
     for (arg, value) in &out.args {
-        if arg.var {
-            if let ParseValue::MultiString(values) = value {
-                if let Some(min) = arg.var_min {
-                    if values.len() < min {
-                        out.errors.push(UsageErr::VarArgTooFew {
-                            name: arg.name.clone(),
-                            min,
-                            got: values.len(),
-                        });
-                    }
-                }
-                if let Some(max) = arg.var_max {
-                    if values.len() > max {
-                        out.errors.push(UsageErr::VarArgTooMany {
-                            name: arg.name.clone(),
-                            max,
-                            got: values.len(),
-                        });
-                    }
-                }
+        if arg.var
+            && let ParseValue::MultiString(values) = value
+        {
+            if let Some(min) = arg.var_min
+                && values.len() < min
+            {
+                out.errors.push(UsageErr::VarArgTooFew {
+                    name: arg.name.clone(),
+                    min,
+                    got: values.len(),
+                });
+            }
+            if let Some(max) = arg.var_max
+                && values.len() > max
+            {
+                out.errors.push(UsageErr::VarArgTooMany {
+                    name: arg.name.clone(),
+                    max,
+                    got: values.len(),
+                });
             }
         }
     }
@@ -3416,23 +3412,23 @@ fn parse_partial_traced(
             if count == 0 {
                 continue;
             }
-            if let Some(min) = flag.var_min {
-                if count < min {
-                    out.errors.push(UsageErr::VarFlagTooFew {
-                        name: flag.name.clone(),
-                        min,
-                        got: count,
-                    });
-                }
+            if let Some(min) = flag.var_min
+                && count < min
+            {
+                out.errors.push(UsageErr::VarFlagTooFew {
+                    name: flag.name.clone(),
+                    min,
+                    got: count,
+                });
             }
-            if let Some(max) = flag.var_max {
-                if count > max {
-                    out.errors.push(UsageErr::VarFlagTooMany {
-                        name: flag.name.clone(),
-                        max,
-                        got: count,
-                    });
-                }
+            if let Some(max) = flag.var_max
+                && count > max
+            {
+                out.errors.push(UsageErr::VarFlagTooMany {
+                    name: flag.name.clone(),
+                    max,
+                    got: count,
+                });
             }
         }
     }
@@ -3560,44 +3556,44 @@ fn split_fallback_values(values: &[String], delimiter: Option<char>) -> Vec<Stri
 }
 
 fn validate_arg_fallback_count(arg: &SpecArg, count: usize, errors: &mut Vec<UsageErr>) {
-    if let Some(min) = arg.var_min {
-        if count < min {
-            errors.push(UsageErr::VarArgTooFew {
-                name: arg.name.clone(),
-                min,
-                got: count,
-            });
-        }
+    if let Some(min) = arg.var_min
+        && count < min
+    {
+        errors.push(UsageErr::VarArgTooFew {
+            name: arg.name.clone(),
+            min,
+            got: count,
+        });
     }
-    if let Some(max) = arg.var_max {
-        if count > max {
-            errors.push(UsageErr::VarArgTooMany {
-                name: arg.name.clone(),
-                max,
-                got: count,
-            });
-        }
+    if let Some(max) = arg.var_max
+        && count > max
+    {
+        errors.push(UsageErr::VarArgTooMany {
+            name: arg.name.clone(),
+            max,
+            got: count,
+        });
     }
 }
 
 fn validate_flag_fallback_count(flag: &SpecFlag, count: usize, errors: &mut Vec<UsageErr>) {
-    if let Some(min) = flag.var_min {
-        if count < min {
-            errors.push(UsageErr::VarFlagTooFew {
-                name: flag.name.clone(),
-                min,
-                got: count,
-            });
-        }
+    if let Some(min) = flag.var_min
+        && count < min
+    {
+        errors.push(UsageErr::VarFlagTooFew {
+            name: flag.name.clone(),
+            min,
+            got: count,
+        });
     }
-    if let Some(max) = flag.var_max {
-        if count > max {
-            errors.push(UsageErr::VarFlagTooMany {
-                name: flag.name.clone(),
-                max,
-                got: count,
-            });
-        }
+    if let Some(max) = flag.var_max
+        && count > max
+    {
+        errors.push(UsageErr::VarFlagTooMany {
+            name: flag.name.clone(),
+            max,
+            got: count,
+        });
     }
 }
 
@@ -3607,23 +3603,23 @@ fn validate_flag_arg_fallback_count(
     count: usize,
     errors: &mut Vec<UsageErr>,
 ) {
-    if let Some(min) = arg.var_min {
-        if count < min {
-            errors.push(UsageErr::VarFlagTooFew {
-                name: flag.name.clone(),
-                min,
-                got: count,
-            });
-        }
+    if let Some(min) = arg.var_min
+        && count < min
+    {
+        errors.push(UsageErr::VarFlagTooFew {
+            name: flag.name.clone(),
+            min,
+            got: count,
+        });
     }
-    if let Some(max) = arg.var_max {
-        if count > max {
-            errors.push(UsageErr::VarFlagTooMany {
-                name: flag.name.clone(),
-                max,
-                got: count,
-            });
-        }
+    if let Some(max) = arg.var_max
+        && count > max
+    {
+        errors.push(UsageErr::VarFlagTooMany {
+            name: flag.name.clone(),
+            max,
+            got: count,
+        });
     }
 }
 
@@ -4964,14 +4960,14 @@ fn collect_variadic_flag_values(
         .map(value_count)
         .unwrap_or(0)
         .saturating_sub(carried);
-    if let Some(min) = flag.arg.as_ref().and_then(|arg| arg.var_min) {
-        if taken < min {
-            errors.push(UsageErr::VarFlagTooFew {
-                name: flag.name.clone(),
-                min,
-                got: taken,
-            });
-        }
+    if let Some(min) = flag.arg.as_ref().and_then(|arg| arg.var_min)
+        && taken < min
+    {
+        errors.push(UsageErr::VarFlagTooFew {
+            name: flag.name.clone(),
+            min,
+            got: taken,
+        });
     }
     if taken > max {
         errors.push(UsageErr::VarFlagTooMany {
@@ -5166,21 +5162,21 @@ fn choice_error(
     let values = choices
         .resolved_values(custom_env)
         .unwrap_or_else(|_| choices.values_with_env(custom_env));
-    if let Some(run) = choices.run() {
-        if values.is_empty() {
-            return Some(format!(
-                "Invalid choice for {} {}: {value}, `{run}` printed no choices",
-                target.kind, target.name,
-            ));
-        }
+    if let Some(run) = choices.run()
+        && values.is_empty()
+    {
+        return Some(format!(
+            "Invalid choice for {} {}: {value}, `{run}` printed no choices",
+            target.kind, target.name,
+        ));
     }
-    if let Some(env) = choices.env() {
-        if values.is_empty() {
-            return Some(format!(
-                "Invalid choice for {} {}: {value}, no choices resolved from env {env}",
-                target.kind, target.name,
-            ));
-        }
+    if let Some(env) = choices.env()
+        && values.is_empty()
+    {
+        return Some(format!(
+            "Invalid choice for {} {}: {value}, no choices resolved from env {env}",
+            target.kind, target.name,
+        ));
     }
     Some(format!(
         "Invalid choice for {} {}: {value}, expected one of {}",

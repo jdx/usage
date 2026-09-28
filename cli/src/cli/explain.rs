@@ -326,16 +326,16 @@ impl Explanation {
             // A declared default that did not supply the value lost to whatever did. This is
             // the most common thing a spec author is confused about, and the parser records
             // exactly enough to answer it without guessing.
-            if let Some(declared) = declared_default(flag) {
-                if !origins.iter().any(|o| matches!(o, OriginRow::Default)) {
-                    shadowed.push(ShadowRow {
-                        kind: "flag".to_string(),
-                        name: flag.name.clone(),
-                        display: flag_display(flag),
-                        value: declared,
-                        lost_to: origins,
-                    });
-                }
+            if let Some(declared) = declared_default(flag)
+                && !origins.iter().any(|o| matches!(o, OriginRow::Default))
+            {
+                shadowed.push(ShadowRow {
+                    kind: "flag".to_string(),
+                    name: flag.name.clone(),
+                    display: flag_display(flag),
+                    value: declared,
+                    lost_to: origins,
+                });
             }
         }
         for (arg, value) in &out.args {

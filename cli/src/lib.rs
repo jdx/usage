@@ -57,11 +57,11 @@ pub fn run(args: &[String]) -> usage::miette::Result<()> {
         }
     }
     let result = Cli::run(args);
-    if let Err(err) = &result {
-        if let Some(_err) = err.downcast_ref::<usage::error::UsageErr>() {
-            eprintln!("{err:?}");
-            std::process::exit(181);
-        }
+    if let Err(err) = &result
+        && let Some(_err) = err.downcast_ref::<usage::error::UsageErr>()
+    {
+        eprintln!("{err:?}");
+        std::process::exit(181);
     };
 
     result

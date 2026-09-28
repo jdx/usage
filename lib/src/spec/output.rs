@@ -490,10 +490,10 @@ fn resolve_cmd(
     };
 
     check_declarations(cmd, &outputs)?;
-    if let Some(name) = &select {
-        if !outputs.is_empty() {
-            materialize(cmd, inherited_flags, name, &outputs)?;
-        }
+    if let Some(name) = &select
+        && !outputs.is_empty()
+    {
+        materialize(cmd, inherited_flags, name, &outputs)?;
     }
     let local_outputs = if is_root {
         inherited_outputs

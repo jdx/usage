@@ -399,10 +399,11 @@ pub fn multicall_applet<'a>(argv0: &'a str, name: &str, bin: Option<&str>) -> Op
     if !name.is_empty() && base == multicall_basename(name) {
         return None;
     }
-    if let Some(bin) = bin {
-        if !bin.is_empty() && base == multicall_basename(bin) {
-            return None;
-        }
+    if let Some(bin) = bin
+        && !bin.is_empty()
+        && base == multicall_basename(bin)
+    {
+        return None;
     }
     Some(base)
 }
@@ -1472,10 +1473,10 @@ const fn const_flag_forms_overlap(a: &Flag<'_>, b: &Flag<'_>) -> bool {
             }
             j += 1;
         }
-        if let Some(negate) = b.negate {
-            if const_bytes_eq(a.longs[i].as_bytes(), negate.as_bytes()) {
-                return true;
-            }
+        if let Some(negate) = b.negate
+            && const_bytes_eq(a.longs[i].as_bytes(), negate.as_bytes())
+        {
+            return true;
         }
         i += 1;
     }
@@ -1498,10 +1499,10 @@ const fn const_flag_forms_overlap(a: &Flag<'_>, b: &Flag<'_>) -> bool {
             }
             j += 1;
         }
-        if let Some(other) = b.negate {
-            if const_bytes_eq(negate.as_bytes(), other.as_bytes()) {
-                return true;
-            }
+        if let Some(other) = b.negate
+            && const_bytes_eq(negate.as_bytes(), other.as_bytes())
+        {
+            return true;
         }
     }
     false
@@ -2223,21 +2224,20 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             && !self.positional_arg_found
             && !self.separator_seen
             && !self.clause_separator_seen
+            && let Some(default) = self.cmd.default_subcommand
         {
-            if let Some(default) = self.cmd.default_subcommand {
-                if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
+            if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
+                self.done = true;
+                return Some(Err(Error::SubcommandConflict {
+                    subcommand: default,
+                }));
+            }
+            self.default_taken = true;
+            match self.descend(default) {
+                Ok(()) => return Some(Ok(Event::Command(default))),
+                Err(error) => {
                     self.done = true;
-                    return Some(Err(Error::SubcommandConflict {
-                        subcommand: default,
-                    }));
-                }
-                self.default_taken = true;
-                match self.descend(default) {
-                    Ok(()) => return Some(Ok(Event::Command(default))),
-                    Err(error) => {
-                        self.done = true;
-                        return Some(Err(error));
-                    }
+                    return Some(Err(error));
                 }
             }
         }
@@ -2302,16 +2302,16 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             return Some(self.short_flag());
         }
 
-        if self.cmd.subcommand_precedence_over_arg && !self.flags_stopped {
-            if let Some(token) = self.argv.get(self.pos).map(bytes) {
-                if let Some(sub) = self.find_subcommand(token) {
-                    if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
-                        return Some(Err(Error::SubcommandConflict { subcommand: sub }));
-                    }
-                    self.pos += 1;
-                    return Some(self.descend(sub).map(|()| Event::Command(sub)));
-                }
+        if self.cmd.subcommand_precedence_over_arg
+            && !self.flags_stopped
+            && let Some(token) = self.argv.get(self.pos).map(bytes)
+            && let Some(sub) = self.find_subcommand(token)
+        {
+            if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
+                return Some(Err(Error::SubcommandConflict { subcommand: sub }));
             }
+            self.pos += 1;
+            return Some(self.descend(sub).map(|()| Event::Command(sub)));
         }
 
         // A variadic flag keeps claiming tokens until one of them could be
@@ -2492,10 +2492,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             } else {
                 None
             };
-            if flag.variadic {
-                if let Some(value) = value {
-                    self.start_collecting(flag, value)?;
-                }
+            if flag.variadic
+                && let Some(value) = value
+            {
+                self.start_collecting(flag, value)?;
             }
             if let Some(error) = self.flag_action(flag, true) {
                 return Err(error);
@@ -2601,10 +2601,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         } else {
             Some(rest)
         };
-        if flag.variadic {
-            if let Some(value) = value {
-                self.start_collecting(flag, value)?;
-            }
+        if flag.variadic
+            && let Some(value) = value
+        {
+            self.start_collecting(flag, value)?;
         }
         if let Some(error) = self.flag_action(flag, false) {
             return Err(error);
@@ -2810,24 +2810,25 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
         }
 
-        if self.arg_filled && !self.flags_stopped {
-            if let Some((arg, sigil)) = self.match_sigil_arg(token) {
-                if token.len() == sigil.len() {
-                    return Err(invalid_value_error(
-                        arg.name,
-                        as_str(token).unwrap_or_default().to_string(),
-                        format!(
-                            "expected a value after sigil {:?}",
-                            as_str(sigil).unwrap_or_default()
-                        ),
-                    ));
-                }
-                return Ok(Event::Arg {
-                    arg,
-                    value: &token[sigil.len()..],
-                    delimit: true,
-                });
+        if self.arg_filled
+            && !self.flags_stopped
+            && let Some((arg, sigil)) = self.match_sigil_arg(token)
+        {
+            if token.len() == sigil.len() {
+                return Err(invalid_value_error(
+                    arg.name,
+                    as_str(token).unwrap_or_default().to_string(),
+                    format!(
+                        "expected a value after sigil {:?}",
+                        as_str(sigil).unwrap_or_default()
+                    ),
+                ));
             }
+            return Ok(Event::Arg {
+                arg,
+                value: &token[sigil.len()..],
+                delimit: true,
+            });
         }
 
         self.skip_sigil_args();
@@ -3095,16 +3096,17 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
         // Only the boundary token is shared. Later tokens use ordinary child/global scope.
-        if self.default_taken && self.pos == self.default_bundle_end {
-            if let Some(flag) = self.ancestors[0].and_then(|parent| {
+        if self.default_taken
+            && self.pos == self.default_bundle_end
+            && let Some(flag) = self.ancestors[0].and_then(|parent| {
                 parent
                     .flags
                     .iter()
                     .copied()
                     .find(|f| f.shorts.contains(&byte))
-            }) {
-                return Some(flag);
-            }
+            })
+        {
+            return Some(flag);
         }
         self.in_scope()
             .find(|f| f.shorts.contains(&byte))

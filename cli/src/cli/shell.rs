@@ -170,10 +170,11 @@ impl Shell {
             let code = result.code().unwrap_or(1);
             // `exit` skips destructors, so the copy is removed here or not at all.
             drop(_copy);
-            if cfg!(windows) && overridden.is_none() {
-                if let Some(hint) = wsl_path_hint(shell, code, &script_path) {
-                    eprintln!("{hint}");
-                }
+            if cfg!(windows)
+                && overridden.is_none()
+                && let Some(hint) = wsl_path_hint(shell, code, &script_path)
+            {
+                eprintln!("{hint}");
             }
             std::process::exit(code);
         }

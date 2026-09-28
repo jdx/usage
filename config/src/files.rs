@@ -223,10 +223,10 @@ impl FileLayer {
             // not an ancestor at all means the caller and this walk disagree about where the
             // boundary is, and reading everything up to the root is the worse of the two ways
             // to be wrong about that.
-            if let Some(ceiling) = &ceiling {
-                if !current.starts_with(ceiling) {
-                    break;
-                }
+            if let Some(ceiling) = &ceiling
+                && !current.starts_with(ceiling)
+            {
+                break;
             }
             found.push(current.join(name));
             if ceiling.as_deref() == Some(current) {

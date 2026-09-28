@@ -9,7 +9,7 @@ fn fixture_output(name: &str, args: &[&str]) -> Output {
         .join("fixtures")
         .join(name)
         .join("Cargo.toml");
-    let output = Command::new(env!("CARGO"))
+    Command::new(env!("CARGO"))
         .args(["run", "--quiet", "--manifest-path"])
         .arg(&manifest)
         .arg("--")
@@ -19,8 +19,7 @@ fn fixture_output(name: &str, args: &[&str]) -> Output {
             PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(name),
         )
         .output()
-        .expect("cargo should run the external facade fixture");
-    output
+        .expect("cargo should run the external facade fixture")
 }
 
 fn run_fixture(name: &str) {

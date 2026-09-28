@@ -627,13 +627,12 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         if let Some(escaped) = rest
             .strip_prefix('\\')
             .and_then(|after| after.chars().next())
+            && matches!(escaped, '*' | '_' | '~' | '`' | '\\')
         {
-            if matches!(escaped, '*' | '_' | '~' | '`' | '\\') {
-                out.push(escaped);
-                at += 1 + escaped.len_utf8();
-                allow_run_remainder = false;
-                continue;
-            }
+            out.push(escaped);
+            at += 1 + escaped.len_utf8();
+            allow_run_remainder = false;
+            continue;
         }
 
         let span = [
@@ -803,23 +802,23 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             continue;
         }
 
-        if rest.starts_with('<') {
-            if let Some(end) = rest.find('>') {
-                let end = end + 1;
-                out.push_str(&style.metavar(&rest[..end]));
-                at += end;
-                continue;
-            }
+        if rest.starts_with('<')
+            && let Some(end) = rest.find('>')
+        {
+            let end = end + 1;
+            out.push_str(&style.metavar(&rest[..end]));
+            at += end;
+            continue;
         }
 
-        if let Some(value) = rest.strip_prefix("[=") {
-            if let Some(end) = value.find(']') {
-                out.push_str("[=");
-                out.push_str(&style.metavar(&value[..end]));
-                out.push(']');
-                at += end + 3;
-                continue;
-            }
+        if let Some(value) = rest.strip_prefix("[=")
+            && let Some(end) = value.find(']')
+        {
+            out.push_str("[=");
+            out.push_str(&style.metavar(&value[..end]));
+            out.push(']');
+            at += end + 3;
+            continue;
         }
 
         if let Some(value) = rest.strip_prefix('=') {
@@ -1173,11 +1172,11 @@ fn usage_line_with_subcommands(
 /// An explicit synopsis belongs to the program rather than every command below it. Subcommand
 /// pages still derive their own invocation from the route and command metadata.
 fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) {
-    if path.len() <= 1 {
-        if let Some(usage) = spec.usage.filter(|usage| !usage.trim().is_empty()) {
-            let _ = writeln!(out, "{}", usage.trim());
-            return;
-        }
+    if path.len() <= 1
+        && let Some(usage) = spec.usage.filter(|usage| !usage.trim().is_empty())
+    {
+        let _ = writeln!(out, "{}", usage.trim());
+        return;
     }
     // Only flattened help needs a synopsis for every visible child.
     if !flatten_help(meta) || !meta.subcommands.iter().any(|sub| !sub.hide) {
@@ -1580,15 +1579,13 @@ fn page_sections(
     // usage-lib prints the name when the spec gives one and the binary otherwise, and only
     // when there is a version beside it.
     let root = path.len() <= 1;
-    if root {
-        if let Some(version) = spec.version {
-            let name = if spec.name.is_empty() {
-                spec.bin.unwrap_or_default()
-            } else {
-                spec.name
-            };
-            let _ = writeln!(out, "{name} {version}");
-        }
+    if root && let Some(version) = spec.version {
+        let name = if spec.name.is_empty() {
+            spec.bin.unwrap_or_default()
+        } else {
+            spec.name
+        };
+        let _ = writeln!(out, "{name} {version}");
     }
     let about = match (root, long) {
         (true, true) => spec.long_about.or(spec.about),
@@ -2088,11 +2085,9 @@ fn commands_section(
         write_heading(out, heading.unwrap_or(default_title), style);
         // A `help_heading` on a subcommand builds a section like a flag's does, so it takes
         // prose on the same terms: the long page only, and only once declared.
-        if long {
-            if let Some(prose) = heading.and_then(|title| heading_help(meta, title)) {
-                write_wrapped_indented(out, prose, width, 2);
-                out.push('\n');
-            }
+        if long && let Some(prose) = heading.and_then(|title| heading_help(meta, title)) {
+            write_wrapped_indented(out, prose, width, 2);
+            out.push('\n');
         }
         for (_, sub) in lines
             .iter()
@@ -3433,20 +3428,18 @@ fn own_and_global<'a>(
         .cloned()
         .chain(taken_negations.iter().cloned())
         .collect();
-    if inherit_version_actions {
-        if let Some(root) = ancestors.first() {
-            inherited.extend(
-                supplied_entries(root.cmd, &claimed)
-                    .into_iter()
-                    .filter(|flag| {
-                        matches!(
-                            flag.flag.key,
-                            crate::VERSION_LONG_KEY | crate::VERSION_SHORT_KEY
-                        )
-                    })
-                    .map(|flag| (flag, column_usage(flag))),
-            );
-        }
+    if inherit_version_actions && let Some(root) = ancestors.first() {
+        inherited.extend(
+            supplied_entries(root.cmd, &claimed)
+                .into_iter()
+                .filter(|flag| {
+                    matches!(
+                        flag.flag.key,
+                        crate::VERSION_LONG_KEY | crate::VERSION_SHORT_KEY
+                    )
+                })
+                .map(|flag| (flag, column_usage(flag))),
+        );
     }
     own.extend(supplied_entries(here.cmd, &claimed));
     (own, inherited)

@@ -1715,14 +1715,14 @@ impl Cli {
         // A style is written into KDL as a property of the `logo` node, so there is nowhere
         // to put one that names no logo: it would sit in the compiled tables, vanish from the
         // emitted spec, and colour nothing either way. Refused where it is written instead.
-        if self.logo.is_none() {
-            if let Some(span) = self.logo_style_span {
-                return Err(syn::Error::new(
-                    span,
-                    "`logo_style` colours a `logo`, and this CLI declares none; add \
+        if self.logo.is_none()
+            && let Some(span) = self.logo_style_span
+        {
+            return Err(syn::Error::new(
+                span,
+                "`logo_style` colours a `logo`, and this CLI declares none; add \
                      `logo = …` or drop the style",
-                ));
-            }
+            ));
         }
         let mut seen_long: Vec<(&str, Span)> = Vec::new();
         let mut seen_short: Vec<(char, Span)> = Vec::new();
@@ -2742,18 +2742,16 @@ impl Field {
         // Refused as a class rather than one option at a time: this field holds a set of
         // commands, and everything the attribute can otherwise say describes a value or a
         // flag, which a subcommand holder is neither.
-        if is_subcommand {
-            if let Some(other) = others.first() {
-                let what = ident_of(&other.clone());
-                return Err(syn::Error::new_spanned(
-                    other,
-                    format!(
-                        "`{what}` says nothing about a `subcommand` field, which holds a set \
+        if is_subcommand && let Some(other) = others.first() {
+            let what = ident_of(&other.clone());
+            return Err(syn::Error::new_spanned(
+                other,
+                format!(
+                    "`{what}` says nothing about a `subcommand` field, which holds a set \
                          of commands rather than a value — declare it on the command it \
                          describes, where `#[derive(Args)]` is"
-                    ),
-                ));
-            }
+                ),
+            ));
         }
         if !is_subcommand {
             return Ok(None);
@@ -3398,11 +3396,9 @@ impl Field {
         // `value_name` is a flag value placeholder or a positional's displayed
         // name. Normalize the latter into the field name before validating the
         // two distinct concepts.
-        if !is_flag {
-            if let Some(positional_name) = value_name.take() {
-                name = strip_dashes(&positional_name);
-                name_given = true;
-            }
+        if !is_flag && let Some(positional_name) = value_name.take() {
+            name = strip_dashes(&positional_name);
+            name_given = true;
         }
         if action != ArgAction::Set && !is_flag {
             return Err(syn::Error::new(
@@ -3593,26 +3589,26 @@ impl Field {
                 "`value_hint` and `complete` both answer completion for this value; use one",
             ));
         }
-        if let (Some(min), Some(max)) = (var_min, var_max) {
-            if min > max {
-                return Err(syn::Error::new(
-                    span,
-                    format!(
-                        "`var_min = {min}` is more than `var_max = {max}`, so nothing \
+        if let (Some(min), Some(max)) = (var_min, var_max)
+            && min > max
+        {
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "`var_min = {min}` is more than `var_max = {max}`, so nothing \
                              could satisfy both"
-                    ),
-                ));
-            }
+                ),
+            ));
         }
-        if let (Some(min), Some(max)) = (value_var_min, value_var_max) {
-            if min > max {
-                return Err(syn::Error::new(
-                    span,
-                    format!(
-                        "`num_args` begins at {min} but ends at {max}, so nothing could satisfy it"
-                    ),
-                ));
-            }
+        if let (Some(min), Some(max)) = (value_var_min, value_var_max)
+            && min > max
+        {
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "`num_args` begins at {min} but ends at {max}, so nothing could satisfy it"
+                ),
+            ));
         }
         if (var_min.is_some_and(|min| min > 1)
             || var_max.is_none() && var_min.is_some()
@@ -3643,12 +3639,12 @@ impl Field {
             // Each of them, not the first: a collection's second default is as unusable as its
             // first if the choices do not allow it.
             let invalid_default = default.iter().find_map(|declared| {
-                if shape == Shape::Many {
-                    if let Some(delimiter) = delimiter {
-                        return declared
-                            .split(delimiter)
-                            .find(|part| !choices.iter().any(|choice| choice == part));
-                    }
+                if shape == Shape::Many
+                    && let Some(delimiter) = delimiter
+                {
+                    return declared
+                        .split(delimiter)
+                        .find(|part| !choices.iter().any(|choice| choice == part));
                 }
                 (!choices.contains(declared)).then_some(declared.as_str())
             });
@@ -3759,16 +3755,12 @@ impl Field {
         // Overrides change token binding and therefore still live on flags. The
         // post-parse relationship families use argument selectors and work for both
         // flags and positionals, matching clap's argument-id model.
-        for (option, selectors) in [("overrides", &overrides)] {
-            if !selectors.is_empty() && !is_flag {
-                return Err(syn::Error::new(
-                    span,
-                    format!(
-                        "`{option}` describes a relationship between flags, so the field \
-                         needs a `long` or a `short`"
-                    ),
-                ));
-            }
+        if !overrides.is_empty() && !is_flag {
+            return Err(syn::Error::new(
+                span,
+                "`overrides` describes a relationship between flags, so the field \
+                 needs a `long` or a `short`",
+            ));
         }
         if !requires_if.is_empty() && !is_flag {
             return Err(syn::Error::new(
@@ -5448,15 +5440,15 @@ fn num_args_value(meta: &Meta) -> syn::Result<(usize, Option<usize>)> {
         Expr::Range(range) => {
             let min = range.start.as_deref().map(bound).transpose()?.unwrap_or(0);
             let mut max = range.end.as_deref().map(bound).transpose()?;
-            if matches!(range.limits, syn::RangeLimits::HalfOpen(_)) {
-                if let Some(end) = max.as_mut() {
-                    *end = end.checked_sub(1).ok_or_else(|| {
-                        syn::Error::new_spanned(
-                            value,
-                            "an exclusive `num_args` range cannot end at zero",
-                        )
-                    })?;
-                }
+            if matches!(range.limits, syn::RangeLimits::HalfOpen(_))
+                && let Some(end) = max.as_mut()
+            {
+                *end = end.checked_sub(1).ok_or_else(|| {
+                    syn::Error::new_spanned(
+                        value,
+                        "an exclusive `num_args` range cannot end at zero",
+                    )
+                })?;
             }
             if max.is_some_and(|max| min > max) {
                 return Err(syn::Error::new_spanned(
@@ -5535,28 +5527,27 @@ pub(crate) fn doc_comment(
 ) -> syn::Result<(Option<String>, Option<String>)> {
     let mut lines: Vec<String> = Vec::new();
     for attr in attrs.iter().filter(|a| a.path().is_ident("doc")) {
-        if let Meta::NameValue(nv) = &attr.meta {
-            if let Expr::Lit(ExprLit {
+        if let Meta::NameValue(nv) = &attr.meta
+            && let Expr::Lit(ExprLit {
                 lit: Lit::Str(s), ..
             }) = &nv.value
-            {
-                // Only the one space `///` conventionally adds, and trailing space. Trimming
-                // each line outright flattened every indented example in a CLI's help — and
-                // mise's help is full of them, since an indented block is how a spec shows a
-                // command to type.
-                let raw = s.value();
-                if verbatim {
-                    let mut raw_lines = raw.split('\n');
-                    if let Some(first) = raw_lines.next() {
-                        lines.push(first.strip_prefix(' ').unwrap_or(first).to_string());
-                    }
-                    lines.extend(raw_lines.map(str::to_string));
-                } else {
-                    // Preserve the pre-verbatim behaviour for an explicitly written,
-                    // multiline `#[doc = "..."]`: only `///` contributes one leading
-                    // space per attribute. A newline inside one attribute does not.
-                    lines.push(raw.strip_prefix(' ').unwrap_or(&raw).trim_end().to_string());
+        {
+            // Only the one space `///` conventionally adds, and trailing space. Trimming
+            // each line outright flattened every indented example in a CLI's help — and
+            // mise's help is full of them, since an indented block is how a spec shows a
+            // command to type.
+            let raw = s.value();
+            if verbatim {
+                let mut raw_lines = raw.split('\n');
+                if let Some(first) = raw_lines.next() {
+                    lines.push(first.strip_prefix(' ').unwrap_or(first).to_string());
                 }
+                lines.extend(raw_lines.map(str::to_string));
+            } else {
+                // Preserve the pre-verbatim behaviour for an explicitly written,
+                // multiline `#[doc = "..."]`: only `///` contributes one leading
+                // space per attribute. A newline inside one attribute does not.
+                lines.push(raw.strip_prefix(' ').unwrap_or(&raw).trim_end().to_string());
             }
         }
     }
