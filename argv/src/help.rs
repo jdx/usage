@@ -3182,7 +3182,7 @@ mod supplied {
     use crate::{ArgAction, Flag};
 
     macro_rules! entry {
-        ($name:ident, $flag:ident, $key:expr_2021, $label:expr_2021, $longs:expr_2021, $shorts:expr_2021, $help:expr_2021, $action:expr_2021) => {
+        ($name:ident, $flag:ident, $key:expr, $label:expr, $longs:expr, $shorts:expr, $help:expr, $action:expr) => {
             static $flag: Flag<'static> = Flag {
                 key: $key,
                 name: $label,
@@ -4135,7 +4135,7 @@ mod style_tests {
     #[test]
     fn filtered_help_rows_keep_declaration_order_as_the_tie_breaker() {
         macro_rules! check {
-            ($order:ident, $row:expr_2021) => {{
+            ($order:ident, $row:expr) => {{
                 let row = $row;
                 let declared = [
                     row(None),

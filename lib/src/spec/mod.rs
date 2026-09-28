@@ -2179,7 +2179,7 @@ cmd "run"
     }
 
     macro_rules! extract_usage_tests {
-        ($($name:ident: $input:expr_2021, $expected:expr_2021,)*) => {
+        ($($name:ident: $input:expr, $expected:expr,)*) => {
         $(
             #[test]
             fn $name() {

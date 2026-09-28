@@ -3,7 +3,7 @@ use usage::Spec;
 use usage::parse;
 
 macro_rules! tests {
-    ($($name:ident: spec=$spec:expr_2021, args=$args:expr_2021, expected=$expected:expr_2021,)*) => {
+    ($($name:ident: spec=$spec:expr, args=$args:expr, expected=$expected:expr,)*) => {
     $(
         #[test]
         fn $name() {
