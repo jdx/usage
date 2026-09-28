@@ -1,7 +1,7 @@
 use crate::miette::SourceSpan;
 use std::{fmt::Display, str::FromStr};
 
-use crate::kdl::{v2_parser, KdlError, KdlIdentifier, KdlValue};
+use crate::kdl::{KdlError, KdlIdentifier, KdlValue, v2_parser};
 
 /// KDL Entries are the "arguments" to KDL nodes: either a (positional)
 /// [`Argument`](https://github.com/kdl-org/kdl/blob/main/SPEC.md#argument) or

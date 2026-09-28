@@ -26,7 +26,7 @@ use crate::registry::PropId;
 use crate::resolve::Resolved;
 use crate::source::Origin;
 use crate::ty::TypeError;
-use crate::value::{one_line, Value};
+use crate::value::{Value, one_line};
 
 /// A [`Value`] read as the type a field holds.
 ///
@@ -386,7 +386,7 @@ mod tests {
     use super::*;
     use crate::layer::{Layer, LayerCtx, LayerError, LayerOutput};
     use crate::registry::{PropMeta, Registry};
-    use crate::resolve::{resolve, Layers};
+    use crate::resolve::{Layers, resolve};
     use crate::source::SourceKind;
     use crate::ty::{Parser, Ty};
     use crate::value::Const;
@@ -411,9 +411,11 @@ mod tests {
             0.1_f32
         );
         // An infinity a layer actually supplied is the value it supplied, not an overflow.
-        assert!(f32::from_value(&Value::Float(f64::INFINITY))
-            .expect("an infinity reads as one")
-            .is_infinite());
+        assert!(
+            f32::from_value(&Value::Float(f64::INFINITY))
+                .expect("an infinity reads as one")
+                .is_infinite()
+        );
     }
 
     static PROPS: &[PropMeta] = &[

@@ -6,8 +6,8 @@ use crate::spec::data_types::SpecDataTypes;
 use crate::{Spec, SpecArg, SpecFlag};
 
 use crate::sdk::{
-    collect_choice_types, command_type_name, escape_jsdoc, escape_ts_string, generated_header,
-    ChoiceTypeMap, CodeWriter,
+    ChoiceTypeMap, CodeWriter, collect_choice_types, command_type_name, escape_jsdoc,
+    escape_ts_string, generated_header,
 };
 
 pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> String {
@@ -320,11 +320,7 @@ fn arg_ts_type(arg: &SpecArg, cmd_name: &str, choice_types: &ChoiceTypeMap) -> S
         "string".to_string()
     };
 
-    if arg.var {
-        format!("{base}[]")
-    } else {
-        base
-    }
+    if arg.var { format!("{base}[]") } else { base }
 }
 
 fn flag_ts_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -> String {
@@ -349,11 +345,7 @@ fn flag_ts_type(flag: &SpecFlag, cmd_name: &str, choice_types: &ChoiceTypeMap) -
                 "string".to_string()
             };
 
-            if flag.var {
-                format!("{base}[]")
-            } else {
-                base
-            }
+            if flag.var { format!("{base}[]") } else { base }
         }
         None => {
             if flag.var {
@@ -399,9 +391,9 @@ pub(crate) fn sanitize_ident(name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::Spec;
     use crate::sdk::{SdkLanguage, SdkOptions};
     use crate::test::SPEC_KITCHEN_SINK;
-    use crate::Spec;
 
     fn make_opts() -> SdkOptions {
         SdkOptions {

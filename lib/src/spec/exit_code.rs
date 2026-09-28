@@ -20,10 +20,10 @@ use crate::kdl::{KdlEntry, KdlNode, KdlValue};
 use serde::Serialize;
 
 use crate::error::Result;
+use crate::spec::Spec;
 use crate::spec::cmd::SpecCommand;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::{string_entry, NodeHelper};
-use crate::spec::Spec;
+use crate::spec::helpers::{NodeHelper, string_entry};
 
 /// One documented exit status.
 #[derive(Debug, Default, Clone, Serialize)]

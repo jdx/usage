@@ -475,11 +475,13 @@ fn nested_views_drop_intermediate_command_globals() {
 
     let portable: usage_parser::Spec = NestedViewHost::to_kdl().parse().unwrap();
     let view = portable.for_view("nested-run").unwrap();
-    assert!(!view
-        .cmd
-        .flags
-        .iter()
-        .any(|flag| flag.name == "intermediate"));
+    assert!(
+        !view
+            .cmd
+            .flags
+            .iter()
+            .any(|flag| flag.name == "intermediate")
+    );
 }
 
 #[cfg(feature = "completions")]
@@ -2164,22 +2166,26 @@ fn native_override_names_emit_portable_flag_selectors() {
 
 #[test]
 fn complete_relationship_families_follow_native_truth_tables() {
-    assert!(RelationshipFamilies::parse_from(&[
-        OsStr::new("--mode"),
-        OsStr::new("remote"),
-        OsStr::new("--stdin"),
-    ])
-    .is_err());
-    assert!(RelationshipFamilies::parse_from(&[
-        OsStr::new("--mode"),
-        OsStr::new("remote"),
-        OsStr::new("--token"),
-        OsStr::new("secret"),
-        OsStr::new("--scope"),
-        OsStr::new("global"),
-        OsStr::new("--stdin"),
-    ])
-    .is_err());
+    assert!(
+        RelationshipFamilies::parse_from(&[
+            OsStr::new("--mode"),
+            OsStr::new("remote"),
+            OsStr::new("--stdin"),
+        ])
+        .is_err()
+    );
+    assert!(
+        RelationshipFamilies::parse_from(&[
+            OsStr::new("--mode"),
+            OsStr::new("remote"),
+            OsStr::new("--token"),
+            OsStr::new("secret"),
+            OsStr::new("--scope"),
+            OsStr::new("global"),
+            OsStr::new("--stdin"),
+        ])
+        .is_err()
+    );
     RelationshipFamilies::parse_from(&[
         OsStr::new("--mode"),
         OsStr::new("remote"),
@@ -2195,10 +2201,10 @@ fn complete_relationship_families_follow_native_truth_tables() {
     ])
     .expect("all conditional requirements are satisfied");
 
-    assert!(RelationshipFamilies::parse_from(
-        &[OsStr::new("--stdin"), OsStr::new("request.json"),]
-    )
-    .is_err());
+    assert!(
+        RelationshipFamilies::parse_from(&[OsStr::new("--stdin"), OsStr::new("request.json"),])
+            .is_err()
+    );
     RelationshipFamilies::parse_from(&[
         OsStr::new("--mode"),
         OsStr::new("local"),

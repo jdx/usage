@@ -1,4 +1,4 @@
-use clap::{arg, Command, ValueHint};
+use clap::{Command, ValueHint, arg};
 use clap_usage::generate;
 use std::io::BufWriter;
 

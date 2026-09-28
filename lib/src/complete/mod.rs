@@ -1,5 +1,5 @@
-use crate::error::UsageErr;
 use crate::Spec;
+use crate::error::UsageErr;
 
 mod bash;
 mod fish;

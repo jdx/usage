@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::UsageErr;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::helpers::{NodeHelper, string_entry};
 use crate::spec::is_false;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

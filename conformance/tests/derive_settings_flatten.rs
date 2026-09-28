@@ -11,7 +11,7 @@
 
 use std::ffi::OsStr;
 
-use usage_config::{resolve, Layers, PropMeta, Registry, Ty, Value};
+use usage_config::{Layers, PropMeta, Registry, Ty, Value, resolve};
 use usage_derive::{Args, Cli, Subcommands};
 
 /// Flags every command has

@@ -1071,11 +1071,7 @@ impl CommandExtra<'_> {
             && outputs.is_empty()
             && select.is_none()
             && exit_codes.is_empty();
-        if empty {
-            &NO_COMMAND_EXTRA
-        } else {
-            extra
-        }
+        if empty { &NO_COMMAND_EXTRA } else { extra }
     }
 }
 
@@ -1635,11 +1631,7 @@ impl FlagExtra<'_> {
             && surface.is_none()
             && available_if.is_empty()
             && effect.is_none();
-        if empty {
-            &NO_FLAG_EXTRA
-        } else {
-            extra
-        }
+        if empty { &NO_FLAG_EXTRA } else { extra }
     }
 }
 

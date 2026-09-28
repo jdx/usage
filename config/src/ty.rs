@@ -331,14 +331,18 @@ mod tests {
         // or a table is not: rendering one produced `a,b` or `k=v`, a value nobody wrote — and
         // for a file, which really can hold a table, it turned that table into a string that only
         // looks like one.
-        assert!(Ty::String
-            .coerce(Value::List(vec![Value::from("a")]))
-            .is_err());
-        assert!(Ty::Path
-            .coerce(Value::Map(
-                [("k".to_string(), Value::from("v"))].into_iter().collect()
-            ))
-            .is_err());
+        assert!(
+            Ty::String
+                .coerce(Value::List(vec![Value::from("a")]))
+                .is_err()
+        );
+        assert!(
+            Ty::Path
+                .coerce(Value::Map(
+                    [("k".to_string(), Value::from("v"))].into_iter().collect()
+                ))
+                .is_err()
+        );
         // A scalar still converts, which is the rule this is narrowing rather than replacing.
         assert_eq!(Ty::String.coerce(Value::Int(3)), Ok(s("3")));
     }

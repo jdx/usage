@@ -8,10 +8,10 @@
 use std::collections::HashMap;
 
 #[cfg(unix)]
-use usage::docs::cli::{render_help, render_runtime_help, Style};
-#[cfg(unix)]
 use usage::Parser;
 use usage::Spec;
+#[cfg(unix)]
+use usage::docs::cli::{Style, render_help, render_runtime_help};
 
 fn spec(choices: &str) -> Spec {
     format!(
@@ -57,12 +57,14 @@ fn run_is_read_and_written_back() {
 #[test]
 fn a_command_alone_is_enough_to_declare_choices() {
     let spec = spec(r#"choices run="docker compose config --services""#);
-    assert!(spec.cmd.args[0]
-        .choices
-        .as_ref()
-        .unwrap()
-        .choices
-        .is_empty());
+    assert!(
+        spec.cmd.args[0]
+            .choices
+            .as_ref()
+            .unwrap()
+            .choices
+            .is_empty()
+    );
 
     let err = r#"arg "<service>" { choices; }"#.parse::<Spec>().unwrap_err();
     assert!(format!("{err:?}").contains("run property"), "{err:?}");

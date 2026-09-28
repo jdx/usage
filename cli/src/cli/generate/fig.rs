@@ -8,7 +8,7 @@ use usage_rs::Args;
 
 use crate::cli::generate;
 use serde::{Deserialize, Serialize, Serializer};
-use serde_with::{serde_as, OneOrMany};
+use serde_with::{OneOrMany, serde_as};
 
 fn is_false(value: &bool) -> bool {
     !*value

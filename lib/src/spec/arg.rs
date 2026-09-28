@@ -8,10 +8,10 @@ use std::str::FromStr;
 use crate::error::UsageErr;
 use crate::spec::builder::SpecArgBuilder;
 use crate::spec::context::ParsingContext;
-use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::effect::{EFFECT_VALUES, SpecCommandEffect};
+use crate::spec::helpers::{NodeHelper, string_entry};
 use crate::spec::is_false;
-use crate::{string, SpecAdmonition, SpecAdmonitionKind, SpecChoices, SpecComplete};
+use crate::{SpecAdmonition, SpecAdmonitionKind, SpecChoices, SpecComplete, string};
 #[cfg(feature = "clap")]
 use crate::{SpecChoice, SpecChoiceAlias};
 
@@ -1177,7 +1177,7 @@ impl Hash for SpecArg {
 mod validation_tests {
     use std::collections::HashMap;
 
-    use crate::{parse, parse::Parser, Spec};
+    use crate::{Spec, parse, parse::Parser};
 
     fn spec() -> Spec {
         r#"
@@ -1856,8 +1856,10 @@ cmd "sub" {
             err(r#"arg "<file>" { complete run="ls"; complete run="pwd"; }"#)
                 .contains("only one complete")
         );
-        assert!(err(r#"arg "<file>" { complete run="ls" type="file"; }"#)
-            .contains("only one of run, type or delegate"));
+        assert!(
+            err(r#"arg "<file>" { complete run="ls" type="file"; }"#)
+                .contains("only one of run, type or delegate")
+        );
         assert!(err(r#"flag "--force" { complete run="ls"; }"#).contains("must have value"));
         assert!(err(
             r#"flag "--out <path>" { complete run="ls"; arg "<path>" { complete run="pwd"; }; }"#

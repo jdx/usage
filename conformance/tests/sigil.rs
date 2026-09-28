@@ -2,8 +2,8 @@
 
 use std::ffi::OsStr;
 
-use usage::parse::ParseValue;
 use usage::Spec as LibSpec;
+use usage::parse::ParseValue;
 use usage_derive::Cli;
 
 #[derive(Debug, Cli)]

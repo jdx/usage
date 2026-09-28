@@ -5,7 +5,7 @@
 
 use std::collections::BTreeSet;
 
-use usage_conformance::complete::{load, reference, run, Reference};
+use usage_conformance::complete::{Reference, load, reference, run};
 
 #[test]
 fn every_vector_is_offered_what_it_expects() {

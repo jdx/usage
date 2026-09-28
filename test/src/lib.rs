@@ -44,10 +44,10 @@
 use std::ffi::{OsStr, OsString};
 use std::process::{Command as ProcessCommand, ExitStatus};
 
-use usage_argv::help::Style;
-use usage_argv::spec::{CommandMeta, Spec};
 use usage_argv::Command;
 use usage_argv::Error;
+use usage_argv::help::Style;
+use usage_argv::spec::{CommandMeta, Spec};
 
 pub use usage_argv::help::Page;
 

@@ -188,7 +188,7 @@ fn walk_inner<'t>(
                     help_topic: true,
                     flags: Vec::new(),
                     external: None,
-                }
+                };
             }
             Err(_) => break,
         }

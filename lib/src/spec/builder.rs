@@ -33,8 +33,8 @@
 use crate::spec::cmd::SpecExample;
 use crate::spec::effect::SpecCommandEffect;
 use crate::{
-    spec::arg::SpecDoubleDashChoices, SpecAdmonition, SpecArg, SpecChoices, SpecCommand,
-    SpecComplete, SpecDefaultIf, SpecFlag, SpecRequiredIfEq, SpecRequiresIf,
+    SpecAdmonition, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecDefaultIf, SpecFlag,
+    SpecRequiredIfEq, SpecRequiresIf, spec::arg::SpecDoubleDashChoices,
 };
 
 /// Builder for SpecFlag

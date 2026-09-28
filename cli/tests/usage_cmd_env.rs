@@ -1,8 +1,8 @@
 //! `usage_cmd`: the subcommand path a script is run with.
 #![cfg(unix)]
 
-use assert_cmd::cargo;
 use assert_cmd::Command;
+use assert_cmd::cargo;
 
 const SCRIPT: &str = r#"#!/usr/bin/env -S usage bash
 #USAGE cmd "db" {

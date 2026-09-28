@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::kdl::{KdlDocument, KdlEntry, KdlNode};
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::helpers::{NodeHelper, string_entry};
 use crate::{SpecArg, SpecFlag};
 use serde::Serialize;
 use std::collections::HashSet;

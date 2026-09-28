@@ -56,13 +56,13 @@ use std::path::Path;
 use crate::kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
+use crate::SpecFlag;
 use crate::error::{Result, UsageErr};
 use crate::spec::choices::{SpecChoice, SpecChoices};
 use crate::spec::cmd::SpecCommand;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::{string_entry, NodeHelper};
-use crate::spec::{is_false, Spec};
-use crate::SpecFlag;
+use crate::spec::helpers::{NodeHelper, string_entry};
+use crate::spec::{Spec, is_false};
 
 /// Selection is resolved after the whole document is read, so there is no node span left
 /// to point at. Same shape as the view checks, for the same reason.
@@ -702,13 +702,15 @@ cmd "ls" {
 
     #[test]
     fn an_unknown_framing_names_the_ones_that_exist() {
-        assert!(error(
-            r#"
+        assert!(
+            error(
+                r#"
 name "ex"
 cmd "ls" { output "x" framing="protobuf" }
 "#
-        )
-        .contains("expected one of: text, json, jsonl"));
+            )
+            .contains("expected one of: text, json, jsonl")
+        );
     }
 
     #[test]

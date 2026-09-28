@@ -13,8 +13,8 @@
 //! Corpus well-formedness is checked once, in `reference.rs`, rather than again
 //! here.
 
-use usage_conformance::argv::{run, Outcome};
-use usage_conformance::{load, Reference, Vector};
+use usage_conformance::argv::{Outcome, run};
+use usage_conformance::{Reference, Vector, load};
 
 fn corpus() -> Vec<Vector> {
     let files = load(usage_conformance::corpus_dir()).expect("corpus should load");

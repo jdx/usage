@@ -646,9 +646,11 @@ mod tests {
             }),
             "before {$red and Usage: ex"
         );
-        assert!(check("{$}")
-            .expect_err("an empty tag is invalid")
-            .contains("empty style tag"));
+        assert!(
+            check("{$}")
+                .expect_err("an empty tag is invalid")
+                .contains("empty style tag")
+        );
     }
 
     #[test]

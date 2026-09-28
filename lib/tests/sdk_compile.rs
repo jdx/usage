@@ -2,8 +2,8 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use usage::sdk::{SdkLanguage, SdkOptions, SdkOutput};
 use usage::Spec;
+use usage::sdk::{SdkLanguage, SdkOptions, SdkOutput};
 
 /// Comprehensive spec that exercises all SDK features:
 /// version, about, author, global flags, choices, deprecated, aliases,

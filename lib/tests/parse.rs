@@ -1,6 +1,6 @@
 use pretty_assertions::assert_str_eq;
-use usage::parse;
 use usage::Spec;
+use usage::parse;
 
 macro_rules! tests {
     ($($name:ident: spec=$spec:expr_2021, args=$args:expr_2021, expected=$expected:expr_2021,)*) => {

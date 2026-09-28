@@ -1,8 +1,8 @@
 use crate::case::{AsLowerCamelCase, AsPascalCase};
 
 use crate::sdk::{
-    collect_choice_types, collect_type_imports, escape_jsdoc, escape_ts_string, generated_header,
-    CodeWriter,
+    CodeWriter, collect_choice_types, collect_type_imports, escape_jsdoc, escape_ts_string,
+    generated_header,
 };
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;

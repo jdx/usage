@@ -22,7 +22,7 @@ use usage::parse::{ParseOutput, Parser, TokenRole, ValueOrigin};
 use usage::{Spec, SpecArg, SpecFlag};
 
 use crate::cli::generate::{file_or_spec, select_view};
-use crate::cli::{empty_mount_answers, OutputFormat};
+use crate::cli::{OutputFormat, empty_mount_answers};
 
 /// Explain what a command line binds to
 ///

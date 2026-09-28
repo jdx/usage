@@ -25,11 +25,13 @@ fn optional_value_flags_accept_their_bare_forms() {
 #[test]
 fn the_capture_keeps_fd_clap_parser_policies() {
     assert!(shadow_fd::Cli::parse_from(&[OsStr::new("--definitely-not-an-fd-flag")]).is_err());
-    assert!(shadow_fd::Cli::parse_from(&[
-        OsStr::new("--max-results"),
-        OsStr::new("1"),
-        OsStr::new("--max-results"),
-        OsStr::new("2"),
-    ])
-    .is_err());
+    assert!(
+        shadow_fd::Cli::parse_from(&[
+            OsStr::new("--max-results"),
+            OsStr::new("1"),
+            OsStr::new("--max-results"),
+            OsStr::new("2"),
+        ])
+        .is_err()
+    );
 }

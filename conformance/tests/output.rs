@@ -12,8 +12,8 @@
 //!   usage-lib already knowing which values it accepts.
 
 use usage::{
-    docs::markdown::{MarkdownRenderer, MarkdownTheme},
     Spec as LibSpec,
+    docs::markdown::{MarkdownRenderer, MarkdownTheme},
 };
 use usage_derive::{Args, Cli, Subcommands};
 

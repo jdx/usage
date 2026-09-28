@@ -303,7 +303,7 @@ impl FileLayer {
                     return Err(LayerError::Unreadable {
                         source: path.display().to_string(),
                         why: format!("`{}` leads nowhere", link.display()),
-                    })
+                    });
                 }
                 None => return Ok(()),
             },
@@ -311,7 +311,7 @@ impl FileLayer {
                 return Err(LayerError::Unreadable {
                     source: path.display().to_string(),
                     why: err.to_string(),
-                })
+                });
             }
         };
         let text = match &self.preprocess {
@@ -464,7 +464,7 @@ fn parse(
                     Some(_) => {
                         return Err(format!(
                             "`{table}` should be a table of settings, and is not"
-                        ))
+                        ));
                     }
                     // A file that simply has no settings table is not a broken file.
                     None => return Ok(Vec::new()),
@@ -497,7 +497,7 @@ fn parse(
                     Some(_) => {
                         return Err(format!(
                             "`{table}` should be a table of settings, and is not"
-                        ))
+                        ));
                     }
                 },
                 // Checked above: an object, or a `null` root that flattens to no keys at all —
@@ -545,7 +545,7 @@ fn parse(
                     Some(_) => {
                         return Err(format!(
                             "`{table}` should be a table of settings, and is not"
-                        ))
+                        ));
                     }
                 },
                 // Checked above: a mapping, or a `null` root that flattens to nothing.
@@ -976,7 +976,7 @@ fn yaml_key(key: &yaml_serde::Value) -> Option<String> {
 mod tests {
     use super::*;
     use crate::registry::{PropMeta, Registry};
-    use crate::resolve::{resolve, Layers};
+    use crate::resolve::{Layers, resolve};
     use crate::ty::{Parser, Ty};
     use crate::value::Value;
 
@@ -1187,9 +1187,11 @@ mod tests {
             FileLayer::xdg_from(XdgBase::Cache, path, env()).paths(),
             &[PathBuf::from("/home/user/.cache/ex/value")]
         );
-        assert!(FileLayer::xdg_from(XdgBase::Runtime, path, env())
-            .paths()
-            .is_empty());
+        assert!(
+            FileLayer::xdg_from(XdgBase::Runtime, path, env())
+                .paths()
+                .is_empty()
+        );
         assert_eq!(
             FileLayer::xdg_from(
                 XdgBase::Runtime,
@@ -1747,9 +1749,11 @@ mod tests {
         let project = FileLayer::at(&path, FileScope::Project);
         let resolved = resolve(REGISTRY, Layers::new().then(&project)).expect("should resolve");
         assert_eq!(resolved.get_key("trusted"), None);
-        assert!(resolved.warnings[0]
-            .message
-            .contains("trusted cannot be set"));
+        assert!(
+            resolved.warnings[0]
+                .message
+                .contains("trusted cannot be set")
+        );
 
         // The same file read as the user's own is accepted, which is what makes the refusal
         // above about trust rather than about files.

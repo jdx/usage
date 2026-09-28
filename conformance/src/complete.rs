@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use usage::Spec;
-use usage_argv::complete::{complete, split, Shell};
+use usage_argv::complete::{Shell, complete, split};
 
 use crate::tables;
 

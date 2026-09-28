@@ -7,11 +7,11 @@ use crate::sh::sh;
 use crate::spec::builder::SpecCommandBuilder;
 use crate::spec::clause::SpecClause;
 use crate::spec::context::ParsingContext;
-use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
+use crate::spec::effect::{EFFECT_VALUES, SpecCommandEffect};
 use crate::spec::exit_code::SpecExitCode;
 use crate::spec::flagset::SpecUse;
 use crate::spec::group::SpecGroup;
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::helpers::{NodeHelper, string_entry};
 use crate::spec::is_false;
 use crate::spec::mount::SpecMount;
 use crate::spec::output::SpecOutput;
@@ -1733,8 +1733,8 @@ impl From<clap::Command> for Spec {
 
 #[cfg(test)]
 mod tests {
-    use crate::spec::effect::SpecCommandEffect;
     use crate::Spec;
+    use crate::spec::effect::SpecCommandEffect;
     use insta::assert_snapshot;
 
     #[test]
@@ -1915,8 +1915,8 @@ mod merge_tests {
 
 #[cfg(test)]
 mod roundtrip_tests {
-    use crate::kdl;
     use crate::Spec;
+    use crate::kdl;
 
     /// Serializing a spec back to KDL and reparsing it must not lose anything.
     ///
@@ -2167,9 +2167,10 @@ cmd "hidden" hide=#true
             (&clap::Command::new("ex").args_conflicts_with_subcommands(true)).into();
         assert!(spec.args_conflicts_with_subcommands);
         let node: kdl::KdlNode = (&spec).into();
-        assert!(node
-            .to_string()
-            .contains("args_conflicts_with_subcommands=#true"));
+        assert!(
+            node.to_string()
+                .contains("args_conflicts_with_subcommands=#true")
+        );
     }
 
     #[cfg(feature = "clap")]

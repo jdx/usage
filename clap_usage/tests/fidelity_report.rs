@@ -1,5 +1,5 @@
 use clap::{Arg, ArgAction, ArgGroup, Command, ValueHint};
-use clap_usage::{spec_with_report, FidelityFeature};
+use clap_usage::{FidelityFeature, spec_with_report};
 
 #[test]
 fn long_version_is_lossless() {
@@ -231,10 +231,12 @@ fn ranged_distinct_value_names_are_reported_as_lossy() {
             .value_names(["START", "END"]),
     );
     let report = spec_with_report(&mut command, "ex").1;
-    assert!(report
-        .losses()
-        .iter()
-        .any(|loss| loss.feature == FidelityFeature::DistinctValueNames));
+    assert!(
+        report
+            .losses()
+            .iter()
+            .any(|loss| loss.feature == FidelityFeature::DistinctValueNames)
+    );
 }
 
 #[test]
@@ -250,10 +252,12 @@ fn delimited_distinct_value_names_are_reported_and_not_emitted_as_fixed_arity() 
     let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
     assert_eq!(arg.value_names, ["START"]);
     assert_eq!((arg.var_min, arg.var_max), (None, None));
-    assert!(report
-        .losses()
-        .iter()
-        .any(|loss| loss.feature == FidelityFeature::DistinctValueNames));
+    assert!(
+        report
+            .losses()
+            .iter()
+            .any(|loss| loss.feature == FidelityFeature::DistinctValueNames)
+    );
     spec.to_string().parse::<usage::Spec>().unwrap();
 }
 
@@ -277,10 +281,12 @@ fn reports_nested_paths_and_leaves_supported_commands_clean() {
     let (spec, report) = spec_with_report(&mut nested, "ex");
     assert!(!spec.cmd.subcommands.contains_key("help"));
     assert!(report.is_lossless(), "{report:#?}");
-    assert!(spec.cmd.subcommands["run"].flags[0]
-        .arg
-        .as_ref()
-        .is_some_and(|arg| arg.allow_negative_numbers));
+    assert!(
+        spec.cmd.subcommands["run"].flags[0]
+            .arg
+            .as_ref()
+            .is_some_and(|arg| arg.allow_negative_numbers)
+    );
 }
 
 #[test]
@@ -292,10 +298,12 @@ fn reports_delimited_arity_that_the_bridge_cannot_count() {
             .value_delimiter(','),
     );
     let (_, report) = spec_with_report(&mut command, "ex");
-    assert!(report
-        .losses()
-        .iter()
-        .any(|loss| loss.feature == FidelityFeature::ValueArity));
+    assert!(
+        report
+            .losses()
+            .iter()
+            .any(|loss| loss.feature == FidelityFeature::ValueArity)
+    );
 }
 
 #[test]

@@ -7,8 +7,8 @@ use std::{
 use crate::miette::SourceSpan;
 
 use crate::kdl::{
-    v2_parser, FormatConfig, KdlDocument, KdlDocumentFormat, KdlEntry, KdlError, KdlIdentifier,
-    KdlValue,
+    FormatConfig, KdlDocument, KdlDocumentFormat, KdlEntry, KdlError, KdlIdentifier, KdlValue,
+    v2_parser,
 };
 
 /// Represents an individual KDL

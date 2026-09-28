@@ -12,7 +12,7 @@
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-use usage_config::{resolve, Const, Layers, PropMeta, Registry, Ty, Value};
+use usage_config::{Const, Layers, PropMeta, Registry, Ty, Value, resolve};
 use usage_derive::Cli;
 
 /// A tool with settings

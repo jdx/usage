@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::error::Result;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::helpers::{NodeHelper, string_entry};
 use crate::spec::is_false;
 
 /// A set of flags that relate to one another as a set.

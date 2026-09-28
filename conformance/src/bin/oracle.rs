@@ -9,7 +9,7 @@
 //! agreement in CI.
 
 use usage_conformance::reference::run;
-use usage_conformance::{load, Reference};
+use usage_conformance::{Reference, load};
 
 fn main() -> Result<(), String> {
     let json = std::env::args().any(|a| a == "--json");

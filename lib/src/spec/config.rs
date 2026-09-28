@@ -7,7 +7,7 @@ use crate::error::UsageErr;
 use crate::spec::config_type::SpecConfigType;
 use crate::spec::context::ParsingContext;
 use crate::spec::data_types::SpecDataTypes;
-use crate::spec::helpers::{string_entry, NodeHelper, ParseEntry};
+use crate::spec::helpers::{NodeHelper, ParseEntry, string_entry};
 
 /// A config property's value, as declared.
 ///

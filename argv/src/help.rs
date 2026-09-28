@@ -20,12 +20,12 @@
 use core::fmt::Write as _;
 use std::borrow::Cow;
 
+use crate::Command;
+use crate::DoubleDash;
 use crate::order::sort_by as sort_rows;
 use crate::spec::{
     AdmonitionKind, AdmonitionMeta, ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta,
 };
-use crate::Command;
-use crate::DoubleDash;
 
 mod template;
 pub use template::STYLES;
@@ -1894,11 +1894,7 @@ fn write_row(out: &mut String, row: &Row<'_>, layout: RowLayout) {
             next_line,
         );
         admonitions(out, row.admonitions, width);
-        if aligned {
-            indent
-        } else {
-            BLOCK_INDENT
-        }
+        if aligned { indent } else { BLOCK_INDENT }
     } else if next_line {
         let _ = writeln!(out, "  {painted}");
         if let Some(help) = row.help.filter(|h| !h.trim().is_empty()) {
@@ -4099,10 +4095,10 @@ fn recursive_help<'a>(
 #[cfg(test)]
 mod style_tests {
     use super::{
-        commands_section, default_visible_child, display_usage_masked, flag_usage, flat_commands,
-        inline_environment_notes, long_annotations, long_help, paint_synopsis, painted_prose,
-        render, render_styled, render_view_at_styled, styled_flag_usage, styled_inline, usage_line,
-        wrap, write_heading, AnnotationLayout, Palette, Row, Shown, Style,
+        AnnotationLayout, Palette, Row, Shown, Style, commands_section, default_visible_child,
+        display_usage_masked, flag_usage, flat_commands, inline_environment_notes,
+        long_annotations, long_help, paint_synopsis, painted_prose, render, render_styled,
+        render_view_at_styled, styled_flag_usage, styled_inline, usage_line, wrap, write_heading,
     };
     use crate::spec::{
         ArgMeta, ClauseMeta, CommandExtra, CommandMeta, Example, FlagExtra, FlagMeta, Spec,
@@ -4728,7 +4724,9 @@ mod style_tests {
         let plain = page(Style::PLAIN);
         assert_eq!(
             plain,
-            format!("{prose}Usage: ex [OPTIONS]\n       ex --all\n\nOptions:\n    [possible values: --auto]\n    (default: -1)\n")
+            format!(
+                "{prose}Usage: ex [OPTIONS]\n       ex --all\n\nOptions:\n    [possible values: --auto]\n    (default: -1)\n"
+            )
         );
 
         let coloured = page(Style::COLOURED);

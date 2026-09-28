@@ -6583,7 +6583,7 @@ impl ValueEnum {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!("unknown value-enum option `{other}`"),
-                        ))
+                        ));
                     }
                 }
             }
@@ -6778,7 +6778,7 @@ impl ArgGroup {
                                 "unknown arg-group option `{other}`; the enum takes `name` \
                                  or `multiple` here, and everything else belongs on a variant"
                             ),
-                        ))
+                        ));
                     }
                 }
             }
@@ -6847,7 +6847,7 @@ impl ArgGroup {
                                 "a group has no default member: required-ness is the \
                                  `Option<T>` versus `T` distinction on the field holding it, \
                                  and a default would be a second way to spell one",
-                            ))
+                            ));
                         }
                         other => {
                             return Err(syn::Error::new_spanned(
@@ -6982,13 +6982,15 @@ mod tests {
 
     #[test]
     fn a_static_endpoint_file_requires_the_endpoint() {
-        assert!(rejection(
-            r#"
+        assert!(
+            rejection(
+                r#"
             #[usage(spec_endpoint = false, spec_endpoint_file = "cli.usage.kdl")]
             struct Ex {}
         "#
-        )
-        .contains("requires `spec_endpoint`"));
+            )
+            .contains("requires `spec_endpoint`")
+        );
         let parsed = cli(r#"
             #[usage(spec_endpoint_file = "cli.usage.kdl")]
             struct Ex {}
@@ -7689,38 +7691,46 @@ mod tests {
         assert_eq!(parsed.exit_codes[1].code, 1);
         assert_eq!(parsed.exit_codes[1].help, "a check failed");
 
-        assert!(rejection(
-            r#"
+        assert!(
+            rejection(
+                r#"
             #[usage(exit_code(256, "nope"))]
             struct Ex { #[usage(long)] a: bool }
         "#
-        )
-        .contains("outside 0-255"));
-        assert!(rejection(
-            r#"
+            )
+            .contains("outside 0-255")
+        );
+        assert!(
+            rejection(
+                r#"
             #[usage(exit_code(1, ""))]
             struct Ex { #[usage(long)] a: bool }
         "#
-        )
-        .contains("needs a description"));
+            )
+            .contains("needs a description")
+        );
     }
 
     #[test]
     fn a_repeated_output_or_exit_code_is_a_mistake() {
-        assert!(rejection(
-            r#"
+        assert!(
+            rejection(
+                r#"
             #[usage(output("json"), output("json", framing = "json"))]
             struct Ex { #[usage(long)] a: bool }
         "#
-        )
-        .contains("an output named `json` is already declared"));
-        assert!(rejection(
-            r#"
+            )
+            .contains("an output named `json` is already declared")
+        );
+        assert!(
+            rejection(
+                r#"
             #[usage(exit_code(1, "a"), exit_code(1, "b"))]
             struct Ex { #[usage(long)] a: bool }
         "#
-        )
-        .contains("exit code 1 is already declared"));
+            )
+            .contains("exit code 1 is already declared")
+        );
     }
 
     #[test]
@@ -7824,7 +7834,9 @@ mod tests {
             "#[usage(long, required, required_unless(\"--other\"))]\n                tag: Vec<String>,\n                #[usage(long)]\n                other: bool,",
             "#[usage(long, required)]\n                tag: Option<Vec<String>>,",
         ] {
-            let err = rejection(&format!("struct Ex {{\n                {decl}\n            }}"));
+            let err = rejection(&format!(
+                "struct Ex {{\n                {decl}\n            }}"
+            ));
             assert!(
                 err.contains("one or more values, always"),
                 "unhelpful message for `{decl}`: {err}"
@@ -9604,12 +9616,14 @@ mod tests {
             }
         "#)
         .expect("parses");
-        assert!(parsed
-            .check_position(
-                &syn::Ident::new("Run", proc_macro2::Span::call_site()),
-                false
-            )
-            .is_ok());
+        assert!(
+            parsed
+                .check_position(
+                    &syn::Ident::new("Run", proc_macro2::Span::call_site()),
+                    false
+                )
+                .is_ok()
+        );
     }
 
     #[test]

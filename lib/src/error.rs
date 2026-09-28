@@ -263,9 +263,11 @@ mod tests {
             "missing.kdl".into(),
         );
         assert!(file.render().contains("usage::file"));
-        assert!(UsageErr::ShellError("failed".into())
-            .render()
-            .contains("usage::shell"));
+        assert!(
+            UsageErr::ShellError("failed".into())
+                .render()
+                .contains("usage::shell")
+        );
     }
 
     #[cfg(feature = "miette")]

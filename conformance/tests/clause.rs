@@ -1,5 +1,5 @@
-use usage::parse::ParseValue;
 use usage::Spec;
+use usage::parse::ParseValue;
 use usage_derive::{Args, Cli, Subcommands};
 
 #[derive(Debug, PartialEq, Eq, Args)]
@@ -400,9 +400,11 @@ clause "tools" {
     assert!(instances[1].iter().any(|(flag, value)| {
         flag.name == "label" && matches!(value, ParseValue::String(value) if value == "special")
     }));
-    assert!(instances
-        .iter()
-        .all(|instance| !instance.keys().any(|flag| flag.name == "from-format")));
+    assert!(
+        instances
+            .iter()
+            .all(|instance| !instance.keys().any(|flag| flag.name == "from-format"))
+    );
 
     let empty = usage::Parser::new(&spec)
         .with_env([("SETUP".to_string(), "shared".to_string())].into())

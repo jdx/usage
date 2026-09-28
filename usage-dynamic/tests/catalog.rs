@@ -170,12 +170,14 @@ fn root_summaries_appear_in_help_and_completion() {
     assert_eq!(static_kdl, RootHost::app().to_kdl());
     let help = catalog.app().unwrap().help("", false).unwrap();
     assert!(help.contains("doctor  Inspect plugin health"), "{help}");
-    assert!(catalog
-        .app()
-        .unwrap()
-        .help("doctor", false)
-        .unwrap()
-        .contains("Inspect plugin health"));
+    assert!(
+        catalog
+            .app()
+            .unwrap()
+            .help("doctor", false)
+            .unwrap()
+            .contains("Inspect plugin health")
+    );
 
     let argv = [
         OsString::from("__complete_word__"),
@@ -290,17 +292,21 @@ fn canonical_alias_unknown_help_version_and_invalid_argv_are_typed() {
     let Outcome::Parsed(from_env) = from_env else {
         panic!("expected parsed")
     };
-    assert!(from_env
-        .output
-        .flag_origins
-        .values()
-        .flatten()
-        .any(|origin| format!("{origin:?}").contains("Env")));
+    assert!(
+        from_env
+            .output
+            .flag_origins
+            .values()
+            .flatten()
+            .any(|origin| format!("{origin:?}").contains("Env"))
+    );
 
-    assert!(catalog
-        .parse_external("plugins", &[OsString::from("missing")])
-        .unwrap()
-        .is_none());
+    assert!(
+        catalog
+            .parse_external("plugins", &[OsString::from("missing")])
+            .unwrap()
+            .is_none()
+    );
     // A hidden alias dispatches like any other spelling; hiding is a help/completion property.
     let hidden = catalog
         .parse_external("plugins", &[OsString::from("oldfmt")])
@@ -757,10 +763,12 @@ fn a_builtin_never_needs_a_catalog_and_a_fallback_needs_one_spec() {
         .under("plugins", plugin("audit", ""))
         .build()
         .unwrap();
-    assert!(catalog
-        .parse_external("plugins", &captured)
-        .unwrap()
-        .is_none());
+    assert!(
+        catalog
+            .parse_external("plugins", &captured)
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]

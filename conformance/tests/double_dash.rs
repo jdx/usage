@@ -12,8 +12,8 @@
 
 use std::ffi::OsStr;
 
-use usage::parse::ParseValue;
 use usage::Spec as LibSpec;
+use usage::parse::ParseValue;
 use usage_derive::Cli;
 
 /// A wrapper: the task's own flags are the task's
@@ -85,10 +85,11 @@ fn a_mode_survives_the_round_trip_to_kdl() {
     );
 
     // And only where declared: a flag's own value argument is untouched by any of this.
-    assert!(spec.cmd.flags.iter().all(|f| f
-        .arg
-        .as_ref()
-        .is_none_or(|a| a.double_dash == usage::spec::arg::SpecDoubleDashChoices::Optional)));
+    assert!(spec.cmd.flags.iter().all(|f| {
+        f.arg
+            .as_ref()
+            .is_none_or(|a| a.double_dash == usage::spec::arg::SpecDoubleDashChoices::Optional)
+    }));
 }
 
 #[test]
@@ -160,8 +161,11 @@ fn an_explicit_separator_still_ends_an_automatic_argument() {
         .iter()
         .find(|(arg, _)| arg.name == "ARGS")
         .map(|(_, value)| value);
-    assert!(args
-        .is_none_or(|value| matches!(value, ParseValue::MultiString(values) if values.is_empty())));
+    assert!(
+        args.is_none_or(
+            |value| matches!(value, ParseValue::MultiString(values) if values.is_empty())
+        )
+    );
     let trailing = interpreted
         .args
         .iter()

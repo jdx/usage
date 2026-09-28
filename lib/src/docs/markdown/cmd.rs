@@ -29,9 +29,9 @@ impl MarkdownRenderer {
 
 #[cfg(test)]
 mod tests {
+    use crate::Spec;
     use crate::docs::markdown::renderer::{MarkdownRenderer, MarkdownTheme};
     use crate::test::SPEC_KITCHEN_SINK;
-    use crate::Spec;
     use insta::assert_snapshot;
 
     #[test]

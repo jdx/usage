@@ -9,8 +9,8 @@
 //! shows up here as a failing label rather than as silent drift, and it keeps the
 //! recorded divergences from becoming stale folklore.
 
-use usage_conformance::reference::{duplicate_ids, run, Observed};
-use usage_conformance::{load, Reference, Vector};
+use usage_conformance::reference::{Observed, duplicate_ids, run};
+use usage_conformance::{Reference, Vector, load};
 
 fn corpus() -> Vec<Vector> {
     let files = load(usage_conformance::corpus_dir()).expect("corpus should load");

@@ -11,12 +11,12 @@ use crate::error::{Result, UsageErr};
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::builder::SpecFlagBuilder;
 use crate::spec::context::ParsingContext;
-use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::effect::{EFFECT_VALUES, SpecCommandEffect};
+use crate::spec::helpers::{NodeHelper, string_entry};
 use crate::spec::is_false;
 use crate::{
-    string, SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecComplete,
-    SpecRequiredIfEq,
+    SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecComplete, SpecRequiredIfEq,
+    string,
 };
 
 /// A non-binding action performed when a flag is supplied.

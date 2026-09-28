@@ -2562,7 +2562,9 @@ complete --do-complete "usage ge"
         "completion called the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        stdout.lines().any(|line| line.split('\t').next() == Some("generate")),
+        stdout
+            .lines()
+            .any(|line| line.split('\t').next() == Some("generate")),
         "native completion should return the generate command.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 

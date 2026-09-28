@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use usage_argv::complete::Shell;
-use usage_argv::install::{install, plan, Env, Error, OnForeign, Platform, Wrote};
+use usage_argv::install::{Env, Error, OnForeign, Platform, Wrote, install, plan};
 use usage_argv::script::script;
 
 /// A directory of this test's own, and an environment that sends every shell into it.

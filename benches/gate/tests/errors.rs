@@ -11,7 +11,7 @@
 
 use clap::Parser;
 use std::ffi::{OsStr, OsString};
-use usage_argv::diagnostic::{render, Style};
+use usage_argv::diagnostic::{Style, render};
 
 /// clap's message for a command line, without colour.
 fn clap_error(words: &[&str]) -> Option<String> {

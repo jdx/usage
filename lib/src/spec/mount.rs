@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::error::Result;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::helpers::{NodeHelper, string_entry};
 
 #[derive(Debug, Default, Clone, Serialize)]
 #[non_exhaustive]
@@ -116,10 +116,12 @@ mod tests {
             "run [TASK] [ARGS]…"
         );
         #[cfg(feature = "markdown")]
-        assert!(crate::docs::markdown::MarkdownRenderer::new(spec.clone())
-            .render_cmd(run)
-            .unwrap()
-            .contains("run [TASK] [ARGS]…"));
+        assert!(
+            crate::docs::markdown::MarkdownRenderer::new(spec.clone())
+                .render_cmd(run)
+                .unwrap()
+                .contains("run [TASK] [ARGS]…")
+        );
         #[cfg(feature = "cli-help")]
         assert!(crate::docs::cli::render_help(&spec, run, true).contains("run [TASK] [ARGS]…"));
     }

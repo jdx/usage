@@ -304,9 +304,9 @@ pub use crate::__usage_miette as miette;
 
 #[cfg(test)]
 mod tests {
-    use super::{render_source, Error, MietteError, SourceSpan};
-    use crate::error::UsageErr;
+    use super::{Error, MietteError, SourceSpan, render_source};
     use crate::Spec;
+    use crate::error::UsageErr;
     use std::path::Path;
 
     #[test]

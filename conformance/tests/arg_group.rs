@@ -9,7 +9,7 @@
 
 use std::ffi::OsStr;
 
-use usage_argv::{help, Error};
+use usage_argv::{Error, help};
 use usage_derive::{ArgGroup, Args, Cli, Subcommands, ValueEnum};
 
 fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {

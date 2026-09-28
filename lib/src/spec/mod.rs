@@ -39,7 +39,7 @@ use crate::spec::config::SpecConfig;
 use crate::spec::context::ParsingContext;
 use crate::spec::exit_code::SpecExitCode;
 use crate::spec::flagset::{SpecFlagSet, SpecUse};
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::helpers::{NodeHelper, string_entry};
 use crate::spec::output::SpecOutput;
 use crate::{SpecArg, SpecComplete, SpecFlag};
 use view::SpecView;
@@ -1893,11 +1893,13 @@ cmd "run" help="Run a package script" {
         assert_eq!(applet.examples.len(), 1);
         assert_eq!(applet.examples[0].header.as_deref(), Some("run example"));
         assert!(applet.cmd.flags.iter().any(|flag| flag.name == "verbose"));
-        assert!(applet
-            .cmd
-            .flags
-            .iter()
-            .any(|flag| flag.name == "if-present"));
+        assert!(
+            applet
+                .cmd
+                .flags
+                .iter()
+                .any(|flag| flag.name == "if-present")
+        );
         assert!(!applet.cmd.flags.iter().any(|flag| flag.name == "config"));
         assert!(applet.cmd.subcommands.contains_key("nested"));
         assert!(applet.views.is_empty());
@@ -2015,21 +2017,25 @@ cmd "run"
     #[test]
     fn a_view_refuses_unknown_commands_and_non_global_carryovers() {
         let missing: Spec = "bin \"ex\"\nview \"x\" root=missing\n".parse().unwrap();
-        assert!(missing
-            .for_view("x")
-            .unwrap_err()
-            .to_string()
-            .contains("missing"));
+        assert!(
+            missing
+                .for_view("x")
+                .unwrap_err()
+                .to_string()
+                .contains("missing")
+        );
 
         let local: Spec =
             "bin \"ex\"\nflag \"--local\"\nview \"x\" root=go { global \"--local\" }\ncmd go\n"
                 .parse()
                 .unwrap();
-        assert!(local
-            .for_view("x")
-            .unwrap_err()
-            .to_string()
-            .contains("not a root global"));
+        assert!(
+            local
+                .for_view("x")
+                .unwrap_err()
+                .to_string()
+                .contains("not a root global")
+        );
     }
 
     #[test]
@@ -2683,11 +2689,13 @@ echo "hello"
             path(&grafted, &["plugins"]).1
         );
         // And the memoized lookup answers for what is there now, aliases included.
-        assert!(grafted
-            .cmd
-            .find_subcommand("plugins")
-            .unwrap()
-            .find_subcommand("formatter")
-            .is_some());
+        assert!(
+            grafted
+                .cmd
+                .find_subcommand("plugins")
+                .unwrap()
+                .find_subcommand("formatter")
+                .is_some()
+        );
     }
 }

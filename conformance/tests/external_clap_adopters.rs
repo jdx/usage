@@ -104,17 +104,19 @@ mod fd {
         assert_eq!(usage.size, clap.size);
 
         assert!(ClapCli::try_parse_from(["fd", "--exec", "echo", "--list-details"]).is_err());
-        assert!(UsageCli::parse_from(&[
-            OsStr::new("--exec"),
-            OsStr::new("echo"),
-            OsStr::new("--list-details"),
-        ])
-        .is_err());
+        assert!(
+            UsageCli::parse_from(&[
+                OsStr::new("--exec"),
+                OsStr::new("echo"),
+                OsStr::new("--list-details"),
+            ])
+            .is_err()
+        );
     }
 }
 
 mod tokei {
-    use clap::{value_parser, Arg, ArgAction, Command};
+    use clap::{Arg, ArgAction, Command, value_parser};
 
     fn command() -> Command {
         Command::new("tokei")

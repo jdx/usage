@@ -3486,7 +3486,7 @@ fn validate_expression(
 
 #[cfg(all(test, not(feature = "validation")))]
 mod optional_validation_tests {
-    use crate::{parse, Spec};
+    use crate::{Spec, parse};
 
     #[test]
     fn validation_declarations_require_the_opt_in_runtime_feature() {
@@ -5723,10 +5723,11 @@ mod tests {
 
         let out = parse(&spec, &input(&["ex", "-vhlocal"])).expect("a bundle and its value");
         assert_eq!(out.flags.len(), 2);
-        assert!(out
-            .flags
-            .iter()
-            .any(|(flag, value)| flag.name == "host" && value.to_string() == "local"));
+        assert!(
+            out.flags
+                .iter()
+                .any(|(flag, value)| flag.name == "host" && value.to_string() == "local")
+        );
     }
 
     #[test]
@@ -6289,10 +6290,12 @@ arg "[request]" {
         };
 
         assert!(parse_args(&["ex", "--mode", "remote", "--stdin"]).is_err());
-        assert!(parse_args(&[
-            "ex", "--mode", "remote", "--token", "secret", "--scope", "global", "--stdin",
-        ])
-        .is_err());
+        assert!(
+            parse_args(&[
+                "ex", "--mode", "remote", "--token", "secret", "--scope", "global", "--stdin",
+            ])
+            .is_err()
+        );
         parse_args(&[
             "ex",
             "--mode",
@@ -6487,10 +6490,12 @@ flag "--file <file>" required_unless="--stdin"
         assert_eq!(env.get("usage_cmd").map(String::as_str), Some("build"));
         // Declared but left out: still the arg's, so unset rather than the path.
         let input = ["test", "run"].map(String::from);
-        assert!(!parse(&spec, &input)
-            .unwrap()
-            .as_env()
-            .contains_key("usage_cmd"));
+        assert!(
+            !parse(&spec, &input)
+                .unwrap()
+                .as_env()
+                .contains_key("usage_cmd")
+        );
 
         // Declared as a global flag on an ancestor.
         let spec: Spec = r#"
@@ -6500,10 +6505,12 @@ flag "--file <file>" required_unless="--stdin"
         .parse()
         .unwrap();
         let input = ["test", "run"].map(String::from);
-        assert!(!parse(&spec, &input)
-            .unwrap()
-            .as_env()
-            .contains_key("usage_cmd"));
+        assert!(
+            !parse(&spec, &input)
+                .unwrap()
+                .as_env()
+                .contains_key("usage_cmd")
+        );
 
         // Declared inside a clause, and the clause left out.
         let spec: Spec = r#"
@@ -6516,10 +6523,12 @@ flag "--file <file>" required_unless="--stdin"
         .parse()
         .unwrap();
         let input = ["test", "run"].map(String::from);
-        assert!(!parse(&spec, &input)
-            .unwrap()
-            .as_env()
-            .contains_key("usage_cmd"));
+        assert!(
+            !parse(&spec, &input)
+                .unwrap()
+                .as_env()
+                .contains_key("usage_cmd")
+        );
     }
 
     #[test]
@@ -7105,11 +7114,13 @@ clause "tools" {
 
         parse(&spec, &input(&["ex", "--dump"]))
             .expect("exclusive is the command's requiredness escape");
-        assert!(parse(
-            &spec,
-            &input(&["ex", "--dump", "--out", "somewhere", "target"])
-        )
-        .is_err());
+        assert!(
+            parse(
+                &spec,
+                &input(&["ex", "--dump", "--out", "somewhere", "target"])
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -7364,20 +7375,24 @@ clause "tools" {
         parse(&conflicts, &input(&["ex", "--from-file", "vars.env"]))
             .expect("the flag alone is valid");
         parse(&conflicts, &input(&["ex", "literal"])).expect("the positional alone is valid");
-        assert!(parse(
-            &conflicts,
-            &input(&["ex", "--from-file", "vars.env", "literal"])
-        )
-        .is_err());
+        assert!(
+            parse(
+                &conflicts,
+                &input(&["ex", "--from-file", "vars.env", "literal"])
+            )
+            .is_err()
+        );
 
         let positional_source: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--from-file <path>\"\narg \"[value]\" conflicts=\"--from-file\"\n"
             .parse()
             .unwrap();
-        assert!(parse(
-            &positional_source,
-            &input(&["ex", "--from-file", "vars.env", "literal"])
-        )
-        .is_err());
+        assert!(
+            parse(
+                &positional_source,
+                &input(&["ex", "--from-file", "vars.env", "literal"])
+            )
+            .is_err()
+        );
 
         let group: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--file <path>\"\narg \"[target]\"\ngroup \"input\" \"--file\" \"target\" required=#true\n"
             .parse()
@@ -7385,11 +7400,13 @@ clause "tools" {
         assert!(parse(&group, &input(&["ex"])).is_err());
         parse(&group, &input(&["ex", "target-name"]))
             .expect("a positional satisfies a required group");
-        assert!(parse(
-            &group,
-            &input(&["ex", "--file", "input.txt", "target-name"])
-        )
-        .is_err());
+        assert!(
+            parse(
+                &group,
+                &input(&["ex", "--file", "input.txt", "target-name"])
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -8566,14 +8583,18 @@ cmd "run" { arg "<task>" }
             "-r must remain owned by the unrelated global it already belonged to",
         );
         // Both globals are still recognized and global after the descent.
-        assert!(parsed
-            .available_flags
-            .get("--raw")
-            .is_some_and(|f| f.global));
-        assert!(parsed
-            .available_flags
-            .get("--restrict")
-            .is_some_and(|f| f.global));
+        assert!(
+            parsed
+                .available_flags
+                .get("--raw")
+                .is_some_and(|f| f.global)
+        );
+        assert!(
+            parsed
+                .available_flags
+                .get("--restrict")
+                .is_some_and(|f| f.global)
+        );
     }
 
     #[test]
@@ -9727,10 +9748,12 @@ cmd "run" {
 
         assert_eq!(arg_value(&parsed, "command"), "ls");
         assert!(parsed.args.keys().all(|a| a.name != "tool"));
-        assert!(parsed
-            .errors
-            .iter()
-            .any(|e| matches!(e, UsageErr::MissingArg(name) if name == "tool")));
+        assert!(
+            parsed
+                .errors
+                .iter()
+                .any(|e| matches!(e, UsageErr::MissingArg(name) if name == "tool"))
+        );
     }
 
     #[test]
@@ -11500,9 +11523,11 @@ arg "[dest]"
 
         // `parse` reports "missing required <src>" and nothing else, which is the report the
         // caller already had. This is the case the whole thing exists for.
-        assert!(Parser::new(&spec)
-            .parse(&input(&["ex", "--env=prod"]))
-            .is_err());
+        assert!(
+            Parser::new(&spec)
+                .parse(&input(&["ex", "--env=prod"]))
+                .is_err()
+        );
         assert_eq!(
             roles(&parsed, 1),
             ["flag env as --env", "value of env = [\"prod\"], attached"]

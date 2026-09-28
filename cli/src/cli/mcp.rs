@@ -17,14 +17,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rmcp::{
-    handler::server::{tool::ToolRouter, wrapper::Parameters, ServerHandler},
+    ErrorData, ServiceExt,
+    handler::server::{ServerHandler, tool::ToolRouter, wrapper::Parameters},
     model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig},
-    tool, tool_handler, tool_router, ErrorData, ServiceExt,
+    tool, tool_handler, tool_router,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use usage::miette::{bail, IntoDiagnostic, Result};
+use serde_json::{Value, json};
+use usage::miette::{IntoDiagnostic, Result, bail};
 use usage::{Selector, Spec, SpecArg, SpecCommand, SpecFlag, SpecOutput};
 
 use crate::cli::generate;
@@ -69,7 +70,9 @@ impl usage_rs::Run for Mcp {
         // `-f -` reads stdin to EOF, which is the transport this then wants to
         // serve on. Saying so beats a server that starts and instantly ends.
         if self.file.as_deref().is_some_and(|f| f.as_os_str() == "-") {
-            bail!("`--file -` cannot be used with `mcp`: stdin is the MCP transport. Pass a path, or `--spec <text>`.");
+            bail!(
+                "`--file -` cannot be used with `mcp`: stdin is the MCP transport. Pass a path, or `--spec <text>`."
+            );
         }
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
 
@@ -467,12 +470,16 @@ cmd "start" help="Runs a daemon"
         assert_eq!(jsonl["schema"], "not valid json");
 
         let codes = out["exit_codes"].as_array().unwrap();
-        assert!(codes
-            .iter()
-            .any(|code| { code["code"] == 130 && code["help"] == "interrupted" }));
-        assert!(codes
-            .iter()
-            .any(|code| { code["code"] == 1 && code["help"] == "logs unavailable" }));
+        assert!(
+            codes
+                .iter()
+                .any(|code| { code["code"] == 130 && code["help"] == "interrupted" })
+        );
+        assert!(
+            codes
+                .iter()
+                .any(|code| { code["code"] == 1 && code["help"] == "logs unavailable" })
+        );
     }
 
     #[test]
@@ -503,11 +510,13 @@ cmd "start" help="Runs a daemon"
         assert_eq!(flag(&out, "yes")["effect"], "write");
 
         // A root flag that is not global is not accepted down here.
-        assert!(!out["flags"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|f| f["name"] == "not-global"));
+        assert!(
+            !out["flags"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|f| f["name"] == "not-global")
+        );
     }
 
     #[test]

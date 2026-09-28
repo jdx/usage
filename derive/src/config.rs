@@ -54,7 +54,7 @@ use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, UnOp};
 
-use crate::crate_name::{crate_name, FoundCrate};
+use crate::crate_name::{FoundCrate, crate_name};
 use crate::model::{attrs, doc_comment, flag_value, ident_of, nested, string_value};
 
 /// The config crate as the adopter depended on it.
@@ -464,7 +464,7 @@ fn source_decl(meta: &Meta) -> syn::Result<Source> {
                         "a config source does not understand `{other}`; use `kind`, `name`, \
                          `doc_hint`, or `set_hint`"
                     ),
-                ))
+                ));
             }
         };
         if slot.is_some() {
@@ -541,7 +541,7 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
                                 "`{value}` is not an XDG base; use `config`, `data`, `state`, \
                                  `cache`, or `runtime`"
                             ),
-                        ))
+                        ));
                     }
                 });
             }
@@ -561,7 +561,7 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
                                 "`{value}` is not a config file scope; use `project`, `global`, \
                                  or `system`"
                             ),
-                        ))
+                        ));
                     }
                 };
                 saw_scope = true;
@@ -579,7 +579,7 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
                         "a config file does not understand `{other}`; use `path`, `findup`, \
                          `xdg`, `scope`, or `format`"
                     ),
-                ))
+                ));
             }
         }
     }
@@ -693,13 +693,13 @@ impl Field {
                                 return Err(syn::Error::new_spanned(
                                     &meta,
                                     "`replace` is the default; say nothing instead",
-                                ))
+                                ));
                             }
                             other => {
                                 return Err(syn::Error::new_spanned(
                                     &meta,
                                     format!("`merge` is `union` or `deep`, not `{other}`"),
-                                ))
+                                ));
                             }
                         });
                     }
@@ -711,7 +711,7 @@ impl Field {
                                 return Err(syn::Error::new_spanned(
                                     &meta,
                                     format!("`scope` is `global` or `env`, not `{other}`"),
-                                ))
+                                ));
                             }
                         });
                     }
@@ -1358,7 +1358,7 @@ fn const_lit(lit: &Lit, negated: bool) -> syn::Result<Const> {
             return Err(syn::Error::new_spanned(
                 other,
                 "expected a boolean, number, or string",
-            ))
+            ));
         }
     };
     Ok(match (negated, value) {
@@ -1369,7 +1369,7 @@ fn const_lit(lit: &Lit, negated: bool) -> syn::Result<Const> {
             return Err(syn::Error::new_spanned(
                 lit,
                 "only a number can be negative",
-            ))
+            ));
         }
     })
 }
