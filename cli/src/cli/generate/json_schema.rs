@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use usage::miette::IntoDiagnostic;
 
 use crate::cli::generate;
-use crate::schema::{config_schema, SchemaOptions};
+use crate::schema::{SchemaOptions, config_schema};
 use usage::miette::Result;
 
 /// Generate a JSON Schema for a CLI's config file from its usage spec

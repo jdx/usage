@@ -43,9 +43,9 @@ impl MarkdownRenderer {
 
 #[cfg(test)]
 mod tests {
+    use crate::Spec;
     use crate::docs::markdown::renderer::MarkdownRenderer;
     use crate::test::SPEC_KITCHEN_SINK;
-    use crate::Spec;
     use insta::assert_snapshot;
 
     /// `--replace-pre-with-code-fences` reaches a command's long help on the single-file page.

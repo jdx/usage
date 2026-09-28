@@ -25,7 +25,7 @@
 //! completion implementations, which is the same standard the help comparison holds.
 
 use usage::Spec as LibSpec;
-use usage_argv::complete::{candidates, split, Shell};
+use usage_argv::complete::{Shell, candidates, split};
 
 fn mise_spec() -> LibSpec {
     include_str!("../../mise.usage.kdl")
@@ -149,7 +149,7 @@ fn the_short_flags_offered_are_the_reference_s() {
 /// reference had real candidates — fails.
 #[test]
 fn where_the_reference_lists_files_this_asks_the_shell_for_them() {
-    use usage_argv::complete::{complete, Files};
+    use usage_argv::complete::{Files, complete};
 
     let spec = mise_spec();
     let cwd = std::env::current_dir().expect("a working directory");

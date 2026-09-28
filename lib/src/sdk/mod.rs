@@ -441,17 +441,17 @@ fn collect_choice_entries(cmd: &SpecCommand, entries: &mut Vec<ChoiceEntry>) {
         if flag.hide {
             continue;
         }
-        if let Some(arg) = &flag.arg {
-            if let Some(choices) = typed_choices(arg) {
-                let base_name = format!("{}Choice", AsPascalCase(&flag.name));
-                entries.push(ChoiceEntry {
-                    base_name,
-                    item_name: flag.name.clone(),
-                    cmd_name: cmd_name.clone(),
-                    cmd_prefix: cmd_prefix.clone(),
-                    choices: choices.choices.clone(),
-                });
-            }
+        if let Some(arg) = &flag.arg
+            && let Some(choices) = typed_choices(arg)
+        {
+            let base_name = format!("{}Choice", AsPascalCase(&flag.name));
+            entries.push(ChoiceEntry {
+                base_name,
+                item_name: flag.name.clone(),
+                cmd_name: cmd_name.clone(),
+                cmd_prefix: cmd_prefix.clone(),
+                choices: choices.choices.clone(),
+            });
         }
     }
 
@@ -497,21 +497,20 @@ fn collect_type_imports_recursive(
     }
 
     for arg in &cmd.args {
-        if !arg.hide && typed_choices(arg).is_some() {
-            if let Some(type_name) = choice_types.lookup(&cmd.name, &arg.name) {
-                imports.push(type_name.to_string());
-            }
+        if !arg.hide
+            && typed_choices(arg).is_some()
+            && let Some(type_name) = choice_types.lookup(&cmd.name, &arg.name)
+        {
+            imports.push(type_name.to_string());
         }
     }
     for flag in &cmd.flags {
-        if !flag.hide {
-            if let Some(arg) = &flag.arg {
-                if typed_choices(arg).is_some() {
-                    if let Some(type_name) = choice_types.lookup(&cmd.name, &flag.name) {
-                        imports.push(type_name.to_string());
-                    }
-                }
-            }
+        if !flag.hide
+            && let Some(arg) = &flag.arg
+            && typed_choices(arg).is_some()
+            && let Some(type_name) = choice_types.lookup(&cmd.name, &flag.name)
+        {
+            imports.push(type_name.to_string());
         }
     }
 

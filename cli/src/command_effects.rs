@@ -167,9 +167,10 @@ mod tests {
         // to invoke it and the effect belongs on the command.
         let sdk = find("generate sdk").unwrap();
         assert_eq!(sdk.extra.effect, Some(Effect::Write));
-        assert!(sdk
-            .flags
-            .iter()
-            .any(|f| f.flag.name == "output" && f.required));
+        assert!(
+            sdk.flags
+                .iter()
+                .any(|f| f.flag.name == "output" && f.required)
+        );
     }
 }

@@ -11,12 +11,12 @@ use crate::error::{Result, UsageErr};
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::builder::SpecFlagBuilder;
 use crate::spec::context::ParsingContext;
-use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::effect::{EFFECT_VALUES, SpecCommandEffect};
+use crate::spec::helpers::{NodeHelper, string_entry};
 use crate::spec::is_false;
 use crate::{
-    string, SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecComplete,
-    SpecRequiredIfEq,
+    SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecComplete, SpecRequiredIfEq,
+    string,
 };
 
 /// A non-binding action performed when a flag is supplied.
@@ -819,10 +819,10 @@ impl SpecFlag {
         }
         // `--color` is a complete invocation, so help shows the value as optional.
         // The same folding a nested `default` already does for `required`.
-        if flag.default_missing.is_some() {
-            if let Some(arg) = flag.arg.as_mut() {
-                arg.required = false;
-            }
+        if flag.default_missing.is_some()
+            && let Some(arg) = flag.arg.as_mut()
+        {
+            arg.required = false;
         }
         if let Some(raw) = delimiter {
             let mut chars = raw.chars();
@@ -1481,10 +1481,10 @@ impl From<&clap::Arg> for SpecFlag {
                 arg.var = true;
             }
             arg.allow_negative_numbers = c.is_allow_negative_numbers_set();
-            if arg.var {
-                if let Some(terminator) = c.get_value_terminator() {
-                    arg.value_terminator = Some(terminator.to_string());
-                }
+            if arg.var
+                && let Some(terminator) = c.get_value_terminator()
+            {
+                arg.value_terminator = Some(terminator.to_string());
             }
 
             // These bounds live on the nested value argument and are enforced per occurrence.
@@ -1573,10 +1573,10 @@ impl From<&clap::Arg> for SpecFlag {
             available_if: Vec::new(),
             display_order: Some(c.get_display_order()),
         };
-        if c.is_allow_hyphen_values_set() {
-            if let Some(arg) = &mut flag.arg {
-                arg.double_dash = SpecDoubleDashChoices::Automatic;
-            }
+        if c.is_allow_hyphen_values_set()
+            && let Some(arg) = &mut flag.arg
+        {
+            arg.double_dash = SpecDoubleDashChoices::Automatic;
         }
         flag.usage = flag.usage();
         flag

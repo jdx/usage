@@ -7,7 +7,7 @@
 //! the margin, a help template that repeats and reorders sections, and author prose that happens
 //! to read like a heading or a row, which stays prose.
 
-use usage_argv::help::{render_styled, Style};
+use usage_argv::help::{Style, render_styled};
 use usage_argv::spec::CommandMeta;
 
 /// Everything but the template: globals, groups, a flattened child, next-line help, a logo.

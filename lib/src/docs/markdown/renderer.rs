@@ -404,7 +404,7 @@ impl MarkdownRenderer {
 
 #[cfg(test)]
 mod tests {
-    use super::{escape_md, MarkdownRenderer, MarkdownTemplate};
+    use super::{MarkdownRenderer, MarkdownTemplate, escape_md};
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -469,10 +469,12 @@ mod tests {
             let renderer = MarkdownRenderer::new(spec.clone())
                 .with_theme(theme)
                 .with_multi(true);
-            assert!(renderer
-                .render_cmd(&spec.cmd)
-                .unwrap()
-                .contains("## Subcommands"));
+            assert!(
+                renderer
+                    .render_cmd(&spec.cmd)
+                    .unwrap()
+                    .contains("## Subcommands")
+            );
             assert_eq!(
                 renderer
                     .render_index()
@@ -482,12 +484,14 @@ mod tests {
                 1
             );
             let hidden: crate::Spec = "bin ex\ncmd a hide=#true\n".parse().unwrap();
-            assert!(!MarkdownRenderer::new(hidden.clone())
-                .with_theme(theme)
-                .with_multi(true)
-                .render_cmd(&hidden.cmd)
-                .unwrap()
-                .contains("## Subcommands"));
+            assert!(
+                !MarkdownRenderer::new(hidden.clone())
+                    .with_theme(theme)
+                    .with_multi(true)
+                    .render_cmd(&hidden.cmd)
+                    .unwrap()
+                    .contains("## Subcommands")
+            );
         }
     }
 

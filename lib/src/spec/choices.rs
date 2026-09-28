@@ -656,10 +656,12 @@ arg "<color>" {
             ..Default::default()
         };
         choices.set_env(Some(KEY.into()));
-        std::env::set_var(KEY, "staging");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var(KEY, "staging") };
 
         assert!(choices.matches("STAGING"));
 
-        std::env::remove_var(KEY);
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var(KEY) };
     }
 }

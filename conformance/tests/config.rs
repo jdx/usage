@@ -9,7 +9,7 @@
 
 use std::collections::BTreeSet;
 
-use usage_conformance::config::{matches, run, VectorFile};
+use usage_conformance::config::{VectorFile, matches, run};
 
 fn corpus() -> Vec<VectorFile> {
     usage_conformance::config::load(usage_conformance::corpus_dir().join("config"))

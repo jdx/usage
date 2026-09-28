@@ -12,7 +12,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write as _;
 
-use super::{field_name, Emitted, ValueType};
+use super::{Emitted, ValueType, field_name};
 use crate::{SpecArg, SpecFlag};
 
 /// The field each entry is assigned to, by key.
@@ -397,12 +397,14 @@ fn parse_fn(
     let finish_clause = if clauses.is_empty() {
         String::new()
     } else {
-        format!("\tif p.Command().Clause != nil && (p.Command().Clause.Separator != \"\" || len(clauseGiven) > 0) {{\n\
+        format!(
+            "\tif p.Command().Clause != nil && (p.Command().Clause.Separator != \"\" || len(clauseGiven) > 0) {{\n\
          {finish_normalize}\
          \t\tclauseInstances[p.Command().Clause.Key] = append(clauseInstances[p.Command().Clause.Key], clauseGiven)\n\
          \t\tclauseInstanceOccurrences[p.Command().Clause.Key] = append(clauseInstanceOccurrences[p.Command().Clause.Key], clauseOccurrences)\n\
          \t\tclauseInstanceNegated[p.Command().Clause.Key] = append(clauseInstanceNegated[p.Command().Clause.Key], clauseNegated)\n\
-         \t}}\n")
+         \t}}\n"
+        )
     };
     let _ = writeln!(
         out,
@@ -879,11 +881,7 @@ fn flag_type(flag: &SpecFlag) -> &'static str {
 }
 
 fn arg_type(arg: &SpecArg) -> &'static str {
-    if arg.var {
-        "[]string"
-    } else {
-        "string"
-    }
+    if arg.var { "[]string" } else { "string" }
 }
 
 fn flag_assign(flag: &SpecFlag, owner: &str, field: &str) -> String {
@@ -957,7 +955,10 @@ fn typed_assignments(
             } else {
                 format!("argv.{convert}({label}, values[len(values)-1])")
             };
-            let _ = writeln!(out, "\tif values := filled[{key}]; len(values) > 0 {{\n\t\tvalue, err := {call}\n\t\tif err != nil {{\n\t\t\treturn nil, err\n\t\t}}\n\t\t{owner}.{field} = value\n\t}}");
+            let _ = writeln!(
+                out,
+                "\tif values := filled[{key}]; len(values) > 0 {{\n\t\tvalue, err := {call}\n\t\tif err != nil {{\n\t\t\treturn nil, err\n\t\t}}\n\t\t{owner}.{field} = value\n\t}}"
+            );
         }
     }
 }

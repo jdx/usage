@@ -6,7 +6,7 @@ use usage::spec::cmd::SpecExample;
 use usage::{Parser, Spec, SpecArg, SpecCommand, SpecFlag, SpecFlagAction};
 
 use crate::cli::generate::parse_file_or_stdin;
-use crate::cli::{empty_mount_answers, OutputFormat};
+use crate::cli::{OutputFormat, empty_mount_answers};
 
 /// Lint a usage spec for mistakes that still parse
 ///
@@ -1530,9 +1530,11 @@ cmd "real" help="a real command"
         .unwrap();
 
         let issues = lint_spec(&spec, LintOptions::default());
-        assert!(issues
-            .iter()
-            .any(|i| i.code == "invalid-default-subcommand"));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "invalid-default-subcommand")
+        );
     }
 
     #[test]
@@ -1636,14 +1638,18 @@ cmd "run"
             .filter(|issue| issue.code == "invalid-view")
             .collect();
         assert_eq!(invalid.len(), 2);
-        assert!(invalid.iter().any(|issue| issue
-            .location
-            .as_deref()
-            .is_some_and(|location| location == "view runner")));
-        assert!(invalid.iter().any(|issue| issue
-            .location
-            .as_deref()
-            .is_some_and(|location| location == "view bad-global")));
+        assert!(invalid.iter().any(|issue| {
+            issue
+                .location
+                .as_deref()
+                .is_some_and(|location| location == "view runner")
+        }));
+        assert!(invalid.iter().any(|issue| {
+            issue
+                .location
+                .as_deref()
+                .is_some_and(|location| location == "view bad-global")
+        }));
     }
 
     #[test]
@@ -1659,9 +1665,11 @@ cmd "other"
         .unwrap();
 
         let issues = lint_spec(&spec, LintOptions::default());
-        assert!(issues
-            .iter()
-            .any(|issue| issue.code == "ambiguous-view-program"));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "ambiguous-view-program")
+        );
 
         let spec: Spec = r#"
 bin "ex"
@@ -1673,9 +1681,11 @@ cmd "other"
         .parse()
         .unwrap();
         let issues = lint_spec(&spec, LintOptions::default());
-        assert!(issues
-            .iter()
-            .any(|issue| issue.code == "duplicate-view-bin"));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "duplicate-view-bin")
+        );
     }
 
     #[test]
@@ -1690,9 +1700,11 @@ cmd "run"
         .unwrap();
 
         let issues = lint_spec(&spec, LintOptions::default());
-        assert!(issues
-            .iter()
-            .any(|issue| issue.code == "view-host-collision"));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.code == "view-host-collision")
+        );
     }
 
     #[test]
@@ -1705,9 +1717,11 @@ cmd "sub" subcommand_required=#true help="a subcommand with no subcommands"
         .unwrap();
 
         let issues = lint_spec(&spec, LintOptions::default());
-        assert!(issues
-            .iter()
-            .any(|i| i.code == "subcommand-required-no-subcommands"));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "subcommand-required-no-subcommands")
+        );
     }
 
     #[test]

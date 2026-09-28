@@ -20,11 +20,11 @@ use std::sync::OnceLock;
 
 use usage_argv::complete::{self, CompletionOverlay, CompletionRequest, Completions, Files, Split};
 use usage_argv::spec::{Candidate, CandidateKind, CommandMeta, SpecView};
-use usage_parser::error::UsageErr;
 use usage_parser::Parser;
+use usage_parser::error::UsageErr;
 
-pub use usage_parser::parse::ParseOutput;
 pub use usage_parser::Spec;
+pub use usage_parser::parse::ParseOutput;
 // For command trees built in Rust rather than parsed from KDL. `Spec: From<SpecCommand>`
 // wraps a built root; the builders come along so an application defining runtime commands
 // programmatically needs no direct usage-lib dependency.

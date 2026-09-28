@@ -22,7 +22,7 @@ use usage::parse::{ParseOutput, Parser, TokenRole, ValueOrigin};
 use usage::{Spec, SpecArg, SpecFlag};
 
 use crate::cli::generate::{file_or_spec, select_view};
-use crate::cli::{empty_mount_answers, OutputFormat};
+use crate::cli::{OutputFormat, empty_mount_answers};
 
 /// Explain what a command line binds to
 ///
@@ -326,16 +326,16 @@ impl Explanation {
             // A declared default that did not supply the value lost to whatever did. This is
             // the most common thing a spec author is confused about, and the parser records
             // exactly enough to answer it without guessing.
-            if let Some(declared) = declared_default(flag) {
-                if !origins.iter().any(|o| matches!(o, OriginRow::Default)) {
-                    shadowed.push(ShadowRow {
-                        kind: "flag".to_string(),
-                        name: flag.name.clone(),
-                        display: flag_display(flag),
-                        value: declared,
-                        lost_to: origins,
-                    });
-                }
+            if let Some(declared) = declared_default(flag)
+                && !origins.iter().any(|o| matches!(o, OriginRow::Default))
+            {
+                shadowed.push(ShadowRow {
+                    kind: "flag".to_string(),
+                    name: flag.name.clone(),
+                    display: flag_display(flag),
+                    value: declared,
+                    lost_to: origins,
+                });
             }
         }
         for (arg, value) in &out.args {

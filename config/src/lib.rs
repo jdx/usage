@@ -79,11 +79,11 @@ pub use explain::explain;
 #[cfg(any(feature = "toml", feature = "json", feature = "yaml"))]
 pub use files::{FileLayer, Format, XdgBase};
 pub use layer::{Entry, Layer, LayerCtx, LayerError, LayerOutput, Warning, WarningKind};
-pub use props::{concat_prop_specs, concat_props, Props};
+pub use props::{Props, concat_prop_specs, concat_props};
 pub use read::{Fold, FromValue, ReadError, ReadErrorKind, ReadErrors};
 pub use registry::{Lookup, Merge, PropId, PropMeta, Registry, Scope};
-pub use resolve::{resolve, resolve_with_context, Layers, ResolutionContext, Resolved};
+pub use resolve::{Layers, ResolutionContext, Resolved, resolve, resolve_with_context};
 pub use source::{FileScope, Origin, SourceKind, Trust};
-pub use spec::{spec_kdl, spec_kdl_with, ConfigSpec, PropSpec, SpecFile, SpecSource};
+pub use spec::{ConfigSpec, PropSpec, SpecFile, SpecSource, spec_kdl, spec_kdl_with};
 pub use ty::{Parser, Ty, TypeError};
 pub use value::{Const, Value};

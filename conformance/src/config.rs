@@ -22,8 +22,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use usage::kdl::{self, KdlDocument, KdlNode, KdlValue};
 use usage_config::{
-    resolve, Const, Layer, LayerCtx, LayerError, LayerOutput, Layers, Merge, Origin, PropMeta,
-    Registry, Scope, SourceKind, Trust, Ty, Value, WarningKind,
+    Const, Layer, LayerCtx, LayerError, LayerOutput, Layers, Merge, Origin, PropMeta, Registry,
+    Scope, SourceKind, Trust, Ty, Value, WarningKind, resolve,
 };
 
 /// One `corpus/config/*.kdl` file: a themed group of vectors.
@@ -302,7 +302,7 @@ fn setting_from(node: &KdlNode) -> Result<Setting, String> {
     let defaults = child_values(children, "default")?;
     let default = match (node.get("default"), defaults.is_empty()) {
         (Some(_), false) => {
-            return Err("a setting cannot have both scalar and list defaults".into())
+            return Err("a setting cannot have both scalar and list defaults".into());
         }
         (Some(value), true) => Some(json_value(value)?),
         (None, false) => Some(serde_json::Value::Array(defaults)),

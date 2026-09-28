@@ -11,7 +11,7 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use usage_config::{
-    resolve, resolve_with_context, Const, EnvLayer, Layers, ResolutionContext, Ty, Value,
+    Const, EnvLayer, Layers, ResolutionContext, Ty, Value, resolve, resolve_with_context,
 };
 use usage_derive::{Cli, Config};
 

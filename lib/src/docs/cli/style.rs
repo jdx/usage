@@ -245,22 +245,22 @@ fn styled_usage(usage: &str, style: Style) -> String {
             at += 1;
             continue;
         }
-        if rest.starts_with('<') {
-            if let Some(end) = rest.find('>') {
-                let end = end + 1;
-                out.push_str(&style.semantic("metavar", &rest[..end]));
-                at += end;
-                continue;
-            }
+        if rest.starts_with('<')
+            && let Some(end) = rest.find('>')
+        {
+            let end = end + 1;
+            out.push_str(&style.semantic("metavar", &rest[..end]));
+            at += end;
+            continue;
         }
-        if let Some(value) = rest.strip_prefix("[=") {
-            if let Some(end) = value.find(']') {
-                out.push_str("[=");
-                out.push_str(&style.semantic("metavar", &value[..end]));
-                out.push(']');
-                at += end + 3;
-                continue;
-            }
+        if let Some(value) = rest.strip_prefix("[=")
+            && let Some(end) = value.find(']')
+        {
+            out.push_str("[=");
+            out.push_str(&style.semantic("metavar", &value[..end]));
+            out.push(']');
+            at += end + 3;
+            continue;
         }
         if let Some(value) = rest.strip_prefix('=') {
             out.push('=');
@@ -317,13 +317,12 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         if let Some(escaped) = rest
             .strip_prefix('\\')
             .and_then(|after| after.chars().next())
+            && matches!(escaped, '*' | '_' | '~' | '`' | '\\')
         {
-            if matches!(escaped, '*' | '_' | '~' | '`' | '\\') {
-                out.push(escaped);
-                at += 1 + escaped.len_utf8();
-                allow_run_remainder = false;
-                continue;
-            }
+            out.push(escaped);
+            at += 1 + escaped.len_utf8();
+            allow_run_remainder = false;
+            continue;
         }
         let span = [
             ("***", "1;3", "22;23", false, true),

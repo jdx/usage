@@ -1,7 +1,7 @@
 use crate::docs::models::{Spec, SpecArg, SpecCommand, SpecFlag};
 use crate::error::UsageErr;
 use itertools::Itertools;
-use roff::{bold, italic, roman, Roff};
+use roff::{Roff, bold, italic, roman};
 
 /// Renderer for generating Unix man pages from Usage specifications
 #[derive(Debug, Clone)]

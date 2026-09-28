@@ -2083,7 +2083,7 @@ fn write_crate(dir: &Path, bin: &str, lib: &str, dialect: Dialect) {
          [package]\n\
          name = {name:?}\n\
          version = \"0.0.0\"\n\
-         edition = \"2021\"\n\
+         edition = \"2024\"\n\
          publish = false\n\n\
          [lib]\n\
          # The doc comments are copied help text, and mise's help is full of indented\n\
@@ -2108,7 +2108,7 @@ fn write_crate(dir: &Path, bin: &str, lib: &str, dialect: Dialect) {
 
 fn rustfmt(path: &Path) {
     match std::process::Command::new("rustfmt")
-        .args(["--edition", "2021"])
+        .args(["--edition", "2024"])
         .arg(path)
         .status()
     {
@@ -2161,9 +2161,9 @@ fn bpaf_parser(ty_name: &str) -> String {
 fn is_keyword(name: &str) -> bool {
     const KEYWORDS: &[&str] = &[
         "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum",
-        "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move",
-        "mut", "pub", "ref", "return", "self", "static", "struct", "super", "trait", "true", "try",
-        "type", "union", "unsafe", "use", "where", "while", "yield",
+        "extern", "false", "fn", "for", "gen", "if", "impl", "in", "let", "loop", "match", "mod",
+        "move", "mut", "pub", "ref", "return", "self", "static", "struct", "super", "trait",
+        "true", "try", "type", "union", "unsafe", "use", "where", "while", "yield",
     ];
     KEYWORDS.contains(&name)
 }
@@ -2207,6 +2207,17 @@ mod tests {
                 dialect.as_str(),
                 skipped.counts
             );
+        }
+    }
+
+    #[test]
+    fn rust_2024_keywords_are_sanitized_in_generated_fields() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--gen\"\n";
+
+        for dialect in [Dialect::Usage, Dialect::Clap, Dialect::Bpaf] {
+            let (out, skipped) = rendered_as(spec, dialect);
+            assert!(skipped.counts.is_empty(), "{}: {out}", dialect.as_str());
+            assert!(out.contains("pub gen_:"), "{}: {out}", dialect.as_str());
         }
     }
 

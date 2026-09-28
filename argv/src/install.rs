@@ -37,7 +37,7 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
 use crate::complete::Shell;
-use crate::script::{is_one_shell_word, GENERATED_MARKER};
+use crate::script::{GENERATED_MARKER, is_one_shell_word};
 
 /// Which operating system's conventions a plan follows.
 ///
@@ -669,14 +669,14 @@ pub fn write(plan: &Plan, script: &str, on_foreign: OnForeign) -> Result<Install
             return Ok(Installed {
                 plan: plan.clone(),
                 wrote: Wrote::Unchanged,
-            })
+            });
         }
         Ok(existing) if ours(&existing) => Wrote::Updated,
         Ok(_) => match on_foreign {
             OnForeign::Refuse => {
                 return Err(Error::Foreign {
                     path: plan.path.clone(),
-                })
+                });
             }
             OnForeign::Overwrite => Wrote::Replaced,
         },
@@ -686,7 +686,7 @@ pub fn write(plan: &Plan, script: &str, on_foreign: OnForeign) -> Result<Install
                 path: plan.path.clone(),
                 doing: Doing::Reading,
                 source: e,
-            })
+            });
         }
     };
 
@@ -992,14 +992,18 @@ mod tests {
         }
         // bash's automatic is conditional on bash-completion being there, which the note says and
         // fish has nothing to add to.
-        assert!(plan("ex", Shell::Bash, &home(Platform::Linux))
-            .unwrap()
-            .note
-            .is_some());
-        assert!(plan("ex", Shell::Fish, &home(Platform::Linux))
-            .unwrap()
-            .note
-            .is_none());
+        assert!(
+            plan("ex", Shell::Bash, &home(Platform::Linux))
+                .unwrap()
+                .note
+                .is_some()
+        );
+        assert!(
+            plan("ex", Shell::Fish, &home(Platform::Linux))
+                .unwrap()
+                .note
+                .is_none()
+        );
     }
 
     #[test]

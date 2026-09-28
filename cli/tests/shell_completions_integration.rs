@@ -946,12 +946,12 @@ arg "<recipient>" required {
     // 3. The generated zsh completion script wires the three columns into
     //    `compadd -U -Q -d ...` so zsh inserts the pre-quoted value verbatim
     //    without re-filtering.
-    let gen = Command::new(&usage_bin)
+    let r#gen = Command::new(&usage_bin)
         .args(["generate", "completion", "zsh", "testcli", "-f"])
         .arg(spec_kdl_file.to_str().unwrap())
         .output()
         .expect("Failed to generate zsh completion");
-    let script = String::from_utf8_lossy(&gen.stdout);
+    let script = String::from_utf8_lossy(&r#gen.stdout);
     let expected_fragments = [
         "(Q)words",                                            // unquote user input
         r#"${(@ps:\t:)line}"#,                                 // tab-split preserves empty fields
@@ -999,13 +999,13 @@ cmd "lint:fix" help="Auto-fix lints"
     let spec_kdl_file = temp_dir.join("testcli.kdl");
     fs::write(&spec_kdl_file, spec).unwrap();
 
-    let gen = Command::new(&usage_bin)
+    let r#gen = Command::new(&usage_bin)
         .args(["generate", "completion", "zsh", "testcli", "-f"])
         .arg(spec_kdl_file.to_str().unwrap())
         .output()
         .expect("Failed to generate zsh completion");
     let comp_file = temp_dir.join("_testcli");
-    fs::write(&comp_file, &gen.stdout).unwrap();
+    fs::write(&comp_file, &r#gen.stdout).unwrap();
 
     // Drive the generated `_testcli` function directly with stubbed compadd
     // so we can inspect the inserts array without needing a real ZLE context.
@@ -1088,13 +1088,13 @@ cmd "doctor" help="Check installation"
     let spec_kdl_file = temp_dir.join("testcli.kdl");
     fs::write(&spec_kdl_file, spec).unwrap();
 
-    let gen = Command::new(&usage_bin)
+    let r#gen = Command::new(&usage_bin)
         .args(["generate", "completion", "zsh", "testcli", "-f"])
         .arg(spec_kdl_file.to_str().unwrap())
         .output()
         .expect("Failed to generate zsh completion");
     let comp_file = temp_dir.join("_testcli");
-    fs::write(&comp_file, &gen.stdout).unwrap();
+    fs::write(&comp_file, &r#gen.stdout).unwrap();
 
     let test_script = format!(
         r#"#!/usr/bin/env zsh
@@ -1685,17 +1685,17 @@ fn test_zsh_init_completion_includes_all_colon_subcommands() {
         fs::set_permissions(&script_path, perms).unwrap();
     }
 
-    let gen = Command::new(&usage_bin)
+    let r#gen = Command::new(&usage_bin)
         .args(["generate", "completion-init", "zsh"])
         .output()
         .expect("Failed to generate completion-init");
     assert!(
-        gen.status.success(),
+        r#gen.status.success(),
         "completion-init failed: {}",
-        String::from_utf8_lossy(&gen.stderr)
+        String::from_utf8_lossy(&r#gen.stderr)
     );
     let init_script = temp_dir.join("init.zsh");
-    fs::write(&init_script, &gen.stdout).unwrap();
+    fs::write(&init_script, &r#gen.stdout).unwrap();
 
     let test_script = format!(
         r#"#!/usr/bin/env zsh
@@ -2562,7 +2562,9 @@ complete --do-complete "usage ge"
         "completion called the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        stdout.lines().any(|line| line.split('\t').next() == Some("generate")),
+        stdout
+            .lines()
+            .any(|line| line.split('\t').next() == Some("generate")),
         "native completion should return the generate command.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 

@@ -23,8 +23,8 @@ use std::path::PathBuf;
 
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
 
-use crate::cli::generate::parse_file_or_stdin;
 use crate::cli::OutputFormat;
+use crate::cli::generate::parse_file_or_stdin;
 use usage::spec::choices::SpecChoices;
 use usage::spec::config::{SpecConfig, SpecConfigProp, SpecConfigValue};
 use usage::spec::group::SpecGroup;

@@ -179,7 +179,7 @@ mod tests {
     use super::*;
     use crate::layer::{Entry, Layer, LayerCtx, LayerError, LayerOutput};
     use crate::registry::{Merge, PropMeta, Registry, Scope};
-    use crate::resolve::{resolve, Layers};
+    use crate::resolve::{Layers, resolve};
     use crate::source::{FileScope, Origin};
     use crate::ty::Ty;
     use crate::value::{Const, Value};

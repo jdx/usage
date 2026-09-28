@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::error::Result;
 use crate::spec::context::ParsingContext;
-use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::helpers::{NodeHelper, string_entry};
 
 /// A named executable surface derived from one command in the canonical spec.
 ///

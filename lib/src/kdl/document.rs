@@ -127,7 +127,7 @@ impl KdlDocument {
     ///   vec![&1.into(), &2.into(), &3.into()]
     /// );
     /// ```
-    pub fn iter_args(&self, name: &str) -> impl Iterator<Item = &KdlValue> {
+    pub fn iter_args(&self, name: &str) -> impl Iterator<Item = &KdlValue> + use<'_> {
         self.get(name)
             .map(|n| n.entries())
             .unwrap_or_default()
@@ -166,7 +166,7 @@ impl KdlDocument {
     ///     vec![&1.into(), &2.into(), &false.into()]
     /// );
     /// ```
-    pub fn iter_dash_args(&self, name: &str) -> impl Iterator<Item = &KdlValue> {
+    pub fn iter_dash_args(&self, name: &str) -> impl Iterator<Item = &KdlValue> + use<'_> {
         self.get(name)
             .and_then(|n| n.children())
             .map(|doc| doc.nodes())

@@ -7,7 +7,7 @@
 
 use std::ffi::{OsStr, OsString};
 use usage_dynamic::{Catalog, Outcome, ParseOutput, Spec};
-use usage_rs::complete::{render, CompletionRequest};
+use usage_rs::complete::{CompletionRequest, render};
 use usage_rs::{Cli, Error, Subcommands};
 
 #[derive(Cli)]

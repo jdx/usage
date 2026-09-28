@@ -54,7 +54,7 @@ use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, UnOp};
 
-use crate::crate_name::{crate_name, FoundCrate};
+use crate::crate_name::{FoundCrate, crate_name};
 use crate::model::{attrs, doc_comment, flag_value, ident_of, nested, string_value};
 
 /// The config crate as the adopter depended on it.
@@ -464,7 +464,7 @@ fn source_decl(meta: &Meta) -> syn::Result<Source> {
                         "a config source does not understand `{other}`; use `kind`, `name`, \
                          `doc_hint`, or `set_hint`"
                     ),
-                ))
+                ));
             }
         };
         if slot.is_some() {
@@ -541,7 +541,7 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
                                 "`{value}` is not an XDG base; use `config`, `data`, `state`, \
                                  `cache`, or `runtime`"
                             ),
-                        ))
+                        ));
                     }
                 });
             }
@@ -561,7 +561,7 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
                                 "`{value}` is not a config file scope; use `project`, `global`, \
                                  or `system`"
                             ),
-                        ))
+                        ));
                     }
                 };
                 saw_scope = true;
@@ -579,7 +579,7 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
                         "a config file does not understand `{other}`; use `path`, `findup`, \
                          `xdg`, `scope`, or `format`"
                     ),
-                ))
+                ));
             }
         }
     }
@@ -693,13 +693,13 @@ impl Field {
                                 return Err(syn::Error::new_spanned(
                                     &meta,
                                     "`replace` is the default; say nothing instead",
-                                ))
+                                ));
                             }
                             other => {
                                 return Err(syn::Error::new_spanned(
                                     &meta,
                                     format!("`merge` is `union` or `deep`, not `{other}`"),
-                                ))
+                                ));
                             }
                         });
                     }
@@ -711,7 +711,7 @@ impl Field {
                                 return Err(syn::Error::new_spanned(
                                     &meta,
                                     format!("`scope` is `global` or `env`, not `{other}`"),
-                                ))
+                                ));
                             }
                         });
                     }
@@ -844,14 +844,14 @@ impl Field {
             })?,
         };
 
-        if let Some(optional) = explicit_optional {
-            if optional != prop.optional_field {
-                return Err(syn::Error::new(
-                    ident.span(),
-                    "`optional` and the field's type disagree: `Option<T>` is how a field \
+        if let Some(optional) = explicit_optional
+            && optional != prop.optional_field
+        {
+            return Err(syn::Error::new(
+                ident.span(),
+                "`optional` and the field's type disagree: `Option<T>` is how a field \
                      says a setting may be absent",
-                ));
-            }
+            ));
         }
         if prop.optional_field && prop.default.is_some() {
             return Err(syn::Error::new(
@@ -992,16 +992,13 @@ fn type_name(ty: &Ty) -> String {
 
 /// `Option<T>` peeled to `T`, and whether there was one to peel.
 fn peel_option(ty: &syn::Type) -> (bool, syn::Type) {
-    if let syn::Type::Path(path) = ty {
-        if let Some(last) = path.path.segments.last() {
-            if last.ident == "Option" {
-                if let syn::PathArguments::AngleBracketed(args) = &last.arguments {
-                    if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                        return (true, inner.clone());
-                    }
-                }
-            }
-        }
+    if let syn::Type::Path(path) = ty
+        && let Some(last) = path.path.segments.last()
+        && last.ident == "Option"
+        && let syn::PathArguments::AngleBracketed(args) = &last.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+    {
+        return (true, inner.clone());
     }
     (false, ty.clone())
 }
@@ -1358,7 +1355,7 @@ fn const_lit(lit: &Lit, negated: bool) -> syn::Result<Const> {
             return Err(syn::Error::new_spanned(
                 other,
                 "expected a boolean, number, or string",
-            ))
+            ));
         }
     };
     Ok(match (negated, value) {
@@ -1369,7 +1366,7 @@ fn const_lit(lit: &Lit, negated: bool) -> syn::Result<Const> {
             return Err(syn::Error::new_spanned(
                 lit,
                 "only a number can be negative",
-            ))
+            ));
         }
     })
 }

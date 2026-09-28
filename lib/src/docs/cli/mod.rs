@@ -295,17 +295,17 @@ fn render_page(
     // Last, and only on the program's own page. The art is positioned by column, so anything
     // that trims or re-wraps the page afterwards would move it; and a default subcommand's
     // page is appended after this, below the logo rather than beside it.
-    if docs_cmd.full_cmd.is_empty() {
-        if let Some(logo) = spec.logo.as_deref() {
-            page = crate::docs::logo::place(
-                &page,
-                logo,
-                spec.logo_style.as_deref(),
-                terminal,
-                logo_margin.map(|(_, column)| column),
-                style.coloured,
-            );
-        }
+    if docs_cmd.full_cmd.is_empty()
+        && let Some(logo) = spec.logo.as_deref()
+    {
+        page = crate::docs::logo::place(
+            &page,
+            logo,
+            spec.logo_style.as_deref(),
+            terminal,
+            logo_margin.map(|(_, column)| column),
+            style.coloured,
+        );
     }
     append_default_command_help(spec, cmd, long, style, runs, page)
 }

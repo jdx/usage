@@ -7,7 +7,7 @@
 //! Draft 2020-12, with `unevaluatedProperties: false` on every object so an unknown key in
 //! a config file is reported by an editor rather than ignored.
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use usage::spec::config::{SpecConfig, SpecConfigProp, SpecConfigScope};
 use usage::spec::config_type::{Base, SpecConfigType};
@@ -335,10 +335,12 @@ config {
             "Old setting\n\nDeprecated: Use new instead."
         );
         // The long form when there is one: hover is where a reader gets the whole story.
-        assert!(props["verbose"]["description"]
-            .as_str()
-            .unwrap()
-            .contains("did not ask about"));
+        assert!(
+            props["verbose"]["description"]
+                .as_str()
+                .unwrap()
+                .contains("did not ask about")
+        );
         assert_eq!(props["verbose"]["default"], false);
     }
 

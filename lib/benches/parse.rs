@@ -1,6 +1,6 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
-use usage::{kdl::KdlDocument, parse, Spec, SpecArg, SpecCommand, SpecFlag};
+use usage::{Spec, SpecArg, SpecCommand, SpecFlag, kdl::KdlDocument, parse};
 
 fn bench_parse_mise_kdl(c: &mut Criterion) {
     let source = include_str!("../../benches/mise.usage.kdl");

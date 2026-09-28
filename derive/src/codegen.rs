@@ -15,11 +15,11 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::crate_name::{crate_name, FoundCrate};
+use crate::crate_name::{FoundCrate, crate_name};
 use crate::model::{
-    rendered_path, to_kebab, type_name, AdmonitionKind, ArgGroup, ArgGroupMember, Cli,
-    ConditionalDefault, Dispatch, DoubleDash, ExampleDecl, Field, HeadingDecl, Kind, SchemaSource,
-    Shape, Subcommands, ValueEnum, Variant, ViewDecl,
+    AdmonitionKind, ArgGroup, ArgGroupMember, Cli, ConditionalDefault, Dispatch, DoubleDash,
+    ExampleDecl, Field, HeadingDecl, Kind, SchemaSource, Shape, Subcommands, ValueEnum, Variant,
+    ViewDecl, rendered_path, to_kebab, type_name,
 };
 
 fn admonitions(field: &Field) -> TokenStream {
@@ -7470,11 +7470,7 @@ impl DispatchTrait {
         } else {
             quote!(usage_argv::#name::#method(#value))
         };
-        if self.is_async {
-            awaited(call)
-        } else {
-            call
-        }
+        if self.is_async { awaited(call) } else { call }
     }
 }
 
@@ -7606,11 +7602,7 @@ fn dispatch_arm_call(
         } else {
             quote!(#path(#value))
         };
-        if kind.is_async {
-            awaited(call)
-        } else {
-            call
-        }
+        if kind.is_async { awaited(call) } else { call }
     } else {
         let arm = arm_kind(kind, v);
         let mut call = arm.call(value);

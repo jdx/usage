@@ -8,8 +8,8 @@
 //! shell that is installed is exercised. A missing shell is skipped rather than failed.
 #![cfg(unix)]
 
-use assert_cmd::cargo;
 use assert_cmd::Command;
+use assert_cmd::cargo;
 use predicates::str::contains;
 
 /// `usage <command>`, the program it runs, and a script for it that prints `--foo` and exits 3.

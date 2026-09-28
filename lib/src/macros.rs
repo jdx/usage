@@ -432,6 +432,12 @@ mod tests {
     }
 
     #[test]
+    fn test_spec_arg_accepts_const_block_expression() {
+        let a = spec_arg!("files"; var_min = const { 1 });
+        assert_eq!(a.var_min, Some(1));
+    }
+
+    #[test]
     fn test_spec_cmd_simple() {
         let c = spec_cmd!("install");
         assert_eq!(c.name, "install");

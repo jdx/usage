@@ -606,9 +606,10 @@ mod tests {
             warning.message,
             "skip expected one of lint, test but has `deploy`"
         );
-        assert!(ctx
-            .entry_from_value("skip", Value::List(vec![Value::from("test")]), origin)
-            .is_ok());
+        assert!(
+            ctx.entry_from_value("skip", Value::List(vec![Value::from("test")]), origin)
+                .is_ok()
+        );
     }
 
     #[test]

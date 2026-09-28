@@ -8,7 +8,8 @@ use crate::miette::SourceSpan;
 
 use num_traits::CheckedMul;
 use winnow::{
-    ascii::{digit1, hex_digit1, oct_digit1, Caseless},
+    LocatingSlice,
+    ascii::{Caseless, digit1, hex_digit1, oct_digit1},
     combinator::{
         alt, cut_err, empty, eof, fail, not, opt, peek, preceded, repeat, repeat_till, separated,
         terminated, trace,
@@ -17,7 +18,6 @@ use winnow::{
     prelude::*,
     stream::{AsChar, Location, Recover, Recoverable, Stream},
     token::{any, none_of, one_of, take_while},
-    LocatingSlice,
 };
 
 use crate::kdl::{
@@ -33,10 +33,9 @@ pub(crate) fn try_parse<'a, P: ModalParser<Input<'a>, T, KdlParseError>, T>(
     input: &'a str,
 ) -> Result<T, KdlError> {
     let (_, maybe_val, errs) = parser.recoverable_parse(LocatingSlice::new(input));
-    if let (Some(v), true) = (maybe_val, errs.is_empty()) {
-        Ok(v)
-    } else {
-        Err(failure_from_errs(errs, input))
+    match (maybe_val, errs.is_empty()) {
+        (Some(v), true) => Ok(v),
+        _ => Err(failure_from_errs(errs, input)),
     }
 }
 
@@ -242,10 +241,13 @@ where
     };
     let err_start = i.checkpoint();
     if recover.parse_next(i).is_ok() {
-        if let Err(err_) = i.record_err(&token_start, &err_start, err) {
-            err = err_;
-        } else {
-            return Ok(None);
+        match i.record_err(&token_start, &err_start, err) {
+            Err(err_) => {
+                err = err_;
+            }
+            _ => {
+                return Ok(None);
+            }
         }
     }
 
@@ -270,10 +272,10 @@ pub(crate) fn document(input: &mut Input<'_>) -> PResult<KdlDocument> {
         opt(bom).void().parse_next(input)?;
         nodes.void().parse_next(input)?;
     }
-    if let Some(bom) = leading_bom {
-        if let Some(fmt) = doc.format_mut() {
-            fmt.leading = format!("{bom}{}", fmt.leading);
-        }
+    if let Some(bom) = leading_bom
+        && let Some(fmt) = doc.format_mut()
+    {
+        fmt.leading = format!("{bom}{}", fmt.leading);
     }
     Ok(doc)
 }
@@ -300,11 +302,11 @@ fn nodes(input: &mut Input<'_>) -> PResult<KdlDocument> {
 
     // If there is a node, let it have the leading format
     // This gives more consistent behavior
-    if let Some(first_node) = ns.get_mut(0) {
-        if let Some(first_node_format) = first_node.format_mut() {
-            first_node_format.leading = leading.into();
-            leading = "";
-        }
+    if let Some(first_node) = ns.get_mut(0)
+        && let Some(first_node_format) = first_node.format_mut()
+    {
+        first_node_format.leading = leading.into();
+        leading = "";
     }
 
     Ok(KdlDocument {
@@ -1567,7 +1569,9 @@ macro_rules! impl_from_str_radix {
     };
 }
 
-impl_from_str_radix!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+impl_from_str_radix!(
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+);
 
 trait MaybeNegatable: CheckedMul {
     fn negated(&self) -> Option<Self>;

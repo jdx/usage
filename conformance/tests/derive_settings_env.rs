@@ -6,7 +6,7 @@
 
 use std::ffi::OsStr;
 
-use usage_config::{resolve, EnvLayer, Layers, PropMeta, Registry, Ty, Value};
+use usage_config::{EnvLayer, Layers, PropMeta, Registry, Ty, Value, resolve};
 use usage_derive::Cli;
 
 /// A CLI whose flag and variable set the same setting

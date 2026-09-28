@@ -2,16 +2,16 @@ use std::path::PathBuf;
 
 use crate::case::{AsPascalCase, AsSnakeCase};
 
+use crate::Framing;
 use crate::sdk::{
-    collect_choice_types, collect_type_imports, command_type_name, escape_py_docstring,
-    escape_py_string, flag_names, generated_header, ChoiceTypeMap, CodeWriter, SdkFile, SdkOptions,
-    SdkOutput,
+    ChoiceTypeMap, CodeWriter, SdkFile, SdkOptions, SdkOutput, collect_choice_types,
+    collect_type_imports, command_type_name, escape_py_docstring, escape_py_string, flag_names,
+    generated_header,
 };
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
 use crate::spec::config::{SpecConfigProp, SpecConfigValue};
 use crate::spec::data_types::SpecDataTypes;
-use crate::Framing;
 use crate::{Spec, SpecArg, SpecFlag};
 
 fn sanitize_py_comment(text: &str) -> String {
@@ -690,7 +690,9 @@ fn render_class(
         ", _omit: str = \"\""
     };
     let sig = if has_args && !flags_type.is_empty() {
-        format!("def {method}(self, args: {class_name}Args, flags: Optional[{flags_type}] = None{omit_param}) -> {ret}:")
+        format!(
+            "def {method}(self, args: {class_name}Args, flags: Optional[{flags_type}] = None{omit_param}) -> {ret}:"
+        )
     } else if has_args {
         format!("def {method}(self, args: {class_name}Args{omit_param}) -> {ret}:")
     } else if !flags_type.is_empty() {
@@ -1073,9 +1075,9 @@ fn any_outputs(cmd: &SpecCommand, spec: &Spec, package_name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::Spec;
     use crate::sdk::{SdkLanguage, SdkOptions};
     use crate::test::SPEC_KITCHEN_SINK;
-    use crate::Spec;
 
     fn make_opts() -> SdkOptions {
         SdkOptions {

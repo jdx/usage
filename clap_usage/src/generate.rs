@@ -1,7 +1,7 @@
 use clap::Command;
 use std::io::Write;
 
-use crate::report::{report, FidelityReport};
+use crate::report::{FidelityReport, report};
 
 /// The usage spec for a clap command, ready to inspect or annotate.
 ///

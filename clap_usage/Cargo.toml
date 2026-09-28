@@ -1,6 +1,6 @@
 [package]
 name = "clap_usage"
-edition = "2021"
+edition = "2024"
 rust-version = "1.91"
 version = "5.0.0"
 include = [

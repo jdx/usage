@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use usage::complete::CompleteOptions;
 use usage::Spec;
+use usage::complete::CompleteOptions;
 use usage_rs::Args;
 
 use super::parse_file_or_stdin;

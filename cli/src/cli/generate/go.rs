@@ -51,14 +51,14 @@ impl usage_rs::Run for Go {
         // quietly turning `--package my-pkg` into `mypkg` is a surprise waiting in
         // somebody's build script, and the file would not compile if it were not
         // sanitized at all.
-        if let Some(package) = &self.package {
-            if !usage::go::is_valid_package(package) {
-                usage::miette::bail!(
-                    "`--package {package}` is not a Go package name. It must be \
+        if let Some(package) = &self.package
+            && !usage::go::is_valid_package(package)
+        {
+            usage::miette::bail!(
+                "`--package {package}` is not a Go package name. It must be \
                      letters, digits and underscores, not start with a digit, and \
                      not be one of Go's keywords."
-                );
-            }
+            );
         }
 
         let spec = generate::file_or_spec(&self.file, &self.spec)?;

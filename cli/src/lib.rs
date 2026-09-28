@@ -1,14 +1,14 @@
 #[macro_use]
 extern crate log;
 
+pub use cli::Cli;
 /// The reference implementation's completion candidates, readable as data.
 ///
 /// Re-exported rather than the whole `cli` module: the conformance comparison needs this one
 /// answer, and nothing else in here is a promise to anybody.
 pub use cli::complete_word::{
-    answer as complete_answer, candidates as complete_candidates, CandidateAnswer,
+    CandidateAnswer, answer as complete_answer, candidates as complete_candidates,
 };
-pub use cli::Cli;
 
 mod cli;
 // Nothing but coverage now: each command declares its own effect, so what is left is the
@@ -57,11 +57,11 @@ pub fn run(args: &[String]) -> usage::miette::Result<()> {
         }
     }
     let result = Cli::run(args);
-    if let Err(err) = &result {
-        if let Some(_err) = err.downcast_ref::<usage::error::UsageErr>() {
-            eprintln!("{err:?}");
-            std::process::exit(181);
-        }
+    if let Err(err) = &result
+        && let Some(_err) = err.downcast_ref::<usage::error::UsageErr>()
+    {
+        eprintln!("{err:?}");
+        std::process::exit(181);
     };
 
     result

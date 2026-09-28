@@ -2,7 +2,7 @@
 name = "usage-rs"
 description = "A compiled CLI parser for Rust, built on usage specs"
 version = "6.11.1"
-edition = "2021"
+edition = "2024"
 rust-version = "1.91"
 homepage = { workspace = true }
 documentation = { workspace = true }

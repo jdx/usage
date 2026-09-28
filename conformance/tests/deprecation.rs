@@ -9,8 +9,8 @@
 
 use std::ffi::OsStr;
 
-use usage::warn::WarningKind as LibWarningKind;
 use usage::Spec;
+use usage::warn::WarningKind as LibWarningKind;
 use usage_argv::warn::WarningKind;
 use usage_derive::{Args, Cli, Subcommands};
 

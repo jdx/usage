@@ -33,8 +33,8 @@
 use crate::spec::cmd::SpecExample;
 use crate::spec::effect::SpecCommandEffect;
 use crate::{
-    spec::arg::SpecDoubleDashChoices, SpecAdmonition, SpecArg, SpecChoices, SpecCommand,
-    SpecComplete, SpecDefaultIf, SpecFlag, SpecRequiredIfEq, SpecRequiresIf,
+    SpecAdmonition, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecDefaultIf, SpecFlag,
+    SpecRequiredIfEq, SpecRequiresIf, spec::arg::SpecDoubleDashChoices,
 };
 
 /// Builder for SpecFlag
@@ -307,10 +307,10 @@ impl SpecFlagBuilder {
     /// Set the argument spec for flags that take values
     pub fn arg(mut self, arg: SpecArg) -> Self {
         self.inner.arg = Some(arg);
-        if self.allow_hyphen_values {
-            if let Some(arg) = &mut self.inner.arg {
-                arg.double_dash = crate::spec::arg::SpecDoubleDashChoices::Automatic;
-            }
+        if self.allow_hyphen_values
+            && let Some(arg) = &mut self.inner.arg
+        {
+            arg.double_dash = crate::spec::arg::SpecDoubleDashChoices::Automatic;
         }
         self
     }
@@ -490,15 +490,15 @@ impl SpecFlagBuilder {
     /// Build the final SpecFlag
     #[must_use]
     pub fn build(mut self) -> SpecFlag {
-        if self.allow_hyphen_values {
-            if let Some(arg) = &mut self.inner.arg {
-                arg.double_dash = crate::spec::arg::SpecDoubleDashChoices::Automatic;
-            }
+        if self.allow_hyphen_values
+            && let Some(arg) = &mut self.inner.arg
+        {
+            arg.double_dash = crate::spec::arg::SpecDoubleDashChoices::Automatic;
         }
-        if self.inner.default_missing.is_some() {
-            if let Some(arg) = &mut self.inner.arg {
-                arg.required = false;
-            }
+        if self.inner.default_missing.is_some()
+            && let Some(arg) = &mut self.inner.arg
+        {
+            arg.required = false;
         }
         self.inner.usage = self.inner.usage();
         if self.inner.name.is_empty() {

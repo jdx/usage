@@ -35,7 +35,9 @@ impl FromStr for ValueType {
             "float64" => Ok(Self::Float64),
             "bool" => Ok(Self::Bool),
             "duration" => Ok(Self::Duration),
-            _ => Err(format!("unknown Go field type {value:?}; expected int, int64, uint64, float64, bool, or duration")),
+            _ => Err(format!(
+                "unknown Go field type {value:?}; expected int, int64, uint64, float64, bool, or duration"
+            )),
         }
     }
 }
@@ -94,7 +96,9 @@ pub(super) fn validate(
         {
             continue;
         }
-        return Err(format!("{key} is not a generated command-level flag or argument key; clause fields are not supported yet"));
+        return Err(format!(
+            "{key} is not a generated command-level flag or argument key; clause fields are not supported yet"
+        ));
     }
     Ok(())
 }
@@ -102,8 +106,8 @@ pub(super) fn validate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::go::{generate, generate_with_types, GoOptions};
     use crate::Spec;
+    use crate::go::{GoOptions, generate, generate_with_types};
 
     /// Typed generation is opt-in and invalid bindings fail before source is emitted.
     #[test]

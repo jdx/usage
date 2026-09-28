@@ -194,7 +194,7 @@ impl Layer for EnvLayer {
 mod tests {
     use super::*;
     use crate::registry::{PropMeta, Registry, Scope};
-    use crate::resolve::{resolve, Layers};
+    use crate::resolve::{Layers, resolve};
     use crate::ty::{Parser, Ty};
     use crate::value::{Const, Value};
 

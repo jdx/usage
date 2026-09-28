@@ -10,7 +10,7 @@
 
 use std::ffi::OsStr;
 
-use usage_argv::diagnostic::{render, Style};
+use usage_argv::diagnostic::{Style, render};
 use usage_derive::{Args, Cli, Subcommands};
 
 /// Do the shared thing

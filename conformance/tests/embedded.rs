@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 
-use usage_argv::embedded::Outcome;
 use usage_argv::ValidationError;
+use usage_argv::embedded::Outcome;
 use usage_derive::Cli;
 
 #[derive(Debug, Cli)]

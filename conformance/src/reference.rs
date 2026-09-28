@@ -9,8 +9,8 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use usage::parse::{ParseValue, Parser};
 use usage::Spec;
+use usage::parse::{ParseValue, Parser};
 
 use crate::{ErrorCode, Expect, Parsed, Value, Vector};
 
