@@ -6,6 +6,7 @@ members = [
     "derive",
     "test",
     "usage-rs",
+    "usage-rs-tests",
     "usage-dynamic",
     "validation",
     "clap_usage",

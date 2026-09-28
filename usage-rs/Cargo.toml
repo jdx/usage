@@ -47,4 +47,3 @@ release = true
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
 tempfile = "3"
-usage-parser = { package = "usage-lib", path = "../lib" }

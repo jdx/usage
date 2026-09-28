@@ -3,7 +3,7 @@ use std::process::{Command, Output};
 
 fn fixture_output(name: &str, args: &[&str]) -> Output {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
+        .join("../usage-rs/tests")
         .join("fixtures")
         .join(name)
         .join("Cargo.toml");
