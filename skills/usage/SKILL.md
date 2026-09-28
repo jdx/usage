@@ -75,8 +75,10 @@ usage generate markdown --file greet.usage.kdl --out-file greet.md
 usage generate manpage --file greet.usage.kdl --out-file greet.1
 ```
 
-Completion scripts call `usage complete-word` at runtime, so `usage` must stay
-on PATH. For a CLI that prints its spec, use `--usage-cmd 'greet --usage-spec'`
+Completion scripts call `usage complete-word` at runtime by default. With
+`--usage-bin` or `JDX_USAGE_BIN`, they call the configured executable instead;
+that executable must remain available. For a CLI that prints its spec, use
+`--usage-cmd 'greet --usage-spec'`
 instead of `--file` only if that command is actually supported. Dynamic
 completion commands in a spec also execute when the user completes a value.
 
