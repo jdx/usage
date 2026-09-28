@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 use std::process::{Command, Output};
 
+/// Runs a nested fixture from the sibling usage-rs crate, where its relative
+/// dependency paths still point at the library under test.
 fn fixture_output(name: &str, args: &[&str]) -> Output {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../usage-rs/tests")
