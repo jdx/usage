@@ -289,6 +289,9 @@ mod tests {
         let exit = failure.exit().expect("a failure is a response");
         assert!(exit.stderr);
         assert_eq!(exit.code, 2);
+        #[cfg(feature = "diagnostics")]
         assert!(exit.text.contains("--wat"), "{}", exit.text);
+        #[cfg(not(feature = "diagnostics"))]
+        assert!(exit.text.contains("UnknownFlag"), "{}", exit.text);
     }
 }

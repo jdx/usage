@@ -5657,11 +5657,13 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "complete")]
     fn test_completer(_: &CompleteCtx<'_>) -> Vec<Candidate<'static>> {
         Vec::new()
     }
 
     #[test]
+    #[cfg(feature = "complete")]
     fn generated_completer_bridges_preserve_the_argv_vector() {
         static ARG: Arg = Arg {
             name: "ARG",
