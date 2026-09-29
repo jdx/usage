@@ -3,7 +3,7 @@
 lockfile_version = 2
 
 [[tools.aube]]
-version = "2.6.0"
+version = "2.6.1"
 backend = "packslip:github.com/aubepkg/aube"
 specifiers = ["latest"]
 
