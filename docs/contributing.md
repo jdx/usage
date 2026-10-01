@@ -1,5 +1,20 @@
 # Contributing
 
+::: danger AI replies to Discussions and Issues are restricted
+You may only use AI to reply to a [Discussion](https://github.com/jdx/usage/discussions) or [Issue](https://github.com/jdx/usage/issues) if you
+created it, you opened a PR that fixes it, or you have already had a contribution merged into
+usage. Everyone else is not allowed to use AI to reply. This is a growing problem, and **doing it is
+an instant ban across all of jdx's projects.**
+
+This includes raw, lightly edited, reviewed, and disclosed model output. Adding an "AI-assisted"
+footer does not make an AI reply acceptable on its own. If you are running an agent, make sure it
+does not post to threads you are not allowed to reply to, and never let it sweep through many
+threads at once.
+:::
+
+If you are allowed to use AI to reply, review and verify anything before posting it, and disclose
+that AI contributed.
+
 Contribute documentation, bug fixes, integrations, and improvements to Usage.
 This guide covers the local workflow and what a pull request needs for review.
 

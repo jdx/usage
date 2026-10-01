@@ -1,5 +1,12 @@
 # Contributing
 
+> [!CAUTION]
+> **AI replies to Discussions and Issues are restricted.** Only use AI to reply to a thread if you
+> created it, opened a PR that fixes it, or have already had a contribution merged into usage.
+> Everyone else is not allowed to, including with lightly edited, reviewed, or disclosed model
+> output. Doing this is an instant ban across all of jdx's projects. See
+> [Community Participation](https://usage.jdx.dev/contributing#community-participation).
+
 The [contributing guide](https://usage.jdx.dev/contributing) covers project scope,
 review expectations, and checks. Start from the repository root:
 
