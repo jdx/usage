@@ -171,12 +171,22 @@ run = [
 ]
 
 # What `.github/workflows/mise-lock.yml` runs after regenerating mise.lock on a
-# Renovate branch. Exactly the three generators `test-impl.yml` asserts produce no
-# diff, in the order it runs them: `depends` would run them concurrently, and
-# gen-shadow's `gofumpt -w` walk over benches/go races gen-go writing a table into
-# the same directory.
+# Renovate branch. First `go mod tidy` in every Go module, because Renovate's gomod
+# manager bumps a requirement and its hashes but leaves the superseded version's
+# `go.sum` lines behind, which fails the `go-mod-tidy` lint step. Then exactly the
+# three generators `test-impl.yml` asserts produce no diff, in the order it runs them:
+# `depends` would run them concurrently, and gen-shadow's `gofumpt -w` walk over
+# benches/go races gen-go writing a table into the same directory.
 [tasks."renovate:post-update"]
-run = ['mise run render', 'mise run gen-shadow', 'mise run gen-go']
+run = [
+    'go -C go mod tidy',
+    'go -C benches/go mod tidy',
+    'go -C integrations/cobra mod tidy',
+    'go -C integrations/cobra/example mod tidy',
+    'mise run render',
+    'mise run gen-shadow',
+    'mise run gen-go',
+]
 
 [tasks.release]
 run = "cargo release --workspace"
