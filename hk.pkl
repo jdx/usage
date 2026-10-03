@@ -1,7 +1,7 @@
 amends "package://github.com/jdx/hk/releases/download/v2.0.0/hk@2.0.0#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v2.0.0/hk@2.0.0#/Builtins.pkl"
 
-steps {
+local linters = new Mapping<String, Step> {
     ["prettier"] = Builtins.prettier
 
     ["cargo-fmt"] = Builtins.cargo_fmt
@@ -48,5 +48,20 @@ steps {
         glob = List("**/*.rs", "**/Cargo.toml")
         exclude = List("benches/**", "conformance/**", "xtask/**")
         check = "mise run lint:semver"
+    }
+}
+
+hooks {
+    ["pre-commit"] {
+        fix = true
+        stash = "git"
+        steps = linters
+    }
+    ["fix"] {
+        fix = true
+        steps = linters
+    }
+    ["check"] {
+        steps = linters
     }
 }
