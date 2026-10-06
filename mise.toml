@@ -19,7 +19,7 @@ prettier = "latest"
 shellcheck = "latest"
 go = "1.27.1"
 gofumpt = "0.12.0"
-golangci-lint = "2.13.2"
+golangci-lint = "2.14.0"
 node = "24"
 python = "latest"
 
