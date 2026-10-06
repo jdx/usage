@@ -1,5 +1,42 @@
 # Changelog
 
+## [6.12.1](https://github.com/jdx/usage/compare/v6.12.0..v6.12.1) - 2026-10-06
+
+### ⚡ Performance
+
+- reduce development debug info by [@jdx](https://github.com/jdx) in [#1525](https://github.com/jdx/usage/pull/1525)
+
+### 🧪 Testing
+
+- **(lib)** support independently enabled optional features by [@jdx](https://github.com/jdx) in [#1513](https://github.com/jdx/usage/pull/1513)
+
+### 🛡️ Security
+
+- restrict AI replies on Discussions and Issues and note the instant ban by [@jdx](https://github.com/jdx) in [#1522](https://github.com/jdx/usage/pull/1522)
+
+### 🔍 Other Changes
+
+- **(entire)** store checkpoints in a private repository by [@jdx](https://github.com/jdx) in [190ff3e](https://github.com/jdx/usage/commit/190ff3e04f22e5138a44fb8dcdc5001282d89e3c)
+- **(entire)** commit codex session hooks by [@jdx](https://github.com/jdx) in [abee1b8](https://github.com/jdx/usage/commit/abee1b863a5c98129263184f864a4681bfdf21b2)
+- **(entire)** commit claude session hooks by [@jdx](https://github.com/jdx) in [364d74e](https://github.com/jdx/usage/commit/364d74ec55a7510c8164547ae50c71b76c92af99)
+- **(entire)** restore lower-cost trail findings by [@jdx](https://github.com/jdx) in [2f2f991](https://github.com/jdx/usage/commit/2f2f99184b995c3843cd59179accb494eb06c203)
+- limit each contributor to one open draft PR by [@jdx](https://github.com/jdx) in [#1519](https://github.com/jdx/usage/pull/1519)
+- add hk pre-commit hook by [@jdx](https://github.com/jdx) in [#1523](https://github.com/jdx/usage/pull/1523)
+- update pr-closer policy by [@jdx](https://github.com/jdx) in [a2608b7](https://github.com/jdx/usage/commit/a2608b7317a8ae9fa5e2b0a73ceeaf7b960e96cf)
+
+### 📦️ Dependency Updates
+
+- update ubuntu:26.04 docker digest to da6fc2b by [@renovate[bot]](https://github.com/renovate[bot]) in [#1514](https://github.com/jdx/usage/pull/1514)
+- update jdx/renovate-config action to v1.0.1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1515](https://github.com/jdx/usage/pull/1515)
+- update mise tools to latest by [@renovate[bot]](https://github.com/renovate[bot]) in [#1516](https://github.com/jdx/usage/pull/1516)
+- update dependency communique to latest by [@renovate[bot]](https://github.com/renovate[bot]) in [#1518](https://github.com/jdx/usage/pull/1518)
+- update dependency aube to latest by [@renovate[bot]](https://github.com/renovate[bot]) in [#1520](https://github.com/jdx/usage/pull/1520)
+- run go mod tidy on Renovate branches by [@jdx](https://github.com/jdx) in [#1521](https://github.com/jdx/usage/pull/1521)
+- update module github.com/urfave/cli/v3 to v3.13.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1517](https://github.com/jdx/usage/pull/1517)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1524](https://github.com/jdx/usage/pull/1524)
+- update dependency golangci-lint to v2.14.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1526](https://github.com/jdx/usage/pull/1526)
+- update jdx/mise-action action to v5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1527](https://github.com/jdx/usage/pull/1527)
+
 ## [6.12.0](https://github.com/jdx/usage/compare/v6.11.1..v6.12.0) - 2026-09-28
 
 ### 🚀 Features
