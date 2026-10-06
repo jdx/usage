@@ -60,3 +60,6 @@ usage-validation = { path = "./validation", version = "6.12.0" }
 
 [workspace.metadata.release]
 allow-branch = ["main"]
+
+[profile.dev]
+debug = 1
