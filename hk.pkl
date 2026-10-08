@@ -37,6 +37,16 @@ local linters = new Mapping<String, Step> {
     ["go-fix"] = Builtins.go_fix
     ["go-mod-tidy"] = Builtins.gomod_tidy
 
+    // lints GitHub Actions workflows (jdx/jactionlint, a maintained actionlint fork)
+    ["jactionlint"] {
+        glob = List(".github/workflows/*.yml", ".github/workflows/*.yaml")
+        batch = true
+        check = new CommandSpec {
+            command = "jactionlint {{ files }}"
+            effect = "read"
+        }
+    }
+
     ["rust-docs-version"] {
         glob = List("docs/rust/*.md", "usage-rs/src/lib.rs", "test/src/lib.rs", "lib/Cargo.toml")
         check = "mise run lint:rust-docs-version"
