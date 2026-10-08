@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use usage::{Args, Cli, Subcommands};
 
 #[derive(Cli)]
+#[usage(crate = usage)]
 #[usage(bin = "ex")]
 struct Ex {
     #[usage(subcommand)]
@@ -11,6 +12,7 @@ struct Ex {
 }
 
 #[derive(Subcommands)]
+#[usage(crate = usage)]
 enum Command {
     Show(Show),
     /// Print version information
@@ -19,6 +21,7 @@ enum Command {
 
 /// Show one file
 #[derive(Args)]
+#[usage(crate = usage)]
 struct Show {
     #[usage(long, value_hint = usage::ValueHint::FilePath)]
     file: PathBuf,

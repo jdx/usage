@@ -15,7 +15,7 @@ One type may implement several, and one enum may dispatch several, which is what
 through adopting a context — or a runtime — needs. The sync, context-free case:
 
 ```rust
-use usage::{Args, Cli, Run, Subcommands};
+use usage_rs::{Args, Cli, Run, Subcommands};
 
 #[derive(Cli)]
 #[usage(bin = "ex")]
@@ -80,7 +80,7 @@ Most CLIs hand their commands something: a resolved config, an output handle, a 
 `RunWith<Ctx>`, and `#[usage(run_with)]` dispatches it:
 
 ```rust
-use usage::{RunWith, Subcommands};
+use usage_rs::{RunWith, Subcommands};
 
 #[derive(Subcommands)]
 #[usage(run_with)]
@@ -127,7 +127,7 @@ wrong side: a hundred commands that need nothing shared would each carry `fn run
 `async fn` that awaits the selected command:
 
 ```rust
-use usage::{RunAsync, Subcommands};
+use usage_rs::{RunAsync, Subcommands};
 
 #[derive(Subcommands)]
 #[usage(run_async)]

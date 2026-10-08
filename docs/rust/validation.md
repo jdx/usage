@@ -233,7 +233,7 @@ field's text. It runs after field conversion and environment/default resolution 
 path:
 
 ```rust
-use usage::{Cli, ValidationError};
+use usage_rs::{Cli, ValidationError};
 
 #[derive(Cli)]
 #[usage(bin = "copy", validate_with = validate_copy)]
@@ -270,7 +270,7 @@ struct CopyArgs { /* flags and arguments */ }
 struct CopyCommand(CopyArgs);
 
 impl TryFrom<CopyArgs> for CopyCommand {
-    type Error = usage::ValidationError;
+    type Error = usage_rs::ValidationError;
 
     fn try_from(args: CopyArgs) -> Result<Self, Self::Error> {
         // Resolve modes, normalize paths, or establish richer invariants here.
@@ -295,7 +295,7 @@ For a rule that must survive KDL emission — and that clap would have expressed
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["validation"] }
+usage-rs = { version = "6", features = ["validation"] }
 ```
 
 ```rust

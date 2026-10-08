@@ -13,6 +13,7 @@ doctest = false
 [dependencies]
 usage-argv = { path = "../../../argv", features = ["spec"] }
 usage-derive = { path = "../../../derive" }
+usage-rs = { path = "../../../usage-rs", default-features = false, features = ["spec"] }
 
 [lints.rust]
 # The shadow is generated, so a warning here is a message to the generator

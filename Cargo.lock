@@ -1603,6 +1603,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -1611,6 +1612,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -1619,6 +1621,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -1627,6 +1630,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -1635,6 +1639,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -1643,6 +1648,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -1665,6 +1671,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -1673,6 +1680,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -1681,6 +1689,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -1689,6 +1698,7 @@ version = "0.0.0"
 dependencies = [
  "usage-argv",
  "usage-derive",
+ "usage-rs",
 ]
 
 [[package]]
@@ -2034,6 +2044,7 @@ dependencies = [
  "usage-config",
  "usage-derive",
  "usage-lib",
+ "usage-rs",
  "usage-validation",
 ]
 
@@ -2045,7 +2056,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.6",
- "toml",
 ]
 
 [[package]]

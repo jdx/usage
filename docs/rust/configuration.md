@@ -1,6 +1,6 @@
 # Configuration
 
-Derive `usage::Config` on your settings struct to generate a registry, typed readers,
+Derive `usage_rs::Config` on your settings struct to generate a registry, typed readers,
 and a portable `config` block. Your application supplies the configuration layers;
 the resolver merges their values and records where each setting came from.
 
@@ -8,7 +8,7 @@ Enable the `config` feature:
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["config"] }
+usage-rs = { version = "6", features = ["config"] }
 ```
 
 Reading config files is opt-in per format on `usage-config` itself — the facade's `config`
@@ -22,7 +22,7 @@ usage-config = { version = "6", features = ["toml"] }
 ## Declaring
 
 ```rust
-use usage::Config;
+use usage_rs::Config;
 
 /// How this tool behaves, resolved from flags, the environment, and files.
 #[derive(Config)]
@@ -123,9 +123,9 @@ full form is the one that can say either.
 Pass the running program version explicitly when resolving lifecycle gates:
 
 ```rust
-let context = usage::config::ResolutionContext::for_cli_version(env!("CARGO_PKG_VERSION"));
+let context = usage_rs::config::ResolutionContext::for_cli_version(env!("CARGO_PKG_VERSION"));
 let resolved =
-    usage::config::resolve_with_context(Settings::SETTINGS_REGISTRY, layers, context)?;
+    usage_rs::config::resolve_with_context(Settings::SETTINGS_REGISTRY, layers, context)?;
 ```
 
 The caller chooses that string because an adopting CLI's version is not `usage-config`'s package
@@ -151,7 +151,7 @@ struct. The CLI names the layers it has — that stays its own business — and 
 decides what every value means:
 
 ```rust
-use usage::config::{resolve, EnvLayer, FileLayer, FileScope, Layers, XdgBase};
+use usage_rs::config::{resolve, EnvLayer, FileLayer, FileScope, Layers, XdgBase};
 
 let (cli, cli_layer) = Ex::parse_from_with_settings(&argv)?;
 let env = EnvLayer::from_process();
@@ -167,7 +167,7 @@ let resolved = resolve(
         .then(&user_and_system),
 )?;
 let settings = Settings::read(&resolved)?;
-for warning in usage::config::explain::warnings(&resolved) {
+for warning in usage_rs::config::explain::warnings(&resolved) {
     eprintln!("{warning}");
 }
 ```
@@ -222,7 +222,7 @@ reserved `config_keys` / `config_values` completers read settings declared in Ru
 they read ones written in KDL:
 
 ```rust
-#[derive(usage::Config)]
+#[derive(usage_rs::Config)]
 #[usage(source(kind = "git", name = "git config", doc_hint = "git config `{key}`"))]
 #[usage(file(path = "/etc/ex.toml", scope = "system"))]
 #[usage(file(path = "ex.toml", findup))]
@@ -232,7 +232,7 @@ struct Settings {
     jobs: u64,
 }
 
-#[derive(usage::Cli)]
+#[derive(usage_rs::Cli)]
 #[usage(bin = "ex", config = Settings)]
 struct Ex {
     /// How many jobs to run at once

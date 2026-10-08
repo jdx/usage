@@ -111,7 +111,7 @@ expressed](#what-can-t-be-expressed-from-the-derive), which is nearly nothing. `
 there for when that is not enough, and appends a file's KDL to the emitted document:
 
 ```rust
-#[derive(usage::Cli)]
+#[derive(usage_rs::Cli)]
 #[usage(bin = "mycli", spec_extra = "assets/mycli-extra.usage.kdl")]
 struct Cli { /* … */ }
 ```
@@ -132,7 +132,7 @@ template](/spec/reference/#source-code-link-template) that turns a command path 
 "view source" link on its markdown page:
 
 ```rust
-#[derive(usage::Cli)]
+#[derive(usage_rs::Cli)]
 #[usage(
     repository = env!("CARGO_PKG_REPOSITORY"),
     source_code_link_template = r#"https://github.com/me/mycli/blob/main/src/cli/{{path}}.rs"#,
@@ -148,7 +148,7 @@ An embedded CLI may be invoked under a name chosen by its caller. Pair each comp
 with the literal written to portable artifacts:
 
 ```rust
-#[derive(usage::Cli)]
+#[derive(usage_rs::Cli)]
 #[usage(
     name = host::program_name(),
     name_spec = "mycli",

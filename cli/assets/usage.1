@@ -69,9 +69,6 @@ Generate a shell init script that completes every usage\-shebang script on PATH
 \fIAliases: \fRci
 .RE
 .TP
-\fBgenerate fig\fR
-Generate a completion spec in the legacy Fig format
-.TP
 \fBgenerate go\fR
 Generate Go parse tables from a usage spec
 .TP
@@ -418,25 +415,6 @@ Print help
 .TP
 \fB<SHELL>\fR
 The shell to generate the script for
-.SH "USAGE GENERATE FIG"
-Generate a completion spec in the legacy Fig format
-.PP
-\fBUsage:\fR usage generate fig [OPTIONS]
-.PP
-\fBOptions:\fR
-.PP
-.TP
-\fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec file, or a script with a usage shebang; "\-" reads stdin
-.TP
-\fB\-\-out\-file\fR \fI<OUT_FILE>\fR
-Where to write the spec, or "\-" for stdout (default)
-.TP
-\fB\-\-spec\fR \fI<SPEC>\fR
-The spec itself, as a string, instead of a file
-.TP
-\fB\-h, \-\-help\fR
-Print help
 .SH "USAGE GENERATE GO"
 Generate Go parse tables from a usage spec
 

@@ -26,11 +26,11 @@ spec from the same Rust declaration:
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6" }
+usage-rs = { version = "6" }
 ```
 
 ```rust
-use usage::Cli;
+use usage_rs::Cli;
 
 #[derive(Cli)]
 #[usage(bin = "example", version)]

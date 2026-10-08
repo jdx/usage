@@ -10,7 +10,7 @@ If you already use clap, follow [Migrating from clap](/rust/migrating-from-clap)
 Here is a small declaration:
 
 ```rust
-use usage::Cli;
+use usage_rs::Cli;
 
 /// Process files with configurable parallelism
 #[derive(Cli)]
@@ -51,12 +51,19 @@ rebuild took about 10 seconds with usage-rs, 4 seconds with clap, and 2 seconds 
 
 ## Installation
 
-One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:
+One dependency. Add `usage-rs` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6" }
+usage-rs = { version = "6" }
 ```
+
+The derives write their generated code against `::usage_rs`, so the dependency keeps its own name.
+If you rename it (`usage = { package = "usage-rs", version = "6" }`) or re-export it from another
+crate, say where it is on each derive with `#[usage(crate = usage)]`, as serde does with
+`#[serde(crate = "...")]`. The same goes for an application that depends on `usage-argv` and
+`usage-derive` directly: add `usage-rs` with `default-features = false, features = ["spec"]`
+so the generated code has somewhere to resolve.
 
 The default runtime uses only Usage crates. Optional features such as validation and
 configuration readers add dependencies; see the [dependency comparison](/rust/migrating-from-clap#dependencies).
@@ -75,16 +82,16 @@ available for low-level adopters that want a thinner surface:
 
 ### Cargo features
 
-| Feature          | Default | What it enables                                                                                          |
-| ---------------- | :-----: | -------------------------------------------------------------------------------------------------------- |
-| `spec`           |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                          |
-| `help`           |   ✅    | `-h` / `--help` page rendering                                                                           |
-| `diagnostics`    |   ✅    | clap-shaped error messages from `render_failure`                                                         |
-| `completions`    |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)    |
-| `validation`     |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions)) |
-| `test`           |         | `usage::test`: command output, parse, and help assertions (completion assertions want `completions` too) |
-| `config`         |         | The `usage::Config` derive and the resolver as `usage::config` ([Configuration](/rust/configuration))    |
-| `response-files` |         | Explicit `@file` argument expansion as `usage::response` ([Response files](/rust/response-files))        |
+| Feature          | Default | What it enables                                                                                             |
+| ---------------- | :-----: | ----------------------------------------------------------------------------------------------------------- |
+| `spec`           |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                             |
+| `help`           |   ✅    | `-h` / `--help` page rendering                                                                              |
+| `diagnostics`    |   ✅    | clap-shaped error messages from `render_failure`                                                            |
+| `completions`    |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)       |
+| `validation`     |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions))    |
+| `test`           |         | `usage_rs::test`: command output, parse, and help assertions (completion assertions want `completions` too) |
+| `config`         |         | The `usage_rs::Config` derive and the resolver as `usage_rs::config` ([Configuration](/rust/configuration)) |
+| `response-files` |         | Explicit `@file` argument expansion as `usage_rs::response` ([Response files](/rust/response-files))        |
 
 ## Parse entry points
 
@@ -95,11 +102,11 @@ available for low-level adopters that want a thinner surface:
 pub fn parse() -> Self;
 
 // parse the given argv; hand errors (including help/version requests) back to you
-pub fn parse_from<'v>(argv: &[&'v OsStr]) -> Result<Self, usage::Error<'static, 'v>>;
+pub fn parse_from<'v>(argv: &[&'v OsStr]) -> Result<Self, usage_rs::Error<'static, 'v>>;
 
 // the static parse tables and spec metadata
-pub fn command() -> &'static usage::Command<'static>;
-pub fn spec() -> &'static usage::spec::Spec<'static>;
+pub fn command() -> &'static usage_rs::Command<'static>;
+pub fn spec() -> &'static usage_rs::spec::Spec<'static>;
 
 // the usage spec as KDL
 pub fn to_kdl() -> String;
@@ -148,7 +155,7 @@ how to opt out of the endpoint.
 - [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts, portable `validate`
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion
-- [Configuration](/rust/configuration) — settings declared in code: `usage::Config` and layered resolution
+- [Configuration](/rust/configuration) — settings declared in code: `usage_rs::Config` and layered resolution
 - [Response files](/rust/response-files) — opt-in, nested `@file` argument expansion
 - [Testing](/rust/testing) — run commands or assert directly on parsing, help, and completions
 - [Spec output](/rust/spec) — the emitted KDL and usage-cli integration

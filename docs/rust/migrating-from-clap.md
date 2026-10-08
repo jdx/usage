@@ -44,7 +44,7 @@ Depend on the facade, not on `usage-derive` or `usage-argv` separately:
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["completions"] }
+usage-rs = { version = "6", features = ["completions"] }
 ```
 
 The defaults include the derive, help rendering, and clap-shaped diagnostics. Add `completions`
@@ -65,15 +65,15 @@ configuration file readers add their format parsers.
 
 The renames are one-to-one:
 
-| clap                    | usage                           |
-| ----------------------- | ------------------------------- |
-| `#[derive(Parser)]`     | `#[derive(usage::Cli)]`         |
-| `#[derive(Args)]`       | `#[derive(usage::Args)]`        |
-| `#[derive(Subcommand)]` | `#[derive(usage::Subcommands)]` |
-| `#[derive(ValueEnum)]`  | `#[derive(usage::ValueEnum)]`   |
-| `#[command(...)]`       | `#[usage(...)]`                 |
-| `#[arg(...)]`           | `#[usage(...)]`                 |
-| `#[value(...)]`         | `#[usage(...)]`                 |
+| clap                    | usage                              |
+| ----------------------- | ---------------------------------- |
+| `#[derive(Parser)]`     | `#[derive(usage_rs::Cli)]`         |
+| `#[derive(Args)]`       | `#[derive(usage_rs::Args)]`        |
+| `#[derive(Subcommand)]` | `#[derive(usage_rs::Subcommands)]` |
+| `#[derive(ValueEnum)]`  | `#[derive(usage_rs::ValueEnum)]`   |
+| `#[command(...)]`       | `#[usage(...)]`                    |
+| `#[arg(...)]`           | `#[usage(...)]`                    |
+| `#[value(...)]`         | `#[usage(...)]`                    |
 
 Rename every helper attribute when you replace the derive — usage rejects clap's helper
 namespaces, and the compile error points at `#[usage(...)]`. A typical root migrates like this:
@@ -104,7 +104,7 @@ enum Command {
 
 ```rust
 // after
-use usage::{Cli, Subcommands};
+use usage_rs::{Cli, Subcommands};
 
 #[derive(Cli)]
 #[usage(bin = "tak", version, unknown_flags = "error")]
@@ -141,7 +141,7 @@ confirmation. The ones with a nuance worth knowing:
   environment and default fallbacks don't count.
 - `disable_help_flag`, `disable_help_subcommand`, and `disable_version_flag` remove the
   synthesized entries. To put the built-in behavior on a flag you declare yourself — keeping that
-  flag's own help text — set `#[usage(action = usage::ArgAction::HelpShort)]` (or `Help`,
+  flag's own help text — set `#[usage(action = usage_rs::ArgAction::HelpShort)]` (or `Help`,
   `HelpLong`, `HelpAll`, `Version`).
 - `subcommand_negates_reqs` suppresses the parent's positive requirements while leaving conflicts
   and the child's own requirements active.
@@ -195,7 +195,7 @@ struct Options {
 
 ```rust
 // after
-#[derive(usage::Args)]
+#[derive(usage_rs::Args)]
 struct Options {
     #[usage(short = 'v', long, count)]
     verbose: u8,
@@ -245,13 +245,13 @@ Everything the derive can see comes over: unit variants, inline struct variants,
 flattened groups, and one `Args` type mounted under more than one command.
 
 ```rust
-#[derive(usage::Args)]
+#[derive(usage_rs::Args)]
 struct RemoteArgs {
     #[usage(long, default = "origin")]
     remote: String,
 }
 
-#[derive(usage::Subcommands)]
+#[derive(usage_rs::Subcommands)]
 enum Command {
     Push(RemoteArgs),
     Init(RemoteArgs),
@@ -262,14 +262,14 @@ enum Command {
 Tuple `Cli` and `Args` structs are not inferred. This form fails to compile:
 
 ```rust
-#[derive(usage::Args)]
+#[derive(usage_rs::Args)]
 struct Ambiguous(CommonArgs);
 ```
 
 Use a named field and declare whether it is flattened:
 
 ```rust
-#[derive(usage::Args)]
+#[derive(usage_rs::Args)]
 struct Explicit {
     #[usage(flatten)]
     common: CommonArgs,
@@ -297,8 +297,8 @@ entry point that matches what you're handing it:
 | merging into a value you already have      | `cli.try_update_from(&[&OsStr])`  |
 
 `parse_from` is the allocation-free primitive; `parse_from_argv` additionally applies multicall
-basename routing. An embedder that must intercept the built-ins handles `usage::Error::Help` and
-`usage::Error::Version` before dispatch, rendering them with `Cli::render_help` and
+basename routing. An embedder that must intercept the built-ins handles `usage_rs::Error::Help` and
+`usage_rs::Error::Version` before dispatch, rendering them with `Cli::render_help` and
 `Cli::render_failure` so computed `name` / `bin` appear in the page. `Cli::spec()` is the
 portable identity.
 
@@ -307,10 +307,10 @@ because a parse can't be run backwards to seed itself from a value: a standing f
 relationship, the environment and defaults fill only what is empty, and a subcommand word naming
 a different variant replaces it. See [Updating an existing value](/rust/update-from).
 
-The `match cli.command { … }` a clap CLI writes after parsing can go too. Implement `usage::Run`
+The `match cli.command { … }` a clap CLI writes after parsing can go too. Implement `usage_rs::Run`
 on each command struct, put `#[usage(run)]` on the enum, and the routing is generated. Commands
-that need shared state implement `usage::RunWith<Ctx>` under `#[usage(run_with)]`; async commands
-implement `usage::RunAsync` or `usage::RunAsyncWith<Ctx>` under `#[usage(run_async)]` /
+that need shared state implement `usage_rs::RunWith<Ctx>` under `#[usage(run_with)]`; async commands
+implement `usage_rs::RunAsync` or `usage_rs::RunAsyncWith<Ctx>` under `#[usage(run_async)]` /
 `#[usage(run_async_with)]`. A clap unit or inline-struct variant is dispatched through the
 `{Enum}{Variant}` struct the derive writes for it, and a catch-all `external_subcommand` becomes
 `external = fallback` on the enum. See [Dispatch](/rust/dispatch).
@@ -324,7 +324,7 @@ onto a dynamic command graph.
 Command-level presentation settings keep their clap names in the usage namespace:
 
 ```rust
-#[derive(usage::Cli)]
+#[derive(usage_rs::Cli)]
 #[usage(
     subcommand_help_heading = "Actions",
     subcommand_value_name = "ACTION",
@@ -340,7 +340,7 @@ struct Cli {
 Package metadata is declared on the root and travels with the generated spec and references:
 
 ```rust
-#[derive(usage::Cli)]
+#[derive(usage_rs::Cli)]
 #[usage(
     author = "Example Maintainers",
     license = "MIT OR Apache-2.0",
@@ -356,7 +356,7 @@ used only by process output; the literal keeps generated specs reproducible.
 With the `completions` feature, prefer the built-in completion surface over `clap_complete`:
 
 ```rust
-let script = Cli::completion_script(usage::complete::Shell::Zsh);
+let script = Cli::completion_script(usage_rs::complete::Shell::Zsh);
 ```
 
 `Cli::app().completion_app()` covers projections and sync or async runtime candidates. Async

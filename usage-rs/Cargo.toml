@@ -22,7 +22,10 @@ shell-words = { version = "1", optional = true }
 # Applications get a usable CLI out of the box: parse tables, help, and
 # clap-shaped errors. Completions and expression validation stay opt-in.
 # Low-level adopters that want only the binding runtime keep depending on
-# `usage-argv` directly (no defaults).
+# `usage-argv` directly (no defaults), and add this crate with `default-features = false,
+# features = ["spec"]` if they use the derives, which write their paths through it. The
+# `Config` derive writes `usage_rs::config` and `validate` expressions write
+# `usage_rs::validation`, so those adopters also enable `config` or `validation`.
 default = ["spec", "help", "diagnostics", "help-advanced"]
 spec = ["usage-argv/spec", "dep:usage-derive"]
 help = ["spec"]
@@ -35,7 +38,7 @@ validation = ["dep:usage-validation"]
 # Assertions about command output, what a command line parses to, what a page says, and what a
 # shell is offered. A dev-dependency feature: nothing in an application's own code calls it.
 test = ["spec", "help", "dep:usage-test"]
-# Settings: the `usage::Config` derive, and the resolver as `usage::config`.
+# Settings: the `usage_rs::Config` derive, and the resolver as `usage_rs::config`.
 config = ["spec", "dep:usage-config"]
 # Explicit, cold-path expansion of @response files before parsing.
 response-files = ["dep:shell-words"]

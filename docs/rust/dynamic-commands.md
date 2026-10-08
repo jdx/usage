@@ -16,7 +16,7 @@ are not modified, and normal parsing stays exactly as fast.
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["completions"] }
+usage-rs = { version = "6", features = ["completions"] }
 usage-dynamic = "6"
 # Any executor works; the example below uses futures' to answer completion requests.
 futures = "0.3"
@@ -119,7 +119,7 @@ captures an unrecognized word and everything after it:
 
 ```rust
 use std::ffi::OsString;
-use usage::{Cli, Subcommands};
+use usage_rs::{Cli, Subcommands};
 
 #[derive(Cli)]
 #[usage(bin = "ex")]
@@ -160,8 +160,8 @@ of use.
 ```rust
 use std::ffi::{OsStr, OsString};
 use usage_dynamic::{Catalog, Outcome, Spec};
-use usage::complete::{render, CompletionRequest};
-use usage::{Cli, Error, Subcommands};
+use usage_rs::complete::{render, CompletionRequest};
+use usage_rs::{Cli, Error, Subcommands};
 
 /// How plugins are found is up to the application: a directory scan, a lockfile, a registry.
 fn plugin_catalog() -> Catalog<'static> {
@@ -204,11 +204,11 @@ fn main() {
         }
 
         // Render help through the catalog so plugin commands appear on the page.
-        // `usage::help::find` converts the command the parser stopped at into the path
+        // `usage_rs::help::find` converts the command the parser stopped at into the path
         // `help` takes.
         Err(Error::Help { cmd, long }) => {
             let catalog = plugin_catalog();
-            let path = usage::help::find(Ex::spec(), cmd)
+            let path = usage_rs::help::find(Ex::spec(), cmd)
                 .map(|(path, _)| path[1..].join(" "))
                 .unwrap_or_default();
             print!("{}", catalog.app().unwrap().help(&path, long).unwrap());
@@ -246,7 +246,7 @@ alias its spec declares.
 `None` is not an error: do whatever the application did with unknown commands before it had
 plugins. Handle `Err(usage_dynamic::Error::NonUtf8)` the same way — the spec model is UTF-8
 strings, but the captured `OsString`s are intact, so raw dispatch still works. (This `Error` is
-the catalog's own type, not the parser's `usage::Error` from the example.)
+the catalog's own type, not the parser's `usage_rs::Error` from the example.)
 
 ## Help and completion
 

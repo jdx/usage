@@ -1,13 +1,13 @@
 //! The facade for building compiled Rust CLIs with usage.
 //!
-//! Depend on `usage-rs` under the short crate name `usage`. That is the one package an
+//! Depend on `usage-rs`. That is the one package an
 //! application needs: derive macros, the argv runtime, help, and clap-shaped errors ship in the
 //! defaults. Completions stay behind a feature; low-level adopters that want only the binding
 //! runtime keep depending on `usage-argv` directly.
 //!
 //! ```toml
 //! [dependencies]
-//! usage = { package = "usage-rs", version = "6" }
+//! usage-rs = { version = "6" }
 //! ```
 //!
 //! # Smaller binaries
@@ -15,7 +15,7 @@
 //! CLIs without `flatten_help` or `HelpAll` actions can omit `help-advanced`:
 //!
 //! ```toml
-//! usage = { package = "usage-rs", version = "6", default-features = false, features = ["help", "diagnostics", "completions"] }
+//! usage-rs = { version = "6", default-features = false, features = ["help", "diagnostics", "completions"] }
 //! ```
 //!
 //! Advanced help remains enabled by default. Declaring those actions without its feature
@@ -25,7 +25,7 @@
 //! To keep the spec endpoint without linking the KDL writer, use
 //! `#[usage(spec_endpoint_file = "cli.usage.kdl")]`. The file is included at compile time,
 //! relative to the declaring crate. Generate it with `Cli::to_kdl()` in a development tool,
-//! and test that `Cli::spec_request(&[usage::SPEC_REQUEST.as_ref()])` equals `Cli::to_kdl()`.
+//! and test that `Cli::spec_request(&[usage_rs::SPEC_REQUEST.as_ref()])` equals `Cli::to_kdl()`.
 //! Regenerate after changing CLI metadata or its version. `to_kdl()` still uses the live
 //! metadata, including settings and `spec_extra`; only the endpoint uses the file.
 //!
@@ -38,13 +38,12 @@
 //! Enable portable expression validation only when a CLI declares `validate` rules:
 //!
 //! ```toml
-//! usage = { package = "usage-rs", version = "6", features = ["validation"] }
+//! usage-rs = { version = "6", features = ["validation"] }
 //! ```
 //!
 //! ```
-//! use usage_rs as usage;
 //! # #[cfg(feature = "spec")]
-//! use usage::Cli;
+//! use usage_rs::Cli;
 //!
 //! # #[cfg(not(feature = "spec"))]
 //! # fn main() {}
@@ -53,7 +52,7 @@
 //! #[derive(Cli)]
 //! #[usage(bin = "ex")]
 //! struct Ex {
-//!     #[usage(long, value_hint = usage::ValueHint::FilePath)]
+//!     #[usage(long, value_hint = usage_rs::ValueHint::FilePath)]
 //!     file: Option<std::path::PathBuf>,
 //! }
 //!
@@ -68,9 +67,8 @@
 //! the application's root CLI:
 //!
 //! ```
-//! use usage_rs as usage;
 //! # #[cfg(feature = "spec")]
-//! use usage::Args;
+//! use usage_rs::Args;
 //! #
 //! # #[cfg(not(feature = "spec"))]
 //! # fn main() {}
@@ -85,7 +83,7 @@
 //! }
 //!
 //! let argv = ["--force", "node@24"].map(std::ffi::OsStr::new);
-//! let install = usage::parse_args_from::<Install>(&argv).unwrap();
+//! let install = usage_rs::parse_args_from::<Install>(&argv).unwrap();
 //! assert!(install.force);
 //! assert_eq!(install.tools, ["node@24"]);
 //! # }

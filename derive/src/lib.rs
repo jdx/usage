@@ -1,6 +1,6 @@
 //! A derive that compiles a CLI definition into parse tables and a spec.
 //!
-//! `#[derive(usage::Cli)]` reads a struct and emits three things: `static` parse
+//! `#[derive(usage_rs::Cli)]` reads a struct and emits three things: `static` parse
 //! tables for [usage-argv](https://docs.rs/usage-argv), `static` metadata for
 //! spec emission, and a parse function that assigns values straight into the
 //! struct's fields. Nothing is constructed at run time — there is no command tree
@@ -133,7 +133,7 @@
 //!     Sponsors(Sponsors),
 //! }
 //!
-//! impl usage::Run for Install {
+//! impl usage_rs::Run for Install {
 //!     type Output = miette::Result<()>;
 //!     fn run(self) -> Self::Output { install(&self.tools, self.force) }
 //! }
@@ -256,7 +256,7 @@
 //! `default_subcommand`, `default_subcommand_flags`, `default_subcommand_on_empty`, `default_subcommand_help`, `multicall` — argv[0]'s basename selects a subcommand —
 //! `arg_required_else_help` — a selected command with no argv of its own shows short help —
 //! `disable_help_flag`, `disable_help_subcommand`, and `disable_version_flag` — remove the
-//! corresponding synthesized entry point so a field with `action = usage::ArgAction::Help`,
+//! corresponding synthesized entry point so a field with `action = usage_rs::ArgAction::Help`,
 //! `HelpShort`, `HelpLong`, `HelpAll`, or `Version` can relocate it —
 //! `next_line_help` — put descriptions below each entry — `flatten_help` — expand visible
 //! subcommands into the current help page —
@@ -304,7 +304,7 @@
 //! | `complete = my_fn` | a function that answers for this value when a shell asks |
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
 //! | `arg_group` | the flags come from the field's type, which derives [`ArgGroup`]; `Vec<T>` preserves a `multiple` group's occurrence order |
-//! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
+//! | `value_hint = usage_rs::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
 //! | `extensions("toml", "yaml")` | limit a file-path hint to these extensions while retaining directories |
 //! | `arg` | force a field to be positional |
 //! | `value_name = "NAME"` | a positional name, or the placeholder for a flag value |
@@ -419,7 +419,7 @@ use syn::{DeriveInput, parse_macro_input};
 mod case;
 mod codegen;
 mod config;
-mod crate_name;
+mod facade;
 mod model;
 
 /// Compile a struct into a parser and a spec. See the [crate docs](crate).
@@ -428,14 +428,13 @@ mod model;
 #[proc_macro_derive(Cli, attributes(usage, command, arg, value, group))]
 pub fn derive_cli(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let parsed = model::Cli::from_input(&input)
-        .and_then(|cli| cli.check_position(&input.ident, true).map(|()| cli));
-    match parsed {
-        Ok(cli) => codegen::emit(&cli).into(),
-        // Reporting the error as tokens rather than panicking is what puts it on
-        // the offending line instead of on the derive.
-        Err(e) => e.to_compile_error().into(),
-    }
+    // Reporting an error as tokens rather than panicking is what puts it on
+    // the offending line instead of on the derive.
+    facade::expand(input, |input| {
+        let cli = model::Cli::from_input(input)?;
+        cli.check_position(&input.ident, true)?;
+        Ok(codegen::emit(&cli))
+    })
 }
 
 /// Compile a struct into one subcommand's flags and arguments.
@@ -449,14 +448,12 @@ pub fn derive_args(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     // `restart_token` and `mount` are per-command and belong here; `default_subcommand` is
     // declared once for the whole spec and does not.
-    let parsed = model::Cli::from_input(&input).and_then(|mut cli| {
+    facade::expand(input, |input| {
+        let mut cli = model::Cli::from_input(input)?;
         cli.composable = true;
-        cli.check_position(&input.ident, false).map(|()| cli)
-    });
-    match parsed {
-        Ok(cli) => codegen::emit_args(&cli).into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+        cli.check_position(&input.ident, false)?;
+        Ok(codegen::emit_args(&cli))
+    })
 }
 
 /// Compile an enum into a set of subcommands.
@@ -470,10 +467,11 @@ pub fn derive_args(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Subcommands, attributes(usage, command, arg, value, group))]
 pub fn derive_subcommands(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    match model::Subcommands::from_input(&input) {
-        Ok(subs) => codegen::emit_subcommands(&subs).into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+    facade::expand(input, |input| {
+        Ok(codegen::emit_subcommands(&model::Subcommands::from_input(
+            input,
+        )?))
+    })
 }
 
 /// Compile a settings struct into its own registry, reader, and spec `config` block.
@@ -487,7 +485,7 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// guide: <https://usage.jdx.dev/rust/configuration>.
 ///
 /// ```ignore
-/// #[derive(usage::Config)]
+/// #[derive(usage_rs::Config)]
 /// struct Settings {
 ///     /// How many jobs to run at once
 ///     #[usage(env = "EX_JOBS", default = 4, cli("--jobs", "-j"))]
@@ -503,10 +501,9 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Config, attributes(usage))]
 pub fn derive_config(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    match config::Config::from_input(&input) {
-        Ok(config) => config::emit(&config).into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+    facade::expand(input, |input| {
+        Ok(config::emit(&config::Config::from_input(input)?))
+    })
 }
 
 /// Compile an enum into the words one value may be.
@@ -515,7 +512,7 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
 /// variant's name in kebab-case is the word, unless `name` says otherwise:
 ///
 /// ```ignore
-/// #[derive(usage::ValueEnum)]
+/// #[derive(usage_rs::ValueEnum)]
 /// enum Shell {
 ///     /// Bourne Again shell.
 ///     Bash,
@@ -541,10 +538,11 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(ValueEnum, attributes(usage, command, arg, value, group))]
 pub fn derive_value_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    match model::ValueEnum::from_input(&input) {
-        Ok(value_enum) => codegen::emit_value_enum(&value_enum).into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+    facade::expand(input, |input| {
+        Ok(codegen::emit_value_enum(&model::ValueEnum::from_input(
+            input,
+        )?))
+    })
 }
 
 /// Compile an enum into a set of related flags.
@@ -554,7 +552,7 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
 /// name in kebab-case:
 ///
 /// ```ignore
-/// #[derive(usage::ArgGroup)]
+/// #[derive(usage_rs::ArgGroup)]
 /// #[usage(name = "format")]
 /// enum Format {
 ///     /// Print JSON
@@ -575,7 +573,7 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
 /// variant:
 ///
 /// ```ignore
-/// #[derive(usage::Cli)]
+/// #[derive(usage_rs::Cli)]
 /// #[usage(bin = "ex")]
 /// struct Ex {
 ///     #[usage(arg_group)]
@@ -599,8 +597,9 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(ArgGroup, attributes(usage, command, arg, value, group))]
 pub fn derive_arg_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    match model::ArgGroup::from_input(&input) {
-        Ok(group) => codegen::emit_arg_group(&group).into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+    facade::expand(input, |input| {
+        Ok(codegen::emit_arg_group(&model::ArgGroup::from_input(
+            input,
+        )?))
+    })
 }

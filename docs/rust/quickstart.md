@@ -31,10 +31,10 @@ greet/
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["completions"] }
+usage-rs = { version = "6", features = ["completions"] }
 
 [dev-dependencies]
-usage = { package = "usage-rs", version = "6", features = ["test"] }
+usage-rs = { version = "6", features = ["test"] }
 ```
 
 ## `src/cli/mod.rs`
@@ -45,7 +45,7 @@ mod hello;
 
 use completion::Completion;
 use hello::Hello;
-use usage::{Cli, Subcommands};
+use usage_rs::{Cli, Subcommands};
 
 /// Greets people, politely
 #[derive(Cli)]
@@ -69,7 +69,7 @@ hidden request that `parse()` handles when a completion script calls the binary.
 ## `src/cli/hello.rs`
 
 ```rust
-use usage::{Args, Run};
+use usage_rs::{Args, Run};
 
 /// Greet someone
 #[derive(Args)]
@@ -90,7 +90,7 @@ impl Run for Hello {
 ## `src/cli/completion.rs`
 
 ```rust
-use usage::{Args, Run};
+use usage_rs::{Args, Run};
 
 use super::Greet;
 
@@ -106,9 +106,9 @@ impl Run for Completion {
     type Output = ();
     fn run(self) {
         let shell = match self.shell.as_str() {
-            "bash" => usage::complete::Shell::Bash,
-            "zsh" => usage::complete::Shell::Zsh,
-            _ => usage::complete::Shell::Fish,
+            "bash" => usage_rs::complete::Shell::Bash,
+            "zsh" => usage_rs::complete::Shell::Zsh,
+            _ => usage_rs::complete::Shell::Fish,
         };
         // Generate the script for the shell the user selected.
         print!("{}", Greet::completion_script(shell));
@@ -122,7 +122,7 @@ impl Run for Completion {
 mod cli;
 
 use cli::Greet;
-use usage::Run;
+use usage_rs::Run;
 
 fn main() {
     // `parse()` handles help, version, errors, and completion requests.
@@ -244,7 +244,7 @@ An integration test runs the compiled binary and captures the output a user sees
 ```rust
 #[test]
 fn hello_greets_by_name() {
-    let output = usage::test::command!("greet", "hello", "Jeff").assert_success();
+    let output = usage_rs::test::command!("greet", "hello", "Jeff").assert_success();
 
     assert_eq!(output.stdout_text(), "hello, Jeff\n");
 }

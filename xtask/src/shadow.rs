@@ -2061,7 +2061,8 @@ fn write_crate(dir: &Path, bin: &str, lib: &str, dialect: Dialect) {
     let deps = match dialect {
         Dialect::Usage => {
             "usage-argv = { path = \"../../../argv\", features = [\"spec\"] }\n\
-                           usage-derive = { path = \"../../../derive\" }\n"
+                           usage-derive = { path = \"../../../derive\" }\n\
+                           usage-rs = { path = \"../../../usage-rs\", default-features = false, features = [\"spec\"] }\n"
         }
         // The features clap's derive needs and nothing more, since anything else would be
         // weight the comparison did not ask for.

@@ -13,6 +13,7 @@ fn version() -> &'static str {
 
 #[derive(Cli)]
 #[usage(
+    crate = usage,
     name = program_name(),
     name_spec = "portable-ex",
     bin = program_name(),

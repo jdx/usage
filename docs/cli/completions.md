@@ -87,18 +87,6 @@ To load it in future sessions, source the file from your shell's startup file
 after initializing its completion system. Use `--install` for the shell's standard
 completion directory and setup instructions.
 
-`usage generate fig` writes a spec in the legacy Fig autocomplete format:
-
-```sh
-usage generate fig --file ./mycli.usage.kdl --out-file ./mycli.fig.ts
-```
-
-Fig itself shut down in 2024. Kiro CLI (formerly Amazon Q), inshellisense, and Warp still
-read the format, but only for the specs they bundle from
-[`withfig/autocomplete`](https://github.com/withfig/autocomplete), which is no longer
-updated. None of them documents a way to load a spec you generate, so prefer the shell
-scripts above.
-
 ## What the script does
 
 Each script calls `usage complete-word` with the spec and the words typed so far, and prints
