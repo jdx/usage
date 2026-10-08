@@ -8,7 +8,7 @@ Enable the `config` feature:
 
 ```toml
 [dependencies]
-usage-rs = { version = "6", features = ["config"] }
+usage-rs = { version = "7", features = ["config"] }
 ```
 
 Reading config files is opt-in per format on `usage-config` itself — the facade's `config`
@@ -16,7 +16,7 @@ feature does not pull TOML, JSON, or YAML. Add the format you need when you use 
 
 ```toml
 [dependencies]
-usage-config = { version = "6", features = ["toml"] }
+usage-config = { version = "7", features = ["toml"] }
 ```
 
 ## Declaring

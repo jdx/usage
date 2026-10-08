@@ -44,7 +44,7 @@ Depend on the facade, not on `usage-derive` or `usage-argv` separately:
 
 ```toml
 [dependencies]
-usage-rs = { version = "6", features = ["completions"] }
+usage-rs = { version = "7", features = ["completions"] }
 ```
 
 The defaults include the derive, help rendering, and clap-shaped diagnostics. Add `completions`

@@ -5,7 +5,7 @@ Completion support is opt-in: add `completion` to the root attribute and enable 
 
 ```toml
 [dependencies]
-usage-rs = { version = "6", features = ["completions"] }
+usage-rs = { version = "7", features = ["completions"] }
 ```
 
 ```rust
