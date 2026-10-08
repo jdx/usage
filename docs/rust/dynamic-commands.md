@@ -16,7 +16,7 @@ are not modified, and normal parsing stays exactly as fast.
 
 ```toml
 [dependencies]
-usage-rs = { version = "6", features = ["completions"] }
+usage-rs = { version = "7", features = ["completions"] }
 usage-dynamic = "6"
 # Any executor works; the example below uses futures' to answer completion requests.
 futures = "0.3"

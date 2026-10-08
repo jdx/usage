@@ -36,7 +36,7 @@
 //!
 //! ```toml
 //! [dev-dependencies]
-//! usage = { package = "usage-rs", version = "6", features = ["test"] }
+//! usage = { package = "usage-rs", version = "7", features = ["test"] }
 //! ```
 
 #![forbid(unsafe_code)]

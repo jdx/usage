@@ -7,7 +7,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! usage-rs = { version = "6" }
+//! usage-rs = { version = "7" }
 //! ```
 //!
 //! # Smaller binaries
@@ -15,7 +15,7 @@
 //! CLIs without `flatten_help` or `HelpAll` actions can omit `help-advanced`:
 //!
 //! ```toml
-//! usage-rs = { version = "6", default-features = false, features = ["help", "diagnostics", "completions"] }
+//! usage-rs = { version = "7", default-features = false, features = ["help", "diagnostics", "completions"] }
 //! ```
 //!
 //! Advanced help remains enabled by default. Declaring those actions without its feature
@@ -38,7 +38,7 @@
 //! Enable portable expression validation only when a CLI declares `validate` rules:
 //!
 //! ```toml
-//! usage-rs = { version = "6", features = ["validation"] }
+//! usage-rs = { version = "7", features = ["validation"] }
 //! ```
 //!
 //! ```

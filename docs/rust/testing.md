@@ -7,7 +7,7 @@ exercise the same parser and renderers users receive.
 
 ```toml
 [dev-dependencies]
-usage-rs = { version = "6", features = ["test"] }
+usage-rs = { version = "7", features = ["test"] }
 ```
 
 The feature belongs in `dev-dependencies`: nothing in an application's own code calls it.
@@ -136,7 +136,7 @@ that answers a line:
 
 ```toml
 [dev-dependencies]
-usage-rs = { version = "6", features = ["test", "completions"] }
+usage-rs = { version = "7", features = ["test", "completions"] }
 ```
 
 `candidates` then answers the question a shell asks: given this half-typed line, what could this
