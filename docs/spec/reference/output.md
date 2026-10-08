@@ -74,7 +74,7 @@ select "--format"
 ```
 
 Usage fills the flag's choices from the output names. Those choices reach validation,
-completions, generated documentation, Fig, and generated SDK flag types.
+completions, generated documentation, and generated SDK flag types.
 
 For a boolean flag that selects one output, put `select` on that output:
 

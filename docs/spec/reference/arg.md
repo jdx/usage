@@ -279,8 +279,7 @@ running:
 
 Generated output never runs it. Markdown and `usage generate` describe the command
 (``**Choices:** output of `docker compose config --services` ``), a generated Go
-parser or SDK type accepts any value there, and a Fig spec runs it as a generator
-when completing.
+parser or SDK type accepts any value there.
 
 For library callers, `usage::docs::cli::render_runtime_help` draws the help page with
 the command's values; `render_help` never runs anything.

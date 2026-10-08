@@ -38,7 +38,7 @@
 //!
 //! [`resolve_selectors`] runs once after the whole document is read and fills the
 //! selecting flag's `choices` from the output names. That is what lets completion, the
-//! docs renderers, the fig exporter and the SDK choice types all work without any of them
+//! docs renderers and the SDK choice types all work without any of them
 //! learning about outputs. Two consequences worth knowing before reading a re-emitted
 //! spec, both documented on `docs/spec/reference/output.md`:
 //!

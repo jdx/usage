@@ -5,9 +5,7 @@
   "scripts": {
     "docs:dev": "vitepress dev docs",
     "docs:build": "node --test docs/.vitepress/social-images.test.mjs && vitepress build docs && node docs/.vitepress/check-social-images.mjs docs/.vitepress/dist",
-    "docs:preview": "vitepress preview docs",
-    "lint-fig": "eslint '**/*.ts' && npx prettier --check '**/*.ts' --parser typescript",
-    "lint-fig:fix": "eslint '**/*.ts' --fix && npx prettier --write '**/*.ts' --parser typescript"
+    "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
     "vitepress": "1.6.4"
@@ -33,13 +31,7 @@
     "printWidth": 80
   },
   "devDependencies": {
-    "@fig/eslint-config-autocomplete": "^2.0.0",
     "@resvg/resvg-js": "^2.6.2",
-    "@tsconfig/node24": "^24.0.5",
-    "@withfig/autocomplete": "^2.692.3",
-    "@withfig/autocomplete-tools": "^2.11.0",
-    "@withfig/autocomplete-types": "^1.31.0",
-    "eslint": "^10.12.0",
     "semver": "^7.8.5"
   }
 }

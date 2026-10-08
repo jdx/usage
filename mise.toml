@@ -162,14 +162,6 @@ run = [
     "usage g md -f benches/mise.usage.kdl --out-file examples/docs/MISE_MULTI.md --indented-blocks-to-code-fences",
 ]
 
-[tasks."render:fig"]
-depends = ['build']
-wait_for = 'render:usage-cli-completions'
-run = [
-    'usage generate fig -f cli/usage.usage.kdl --out-file cli/assets/fig.ts',
-    'prettier -w cli/assets/fig.ts',
-]
-
 # What `.github/workflows/mise-lock.yml` runs after regenerating mise.lock on a
 # Renovate branch. First `go mod tidy` in every Go module, because Renovate's gomod
 # manager bumps a requirement and its hashes but leaves the superseded version's
@@ -233,7 +225,7 @@ run = [
 # reasons: checked in so a reviewer sees the diff when the emitter's vocabulary
 # changes, and so CI can assert that regenerating produces none.
 #
-# No formatter afterwards, unlike `render:fig`. `usage generate go` emits
+# No formatter afterwards: `usage generate go` emits
 # gofumpt-clean output, which the `gofumpt` hk step then checks — a generated file an
 # adopter has to reformat before committing is one the generator is not finished with.
 #

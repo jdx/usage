@@ -12,7 +12,6 @@ cachegrind.out.*
 
 #/target
 megalinter-reports/
-tasks/fig/build
 
 # insta writes these while running tests locally. Both spellings: it uses
 # .pending-snap for inline snapshots and .snap.new for file ones, and only the

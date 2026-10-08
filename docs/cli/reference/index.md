@@ -26,7 +26,6 @@
 - [`usage generate <SUBCOMMAND>`](/cli/reference/generate.md)
 - [`usage generate completion [FLAGS] <SHELL> <BIN>`](/cli/reference/generate/completion.md)
 - [`usage generate completion-init [--usage-bin <USAGE_BIN>] <SHELL>`](/cli/reference/generate/completion-init.md)
-- [`usage generate fig [FLAGS]`](/cli/reference/generate/fig.md)
 - [`usage generate go [FLAGS]`](/cli/reference/generate/go.md)
 - [`usage generate json [FLAGS]`](/cli/reference/generate/json.md)
 - [`usage generate json-schema [FLAGS]`](/cli/reference/generate/json-schema.md)
