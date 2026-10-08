@@ -21,7 +21,7 @@ request comes back as an _error_, because a parse that stopped to print help has
 value (clap models it the same way):
 
 ```rust
-use usage::Error;
+use usage_rs::Error;
 
 match Ex::parse_from(&argv) {
     Ok(cli) => run(cli),
@@ -40,7 +40,7 @@ match Ex::parse_from(&argv) {
 ```
 
 `Ex::render_help` and `Ex::render_failure` apply computed `name` / `bin` the same way `parse()`
-does. `help::render(Ex::spec(), …)` and `usage::render_failure(Ex::spec(), …)` keep the portable
+does. `help::render(Ex::spec(), …)` and `usage_rs::render_failure(Ex::spec(), …)` keep the portable
 `name_spec` / `bin_spec` literals, which is what generated docs want and not what an embedded
 binary should print.
 
@@ -60,9 +60,9 @@ An N-API module, WASM host, editor integration, or test runner cannot let a libr
 its process. `embedded::outcome` turns the same process boundary into a value:
 
 ```rust
-match usage::embedded::outcome(Ex::spec(), Ex::command(), &argv, Ex::parse_from) {
-    usage::embedded::Outcome::Parsed(cli) => run(cli),
-    usage::embedded::Outcome::Exit(exit) => {
+match usage_rs::embedded::outcome(Ex::spec(), Ex::command(), &argv, Ex::parse_from) {
+    usage_rs::embedded::Outcome::Parsed(cli) => run(cli),
+    usage_rs::embedded::Outcome::Exit(exit) => {
         // Send `exit.text` to stdout or stderr according to `exit.stderr`, then return
         // `exit.code` to the host instead of calling `std::process::exit`.
         host.respond(exit)
@@ -87,10 +87,10 @@ roles with a `Palette` — still the `{$…}` tag vocabulary, still SGR. Colour 
 destination stream the way `embedded_outcome` already does:
 
 ```rust
-let palette = usage::help::Palette::DEFAULT.metavar("cyan+bold");
+let palette = usage_rs::help::Palette::DEFAULT.metavar("cyan+bold");
 match Ex::embedded_outcome_paletted(&argv, palette) {
-    usage::embedded::Outcome::Parsed(cli) => run(cli),
-    usage::embedded::Outcome::Exit(exit) => host.respond(exit),
+    usage_rs::embedded::Outcome::Parsed(cli) => run(cli),
+    usage_rs::embedded::Outcome::Exit(exit) => host.respond(exit),
 }
 ```
 
@@ -108,7 +108,7 @@ let mut warnings = Vec::new();
 let cli = Cli::parse_from_with_warnings(&argv, &mut warnings)?;
 for warning in &warnings {
     // your logger, once it is up
-    log::warn!("{}", usage::warn::render_warning(warning));
+    log::warn!("{}", usage_rs::warn::render_warning(warning));
 }
 ```
 
@@ -117,7 +117,7 @@ their own entry points. `parse()` — the one that already exits for `--help` �
 stderr itself and carries on. The entry points without a sink collect nothing at all, so a
 caller that does not want warnings pays for none of it.
 
-Each `usage::warn::Warning` carries a `kind`, the `name` as the user spelled it, the author's
+Each `usage_rs::warn::Warning` carries a `kind`, the `name` as the user spelled it, the author's
 `message`, and the release milestones. A warning whose `deprecated_warn_at` this build's
 `version` has not reached is not collected: declaring one is how an author says _not yet_. The
 full rule, including what a default does not count as, is in
@@ -179,7 +179,7 @@ Shell lines in declared examples are left verbatim, so backticks remain command 
 The words above change what a page _says_. `help_template` changes the order it says it in:
 
 ```rust
-#[derive(usage::Cli)]
+#[derive(usage_rs::Cli)]
 #[usage(
     bin = "mycli",
     about = "Does the thing",
@@ -242,9 +242,9 @@ The physical vocabulary contains `black`, `red`, `green`, `yellow`,
 the tags while retaining their contents. Double the dollar sign to write either delimiter
 literally: `{$$heading}` renders `{$heading}`, and `{/$$}` renders `{/$}`.
 
-The reference renderer keeps `usage::docs::cli::render_help` plain for generated artifacts and
+The reference renderer keeps `usage_rs::docs::cli::render_help` plain for generated artifacts and
 snapshots. A process printing a dynamically parsed spec should call `render_help_styled` with
-`usage::docs::cli::Style::auto()`; this is the path used by `usage bash` and `usage exec`.
+`usage_rs::docs::cli::Style::auto()`; this is the path used by `usage bash` and `usage exec`.
 
 The template applies to the terminal help page. Markdown, manpages, and JSON keep their own
 structure.
@@ -284,14 +284,14 @@ Named help groups are available independently of the complete page. This is usef
 modeling a presentation group as a fake subcommand:
 
 ```rust
-let topics = usage::help::topics(Cli::spec(), Cli::command(), true)
+let topics = usage_rs::help::topics(Cli::spec(), Cli::command(), true)
     .expect("this command belongs to the spec");
 
 for topic in topics {
     println!("{}\t{}", topic.id, topic.title);
 }
 
-if let Some(text) = usage::help::render_topic(
+if let Some(text) = usage_rs::help::render_topic(
     Cli::spec(),
     Cli::command(),
     "configuration",
@@ -316,7 +316,7 @@ edited by looking at it:
 
 ```rust
 /// An example
-#[derive(usage::Cli)]
+#[derive(usage_rs::Cli)]
 #[usage(bin = "ex", logo = include_str!("logo.txt"), logo_style = "cyan+bold")]
 struct Cli {
     /// Do it anyway
@@ -349,7 +349,7 @@ whichever is left — where clap panics at startup for the same collision.
 
 ## Errors
 
-`parse_from` returns `usage::Error`, which distinguishes every failure the grammar can produce:
+`parse_from` returns `usage_rs::Error`, which distinguishes every failure the grammar can produce:
 `UnknownFlag`, `MissingFlagValue`, `UnexpectedArg`, `MissingRequired`, `DuplicateFlag`,
 `InvalidChoice`, `InvalidValue`, `VarTooFew`/`VarTooMany`, `ConflictingFlags`, `MissingGroup`,
 `MissingSubcommand`, `ArgRequiresDoubleDash`, `MissingArgsHelp`, `HelpAll`,
@@ -378,7 +378,7 @@ fields instead of scraping its terminal rendering:
 
 ```rust
 let error = Ex::parse_from(&argv).unwrap_err();
-let report = usage::diagnostic::report(Ex::spec(), &argv, &error);
+let report = usage_rs::diagnostic::report(Ex::spec(), &argv, &error);
 
 assert_eq!(report.code.as_str(), "invalid_value");
 if let Some(location) = report.location {

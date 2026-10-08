@@ -7,7 +7,7 @@ exercise the same parser and renderers users receive.
 
 ```toml
 [dev-dependencies]
-usage = { package = "usage-rs", version = "6", features = ["test"] }
+usage-rs = { version = "6", features = ["test"] }
 ```
 
 The feature belongs in `dev-dependencies`: nothing in an application's own code calls it.
@@ -20,7 +20,7 @@ The feature belongs in `dev-dependencies`: nothing in an application's own code 
 // tests/cli.rs
 #[test]
 fn hello_greets_by_name() {
-    let output = usage::test::command!("greet", "hello", "Jeff").assert_success();
+    let output = usage_rs::test::command!("greet", "hello", "Jeff").assert_success();
 
     assert_eq!(output.stdout_text(), "hello, Jeff\n");
     assert_eq!(output.stderr_text(), "");
@@ -38,7 +38,7 @@ intentionally write non-UTF-8 data.
 or a failure.
 
 ```rust
-use usage::test::{self as harness, Outcome};
+use usage_rs::test::{self as harness, Outcome};
 
 #[test]
 fn a_command_line_parses() {
@@ -98,7 +98,7 @@ fn an_empty_command_line_shows_help() {
 aliases work, because a test should be able to ask the way a user would.
 
 ```rust
-use usage::test::Page;
+use usage_rs::test::Page;
 
 assert!(harness::help(Ex::spec(), &["build"], Page::Long).contains("--out"));
 ```
@@ -136,7 +136,7 @@ that answers a line:
 
 ```toml
 [dev-dependencies]
-usage = { package = "usage-rs", version = "6", features = ["test", "completions"] }
+usage-rs = { version = "6", features = ["test", "completions"] }
 ```
 
 `candidates` then answers the question a shell asks: given this half-typed line, what could this
@@ -152,14 +152,14 @@ offers files and `--jobs` does not.
 
 ```rust
 let answer = harness::completion(Ex::spec(), "ex build --out ");
-assert_eq!(answer.files, Some(usage::test::Files::Any));
+assert_eq!(answer.files, Some(usage_rs::test::Files::Any));
 ```
 
 `completion_at` takes the cursor as a byte offset and the shell, which is what makes a test about
 completing in the _middle_ of a command line possible at all:
 
 ```rust
-use usage::test::Shell;
+use usage_rs::test::Shell;
 
 let answer = harness::completion_at(Ex::spec(), "ex bui release", "ex bui".len(), Shell::Bash);
 ```

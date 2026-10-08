@@ -15,7 +15,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::crate_name::{FoundCrate, crate_name};
+use crate::facade::facade;
 use crate::model::{
     AdmonitionKind, ArgGroup, ArgGroupMember, Cli, ConditionalDefault, Dispatch, DoubleDash,
     ExampleDecl, Field, HeadingDecl, Kind, SchemaSource, Shape, Subcommands, ValueEnum, Variant,
@@ -75,89 +75,34 @@ fn validated_value(cli: &Cli, built: &TokenStream) -> TokenStream {
     }}
 }
 
-/// The runtime as the adopter depended on it.
-///
-/// A direct `usage-argv` dependency wins when both forms are present: a low-level adopter may
-/// deliberately enable a different feature set there. Otherwise the `usage-rs` facade provides
-/// the runtime as `usage::argv`, keeping derives, tables, and their versions behind one
-/// dependency.
-///
-/// Resolved by parsing the adopter's `Cargo.toml` directly rather than via
-/// `proc-macro-crate`, so the derive does not need an editing-oriented TOML parser.
+/// The runtime, through the facade: `usage_rs::argv`.
 fn runtime_path() -> TokenStream {
-    match crate_name("usage-argv") {
-        Ok(FoundCrate::Name(name)) => {
-            let runtime = format_ident!("{name}");
-            quote!(::#runtime)
-        }
-        _ => match crate_name("usage-rs") {
-            Ok(FoundCrate::Itself) => quote!(::usage_rs::argv),
-            Ok(FoundCrate::Name(name)) => {
-                let facade = format_ident!("{name}");
-                quote!(::#facade::argv)
-            }
-            // Preserve the old useful compiler error when neither dependency was declared.
-            _ => quote!(::usage_argv),
-        },
-    }
+    let facade = facade();
+    quote!(#facade::argv)
 }
 
-/// The derive package as the adopter depended on it.
+/// The derive macros, through the facade.
 ///
 /// Most emitted code only needs the runtime path. Unit subcommands synthesize an empty `Args`
-/// struct, though, so that derive must come through the facade too when it is the application's
-/// only dependency.
+/// struct, though, so that derive must come through the facade too.
 fn derive_path() -> TokenStream {
-    match crate_name("usage-derive") {
-        Ok(FoundCrate::Name(name)) => {
-            let derive = format_ident!("{name}");
-            quote!(::#derive)
-        }
-        _ => match crate_name("usage-rs") {
-            Ok(FoundCrate::Itself) => quote!(::usage_rs),
-            Ok(FoundCrate::Name(name)) => {
-                let facade = format_ident!("{name}");
-                quote!(::#facade)
-            }
-            _ => quote!(::usage_derive),
-        },
-    }
+    facade()
 }
 
 /// The schema library, as the adopter depended on it.
 ///
 /// Emitted only where a `schema_from = T` was written, so a CLI that never asks for one
 /// needs no such dependency. This crate does not have one either: it writes the path and
-/// the adopter's compile resolves it, the same arrangement `usage_config` already has.
+/// the adopter's compile resolves it, which also gives the useful "use of undeclared crate"
+/// error pointing at the attribute.
 fn schemars_path() -> TokenStream {
-    match crate_name("schemars") {
-        Ok(FoundCrate::Itself) => quote!(::schemars),
-        Ok(FoundCrate::Name(name)) => {
-            let schemars = format_ident!("{}", name.replace('-', "_"));
-            quote!(::#schemars)
-        }
-        // Keeps the useful "use of undeclared crate" error pointing at the attribute.
-        _ => quote!(::schemars),
-    }
+    quote!(::schemars)
 }
 
-/// The cold expression evaluator, resolved independently of the binding runtime.
+/// The cold expression evaluator, through the facade.
 fn validation_path() -> TokenStream {
-    match crate_name("usage-validation") {
-        Ok(FoundCrate::Itself) => quote!(::usage_validation),
-        Ok(FoundCrate::Name(name)) => {
-            let validation = format_ident!("{}", name.replace('-', "_"));
-            quote!(::#validation)
-        }
-        _ => match crate_name("usage-rs") {
-            Ok(FoundCrate::Itself) => quote!(::usage_rs::validation),
-            Ok(FoundCrate::Name(name)) => {
-                let facade = format_ident!("{}", name.replace('-', "_"));
-                quote!(::#facade::validation)
-            }
-            _ => quote!(::usage_validation),
-        },
-    }
+    let facade = facade();
+    quote!(#facade::validation)
 }
 
 pub fn emit(cli: &Cli) -> TokenStream {
@@ -7938,6 +7883,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             quote! {
                 #doc
                 #[derive(#derive::Args)]
+                #[usage(crate = #derive)]
                 #effect
                 pub struct #name {
                     #(#fields),*

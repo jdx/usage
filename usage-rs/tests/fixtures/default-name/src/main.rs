@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 
-use usage::{Cli, ValueEnum};
+use usage_rs::{Cli, ValueEnum};
 
 #[derive(ValueEnum)]
 enum Shell {

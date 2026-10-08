@@ -5,14 +5,14 @@ This is opt-in so ordinary parsing performs no filesystem access or allocation.
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["response-files"] }
+usage-rs = { version = "6", features = ["response-files"] }
 ```
 
 ```rust
 use std::ffi::OsStr;
-use usage::Cli;
+use usage_rs::Cli;
 
-let expanded = usage::response::expand(std::env::args_os().skip(1))?;
+let expanded = usage_rs::response::expand(std::env::args_os().skip(1))?;
 let argv: Vec<&OsStr> = expanded.iter().map(|word| word.as_os_str()).collect();
 let cli = MyCli::parse_from(&argv)?;
 ```

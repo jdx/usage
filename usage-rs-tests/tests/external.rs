@@ -64,18 +64,13 @@ fn runtime_identity_drives_process_output() {
 }
 
 #[test]
-fn documented_cargo_alias_is_the_only_dependency() {
+fn crate_attribute_names_a_renamed_facade() {
     run_fixture("cargo-alias");
 }
 
 #[test]
-fn direct_dependencies_win_in_a_mixed_configuration() {
-    run_fixture("mixed-dependencies");
-}
-
-#[test]
-fn workspace_inherited_facade_is_resolved() {
-    run_fixture("workspace-inheritance");
+fn facade_under_its_own_name_needs_no_attribute() {
+    run_fixture("default-name");
 }
 
 /// The endpoint at process level, which is the half `spec_request` unit tests cannot reach.

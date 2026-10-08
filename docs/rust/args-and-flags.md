@@ -368,7 +368,7 @@ SDKs:
 
 ```rust
 /// Check the project
-#[derive(usage::Args)]
+#[derive(usage_rs::Args)]
 #[usage(
     output("human", default, help = "A human-readable report"),
     output("json", media_type = "application/json", framing = "json", schema_from = Report),

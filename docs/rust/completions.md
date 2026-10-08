@@ -5,7 +5,7 @@ Completion support is opt-in: add `completion` to the root attribute and enable 
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["completions"] }
+usage-rs = { version = "6", features = ["completions"] }
 ```
 
 ```rust
@@ -18,10 +18,10 @@ This generates script methods and wires the runtime protocol into `parse()`:
 
 ```rust
 // the script a user installs into their shell
-pub fn completion_script(shell: usage::complete::Shell) -> String;
+pub fn completion_script(shell: usage_rs::complete::Shell) -> String;
 
 // register an alias while still invoking this binary for answers
-pub fn completion_script_for_alias(alias: &str, shell: usage::complete::Shell) -> String;
+pub fn completion_script_for_alias(alias: &str, shell: usage_rs::complete::Shell) -> String;
 
 // where that script goes, and where it went — see "Installing the script" below
 pub fn completion_install_plan(shell, env) -> Result<Plan, install::Error>;
@@ -55,7 +55,7 @@ struct Completion {
 }
 
 // in your run function:
-let shell = usage::complete::Shell::from_name(&completion.shell)
+let shell = usage_rs::complete::Shell::from_name(&completion.shell)
     .expect("a supported shell name");
 print!("{}", Ex::completion_script(shell));
 ```
@@ -64,7 +64,7 @@ Shell aliases are explicit because each shell stores and expands them differentl
 `m` exactly like `mise`, install `Ex::completion_script_for_alias("m", shell)`. The generated
 script registers `m`, but its callback executes `mise`; it does not depend on alias expansion in
 the completion subprocess. Embedders can make the same distinction with
-`usage::script::script_for(real_binary, registered_name, shell)`.
+`usage_rs::script::script_for(real_binary, registered_name, shell)`.
 
 Candidates come from the same tables the parser uses: subcommands and their visible aliases,
 flags in scope at the cursor (globals included, hidden entries excluded), `choices` and
@@ -76,7 +76,7 @@ A script your user still has to redirect by hand is only half of shipping one, s
 `#[usage(completion)]` also generates the pair that puts it where the shell will look:
 
 ```rust
-use usage::install::{Env, OnForeign};
+use usage_rs::install::{Env, OnForeign};
 
 // Where it would go, and what else the user must do. Touches no filesystem.
 let plan = Ex::completion_install_plan(shell, &Env::from_process())?;
@@ -139,13 +139,13 @@ the whole word, so the latter completes to a word such as `--format=json`.
 format: Option<String>,
 
 // paths — the shell's native file completion takes over
-#[usage(long, value_hint = usage::ValueHint::FilePath)]
+#[usage(long, value_hint = usage_rs::ValueHint::FilePath)]
 file: Option<PathBuf>,
 
 // filtered paths — directories remain available for traversal
 #[usage(
     long,
-    value_hint = usage::ValueHint::FilePath,
+    value_hint = usage_rs::ValueHint::FilePath,
     extensions("toml", "yaml")
 )]
 manifest: Option<PathBuf>,
@@ -165,9 +165,9 @@ silent dead completer:
 
 ```rust
 fn tasks_in_file(
-    partial: &<Tasks as usage::spec::CommandArgs>::Partial,
-    _ctx: &usage::complete::CompleteCtx<'_>,
-) -> Vec<usage::complete::Candidate<'static>> {
+    partial: &<Tasks as usage_rs::spec::CommandArgs>::Partial,
+    _ctx: &usage_rs::complete::CompleteCtx<'_>,
+) -> Vec<usage_rs::complete::Candidate<'static>> {
     // Partial string fields hold the bytes as typed — a word that is not valid UTF-8 is
     // still a word somebody wrote.
     let file = partial
@@ -176,7 +176,7 @@ fn tasks_in_file(
         .map(|bytes| String::from_utf8_lossy(bytes).into_owned());
     let file = file.as_deref().unwrap_or("tasks.toml");
     read_tasks(file)
-        .map(|t| usage::complete::Candidate::described(t.name, t.about))
+        .map(|t| usage_rs::complete::Candidate::described(t.name, t.about))
         .collect()
 }
 ```
@@ -198,8 +198,8 @@ parser walk, and completion tables as the runtime request:
 
 ```rust
 let line = "ex build --out ";
-let split = usage::complete::split(line, line.len(), usage::complete::Shell::Zsh);
-let trace = usage::complete::trace(Ex::spec(), &split);
+let split = usage_rs::complete::split(line, line.len(), usage_rs::complete::Shell::Zsh);
+let trace = usage_rs::complete::trace(Ex::spec(), &split);
 
 assert_eq!(trace.awaiting_value, Some("out"));
 eprintln!("{trace}");

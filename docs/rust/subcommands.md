@@ -205,7 +205,7 @@ For a flag or arg whose values are a fixed set of words, derive `ValueEnum` inst
 `choices` by hand:
 
 ```rust
-#[derive(usage::ValueEnum)]
+#[derive(usage_rs::ValueEnum)]
 enum Shell {
     /// Bourne Again shell
     #[usage(visible_alias = "b")]

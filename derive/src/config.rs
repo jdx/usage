@@ -54,30 +54,13 @@ use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, UnOp};
 
-use crate::crate_name::{FoundCrate, crate_name};
+use crate::facade::facade;
 use crate::model::{attrs, doc_comment, flag_value, ident_of, nested, string_value};
 
-/// The config crate as the adopter depended on it.
-///
-/// The same resolution the other generated paths use: a direct `usage-config` dependency
-/// wins, otherwise the `usage-rs` facade provides it as `usage::config`, and the bare name
-/// is left to produce the useful compiler error when neither was declared.
+/// The config crate, through the facade: `usage_rs::config`.
 pub(crate) fn config_path() -> TokenStream {
-    match crate_name("usage-config") {
-        Ok(FoundCrate::Itself) => quote!(::usage_config),
-        Ok(FoundCrate::Name(name)) => {
-            let config = format_ident!("{}", name.replace('-', "_"));
-            quote!(::#config)
-        }
-        _ => match crate_name("usage-rs") {
-            Ok(FoundCrate::Itself) => quote!(::usage_rs::config),
-            Ok(FoundCrate::Name(name)) => {
-                let facade = format_ident!("{}", name.replace('-', "_"));
-                quote!(::#facade::config)
-            }
-            _ => quote!(::usage_config),
-        },
-    }
+    let facade = facade();
+    quote!(#facade::config)
 }
 
 /// The declaration, read from the struct.
