@@ -5,7 +5,7 @@ This is opt-in so ordinary parsing performs no filesystem access or allocation.
 
 ```toml
 [dependencies]
-usage-rs = { version = "6", features = ["response-files"] }
+usage-rs = { version = "7", features = ["response-files"] }
 ```
 
 ```rust

@@ -55,7 +55,7 @@ One dependency. Add `usage-rs` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-usage-rs = { version = "6" }
+usage-rs = { version = "7" }
 ```
 
 The derives write their generated code against `::usage_rs`, so the dependency keeps its own name.

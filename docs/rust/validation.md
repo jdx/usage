@@ -295,7 +295,7 @@ For a rule that must survive KDL emission — and that clap would have expressed
 
 ```toml
 [dependencies]
-usage-rs = { version = "6", features = ["validation"] }
+usage-rs = { version = "7", features = ["validation"] }
 ```
 
 ```rust

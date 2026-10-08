@@ -31,10 +31,10 @@ greet/
 
 ```toml
 [dependencies]
-usage-rs = { version = "6", features = ["completions"] }
+usage-rs = { version = "7", features = ["completions"] }
 
 [dev-dependencies]
-usage-rs = { version = "6", features = ["test"] }
+usage-rs = { version = "7", features = ["test"] }
 ```
 
 ## `src/cli/mod.rs`

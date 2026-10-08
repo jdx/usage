@@ -1,5 +1,21 @@
 # Changelog
 
+## [7.0.0](https://github.com/jdx/usage/compare/v6.12.1..v7.0.0) - 2026-10-08
+
+### 🚀 Features
+
+- **(derive)** **breaking** stop reading Cargo.toml, hide table fields, remove generate fig by [@jdx](https://github.com/jdx) in [#1532](https://github.com/jdx/usage/pull/1532)
+
+### 🔍 Other Changes
+
+- **(ci)** update pr-closer to v1.3.0 by [@jdx](https://github.com/jdx) in [6f6b7fe](https://github.com/jdx/usage/commit/6f6b7fe01ee02db107b45e8c9f6b0ac6e2b71c69)
+- **(ci)** lint workflows with jactionlint by [@jdx](https://github.com/jdx) in [#1530](https://github.com/jdx/usage/pull/1530)
+- add shared release fix notifications by [@jdx](https://github.com/jdx) in [#1533](https://github.com/jdx/usage/pull/1533)
+
+### 📦️ Dependency Updates
+
+- update jdx/renovate-config action to v1.0.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1528](https://github.com/jdx/usage/pull/1528)
+
 ## [6.12.1](https://github.com/jdx/usage/compare/v6.12.0..v6.12.1) - 2026-10-06
 
 ### ⚡ Performance
