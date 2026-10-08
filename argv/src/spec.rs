@@ -852,27 +852,40 @@ pub const fn concat_group_metas<const N: usize>(
 }
 
 /// What a command knows about itself beyond how it parses.
+///
+/// Read it through the accessor methods. The fields are `pub` only because derived code builds
+/// this struct with a literal in the adopter's crate; they are hidden from the docs because how
+/// they are laid out is not part of the API.
 #[derive(Debug, Clone, Copy)]
 pub struct CommandMeta<'a> {
     /// The parse table this describes. Names, aliases, and structure come from
     /// here rather than being repeated.
+    #[doc(hidden)]
     pub cmd: &'a Command<'a>,
+    #[doc(hidden)]
     pub about: Option<&'a str>,
+    #[doc(hidden)]
     pub long_about: Option<&'a str>,
     /// Whether the command is hidden from help and completions.
+    #[doc(hidden)]
     pub hide: bool,
     /// Whether later single-valued occurrences replace earlier ones.
+    #[doc(hidden)]
     pub args_override_self: bool,
     /// Metadata for `cmd.flags`, in the same order.
+    #[doc(hidden)]
     pub flags: &'a [FlagMeta<'a>],
     /// Metadata for `cmd.args`, in the same order.
+    #[doc(hidden)]
     pub args: &'a [ArgMeta<'a>],
     /// Metadata for `cmd.subcommands`, in the same order.
+    #[doc(hidden)]
     pub subcommands: &'a [&'a CommandMeta<'a>],
     /// Sets of this command's flags that relate to one another as a set.
     ///
     /// Cold like everything else here: a group is checked once the last token has been
     /// read, by code the derive generates, and a successful parse never reads this.
+    #[doc(hidden)]
     pub groups: &'a [GroupMeta<'a>],
     /// Which runs of [`Self::flags`] came from a flattened `Args` type.
     ///
@@ -880,11 +893,13 @@ pub struct CommandMeta<'a> {
     /// same flags under every command that flattens the struct. It changes nothing about
     /// parsing: the flags are in `flags` either way, which is why this is a description of
     /// where they came from rather than a table anything binds against.
+    #[doc(hidden)]
     pub flatten_groups: &'a [FlattenGroup<'a>],
     /// Everything a command rarely declares: deprecation, hidden aliases, spec-only
     /// metadata, help-page prose and layout settings. Shared through [`NO_COMMAND_EXTRA`] by
     /// every command that declares none of it, which includes nearly every flattened `Args`
     /// type, so a table pays for these fields once rather than per command.
+    #[doc(hidden)]
     pub extra: &'a CommandExtra<'a>,
 }
 
@@ -1373,28 +1388,44 @@ pub struct AdmonitionMeta<'a> {
 }
 
 /// What a flag knows about itself beyond how it parses.
+///
+/// Read it through the accessor methods. The fields are `pub` only because derived code builds
+/// this struct with a literal in the adopter's crate; they are hidden from the docs because how
+/// they are laid out is not part of the API.
 #[derive(Debug, Clone, Copy)]
 pub struct FlagMeta<'a> {
+    #[doc(hidden)]
     pub flag: &'a Flag<'a>,
     /// A parser-supplied public entry point materialized in an exported spec.
     ///
     /// It belongs in flag listings and completions, but not in the command synopsis where the
     /// runtime's implicit help and version flags have never appeared.
+    #[doc(hidden)]
     pub builtin: bool,
     /// Short help, shown by `-h`.
+    #[doc(hidden)]
     pub help: Option<&'a str>,
     /// Long help, shown by `--help`.
+    #[doc(hidden)]
     pub long_help: Option<&'a str>,
     /// The placeholder for the flag's value, such as `n` in `--jobs <n>`.
+    #[doc(hidden)]
     pub value_name: Option<&'a str>,
+    #[doc(hidden)]
     pub env: Option<&'a str>,
+    #[doc(hidden)]
     pub default: &'a [&'a str],
     /// Canonical choices plus aliases accepted by the value type.
+    #[doc(hidden)]
     pub accepted_choices: &'a [&'a str],
+    #[doc(hidden)]
     pub choices: &'a [&'a str],
+    #[doc(hidden)]
     pub ignore_case: bool,
     /// Accept values outside `choices` while retaining the list for help and completion.
+    #[doc(hidden)]
     pub allow_unknown_choices: bool,
+    #[doc(hidden)]
     pub required: bool,
     /// Whether the flag's value may be left off, as in `--bump` or `--bump 5`.
     ///
@@ -1402,30 +1433,42 @@ pub struct FlagMeta<'a> {
     /// refuses a bare `--port`, so this changes no binding — it changes the brackets, `[BUMP]`
     /// rather than `<BUMP>`, which is what a spec's `arg "[BUMP]" required=#false` says. In
     /// [`FlagMeta`] and not in [`Flag`] for that reason: a parse never reads it.
+    #[doc(hidden)]
     pub value_optional: bool,
+    #[doc(hidden)]
     pub hide: bool,
+    #[doc(hidden)]
     pub hide_default_value: bool,
+    #[doc(hidden)]
     pub hide_env: bool,
+    #[doc(hidden)]
     pub hide_possible_values: bool,
+    #[doc(hidden)]
     pub hide_short_help: bool,
+    #[doc(hidden)]
     pub hide_long_help: bool,
     /// Whether repetition is counted rather than collected, as in `-vvv`.
+    #[doc(hidden)]
     pub count: bool,
     /// What answers for this flag's value when a shell asks.
     ///
     /// The Rust counterpart of a spec's `run=`: it is written into the emitted KDL as a command
     /// that asks *this binary*, so a spec stays complete for every other consumer while the
     /// binary answers itself.
+    #[doc(hidden)]
     pub complete: Option<Completer>,
     /// Whether the flag may be given more than once. Distinct from
     /// [`Flag::variadic`], which is one occurrence taking several values.
+    #[doc(hidden)]
     pub repeatable: bool,
     /// Heading to list this flag under in help output. Presentational: it groups
     /// a long flag list into sections and changes nothing about parsing.
+    #[doc(hidden)]
     pub help_heading: Option<&'a str>,
     /// Everything a flag rarely declares: relations to other flags, deprecation, validation,
     /// bounds, and spec-only metadata. Shared through [`NO_FLAG_EXTRA`] by every flag that
     /// declares none of it, so a table pays for these fields once rather than per flag.
+    #[doc(hidden)]
     pub extra: &'a FlagExtra<'a>,
 }
 
@@ -1998,67 +2041,112 @@ pub struct DefaultIf<'a> {
 }
 
 /// What a positional argument knows about itself beyond how it parses.
+///
+/// Read it through the accessor methods. The fields are `pub` only because derived code builds
+/// this struct with a literal in the adopter's crate; they are hidden from the docs because how
+/// they are laid out is not part of the API.
 #[derive(Debug, Clone, Copy)]
 pub struct ArgMeta<'a> {
+    #[doc(hidden)]
     pub arg: &'a Arg<'a>,
     /// Explicit placement within its help section.
+    #[doc(hidden)]
     pub display_order: Option<u32>,
     /// Ordered placeholders for a fixed-arity positional.
+    #[doc(hidden)]
     pub value_names: &'a [&'a str],
+    #[doc(hidden)]
     pub help: Option<&'a str>,
+    #[doc(hidden)]
     pub long_help: Option<&'a str>,
     /// Notes and warnings shown after the extended help text.
+    #[doc(hidden)]
     pub admonitions: &'a [AdmonitionMeta<'a>],
+    #[doc(hidden)]
     pub env: Option<&'a str>,
+    #[doc(hidden)]
     pub env_fallback: &'a [&'a str],
+    #[doc(hidden)]
     pub deprecated_env: &'a [&'a str],
+    #[doc(hidden)]
     pub default: &'a [&'a str],
     /// Canonical choices plus aliases accepted by the value type.
+    #[doc(hidden)]
     pub accepted_choices: &'a [&'a str],
+    #[doc(hidden)]
     pub choices: &'a [&'a str],
     /// Canonical-to-alias pairs used when emitting a lossless spec.
+    #[doc(hidden)]
     pub choice_aliases: &'a [(&'a str, &'a str)],
     /// Per-canonical presentation metadata used when emitting a lossless spec.
+    #[doc(hidden)]
     pub choice_details: &'a [ChoiceMeta<'a>],
+    #[doc(hidden)]
     pub ignore_case: bool,
     /// Accept values outside `choices` while retaining the list for help and completion.
+    #[doc(hidden)]
     pub allow_unknown_choices: bool,
     /// Portable expr expression evaluated for each raw value.
+    #[doc(hidden)]
     pub validate: Option<&'a str>,
     /// Message reported when validation returns false.
+    #[doc(hidden)]
     pub validate_error: Option<&'a str>,
     /// Whether the argument must be filled. The parser does not enforce this —
     /// it is checked once the last token has been read — but the spec has to say
     /// it, and help output has to show it.
+    #[doc(hidden)]
     pub required: bool,
+    #[doc(hidden)]
     pub hide: bool,
+    #[doc(hidden)]
     pub hide_default_value: bool,
+    #[doc(hidden)]
     pub hide_env: bool,
+    #[doc(hidden)]
     pub hide_env_values: bool,
+    #[doc(hidden)]
     pub hide_possible_values: bool,
+    #[doc(hidden)]
     pub hide_short_help: bool,
+    #[doc(hidden)]
     pub hide_long_help: bool,
     /// Entries that cannot be given alongside this positional.
+    #[doc(hidden)]
     pub conflicts: &'a [&'a str],
+    #[doc(hidden)]
     pub requires: &'a [&'a str],
+    #[doc(hidden)]
     pub required_if: &'a [&'a str],
+    #[doc(hidden)]
     pub required_if_eq: &'a [RequiredIfEq<'a>],
+    #[doc(hidden)]
     pub required_if_eq_all: &'a [RequiredIfEq<'a>],
+    #[doc(hidden)]
     pub required_unless: &'a [&'a str],
+    #[doc(hidden)]
     pub required_unless_all: &'a [&'a str],
+    #[doc(hidden)]
     pub var_min: Option<u32>,
+    #[doc(hidden)]
     pub var_max: Option<u32>,
     /// The character one word is split on to make several positional values.
+    #[doc(hidden)]
     pub delimiter: Option<char>,
     /// Heading to list this argument under in help output.
+    #[doc(hidden)]
     pub help_heading: Option<&'a str>,
     /// Named audience or compatibility surface this argument belongs to.
+    #[doc(hidden)]
     pub surface: Option<&'a str>,
     /// Descriptive availability conditions; they do not affect parsing.
+    #[doc(hidden)]
     pub available_if: &'a [&'a str],
     /// What answers for this argument when a shell asks. See [`FlagMeta::complete`].
+    #[doc(hidden)]
     pub complete: Option<Completer>,
     /// A built-in completion class such as `path` or `dir`.
+    #[doc(hidden)]
     pub complete_type: Option<&'a str>,
 }
 
