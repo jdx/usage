@@ -370,3 +370,16 @@ jobs:
   #       with:
   #         token: ${{ secrets.GH_BOT_TOKEN }}
   #         formula: usage
+
+  comment-release-fixes:
+    needs: release
+    if: ${{ !cancelled() && needs.release.result == 'success' && startsWith(github.ref, 'refs/tags/v') }}
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+      discussions: write
+    uses: jdx/workflows/.github/workflows/comment-release-fixes.yml@652dd92c36927734924fcfe25d7a6bae33c06efc
+    with:
+      tag: ${{ github.ref_name }}
+      marker_prefix: usage-fixed-in
