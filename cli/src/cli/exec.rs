@@ -46,12 +46,24 @@ pub struct Exec {
     help: bool,
 }
 
-/// Whether `command` is a file as written or a file of that name on `PATH`.
+/// Whether `command` is a file as written or a file of that name on `PATH`. On Windows the
+/// executable extensions in `PATHEXT` count too, as they do when the program is spawned.
 fn names_a_program(command: &str) -> bool {
-    let path = std::path::Path::new(command);
-    path.is_file()
-        || std::env::var_os("PATH")
-            .is_some_and(|dirs| std::env::split_paths(&dirs).any(|dir| dir.join(command).is_file()))
+    let mut names = vec![command.to_string()];
+    if cfg!(windows) {
+        let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
+        names.extend(
+            exts.split(';')
+                .filter(|e| !e.is_empty())
+                .map(|e| format!("{command}{e}")),
+        );
+    }
+    let dirs = std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).collect_vec())
+        .unwrap_or_default();
+    names.iter().any(|name| {
+        std::path::Path::new(name).is_file() || dirs.iter().any(|dir| dir.join(name).is_file())
+    })
 }
 
 impl Exec {
