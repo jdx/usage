@@ -66,19 +66,54 @@ fn names_a_program(command: &str) -> bool {
     })
 }
 
-/// Backslashes are path separators on Windows, not escapes, so double them before a shell-style
-/// split, except in front of a quote, where they still escape it: `C:\Tools\node.exe` stays
-/// whole and `--title="a\"b"` stays one word.
-fn keep_path_backslashes(command: &str) -> String {
-    let mut out = String::with_capacity(command.len());
+/// Splits a command the way Windows does (`CommandLineToArgvW`): only double quotes group, and a
+/// backslash is literal unless it precedes a quote, where `2n` backslashes yield `n` and close
+/// the quote while `2n+1` yield `n` and a literal quote. `C:\Tools\node.exe --no-warnings` keeps
+/// its separators, and `"C:\dir\\"` ends in one backslash.
+fn split_windows(command: &str) -> Vec<String> {
+    let mut words = vec![];
+    let mut word = String::new();
+    let mut started = false;
+    let mut quoted = false;
     let mut chars = command.chars().peekable();
     while let Some(c) = chars.next() {
-        out.push(c);
-        if c == '\\' && !matches!(chars.peek(), Some('"' | '\'')) {
-            out.push('\\');
+        match c {
+            '\\' => {
+                let mut run = 1;
+                while chars.next_if_eq(&'\\').is_some() {
+                    run += 1;
+                }
+                started = true;
+                if chars.peek() == Some(&'"') {
+                    word.extend(std::iter::repeat_n('\\', run / 2));
+                    if run % 2 == 1 {
+                        word.push('"');
+                        chars.next();
+                    }
+                } else {
+                    word.extend(std::iter::repeat_n('\\', run));
+                }
+            }
+            '"' => {
+                quoted = !quoted;
+                started = true;
+            }
+            c if c.is_whitespace() && !quoted => {
+                if started {
+                    words.push(std::mem::take(&mut word));
+                    started = false;
+                }
+            }
+            c => {
+                word.push(c);
+                started = true;
+            }
         }
     }
-    out
+    if started {
+        words.push(word);
+    }
+    words
 }
 
 impl Exec {
@@ -87,11 +122,10 @@ impl Exec {
         let command = self.command.as_str();
         if command.contains(char::is_whitespace) && !names_a_program(command) {
             let words = if cfg!(windows) {
-                shell_words::split(&keep_path_backslashes(command))
+                split_windows(command)
             } else {
-                shell_words::split(command)
-            }
-            .into_diagnostic()?;
+                shell_words::split(command).into_diagnostic()?
+            };
             if !words.is_empty() {
                 return Ok(words);
             }
@@ -187,15 +221,29 @@ impl usage_rs::Run for Exec {
 
 #[cfg(test)]
 mod tests {
-    use super::keep_path_backslashes;
+    use super::split_windows;
 
     #[test]
-    fn path_backslashes_survive_a_shell_split() {
-        let split = |s: &str| shell_words::split(&keep_path_backslashes(s)).unwrap();
+    fn windows_split_keeps_path_separators() {
         assert_eq!(
-            split(r"C:\Tools\node.exe --no-warnings"),
+            split_windows(r"C:\Tools\node.exe --no-warnings"),
             ["C:\\Tools\\node.exe", "--no-warnings"]
         );
-        assert_eq!(split(r#"node --title="a\"b""#), ["node", "--title=a\"b"]);
+        assert_eq!(
+            split_windows(r#""C:\Program Files\node.exe" --title='x'"#),
+            ["C:\\Program Files\\node.exe", "--title='x'"]
+        );
+    }
+
+    #[test]
+    fn windows_split_handles_backslashes_before_quotes() {
+        assert_eq!(
+            split_windows(r#"node --title="a\"b""#),
+            ["node", "--title=a\"b"]
+        );
+        assert_eq!(
+            split_windows(r#"python -X pycache_prefix="C:\cache\\" -u"#),
+            ["python", "-X", "pycache_prefix=C:\\cache\\", "-u"]
+        );
     }
 }
