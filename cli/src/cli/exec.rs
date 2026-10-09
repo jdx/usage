@@ -66,14 +66,28 @@ fn names_a_program(command: &str) -> bool {
     })
 }
 
+/// Backslashes are path separators on Windows, not escapes, so double them before a shell-style
+/// split, except in front of a quote, where they still escape it: `C:\Tools\node.exe` stays
+/// whole and `--title="a\"b"` stays one word.
+fn keep_path_backslashes(command: &str) -> String {
+    let mut out = String::with_capacity(command.len());
+    let mut chars = command.chars().peekable();
+    while let Some(c) = chars.next() {
+        out.push(c);
+        if c == '\\' && !matches!(chars.peek(), Some('"' | '\'')) {
+            out.push('\\');
+        }
+    }
+    out
+}
+
 impl Exec {
     /// The program followed by any arguments that belong before the script.
     fn interpreter(&self) -> usage::miette::Result<Vec<String>> {
         let command = self.command.as_str();
         if command.contains(char::is_whitespace) && !names_a_program(command) {
-            // Backslashes are path separators on Windows, not escapes, so keep them literal.
             let words = if cfg!(windows) {
-                shell_words::split(&command.replace('\\', "\\\\"))
+                shell_words::split(&keep_path_backslashes(command))
             } else {
                 shell_words::split(command)
             }
@@ -168,5 +182,20 @@ impl usage_rs::Run for Exec {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::keep_path_backslashes;
+
+    #[test]
+    fn path_backslashes_survive_a_shell_split() {
+        let split = |s: &str| shell_words::split(&keep_path_backslashes(s)).unwrap();
+        assert_eq!(
+            split(r"C:\Tools\node.exe --no-warnings"),
+            ["C:\\Tools\\node.exe", "--no-warnings"]
+        );
+        assert_eq!(split(r#"node --title="a\"b""#), ["node", "--title=a\"b"]);
     }
 }
