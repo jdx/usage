@@ -71,7 +71,13 @@ impl Exec {
     fn interpreter(&self) -> usage::miette::Result<Vec<String>> {
         let command = self.command.as_str();
         if command.contains(char::is_whitespace) && !names_a_program(command) {
-            let words = shell_words::split(command).into_diagnostic()?;
+            // Backslashes are path separators on Windows, not escapes, so keep them literal.
+            let words = if cfg!(windows) {
+                shell_words::split(&command.replace('\\', "\\\\"))
+            } else {
+                shell_words::split(command)
+            }
+            .into_diagnostic()?;
             if !words.is_empty() {
                 return Ok(words);
             }
