@@ -219,6 +219,24 @@ fn test_blank_comment_lines_defaults() {
         .stdout(contains("tail: \n"));
 }
 
+/// A quoted command carries its own arguments, which come before the script.
+#[test]
+fn test_exec_interpreter_arguments() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.args([
+        "exec",
+        "node --no-warnings",
+        "../examples/test-usage-double-slash.js",
+        "--debug",
+        "mycmd",
+    ]);
+
+    cmd.assert()
+        .success()
+        .stdout(contains("debug: true"))
+        .stdout(contains("command: mycmd"));
+}
+
 /// Test that exec command properly handles --help flag for non-shell scripts
 #[test]
 fn test_exec_help() {

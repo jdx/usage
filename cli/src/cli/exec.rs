@@ -18,6 +18,10 @@ use crate::env;
 /// `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is
 /// read from it instead of from the comments.
 ///
+/// A command with whitespace in it is split like a shell would, so interpreter arguments can come
+/// before the script: `#!/usr/bin/env -S usage exec "deno run --allow-env=usage_*"` runs
+/// `deno run --allow-env=usage_* <script> <args>`. A path to an existing file is never split.
+///
 /// `-h` and `--help` belong to the script once one is named, so they print its help page
 /// rather than this one. Asked with no script to describe, they print this page.
 #[derive(Debug, Args)]
@@ -25,7 +29,8 @@ use crate::env;
 // forward rather than a mistake to report — the root's `error` stops here.
 #[usage(alias = "x", unknown_flags = "value")]
 pub struct Exec {
-    /// The interpreter to run the script with, such as `node` or `python3`
+    /// The interpreter to run the script with, such as `node` or `python3`, or a quoted command
+    /// with its own arguments, such as `"deno run --allow-env"`
     command: String,
     /// The script to run
     bin: PathBuf,
@@ -42,6 +47,18 @@ pub struct Exec {
 }
 
 impl Exec {
+    /// The program followed by any arguments that belong before the script.
+    fn interpreter(&self) -> usage::miette::Result<Vec<String>> {
+        let command = self.command.as_str();
+        if command.contains(char::is_whitespace) && !std::path::Path::new(command).is_file() {
+            let words = shell_words::split(command).into_diagnostic()?;
+            if !words.is_empty() {
+                return Ok(words);
+            }
+        }
+        Ok(vec![self.command.clone()])
+    }
+
     pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> usage::miette::Result<()> {
         let parsed = usage::parse::parse_partial(spec, args)?;
         print!(
@@ -79,8 +96,11 @@ impl usage_rs::Run for Exec {
         } else {
             Spec::parse_file(&self.bin)?
         };
+        let mut interpreter = self.interpreter()?.into_iter();
+        let program = interpreter.next().unwrap();
+        let interpreter_args = interpreter.collect_vec();
         let mut args = self.args.clone();
-        args.insert(0, self.command.clone());
+        args.insert(0, program.clone());
 
         if self.h {
             return self.help(&spec, &args, false);
@@ -91,7 +111,8 @@ impl usage_rs::Run for Exec {
 
         let parsed = usage::parse::parse(&spec, &args)?;
 
-        let mut cmd = std::process::Command::new(&self.command);
+        let mut cmd = std::process::Command::new(&program);
+        cmd.args(&interpreter_args);
         cmd.stdin(Stdio::inherit());
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
