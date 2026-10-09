@@ -104,11 +104,15 @@ impl usage_rs::Run for Exec {
         } else {
             Spec::parse_file(&self.bin)?
         };
-        let mut interpreter = self.interpreter()?.into_iter();
-        let program = interpreter.next().unwrap();
-        let interpreter_args = interpreter.collect_vec();
+        // Help never runs the interpreter, so a command that cannot be split still gets a page.
+        let words = self.interpreter();
+        let name = words
+            .as_ref()
+            .ok()
+            .and_then(|w| w.first().cloned())
+            .unwrap_or_else(|| self.command.clone());
         let mut args = self.args.clone();
-        args.insert(0, program.clone());
+        args.insert(0, name);
 
         if self.h {
             return self.help(&spec, &args, false);
@@ -116,6 +120,10 @@ impl usage_rs::Run for Exec {
         if self.help {
             return self.help(&spec, &args, true);
         }
+
+        let mut interpreter = words?.into_iter();
+        let program = interpreter.next().unwrap();
+        let interpreter_args = interpreter.collect_vec();
 
         let parsed = usage::parse::parse(&spec, &args)?;
 
