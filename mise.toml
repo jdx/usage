@@ -11,7 +11,7 @@ aube = { version = "latest", minimum_release_age = "0s" }
 communique = { version = "latest", minimum_release_age = "0s" }
 gh = "latest"
 hk = { version = "latest", minimum_release_age = "0s" }
-jactionlint = "latest"
+jactionlint = "2"
 cargo-insta = "latest"
 cargo-release = "latest"
 "github:obi1kenobi/cargo-semver-checks" = "latest"
