@@ -98,7 +98,7 @@ fn split_windows(command: &str) -> Vec<String> {
                 quoted = !quoted;
                 started = true;
             }
-            c if c.is_whitespace() && !quoted => {
+            c if matches!(c, ' ' | '\t') && !quoted => {
                 if started {
                     words.push(std::mem::take(&mut word));
                     started = false;
@@ -232,6 +232,14 @@ mod tests {
         assert_eq!(
             split_windows(r#""C:\Program Files\node.exe" --title='x'"#),
             ["C:\\Program Files\\node.exe", "--title='x'"]
+        );
+    }
+
+    #[test]
+    fn windows_split_only_breaks_on_space_and_tab() {
+        assert_eq!(
+            split_windows("C:\\My\u{a0}Tools\\node.exe\t-u"),
+            ["C:\\My\u{a0}Tools\\node.exe", "-u"]
         );
     }
 
