@@ -300,8 +300,8 @@
           {
             "name": "COMMAND",
             "usage": "<COMMAND>",
-            "help": "The interpreter to run the script with, such as `node` or `python3`",
-            "help_first_line": "The interpreter to run the script with, such as `node` or `python3`",
+            "help": "The interpreter to run the script with, such as `node` or `python3`, or a quoted command with its own arguments, such as `\"deno run --allow-env\"`",
+            "help_first_line": "The interpreter to run the script with, such as `node` or `python3`, or a quoted command with its own arguments, such as `\"deno run --allow-env\"`",
             "required": true,
             "double_dash": "Optional",
             "hide": false
@@ -353,7 +353,7 @@
         "hide": false,
         "args_override_self": true,
         "help": "Run a script through any interpreter, with its parsed arguments as environment variables",
-        "help_long": "Run a script through any interpreter, with its parsed arguments as environment variables\n\nFor scripts in a language `usage` has no dedicated command for. A shebang of `#!/usr/bin/env -S usage exec node` parses the arguments against the `USAGE` comments at the top of the file, then runs `node <script> <args>` with each flag and argument exported as `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is read from it instead of from the comments.\n\n`-h` and `--help` belong to the script once one is named, so they print its help page rather than this one. Asked with no script to describe, they print this page.",
+        "help_long": "Run a script through any interpreter, with its parsed arguments as environment variables\n\nFor scripts in a language `usage` has no dedicated command for. A shebang of `#!/usr/bin/env -S usage exec node` parses the arguments against the `USAGE` comments at the top of the file, then runs `node <script> <args>` with each flag and argument exported as `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is read from it instead of from the comments.\n\nA command with whitespace in it is split like a shell would, so interpreter arguments can come before the script: `#!/usr/bin/env -S usage exec \"deno run --allow-env=usage_*\"` runs `deno run --allow-env=usage_* <script> <args>`. A name that is an existing file, or is found on `PATH`, is never split.\n\n`-h` and `--help` belong to the script once one is named, so they print its help page rather than this one. Asked with no script to describe, they print this page.",
         "name": "exec",
         "aliases": ["x"],
         "hidden_aliases": [],

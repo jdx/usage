@@ -83,6 +83,22 @@ const user = usage_user ?? "world";
 fs.appendFileSync(usage_file, `Hello, ${user}\n`);
 ```
 
+### Interpreter arguments
+
+Quote the interpreter and its arguments as one word when they must come before the script, as
+Deno's `run` and permission flags do. The quoted text is split like a shell would, and the script
+and its arguments follow:
+
+```ts
+#!/usr/bin/env -S usage exec "deno run --allow-env=usage_*"
+//USAGE arg "<name>" help="Name to greet"
+
+console.log(`Hello, ${Deno.env.get("usage_name")}!`);
+```
+
+This runs `deno run --allow-env=usage_* <script> <name>`. A path to an existing file is never
+split, and neither is a name found on `PATH`, so an interpreter with spaces in its name still works.
+
 ## Short flag chaining
 
 Single-character flags can be bundled into one word, so `-abc` means `-a -b -c`:
