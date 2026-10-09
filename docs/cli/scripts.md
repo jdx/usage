@@ -97,7 +97,7 @@ console.log(`Hello, ${Deno.env.get("usage_name")}!`);
 ```
 
 This runs `deno run --allow-env=usage_* <script> <name>`. A path to an existing file is never
-split, so an interpreter installed under a directory with spaces still works.
+split, and neither is a name found on `PATH`, so an interpreter with spaces in its name still works.
 
 ## Short flag chaining
 

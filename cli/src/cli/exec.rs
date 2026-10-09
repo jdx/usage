@@ -20,7 +20,7 @@ use crate::env;
 ///
 /// A command with whitespace in it is split like a shell would, so interpreter arguments can come
 /// before the script: `#!/usr/bin/env -S usage exec "deno run --allow-env=usage_*"` runs
-/// `deno run --allow-env=usage_* <script> <args>`. A path to an existing file is never split.
+/// `deno run --allow-env=usage_* <script> <args>`. A name that is an existing file, or is found on `PATH`, is never split.
 ///
 /// `-h` and `--help` belong to the script once one is named, so they print its help page
 /// rather than this one. Asked with no script to describe, they print this page.
@@ -46,11 +46,19 @@ pub struct Exec {
     help: bool,
 }
 
+/// Whether `command` is a file as written or a file of that name on `PATH`.
+fn names_a_program(command: &str) -> bool {
+    let path = std::path::Path::new(command);
+    path.is_file()
+        || std::env::var_os("PATH")
+            .is_some_and(|dirs| std::env::split_paths(&dirs).any(|dir| dir.join(command).is_file()))
+}
+
 impl Exec {
     /// The program followed by any arguments that belong before the script.
     fn interpreter(&self) -> usage::miette::Result<Vec<String>> {
         let command = self.command.as_str();
-        if command.contains(char::is_whitespace) && !std::path::Path::new(command).is_file() {
+        if command.contains(char::is_whitespace) && !names_a_program(command) {
             let words = shell_words::split(command).into_diagnostic()?;
             if !words.is_empty() {
                 return Ok(words);

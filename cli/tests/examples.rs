@@ -234,7 +234,8 @@ fn test_exec_interpreter_arguments() {
     cmd.assert()
         .success()
         .stdout(contains("debug: true"))
-        .stdout(contains("command: mycmd"));
+        .stdout(contains("command: mycmd"))
+        .stdout(contains("execArgv: --no-warnings"));
 }
 
 /// Test that exec command properly handles --help flag for non-shell scripts

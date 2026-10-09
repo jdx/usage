@@ -11,3 +11,4 @@ console.log("This would be a JavaScript file");
 console.log("debug:", process.env.usage_debug);
 console.log("port:", process.env.usage_port);
 console.log("command:", process.env.usage_command);
+console.log("execArgv:", process.execArgv.join(" "));
