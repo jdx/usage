@@ -12,7 +12,7 @@ on:
       },
   }
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ inputs.tag || github.event.release.tag_name }}
   cancel-in-progress: false
 jobs:
   comment:
