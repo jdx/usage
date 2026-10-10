@@ -129,7 +129,11 @@ jobs:
             git diff
             exit 1
           fi
+      # Online checks run in CI only; locally: JACTIONLINT_ONLINE=1 hk check --all
       - run: mise r lint
+        env:
+          JACTIONLINT_ONLINE: 1
+          GITHUB_TOKEN: ${{ github.token }}
 
   # The only job that is not Linux, and for several `cfg` branches the only place they are
   # compiled at all. The argv path planner, the config path normaliser and
