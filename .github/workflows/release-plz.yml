@@ -1,9 +1,6 @@
 name: release-plz
 
-permissions:
-  pull-requests: write
-  contents: write
-  id-token: write
+permissions: {}
 
 on:
   workflow_dispatch:
@@ -22,6 +19,10 @@ concurrency:
 
 jobs:
   release-plz:
+    permissions:
+      pull-requests: write
+      contents: write
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

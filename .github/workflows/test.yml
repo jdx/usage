@@ -5,6 +5,12 @@ on:
     branches: ["main"]
   pull_request:
 
+# Held by the caller, which only calls test-impl.yml: a group set inside the
+# called workflow would use this workflow's name too and wait for this run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
@@ -24,25 +30,11 @@ jobs:
     with:
       trusted: false
 
-  zizmor:
-    name: zizmor
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
-        with:
-          advanced-security: false
-
   final:
     name: final
     if: ${{ always() && !cancelled() && needs.trusted.result != 'cancelled' && needs.untrusted.result != 'cancelled' }}
     permissions: {}
-    needs: [trusted, untrusted, zizmor]
+    needs: [trusted, untrusted]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
@@ -50,12 +42,7 @@ jobs:
         env:
           TRUSTED_RESULT: ${{ needs.trusted.result }}
           UNTRUSTED_RESULT: ${{ needs.untrusted.result }}
-          ZIZMOR_RESULT: ${{ needs.zizmor.result }}
         run: |
-          if [[ "$ZIZMOR_RESULT" != success ]]; then
-            echo "zizmor=$ZIZMOR_RESULT"
-            exit 1
-          fi
           if [[ "$TRUSTED_RESULT" == success && "$UNTRUSTED_RESULT" == skipped ]] ||
              [[ "$TRUSTED_RESULT" == skipped && "$UNTRUSTED_RESULT" == success ]]; then
             exit 0

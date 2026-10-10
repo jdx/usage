@@ -13,6 +13,12 @@ on:
   push:
     branches: ["renovate/**"]
 
+# "-caller" keeps this group apart from the one the shared workflow sets for
+# its own job (mise-lock-<ref>); equal groups would cancel the called job.
+concurrency:
+  group: ${{ github.workflow }}-caller-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:

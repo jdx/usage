@@ -6,9 +6,8 @@ on:
         required: true
         type: boolean
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
 
 env:
   MBX_DISABLE: "1"
@@ -26,7 +25,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5.0.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning]
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: test
           save-if: ${{ inputs.trusted && github.ref == 'refs/heads/main' }}
@@ -130,7 +129,11 @@ jobs:
             git diff
             exit 1
           fi
+      # Online checks run in CI only; locally: JACTIONLINT_ONLINE=1 hk check --all
       - run: mise r lint
+        env:
+          JACTIONLINT_ONLINE: 1
+          GITHUB_TOKEN: ${{ github.token }}
 
   # The only job that is not Linux, and for several `cfg` branches the only place they are
   # compiled at all. The argv path planner, the config path normaliser and
@@ -151,7 +154,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5.0.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning]
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: test-windows
           save-if: ${{ inputs.trusted && github.ref == 'refs/heads/main' }}
@@ -257,7 +260,7 @@ jobs:
         with:
           cache: false
           install_args: mr-boxington
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning]
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: msrv-${{ matrix.version }}
           save-if: ${{ inputs.trusted && github.ref == 'refs/heads/main' }}
