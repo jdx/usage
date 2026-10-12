@@ -127,7 +127,9 @@ impl Shell {
     pub fn run(&mut self, shell: &str) -> usage::miette::Result<()> {
         // Whether the command line already spent a `--` before naming the script: that one
         // was `usage`'s, so every `--` left in the arguments is the script's own.
-        let separator_before_script = SUPPLIED_WORDS.with_borrow(|words| {
+        // Taken rather than borrowed, so a later run on this thread never reads this one's words.
+        let separator_before_script = {
+            let words = SUPPLIED_WORDS.take();
             // By position, not by name: the script may be spelled like the command before it.
             // The first plain word is the command, and the script is the next one that is
             // neither a flag nor, once a `--` has been seen, anything but the next word.
@@ -143,7 +145,7 @@ impl Shell {
                 separated |= word == "--";
             }
             separated
-        });
+        };
         // Held until the shell exits: dropping it deletes the copy the shell is reading.
         let _copy = match ScriptCopy::for_stream(&self.script, shell)? {
             Some(copy) => {
