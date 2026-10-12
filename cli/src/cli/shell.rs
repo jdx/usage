@@ -131,6 +131,9 @@ impl Shell {
         // it, `positional -- --help` reaches the spec as `positional --help`, and the help
         // request after the separator is taken for a flag.
         let mut args = self.args.clone();
+        if separator_before_script {
+            args.insert(0, "--".to_string());
+        }
         args.insert(0, spec.bin.clone());
 
         // Flag parsing ends at the script, so a `-h` after it arrives as one of the script's
@@ -139,6 +142,7 @@ impl Shell {
         let asked = self
             .args
             .iter()
+            .filter(|_| !separator_before_script)
             .take_while(|word| *word != "--")
             .find_map(|word| match word.as_str() {
                 "-h" => Some(false),

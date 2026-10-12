@@ -66,3 +66,13 @@ fn the_script_keeps_a_separator_that_is_its_own() {
         .success()
         .stdout("argv=[-- value]\n");
 }
+
+#[test]
+fn a_separator_before_the_script_makes_every_later_word_a_value() {
+    for word in ["--help", "-h"] {
+        run_argv(&["bash", "--", "/dev/stdin", word])
+            .assert()
+            .success()
+            .stdout(format!("argv=[{word}]\n"));
+    }
+}
