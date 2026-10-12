@@ -42,3 +42,27 @@ fn help_words_before_the_separator_still_print_the_help_page() {
             .stdout(predicates::str::starts_with("Usage:"));
     }
 }
+
+const ARGV_SCRIPT: &str =
+    "#!/usr/bin/env -S usage bash\n#USAGE arg \"[a]...\"\necho \"argv=[$*]\"\n";
+
+fn run_argv(args: &[&str]) -> Command {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.env_remove("USAGECLI_SHELL_BASH")
+        .env_remove("USAGE_SHELL_BASH")
+        .args(args)
+        .write_stdin(ARGV_SCRIPT);
+    cmd
+}
+
+#[test]
+fn the_script_keeps_a_separator_that_is_its_own() {
+    run_argv(&["bash", "/dev/stdin", "x", "--", "--", "y"])
+        .assert()
+        .success()
+        .stdout("argv=[x -- y]\n");
+    run_argv(&["bash", "--", "/dev/stdin", "--", "value"])
+        .assert()
+        .success()
+        .stdout("argv=[-- value]\n");
+}

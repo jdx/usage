@@ -112,6 +112,12 @@ shell_command!(
 
 impl Shell {
     pub fn run(&mut self, shell: &str) -> usage::miette::Result<()> {
+        // Whether the command line already spent a `--` before naming the script: that one
+        // was `usage`'s, so every `--` left in the arguments is the script's own.
+        let separator_before_script = std::env::args_os()
+            .skip(1)
+            .take_while(|word| word.as_os_str() != self.script.as_os_str())
+            .any(|word| word == "--");
         // Held until the shell exits: dropping it deletes the copy the shell is reading.
         let _copy = match ScriptCopy::for_stream(&self.script, shell)? {
             Some(copy) => {
@@ -165,9 +171,11 @@ impl Shell {
             .ok_or_else(|| usage::miette::miette!("Invalid file path: {}", run_path.display()))?
             .to_string();
         // The script is handed what it was before the separator was kept: the first `--` is
-        // `usage`'s own, and any later one is the script's.
+        // `usage`'s own unless one came before the script, and any other is the script's.
         let mut script_args = self.args.clone();
-        if let Some(separator) = script_args.iter().position(|word| word == "--") {
+        if !separator_before_script
+            && let Some(separator) = script_args.iter().position(|word| word == "--")
+        {
             script_args.remove(separator);
         }
         let args = std::iter::once(script_path.clone())
