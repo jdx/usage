@@ -110,14 +110,29 @@ shell_command!(
     "This command's shebang is `#!/usr/bin/env -S usage zsh`, and the\nprogram it runs is `zsh` from PATH. `USAGECLI_SHELL_ZSH` names a\ndifferent one."
 );
 
+thread_local! {
+    /// The command line `Cli::run` was handed, which is not the process's when `usage` is
+    /// embedded: the derive hands `Shell` only what it bound, and a `--` it consumed is gone.
+    static SUPPLIED_WORDS: std::cell::RefCell<Vec<std::ffi::OsString>> = const {
+        std::cell::RefCell::new(Vec::new())
+    };
+}
+
+/// Remember the words the command line was parsed from, for [`Shell::run`] to ask about.
+pub fn note_supplied_words(words: &[&std::ffi::OsStr]) {
+    SUPPLIED_WORDS.set(words.iter().map(|word| (*word).to_owned()).collect());
+}
+
 impl Shell {
     pub fn run(&mut self, shell: &str) -> usage::miette::Result<()> {
         // Whether the command line already spent a `--` before naming the script: that one
         // was `usage`'s, so every `--` left in the arguments is the script's own.
-        let separator_before_script = std::env::args_os()
-            .skip(1)
-            .take_while(|word| word.as_os_str() != self.script.as_os_str())
-            .any(|word| word == "--");
+        let separator_before_script = SUPPLIED_WORDS.with_borrow(|words| {
+            words
+                .iter()
+                .take_while(|word| word.as_os_str() != self.script.as_os_str())
+                .any(|word| word == "--")
+        });
         // Held until the shell exits: dropping it deletes the copy the shell is reading.
         let _copy = match ScriptCopy::for_stream(&self.script, shell)? {
             Some(copy) => {
