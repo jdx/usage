@@ -71,8 +71,8 @@ different one, which is how it is pointed at Git Bash on a Windows
 machine where `bash` is the WSL launcher.
 """#
     use shell
-    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file"
-    arg "[ARGS]..." help="Arguments to pass to the script" {
+    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file" double_dash=automatic
+    arg "[ARGS]..." help="Arguments to pass to the script" double_dash=preserve {
         long_help #"""
 Arguments to pass to the script
 
@@ -218,8 +218,8 @@ program it runs is `fish` from PATH. `USAGECLI_SHELL_FISH` names a
 different one.
 """#
     use shell
-    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file"
-    arg "[ARGS]..." help="Arguments to pass to the script" {
+    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file" double_dash=automatic
+    arg "[ARGS]..." help="Arguments to pass to the script" double_dash=preserve {
         long_help #"""
 Arguments to pass to the script
 
@@ -513,8 +513,8 @@ different one, which is also how it is pointed at `powershell.exe` on a
 machine that has only Windows PowerShell.
 """#
     use shell
-    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file"
-    arg "[ARGS]..." help="Arguments to pass to the script" {
+    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file" double_dash=automatic
+    arg "[ARGS]..." help="Arguments to pass to the script" double_dash=preserve {
         long_help #"""
 Arguments to pass to the script
 
@@ -545,8 +545,8 @@ program it runs is `zsh` from PATH. `USAGECLI_SHELL_ZSH` names a
 different one.
 """#
     use shell
-    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file"
-    arg "[ARGS]..." help="Arguments to pass to the script" {
+    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file" double_dash=automatic
+    arg "[ARGS]..." help="Arguments to pass to the script" double_dash=preserve {
         long_help #"""
 Arguments to pass to the script
 
