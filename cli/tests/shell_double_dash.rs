@@ -76,3 +76,18 @@ fn a_separator_before_the_script_makes_every_later_word_a_value() {
             .stdout(format!("argv=[{word}]\n"));
     }
 }
+
+#[test]
+fn a_script_named_like_the_command_does_not_hide_the_separator() {
+    let dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("double_dash_named_bash");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("bash"), ARGV_SCRIPT).unwrap();
+    Command::new(cargo::cargo_bin!("usage"))
+        .current_dir(&dir)
+        .env_remove("USAGECLI_SHELL_BASH")
+        .env_remove("USAGE_SHELL_BASH")
+        .args(["bash", "--", "bash", "--help"])
+        .assert()
+        .success()
+        .stdout("argv=[--help]\n");
+}
