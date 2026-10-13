@@ -16,7 +16,7 @@
             "help": "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
             "help_first_line": "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
             "required": true,
-            "double_dash": "Optional",
+            "double_dash": "Automatic",
             "hide": false
           },
           {
@@ -26,7 +26,7 @@
             "help_long": "Arguments to pass to the script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.",
             "help_first_line": "Arguments to pass to the script",
             "required": false,
-            "double_dash": "Optional",
+            "double_dash": "Preserve",
             "var": true,
             "hide": false
           }
@@ -526,7 +526,7 @@
             "help": "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
             "help_first_line": "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
             "required": true,
-            "double_dash": "Optional",
+            "double_dash": "Automatic",
             "hide": false
           },
           {
@@ -536,7 +536,7 @@
             "help_long": "Arguments to pass to the script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.",
             "help_first_line": "Arguments to pass to the script",
             "required": false,
-            "double_dash": "Optional",
+            "double_dash": "Preserve",
             "var": true,
             "hide": false
           }
@@ -1769,7 +1769,7 @@
             "help": "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
             "help_first_line": "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
             "required": true,
-            "double_dash": "Optional",
+            "double_dash": "Automatic",
             "hide": false
           },
           {
@@ -1779,7 +1779,7 @@
             "help_long": "Arguments to pass to the script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.",
             "help_first_line": "Arguments to pass to the script",
             "required": false,
-            "double_dash": "Optional",
+            "double_dash": "Preserve",
             "var": true,
             "hide": false
           }
@@ -1860,7 +1860,7 @@
             "help": "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
             "help_first_line": "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
             "required": true,
-            "double_dash": "Optional",
+            "double_dash": "Automatic",
             "hide": false
           },
           {
@@ -1870,7 +1870,7 @@
             "help_long": "Arguments to pass to the script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.",
             "help_first_line": "Arguments to pass to the script",
             "required": false,
-            "double_dash": "Optional",
+            "double_dash": "Preserve",
             "var": true,
             "hide": false
           }

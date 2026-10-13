@@ -19,12 +19,14 @@ use crate::env;
 #[derive(Debug, Args)]
 pub struct Shell {
     /// The script to run; its spec is read from the `#USAGE` comments at the top of the file
+    #[usage(double_dash = "automatic")]
     script: PathBuf,
 
     /// Arguments to pass to the script
     ///
     /// Anything `usage` does not recognise is a value rather than a mistake, which is what
     /// lets a shebang script take flags of its own.
+    #[usage(double_dash = "preserve")]
     args: Vec<String>,
 
     /// Print the script's help page instead of running it
@@ -108,8 +110,42 @@ shell_command!(
     "This command's shebang is `#!/usr/bin/env -S usage zsh`, and the\nprogram it runs is `zsh` from PATH. `USAGECLI_SHELL_ZSH` names a\ndifferent one."
 );
 
+thread_local! {
+    /// The command line `Cli::run` was handed, which is not the process's when `usage` is
+    /// embedded: the derive hands `Shell` only what it bound, and a `--` it consumed is gone.
+    static SUPPLIED_WORDS: std::cell::RefCell<Vec<std::ffi::OsString>> = const {
+        std::cell::RefCell::new(Vec::new())
+    };
+}
+
+/// Remember the words the command line was parsed from, for [`Shell::run`] to ask about.
+pub fn note_supplied_words(words: &[&std::ffi::OsStr]) {
+    SUPPLIED_WORDS.set(words.iter().map(|word| (*word).to_owned()).collect());
+}
+
 impl Shell {
     pub fn run(&mut self, shell: &str) -> usage::miette::Result<()> {
+        // Whether the command line already spent a `--` before naming the script: that one
+        // was `usage`'s, so every `--` left in the arguments is the script's own.
+        // Taken rather than borrowed, so a later run on this thread never reads this one's words.
+        let separator_before_script = {
+            let words = SUPPLIED_WORDS.take();
+            // By position, not by name: the script may be spelled like the command before it.
+            // The first plain word is the command, and the script is the next one that is
+            // neither a flag nor, once a `--` has been seen, anything but the next word.
+            let mut rest = words
+                .iter()
+                .skip_while(|word| word.to_string_lossy().starts_with('-'));
+            rest.next();
+            let mut separated = false;
+            for word in rest {
+                if separated || !word.to_string_lossy().starts_with('-') {
+                    break;
+                }
+                separated |= word == "--";
+            }
+            separated
+        };
         // Held until the shell exits: dropping it deletes the copy the shell is reading.
         let _copy = match ScriptCopy::for_stream(&self.script, shell)? {
             Some(copy) => {
@@ -119,13 +155,32 @@ impl Shell {
             None => None,
         };
         let spec = Spec::parse_file(&self.script)?;
+        // The `--` is kept here so the script's spec reads it as the separator it is: without
+        // it, `positional -- --help` reaches the spec as `positional --help`, and the help
+        // request after the separator is taken for a flag.
         let mut args = self.args.clone();
+        if separator_before_script {
+            args.insert(0, "--".to_string());
+        }
         args.insert(0, spec.bin.clone());
 
-        if self.h {
+        // Flag parsing ends at the script, so a `-h` after it arrives as one of the script's
+        // words. It still asks for the help page, but only before a `--`: what follows the
+        // separator is data, and `--help` there is a value for the script.
+        let asked = self
+            .args
+            .iter()
+            .filter(|_| !separator_before_script)
+            .take_while(|word| *word != "--")
+            .find_map(|word| match word.as_str() {
+                "-h" => Some(false),
+                "--help" => Some(true),
+                _ => None,
+            });
+        if self.h || asked == Some(false) {
             return self.help(&spec, &args, false);
         }
-        if self.help {
+        if self.help || asked == Some(true) {
             return self.help(&spec, &args, true);
         }
 
@@ -147,8 +202,16 @@ impl Shell {
             .to_str()
             .ok_or_else(|| usage::miette::miette!("Invalid file path: {}", run_path.display()))?
             .to_string();
+        // The script is handed what it was before the separator was kept: the first `--` is
+        // `usage`'s own unless one came before the script, and any other is the script's.
+        let mut script_args = self.args.clone();
+        if !separator_before_script
+            && let Some(separator) = script_args.iter().position(|word| word == "--")
+        {
+            script_args.remove(separator);
+        }
         let args = std::iter::once(script_path.clone())
-            .chain(self.args.clone())
+            .chain(script_args)
             .collect_vec();
         cmd.args(&args);
 

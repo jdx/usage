@@ -166,6 +166,7 @@ impl Cli {
             }
             return Ok(());
         }
+        shell::note_supplied_words(&words);
         let cli = match Self::parse_from(&words) {
             Ok(cli) => cli,
             // Not failures: someone asked a question, and the answer goes to stdout.
