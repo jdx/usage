@@ -2963,18 +2963,25 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if self.flags_stopped {
             return None;
         }
-        let own = self.current_args().iter().copied();
-        let inherited = self.ancestors[..self.depth]
-            .iter()
-            .rev()
-            .filter_map(|cmd| *cmd)
-            .flat_map(|cmd| cmd.args.iter().copied());
-        own.chain(inherited)
-            .filter_map(|arg| {
-                let sigil = arg.sigil?;
-                (token.len() >= sigil.len() && token.starts_with(sigil)).then_some((arg, sigil))
-            })
-            .max_by_key(|(_, sigil)| sigil.len())
+        // The longest sigil that fits, the later declaration winning a tie, as `max_by_key`
+        // would say — written as loops, which are smaller than the adapter chain and are
+        // walked for every positional word.
+        let mut best: Option<(&'t Arg<'t>, &'t [u8])> = None;
+        let mut consider = |args: &'t [&'t Arg<'t>]| {
+            for &arg in args {
+                if let Some(sigil) = arg.sigil
+                    && token.starts_with(sigil)
+                    && best.is_none_or(|(_, longest)| sigil.len() >= longest.len())
+                {
+                    best = Some((arg, sigil));
+                }
+            }
+        };
+        consider(self.current_args());
+        for cmd in self.ancestors[..self.depth].iter().rev().flatten() {
+            consider(cmd.args);
+        }
+        best
     }
 
     fn current_args(&self) -> &'t [&'t Arg<'t>] {
