@@ -4241,18 +4241,23 @@ pub fn page(
     page: Page,
     style: Style,
 ) -> Option<String> {
-    match route_to(root, argv, cmd) {
-        Some(route) => match page {
-            Page::Short => render_at_styled(spec, &route, false, style),
-            Page::Long => render_at_styled(spec, &route, true, style),
-            Page::All => render_all_at_styled(spec, &route, style),
-        },
-        None => match page {
-            Page::Short => render_styled(spec, cmd, false, style),
-            Page::Long => render_styled(spec, cmd, true, style),
-            Page::All => render_all_styled(spec, cmd, style),
-        },
-    }
+    // The same page either way; only how the command is located differs.
+    let (path, chain) = match route_to(root, argv, cmd) {
+        Some(route) => route_context(spec, &route)?,
+        None => find(spec, cmd)?,
+    };
+    Some(match page {
+        Page::Short | Page::Long => assembled_help(
+            spec,
+            &path,
+            &chain,
+            matches!(page, Page::Long),
+            style,
+            false,
+            true,
+        ),
+        Page::All => recursive_help(spec, path, chain, style, false),
+    })
 }
 
 /// The page a help request becomes when a declared executable view is what the user invoked.
