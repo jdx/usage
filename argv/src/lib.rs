@@ -988,6 +988,17 @@ pub const fn table_len<T>(groups: &[&[T]]) -> usize {
     total
 }
 
+/// `all[start..start + len]`, at compile time, for a table that points into a joined one.
+///
+/// A flattened type's metadata names its own run of the parent's joined tables rather than
+/// keeping a second copy of every entry.
+#[doc(hidden)]
+pub const fn __usage_subslice<T>(all: &'static [T], start: usize, len: usize) -> &'static [T] {
+    let (_, tail) = all.split_at(start);
+    let (run, _) = tail.split_at(len);
+    run
+}
+
 /// Join groups of flag tables into one, at compile time.
 ///
 /// This is how `#[usage(flatten)]` stays free. A flattened struct's flags have to appear in

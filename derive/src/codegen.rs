@@ -3048,6 +3048,10 @@ fn tables(cli: &Cli) -> Tables {
     let mut flatten_groups: Vec<TokenStream> = Vec::new();
     let mut flag_offset: Vec<TokenStream> = Vec::new();
     let mut own_since_flatten = 0usize;
+    // The same running offset for positionals, so a group can name its slice of the joined
+    // argument tables.
+    let mut arg_offset: Vec<TokenStream> = Vec::new();
+    let mut own_args_since_flatten = 0usize;
 
     // Flush the runs collected so far, so that what follows lands after them.
     fn flush_flags(
@@ -3095,6 +3099,7 @@ fn tables(cli: &Cli) -> Tables {
             Kind::Arg { .. } => {
                 own_args.push(arg_at);
                 arg_at += 1;
+                own_args_since_flatten += 1;
             }
             Kind::Flatten { ty, help_heading } => {
                 flattened = true;
@@ -3102,19 +3107,57 @@ fn tables(cli: &Cli) -> Tables {
                     flag_offset.push(quote!(#own_since_flatten));
                     own_since_flatten = 0;
                 }
+                if own_args_since_flatten > 0 {
+                    arg_offset.push(quote!(#own_args_since_flatten));
+                    own_args_since_flatten = 0;
+                }
                 let name = flagset_name(ty);
                 let terms = flag_offset.iter();
+                let flag_start = quote!(0 #(+ #terms)*);
+                let arg_terms = arg_offset.iter();
+                let arg_start = quote!(0 #(+ #arg_terms)*);
                 let help_heading = option_str(help_heading.as_deref());
+                // The group's metadata, with its tables pointed at this command's own joined
+                // ones instead of at a second copy of every flag's metadata kept for the
+                // flattened type alone. What is read is identical; what the binary carries is
+                // one array per table rather than two.
+                let group = quote!(<#ty as usage_argv::spec::CommandArgs>);
                 flatten_groups.push(quote! {
                     usage_argv::spec::FlattenGroup {
                         name: #name,
-                        start: 0 #(+ #terms)*,
-                        meta: <#ty as usage_argv::spec::CommandArgs>::META,
+                        start: #flag_start,
+                        meta: &usage_argv::spec::CommandMeta {
+                            cmd: &usage_argv::Command {
+                                flags: usage_argv::__usage_subslice(
+                                    &FLAGS,
+                                    #flag_start,
+                                    #group::COMMAND.flags.len(),
+                                ),
+                                args: usage_argv::__usage_subslice(
+                                    &ARGS,
+                                    #arg_start,
+                                    #group::COMMAND.args.len(),
+                                ),
+                                ..*#group::COMMAND
+                            },
+                            flags: usage_argv::__usage_subslice(
+                                &FLAG_METAS,
+                                #flag_start,
+                                #group::META.flags.len(),
+                            ),
+                            args: usage_argv::__usage_subslice(
+                                &ARG_METAS,
+                                #arg_start,
+                                #group::META.args.len(),
+                            ),
+                            ..*#group::META
+                        },
                         help_heading: #help_heading,
                     }
                 });
                 flag_offset
                     .push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.flags.len()));
+                arg_offset.push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.args.len()));
                 flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
                 flush_args(&mut own_args, &mut arg_groups, &mut arg_meta_groups);
                 flag_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.flags));
