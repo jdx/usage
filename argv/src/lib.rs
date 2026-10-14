@@ -1102,6 +1102,7 @@ pub static HELP_SHORT: Flag<'static> = Flag {
 /// Names across every subcommand before any alias, the precedence the grammar states — and
 /// the reason this is the only implementation of it on argv's side. `ex run` and `ex help run`
 /// selecting different commands would be exactly the divergence this rule was written to end.
+#[inline(never)]
 pub(crate) fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t>> {
     let subcommands = || cmd.subcommands.iter().copied();
     subcommands()
