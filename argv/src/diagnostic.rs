@@ -333,18 +333,35 @@ fn jaro(a: &str, b: &str) -> f64 {
 /// of this module is that an adopter's users see no change; it is a difference worth undoing on
 /// both sides rather than on one.
 fn nearest<'a>(typed: &str, candidates: &[&'a str]) -> Vec<&'a str> {
+    // Kept in order as they are found: a handful of items, so an insertion beats compiling a
+    // sort for this element type. Each goes after the ones it ties with, which is what a stable
+    // sort would do.
     let mut scored: Vec<(f64, &str)> = Vec::new();
     for candidate in candidates {
         let score = jaro(typed, candidate);
         if score > 0.7 {
-            scored.push((score, candidate));
+            let mut at = scored.len();
+            while at > 0
+                && scored[at - 1]
+                    .0
+                    .total_cmp(&score)
+                    .then_with(|| scored[at - 1].1.cmp(candidate))
+                    .is_gt()
+            {
+                at -= 1;
+            }
+            // The same word listed twice is one suggestion; equal words score alike, so the
+            // copies end up side by side.
+            if at == 0 || scored[at - 1].1 != *candidate {
+                scored.insert(at, (score, candidate));
+            }
         }
     }
-    crate::order::sort_by(&mut scored, &mut |a, b| {
-        a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1))
-    });
-    scored.dedup_by(|a, b| a.1 == b.1);
-    scored.into_iter().map(|(_, candidate)| candidate).collect()
+    let mut out = Vec::new();
+    for (_, candidate) in scored {
+        out.push(candidate);
+    }
+    out
 }
 
 /// A tip naming what was probably meant, or nothing when nothing was close.
