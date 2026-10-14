@@ -537,8 +537,9 @@ fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String 
         chars.next().is_none().then_some(only)
     });
     let found = meta.flags.iter().find(|flag| {
-        long.is_some_and(|long| flag.flag.longs.contains(&long) || flag.flag.negate == Some(long))
-            || short.is_some_and(|short| crate::has_byte(flag.flag.shorts, short))
+        long.is_some_and(|long| {
+            crate::has_str(flag.flag.longs, long) || flag.flag.negate == Some(long)
+        }) || short.is_some_and(|short| crate::has_byte(flag.flag.shorts, short))
     });
     let Some(flag) = found else {
         return selector.to_string();
@@ -591,7 +592,7 @@ fn value_bound_to(
         // given several values, and the check refuses the first that is not allowed — reporting
         // whichever came last would name a value that is perfectly good and leave the wrong one
         // unmentioned.
-        if !refused.is_empty() && !refused.contains(&value.as_str()) {
+        if !refused.is_empty() && !crate::has_str(refused, &value) {
             return Some(value);
         }
         last = Some(value);

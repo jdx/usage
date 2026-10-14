@@ -1818,7 +1818,7 @@ fn default_subcommand_arg<'a>(
     let subcommands = || spec.root.subcommands.iter().copied();
     subcommands()
         .find(|sub| sub.cmd.name == default)
-        .or_else(|| subcommands().find(|sub| sub.cmd.aliases.contains(&default)))
+        .or_else(|| subcommands().find(|sub| crate::has_str(sub.cmd.aliases, default)))
         .and_then(|sub| restart_arg(sub).map(|field| (sub, field)))
 }
 
@@ -1966,7 +1966,7 @@ fn attached_long_value<'t, 'p>(
         .flags
         .iter()
         .copied()
-        .find(|flag| (flag.takes_value || flag.bool_value) && flag.longs.contains(&long))
+        .find(|flag| (flag.takes_value || flag.bool_value) && crate::has_str(flag.longs, long))
         .map(|flag| (flag, form, prefix))
 }
 
@@ -2040,7 +2040,7 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             // old name kept working after a rename. The parse table holds it beside the
             // visible ones because both must be *accepted*; only the metadata says which are
             // meant to be *offered*.
-            if sub.extra.hidden_aliases.contains(name) {
+            if crate::has_str(sub.extra.hidden_aliases, name) {
                 continue;
             }
             if name.starts_with(token) {
@@ -2111,7 +2111,8 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
         if longs {
             // No metadata hides a negation: `hidden_longs` names longs.
             for (i, long) in flag.longs.iter().chain(flag.negate.as_ref()).enumerate() {
-                if i < flag.longs.len() && meta.is_some_and(|m| m.extra.hidden_longs.contains(long))
+                if i < flag.longs.len()
+                    && meta.is_some_and(|m| crate::has_str(m.extra.hidden_longs, long))
                 {
                     continue;
                 }

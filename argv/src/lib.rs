@@ -3207,6 +3207,19 @@ pub(crate) fn has_byte(bytes: &[u8], wanted: u8) -> bool {
     false
 }
 
+/// Whether `list` holds the name `wanted`. One copy for every place a table of names is searched:
+/// `<[&str]>::contains` expands to its own comparison loop at each of them.
+#[cfg(any(feature = "complete", feature = "diagnostics"))]
+#[inline(never)]
+pub(crate) fn has_str(list: &[&str], wanted: &str) -> bool {
+    for item in list {
+        if *item == wanted {
+            return true;
+        }
+    }
+    false
+}
+
 /// View a token as bytes.
 ///
 /// `as_encoded_bytes` is a plain accessor with no conversion and no allocation.
