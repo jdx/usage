@@ -3014,6 +3014,7 @@ fn write_wrapped_block(out: &mut String, help: &str, width: usize) {
     write_wrapped_indented(out, help, width, BLOCK_INDENT);
 }
 
+#[inline(never)]
 fn write_wrapped_indented(out: &mut String, help: &str, width: usize, indent: usize) {
     let room = width.saturating_sub(indent);
     wrap_lines(help, room, &mut |line| {
@@ -3061,6 +3062,7 @@ fn fits(text: &str, room: usize) -> bool {
 /// The width of the line under construction is carried along rather than recounted for each
 /// word. Recounting made this quadratic in the length of a line, which went unnoticed while
 /// only the long page wrapped and was 3% of `usage --help` once the command list did too.
+#[inline(never)]
 fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
     let mut emitted = false;
     let mut line = String::new();
