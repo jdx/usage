@@ -363,7 +363,7 @@ Examples:
 {%- if example.help %}
     {{ example.help }}
 {%- endif %}
-    $ {{ example.code }}
+    $ {{ example.code | indent_continuation(indent=4) }}
 {%- endfor %}
 {%- elif root and spec.examples %}
 
@@ -377,7 +377,7 @@ Examples:
 {%- if example.help %}
     {{ example.help }}
 {%- endif %}
-    $ {{ example.code }}
+    $ {{ example.code | indent_continuation(indent=4) }}
 {%- endfor %}
 {%- endif %}
 

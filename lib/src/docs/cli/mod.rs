@@ -1283,6 +1283,24 @@ static TERA: LazyLock<Tera> = LazyLock::new(|| {
         },
     );
     tera.register_filter(
+        "indent_continuation",
+        |value: &tera::Value, args: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
+            let value = value.as_str().unwrap_or("");
+            let indent = args.get::<u64>("indent")?.unwrap_or(0) as usize;
+            let pad = " ".repeat(indent);
+            let mut lines = value.split('\n');
+            let mut out = lines.next().unwrap_or("").to_string();
+            for line in lines {
+                out.push('\n');
+                if !line.is_empty() {
+                    out.push_str(&pad);
+                    out.push_str(line);
+                }
+            }
+            Ok(out)
+        },
+    );
+    tera.register_filter(
         "terminal_label",
         |value: &tera::Value, args: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
             let value = value.as_str().unwrap_or("");
@@ -1906,6 +1924,28 @@ cmd "run" help="run it" {
         assert!(short.contains("$ testcli run"), "{short}");
         assert!(long.contains("run after long"), "{long}");
         assert!(long.contains("$ testcli run"), "{long}");
+    }
+
+    #[test]
+    fn test_render_help_indents_multiline_example() {
+        let spec = crate::spec! { r##"
+bin "testcli"
+example #"""
+testcli version
+1.2.3 linux
+
+built today
+"""# help="Show the version"
+        "## }
+        .unwrap();
+
+        for long in [false, true] {
+            let page = render_help(&spec, &spec.cmd, long);
+            assert!(
+                page.contains("    $ testcli version\n    1.2.3 linux\n\n    built today"),
+                "long={long}:\n{page}"
+            );
+        }
     }
 
     #[test]
