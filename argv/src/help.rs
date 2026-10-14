@@ -1141,15 +1141,16 @@ fn usage_line_with_subcommands(
 
     // Hidden entries are absent from the line as they are from the sections: help describes
     // what a user is invited to type.
-    let command_flags = meta
-        .flags
-        .iter()
-        .filter(|f| !f.hide && !f.builtin && !is_clause_flag(meta, f));
-    let flags = command_flags.clone().count();
+    let listed = |f: &&FlagMeta<'_>| !f.hide && !f.builtin && !is_clause_flag(meta, f);
+    let mut flags = 0;
+    let mut required = false;
+    for flag in meta.flags.iter().filter(listed) {
+        flags += 1;
+        required |= flag_demanded(flag);
+    }
     if flags > 0 {
-        let required = command_flags.clone().any(flag_demanded);
         if flags <= INLINE_LIMIT {
-            for flag in command_flags {
+            for flag in meta.flags.iter().filter(listed) {
                 // A required flag is angled, like a required argument: the brackets are what
                 // say whether leaving it out is allowed.
                 let (open, close) = if flag_demanded(flag) {
@@ -1170,16 +1171,21 @@ fn usage_line_with_subcommands(
     }
 
     let positional_args = positional_args(meta);
-    let args: usize = positional_args.iter().filter(|a| !a.hide).count();
+    let mut args = 0;
+    let mut required = false;
+    for arg in positional_args.iter().filter(|a| !a.hide) {
+        args += 1;
+        required |= demanded(arg);
+    }
     if args > 0 {
-        let required = positional_args.iter().any(|a| !a.hide && demanded(a));
         if let Some(clause) = meta.extra.clause {
-            let inner = positional_args
-                .iter()
-                .filter(|a| !a.hide)
-                .map(arg_usage)
-                .collect::<Vec<_>>()
-                .join(" ");
+            let mut inner = String::new();
+            for (index, arg) in positional_args.iter().filter(|a| !a.hide).enumerate() {
+                if index > 0 {
+                    inner.push(' ');
+                }
+                inner.push_str(&arg_usage(arg));
+            }
             match clause.separator {
                 Some(separator) => {
                     put(&mut out, &[" [", &inner, " [", separator, " ", &inner, "]…]"]);
@@ -1397,48 +1403,23 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
         // Angled where the value must be given, squared where it need not — the same brackets
         // an argument uses, and for the same reason. pitchfork's `--bump` is the fleet's case.
         let exact = exact_arity(meta.extra.value_var_min, meta.extra.value_var_max);
-        if meta.extra.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
-            let name = meta
-                .extra
-                .value_names
-                .first()
-                .copied()
-                .or(meta.value_name)
-                .unwrap_or(flag.name);
-            for index in 0..exact.unwrap() {
-                append_flag_value(
-                    &mut out,
-                    name,
-                    meta.value_optional,
-                    flag.require_equals,
-                    index == 0,
-                );
-            }
-        } else if meta.extra.value_names.len() <= 1 {
-            let name = meta
-                .extra
-                .value_names
-                .first()
-                .copied()
-                .or(meta.value_name)
-                .unwrap_or(flag.name);
+        let names = meta.extra.value_names;
+        let single = names.len() <= 1;
+        // One name, written once or `exact` times, or one entry per declared name.
+        let count = if !single {
+            names.len()
+        } else {
+            exact.filter(|n| *n > 1).unwrap_or(1)
+        };
+        let only = names.first().copied().or(meta.value_name).unwrap_or(flag.name);
+        for index in 0..count {
             append_flag_value(
                 &mut out,
-                name,
+                if single { only } else { names[index] },
                 meta.value_optional,
                 flag.require_equals,
-                true,
+                index == 0,
             );
-        } else {
-            for (index, name) in meta.extra.value_names.iter().enumerate() {
-                append_flag_value(
-                    &mut out,
-                    name,
-                    meta.value_optional,
-                    flag.require_equals,
-                    index == 0,
-                );
-            }
         }
         if flag.variadic && meta.extra.value_names.len() <= 1 && exact.is_none() {
             out.push('…');
@@ -1506,31 +1487,26 @@ pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
     // it, as usage-lib writes it: `[-- COMMAND]…`, one optional thing rather than a literal
     // `--` followed by an optional word.
     let exact = exact_arity(meta.var_min, meta.var_max);
-    if meta.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
-        for index in 0..exact.unwrap() {
-            if index > 0 {
-                out.push(' ');
-            }
-            out.push(open);
-            out.push_str(arg.name);
-            out.push(close);
-        }
-    } else if meta.value_names.len() <= 1 {
-        if arg.double_dash == DoubleDash::Required {
-            put_bracketed(&mut out, open, "-- ", arg.name, close);
-        } else {
-            put_bracketed(&mut out, open, "", arg.name, close);
-        }
+    let single = meta.value_names.len() <= 1;
+    let count = if !single {
+        meta.value_names.len()
     } else {
-        if arg.double_dash == DoubleDash::Required {
-            out.push_str("-- ");
+        exact.filter(|n| *n > 1).unwrap_or(1)
+    };
+    let separator = arg.double_dash == DoubleDash::Required;
+    if !single && separator {
+        out.push_str("-- ");
+    }
+    for index in 0..count {
+        if index > 0 {
+            out.push(' ');
         }
-        for (index, name) in meta.value_names.iter().enumerate() {
-            if index > 0 {
-                out.push(' ');
-            }
-            put_bracketed(&mut out, open, "", name, close);
-        }
+        let (name, prefix) = if single {
+            (arg.name, if separator && count == 1 { "-- " } else { "" })
+        } else {
+            (meta.value_names[index], "")
+        };
+        put_bracketed(&mut out, open, prefix, name, close);
     }
     if arg.var && meta.value_names.len() <= 1 && exact.is_none() {
         out.push('…');
