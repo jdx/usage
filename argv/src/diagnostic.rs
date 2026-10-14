@@ -161,12 +161,26 @@ impl Style {
         }
     }
 
-    /// Append each piece in turn; a message given as data rather than as a `format!`.
+    /// Append a message written as a template: fixed text, with a `\u{1}` wherever one of
+    /// `args` goes, each in its own ink.
+    ///
+    /// A message built as a list of pieces spends code at each call site putting the fixed ones
+    /// on the stack. Here the fixed text is one string and the call passes only what varies.
     #[inline(never)]
-    fn put_all(self, out: &mut String, parts: &[(Ink, &str)]) {
-        for (ink, text) in parts {
-            self.put(out, *ink, text);
+    fn put_template(self, out: &mut String, template: &str, args: &[(Ink, &str)]) {
+        let mut args = args.iter();
+        let mut from = 0;
+        // Bytes, because the hole is one: a multi-byte character never contains it.
+        for (at, byte) in template.bytes().enumerate() {
+            if byte == HOLE {
+                self.put(out, Ink::Plain, &template[from..at]);
+                if let Some(&(ink, text)) = args.next() {
+                    self.put(out, ink, text);
+                }
+                from = at + 1;
+            }
         }
+        self.put(out, Ink::Plain, &template[from..]);
     }
 }
 
@@ -342,18 +356,14 @@ fn tip(out: &mut String, style: Style, noun: &str, prefix: &str, near: &[&str]) 
         return;
     }
     let one = near.len() == 1;
-    style.put_all(
+    style.put_template(
         out,
-        &[
-            (Ink::Plain, "\n  "),
-            (Ink::Valid, "tip:"),
-            (
-                Ink::Plain,
-                if one { " a similar " } else { " some similar " },
-            ),
-            (Ink::Plain, noun),
-            (Ink::Plain, if one { " exists: " } else { "s exist: " }),
-        ],
+        if one {
+            "\n  \u{1} a similar \u{1} exists: "
+        } else {
+            "\n  \u{1} some similar \u{1}s exist: "
+        },
+        &[(Ink::Valid, "tip:"), (Ink::Plain, noun)],
     );
     for (i, candidate) in near.iter().enumerate() {
         // Each separator closes the quote the previous candidate opened.
@@ -445,7 +455,7 @@ fn unexpected_flag(
     chain: &[&CommandMeta<'_>],
     capture: ValueCapture,
 ) {
-    use Ink::{Invalid, Plain, Valid};
+    use Ink::{Invalid, Valid};
     error_with(
         out,
         style,
@@ -472,15 +482,14 @@ fn unexpected_flag(
     // `tip` opens with the blank line separating the tips from the error above; when there was
     // no spelling to suggest, this supplies it instead.
     if as_value {
-        style.put_all(
+        style.put_template(
             out,
-            &[
-                (Plain, if near.is_empty() { "\n  " } else { "  " }),
-                (Valid, "tip:"),
-                (Plain, " to pass '"),
-                (Invalid, typed),
-                (Plain, "' as a value, use '"),
-            ],
+            if near.is_empty() {
+                "\n  \u{1} to pass '\u{1}' as a value, use '"
+            } else {
+                "  \u{1} to pass '\u{1}' as a value, use '"
+            },
+            &[(Valid, "tip:"), (Invalid, typed)],
         );
         style.put_joined(out, Valid, &["-- ", typed]);
         push_all(out, &["'\n"]);
@@ -882,30 +891,25 @@ pub fn render(
 pub fn render_warnings(warnings: &[crate::warn::Warning<'_>], style: Style) -> String {
     let mut out = String::new();
     for warning in warnings {
-        style.put_all(
+        style.put_template(
             &mut out,
+            "\u{1} \u{1} is deprecated",
             &[
                 (Ink::Warning, "warning:"),
-                (Ink::Plain, " "),
                 (Ink::Invalid, &crate::warn::subject(warning)),
-                (Ink::Plain, " is deprecated"),
             ],
         );
         if let Some(at) = warning.remove_at {
-            style.put_all(
-                &mut out,
-                &[(Ink::Plain, ", removed at "), (Ink::Literal, at)],
-            );
+            style.put_template(&mut out, ", removed at \u{1}", &[(Ink::Literal, at)]);
         }
         // A replacement is something to type, so it is coloured like anything else that would
         // have worked; an author's own message is prose, and colouring a sentence green would
         // claim more about it than is known.
         match crate::warn::tail(warning) {
             Some(crate::warn::Tail::Message(message)) => push_all(&mut out, &[": ", message]),
-            Some(crate::warn::Tail::Replacement(replacement)) => style.put_all(
-                &mut out,
-                &[(Ink::Plain, ": use "), (Ink::Valid, replacement)],
-            ),
+            Some(crate::warn::Tail::Replacement(replacement)) => {
+                style.put_template(&mut out, ": use \u{1}", &[(Ink::Valid, replacement)])
+            }
             None => {}
         }
         push_all(&mut out, &["\n"]);
@@ -1010,41 +1014,23 @@ fn render_projected<'a>(
     )
 }
 
-/// An `error: …` line written as a template: fixed text with a `\u{1}` wherever one of `args`
-/// goes, each in its own ink.
+/// An `error: …` line written as a template, as [`Style::put_template`] reads one.
 ///
-/// Every failure that names something the user typed is shaped like this, and a message built as
-/// a list of pieces spends code at each call site putting the fixed ones on the stack. Here the
-/// fixed text is one string and the call passes only what varies.
+/// Every failure that names something the user typed is shaped like this.
 #[inline(never)]
 fn error_with(out: &mut String, style: Style, template: &str, args: &[(Ink, &str)]) {
-    style.put_all(out, &[(Ink::Error, "error:"), (Ink::Plain, " ")]);
-    let mut args = args.iter();
-    let mut from = 0;
-    // Bytes, because the hole is one: a multi-byte character never contains it.
-    for (at, byte) in template.bytes().enumerate() {
-        if byte == HOLE {
-            style.put(out, Ink::Plain, &template[from..at]);
-            if let Some(&(ink, text)) = args.next() {
-                style.put(out, ink, text);
-            }
-            from = at + 1;
-        }
-    }
-    style.put(out, Ink::Plain, &template[from..]);
+    style.put_template(out, "\u{1} ", &[(Ink::Error, "error:")]);
+    style.put_template(out, template, args);
     push_all(out, &["\n"]);
 }
 
-/// Where an argument goes in an [`error_with`] template.
+/// Where an argument goes in a [`Style::put_template`] template.
 const HOLE: u8 = 1;
 
 /// An indented line under the error, such as a missing argument's name.
 #[inline(never)]
 fn listed_line(out: &mut String, style: Style, text: &str) {
-    style.put_all(
-        out,
-        &[(Ink::Plain, "  "), (Ink::Valid, text), (Ink::Plain, "\n")],
-    );
+    style.put_template(out, "  \u{1}\n", &[(Ink::Valid, text)]);
 }
 
 /// The message for an error at the command `resolved` ends on.
@@ -1232,13 +1218,8 @@ fn describe(
             }
             push_all(&mut out, &["  [possible values: "]);
             for (i, choice) in choices.iter().enumerate() {
-                style.put_all(
-                    &mut out,
-                    &[
-                        (Plain, if i == 0 { "" } else { ", " }),
-                        (Ink::Valid, choice),
-                    ],
-                );
+                push_all(&mut out, &[if i == 0 { "" } else { ", " }]);
+                style.put(&mut out, Ink::Valid, choice);
             }
             push_all(&mut out, &["]\n"]);
             if let Some(typed) = typed {
@@ -1337,24 +1318,16 @@ fn describe(
             (Some((names, _)), Some(meta)) => crate::help::usage_line(names, meta),
             _ => path(),
         };
-        style.put_all(
+        style.put_template(
             &mut out,
-            &[
-                (Plain, "\n"),
-                (Ink::Heading, "Usage:"),
-                (Plain, " "),
-                (Literal, &usage),
-                (Plain, "\n"),
-            ],
+            "\n\u{1} \u{1}\n",
+            &[(Ink::Heading, "Usage:"), (Literal, &usage)],
         );
     }
-    style.put_all(
+    style.put_template(
         &mut out,
-        &[
-            (Plain, "\nFor more information, try '"),
-            (Literal, "--help"),
-            (Plain, "'.\n"),
-        ],
+        "\nFor more information, try '\u{1}'.\n",
+        &[(Literal, "--help")],
     );
     out
 }
