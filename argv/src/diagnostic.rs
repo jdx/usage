@@ -269,6 +269,7 @@ fn long_names_in_scope<'a>(chain: &[&'a CommandMeta<'a>]) -> Vec<&'a str> {
 /// Written out rather than depended on, because this crate takes no dependencies.
 fn jaro(a: &str, b: &str) -> f64 {
     // Each character with whether it has been matched yet, so that one lookup gets both.
+    #[inline(never)]
     fn marked(text: &str) -> Vec<(char, bool)> {
         let mut out = Vec::new();
         for c in text.chars() {
