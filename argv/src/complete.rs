@@ -17,7 +17,7 @@
 
 use crate::spec::{ArgMeta, CommandMeta, CommandSelector, FlagMeta, Spec, SpecView};
 pub use crate::spec::{Candidate, CandidateKind, CompleteCtx, Completer};
-use crate::text::{push_all, push_char, replace_char, same_name};
+use crate::text::{push_all, push_char, replace_char, same_name, split_once_eq};
 use crate::{Arg, Command, Error, Flag, Parser};
 use core::future::Future;
 use core::pin::Pin;
@@ -906,7 +906,7 @@ impl CompletionRequest {
             // `--line=LINE` as well as `--line LINE`: the `run=` a derived CLI writes for a typed
             // completer passes the line joined, and a request read without it would complete an
             // empty line.
-            let (option, joined) = match arg.split_once('=') {
+            let (option, joined) = match split_once_eq(&arg) {
                 Some((option, value)) if option.starts_with("--") => (option, Some(value)),
                 _ => (&*arg, None),
             };
@@ -1966,7 +1966,7 @@ fn attached_long_value<'t, 'p>(
     position: &Position<'t>,
     token: &'p str,
 ) -> Option<(&'t Flag<'t>, &'p str, &'p str)> {
-    let (form, prefix) = token.split_once('=')?;
+    let (form, prefix) = split_once_eq(token)?;
     let long = form.strip_prefix("--")?;
     position
         .flags

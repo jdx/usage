@@ -215,7 +215,8 @@ enum Ink {
 /// attached, and `-j=4` is a value clap keeps.
 fn flag_named(token: &str) -> &str {
     match token.strip_prefix("--") {
-        Some(body) => match body.find('=') {
+        // Bytes, because `=` is one: `str::find` expands to a searcher for a single character.
+        Some(body) => match body.bytes().position(|b| b == b'=') {
             Some(i) => &token[..i + 2],
             None => token,
         },

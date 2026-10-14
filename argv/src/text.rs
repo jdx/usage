@@ -42,3 +42,13 @@ pub(crate) fn same_name(a: &str, b: &str) -> bool {
 pub(crate) fn replace_char(text: &str, from: char, to: &str) -> String {
     text.replace(from, to)
 }
+
+/// `text` cut at its first `=`, which is not part of either half. One copy of the search for the
+/// places a `--name=value` word is taken apart, rather than a character search expanded at each.
+#[cfg(feature = "complete")]
+#[inline(never)]
+pub(crate) fn split_once_eq(text: &str) -> Option<(&str, &str)> {
+    // Bytes, because `=` is one: a multi-byte character never contains it.
+    let at = text.bytes().position(|byte| byte == b'=')?;
+    Some((&text[..at], &text[at + 1..]))
+}
