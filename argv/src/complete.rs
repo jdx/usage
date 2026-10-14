@@ -362,7 +362,7 @@ fn for_name_at<'a>(
     };
     let completer = at_cursor.or(fallback)?;
     let mut found = completer(ctx);
-    found.retain(|c| c.value.starts_with(ctx.prefix));
+    keep_prefixed(&mut found, ctx.prefix);
     Some(found)
 }
 
@@ -1504,7 +1504,7 @@ pub async fn complete_with<'a>(
         CompletionHandler::Sync(completer) => completer(&ctx),
         CompletionHandler::Async(completer) => completer(ctx).await,
     };
-    dynamic.retain(|candidate| candidate.value.starts_with(value_prefix));
+    keep_prefixed(&mut dynamic, value_prefix);
     if let Some((_, form, _)) = attached {
         attach_candidates(&mut dynamic, form);
     } else if let Some((sigil, _)) = sigil {
@@ -1561,7 +1561,7 @@ async fn complete_named_with<'a>(
         };
         candidates.append(&mut dynamic);
     }
-    candidates.retain(|candidate| candidate.value.starts_with(value_prefix));
+    keep_prefixed(&mut candidates, value_prefix);
     if let Some((_, form, _)) = attached {
         attach_candidates(&mut candidates, form);
     } else if let Some((sigil, _)) = sigil {
@@ -1574,6 +1574,13 @@ async fn complete_named_with<'a>(
         candidates,
         files: None,
     }
+}
+
+/// Drop the candidates that do not start with what has been typed. One copy for every place a
+/// completer's answer is filtered, since each `retain` with a closure of its own is compiled again.
+#[inline(never)]
+fn keep_prefixed(candidates: &mut Vec<Candidate<'_>>, prefix: &str) {
+    candidates.retain(|candidate| candidate.value.starts_with(prefix));
 }
 
 /// Sort candidates by insertion value and merge presentation metadata from duplicates.
@@ -2222,7 +2229,7 @@ fn declared<'a>(
         command_path: &path,
     };
     let mut found = completer(&ctx);
-    found.retain(|c| c.value.starts_with(token));
+    keep_prefixed(&mut found, token);
     found
 }
 
