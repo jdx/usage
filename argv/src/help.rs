@@ -1727,7 +1727,7 @@ fn page_sections(
         own_rows.push((flag, usage));
     }
     for (_, usage) in &inherited {
-        flag_longest = flag_longest.max(Some(char_count(&usage)));
+        flag_longest = flag_longest.max(Some(char_count(usage)));
     }
     let own = own_rows;
     let arg_col = arg_longest.map_or(0, |longest| usage_column_width(longest, width));
@@ -2165,7 +2165,7 @@ fn commands_section(
         0
     };
     for (_, sub) in &lines {
-        longest = longest.max(char_count(&sub.cmd.name));
+        longest = longest.max(char_count(sub.cmd.name));
     }
     let col = if lines.is_empty() && !show_help {
         0
@@ -2696,7 +2696,7 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     // with a comma after: it rendered `jobs: -j,--parallel`, losing the space entirely, because
     // the glued string is already wider than the column.
     let bare_short = short.is_empty()
-        || (short.starts_with('-') && !short.starts_with("--") && char_count(&short) == 2);
+        || (short.starts_with('-') && !short.starts_with("--") && char_count(short) == 2);
     if !bare_short {
         return rest;
     }
@@ -2878,9 +2878,9 @@ fn entry(
     let room = width.saturating_sub(indent);
     // A long outlier leaves the shared column to ordinary entries, but keeps its own help on
     // the row when at least a useful line of prose remains.
-    let overflow = char_count(&usage) > col;
+    let overflow = char_count(usage) > col;
     let inline_start = if overflow {
-        2 + char_count(&usage) + 2
+        2 + char_count(usage) + 2
     } else {
         indent
     };
@@ -2929,7 +2929,7 @@ fn entry(
     out.put_str("  ");
     out.put_str(painted);
     // Padded by characters, measured on the plain spelling: a usage can hold a `…`.
-    for _ in 0..col.saturating_sub(char_count(&usage)) {
+    for _ in 0..col.saturating_sub(char_count(usage)) {
         out.put_char(' ');
     }
     out.put_str("  ");
@@ -3065,7 +3065,7 @@ fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
             ),
             None => ("", trimmed),
         };
-        let prefix_width = char_count(&prefix);
+        let prefix_width = char_count(prefix);
         let body_width = width.saturating_sub(prefix_width);
         // The line under construction, prefix included; `words` says whether it holds any yet.
         line.clear();
@@ -3073,7 +3073,7 @@ fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
         let mut words = false;
         let mut line_width = 0;
         for word in body.split_whitespace() {
-            let word_width = char_count(&word);
+            let word_width = char_count(word);
             if words && line_width + 1 + word_width > body_width {
                 emit(&line);
                 emitted = true;
@@ -3183,7 +3183,7 @@ fn admonitions(out: &mut String, blocks: &[AdmonitionMeta<'_>], width: usize) {
 }
 
 fn write_labelled(out: &mut String, label: &str, text: &str, width: usize, indent: usize) {
-    let continuation = indent + char_count(&label) + 2;
+    let continuation = indent + char_count(label) + 2;
     let mut lead = String::new();
     put_pad(&mut lead, indent);
     put(&mut lead, &[label, ": "]);
