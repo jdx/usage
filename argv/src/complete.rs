@@ -1612,23 +1612,20 @@ fn keep_prefixed(candidates: &mut Vec<Candidate<'_>>, prefix: &str) {
 /// display label or description.
 fn sort_and_dedup_candidates(candidates: &mut Vec<Candidate<'_>>) {
     crate::order::sort_by(candidates, &mut |a, b| a.cmp(b));
-    let mut deduped: Vec<Candidate<'_>> = Vec::with_capacity(candidates.len());
-    for mut candidate in candidates.drain(..) {
-        if let Some(existing) = deduped
-            .last_mut()
-            .filter(|existing| existing.value == candidate.value)
-        {
-            if existing.display.is_none() {
-                existing.display = candidate.display.take();
-            }
-            if existing.description.is_none() {
-                existing.description = candidate.description.take();
-            }
-        } else {
-            deduped.push(candidate);
+    // `dup` is the later of two neighbours with one value: it goes, and `kept` takes what it
+    // had that `kept` lacked.
+    candidates.dedup_by(|dup, kept| {
+        if kept.value != dup.value {
+            return false;
         }
-    }
-    *candidates = deduped;
+        if kept.display.is_none() {
+            kept.display = dup.display.take();
+        }
+        if kept.description.is_none() {
+            kept.description = dup.description.take();
+        }
+        true
+    });
 }
 
 fn overlay_for_name<'o>(
