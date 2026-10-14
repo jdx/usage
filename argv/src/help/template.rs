@@ -197,36 +197,36 @@ pub(super) fn substitute(
     style: Style,
     mut section: impl FnMut(&str) -> Option<String>,
 ) -> String {
-    if check(template).is_err() {
-        return substitute_sections_only(template, section);
-    }
+    // A template whose style markup does not hold together has none: it is sections and text,
+    // and every `{$` in it is literal.
+    let styled = check(template).is_ok();
     let mut marked = String::with_capacity(template.len());
     let mut rest = template;
     loop {
         let placeholder = rest.find("{{").map(|at| (at, Event::Placeholder));
-        let tag = next_style_event(rest);
+        let tag = if styled { next_style_event(rest) } else { None };
         let Some((at, event)) = earliest(placeholder, tag) else {
-            push_escaped(&mut marked, rest);
+            push_escaped(&mut marked, rest, styled);
             break;
         };
-        push_escaped(&mut marked, &rest[..at]);
+        push_escaped(&mut marked, &rest[..at], styled);
         rest = &rest[at..];
         match event {
             Event::Placeholder => {
                 let after = &rest[2..];
                 let Some(end) = after.find("}}") else {
-                    push_escaped(&mut marked, rest);
+                    push_escaped(&mut marked, rest, styled);
                     break;
                 };
                 match section(after[..end].trim()) {
-                    Some(text) => push_escaped(&mut marked, &text),
-                    None => push_escaped(&mut marked, &rest[..2 + end + 2]),
+                    Some(text) => push_escaped(&mut marked, &text, styled),
+                    None => push_escaped(&mut marked, &rest[..2 + end + 2], styled),
                 }
                 rest = &after[end + 2..];
             }
             Event::Open => {
                 let Some(end) = rest.find('}') else {
-                    push_escaped(&mut marked, rest);
+                    push_escaped(&mut marked, rest, styled);
                     break;
                 };
                 marked.push(MARK);
@@ -242,16 +242,21 @@ pub(super) fn substitute(
                 rest = &rest[4..];
             }
             Event::EscapeOpen => {
-                push_escaped(&mut marked, "{$");
+                push_escaped(&mut marked, "{$", styled);
                 rest = &rest[3..];
             }
             Event::EscapeClose => {
-                push_escaped(&mut marked, "{/$}");
+                push_escaped(&mut marked, "{/$}", styled);
                 rest = &rest[5..];
             }
         }
     }
-    render_marked(&collapse_blank_runs(&marked), style)
+    let collapsed = collapse_blank_runs(&marked, styled);
+    if styled {
+        render_marked(&collapsed, style)
+    } else {
+        collapsed
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -284,8 +289,10 @@ fn next_style_event(text: &str) -> Option<(usize, Event)> {
     .map(|((at, _), event)| (at, event))
 }
 
-fn push_escaped(out: &mut String, text: &str) {
-    if !text.contains(MARK) {
+/// `text` for the marked page: a `MARK` already in it doubled, so it reads as text rather than
+/// as the start of a tag. A page with no tags is not read for them, and takes the text as is.
+fn push_escaped(out: &mut String, text: &str, styled: bool) {
+    if !styled || !text.contains(MARK) {
         out.push_str(text);
         return;
     }
@@ -297,13 +304,21 @@ fn push_escaped(out: &mut String, text: &str) {
     }
 }
 
-fn collapse_blank_runs(page: &str) -> String {
+/// The page with every run of blank lines cut to one and none left at either end. `markers`
+/// says the page carries style tags: a line of nothing but tags is blank, and its tags stay.
+fn collapse_blank_runs(page: &str, markers: bool) -> String {
     let mut out = String::with_capacity(page.len());
     let mut blank = false;
     let mut wrote_visible = false;
     for line in page.split('\n') {
-        if visible_is_blank(line) {
-            push_markers(&mut out, line);
+        if if markers {
+            visible_is_blank(line)
+        } else {
+            line.trim().is_empty()
+        } {
+            if markers {
+                push_markers(&mut out, line);
+            }
             blank = wrote_visible;
             continue;
         }
@@ -410,49 +425,6 @@ fn render_marked(marked: &str, style: Style) -> String {
         style.coloured,
         stack.last().copied().unwrap_or_default(),
     );
-    out
-}
-
-fn substitute_sections_only(
-    template: &str,
-    mut section: impl FnMut(&str) -> Option<String>,
-) -> String {
-    let mut out = String::with_capacity(template.len());
-    let mut rest = template;
-    while let Some(at) = rest.find("{{") {
-        out.push_str(&rest[..at]);
-        let after = &rest[at + 2..];
-        let Some(end) = after.find("}}") else {
-            out.push_str(&rest[at..]);
-            return collapse_plain_blank_runs(&out);
-        };
-        match section(after[..end].trim()) {
-            Some(text) => out.push_str(&text),
-            None => out.push_str(&rest[at..at + 2 + end + 2]),
-        }
-        rest = &after[end + 2..];
-    }
-    out.push_str(rest);
-    collapse_plain_blank_runs(&out)
-}
-
-fn collapse_plain_blank_runs(page: &str) -> String {
-    let mut out = String::with_capacity(page.len());
-    let mut blank = false;
-    for line in page.split('\n') {
-        if line.trim().is_empty() {
-            blank = !out.is_empty();
-            continue;
-        }
-        if !out.is_empty() {
-            out.push('\n');
-            if blank {
-                out.push('\n');
-            }
-        }
-        blank = false;
-        out.push_str(line);
-    }
     out
 }
 
