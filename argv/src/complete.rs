@@ -900,7 +900,7 @@ impl CompletionRequest {
         let mut bash_word = None;
         let mut bash_wordbreaks = None;
         let mut words: Option<Vec<String>> = None;
-        let mut rest = argv[1..].iter();
+        let mut rest = argv.get(1..).unwrap_or_default().iter();
         while let Some(arg) = rest.next() {
             let arg = arg.to_string_lossy();
             // `--line=LINE` as well as `--line LINE`: the `run=` a derived CLI writes for a typed
@@ -965,7 +965,7 @@ impl CompletionRequest {
                     words.push(String::new());
                 }
                 let cword = words.len() - 1;
-                let prefix = words[cword].clone();
+                let prefix = words.get(cword).cloned().unwrap_or_default();
                 Split {
                     words,
                     cword,
@@ -1001,22 +1001,25 @@ fn mark_bash_nonbreaking_colons(line: &str) -> String {
     // one of them, whether it is read here or skipped as the character after an escape.
     let mut marked = line.as_bytes().to_vec();
     let mut quote = None;
-    let mut i = 0;
-    while i < marked.len() {
-        let c = marked[i];
+    // Whether the byte in hand is the one a backslash escaped, which is skipped as a character
+    // of its own but may still be a colon to mark.
+    let mut escaped = false;
+    for byte in &mut marked {
+        let c = *byte;
+        if escaped {
+            escaped = false;
+            if c == b':' {
+                *byte = BASH_NONBREAKING_COLON as u8;
+            }
+            continue;
+        }
         match quote {
             Some(q) if c == q => quote = None,
-            Some(_) if c == b':' => marked[i] = BASH_NONBREAKING_COLON as u8,
-            Some(b'"') | None if c == b'\\' => {
-                i += 1;
-                if marked.get(i) == Some(&b':') {
-                    marked[i] = BASH_NONBREAKING_COLON as u8;
-                }
-            }
+            Some(_) if c == b':' => *byte = BASH_NONBREAKING_COLON as u8,
+            Some(b'"') | None if c == b'\\' => escaped = true,
             None if c == b'\'' || c == b'"' => quote = Some(c),
             _ => {}
         }
-        i += 1;
     }
     String::from_utf8(marked).unwrap_or_default()
 }
@@ -1061,11 +1064,20 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
             .match_indices(':')
             .rev()
             .find_map(|(colon, _)| {
-                let fragment =
-                    replace_char(&marked_prefix[colon + 1..], BASH_NONBREAKING_COLON, ":");
+                let fragment = replace_char(
+                    marked_prefix.get(colon + 1..).unwrap_or_default(),
+                    BASH_NONBREAKING_COLON,
+                    ":",
+                );
                 ((fragment.is_empty() && word == ":")
                     || (!fragment.is_empty() && word.starts_with(&fragment)))
-                .then(|| replace_char(&marked_prefix[..=colon], BASH_NONBREAKING_COLON, ":"))
+                .then(|| {
+                    replace_char(
+                        marked_prefix.get(..=colon).unwrap_or_default(),
+                        BASH_NONBREAKING_COLON,
+                        ":",
+                    )
+                })
             });
         if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
             push_all(&mut out, &["\u{1}prefix\t", &prefix, "\n"]);
@@ -1993,14 +2005,22 @@ fn restarted(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
     let Some(token) = meta.and_then(|m| m.extra.restart_token) else {
         return false;
     };
-    split.cword > 0 && split.words[split.cword - 1] == token
+    split
+        .words
+        .get(split.cword.wrapping_sub(1))
+        .is_some_and(|word| word == token)
 }
 
 fn restart_seen(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
     let Some(token) = meta.and_then(|m| m.extra.restart_token) else {
         return false;
     };
-    split.words[..split.cword].iter().any(|word| word == token)
+    split
+        .words
+        .get(..split.cword)
+        .unwrap_or_default()
+        .iter()
+        .any(|word| word == token)
 }
 
 /// Add one candidate to a list, copying `value`. One routine for every place a list is built, so
@@ -2397,7 +2417,7 @@ impl Split {
     /// user has not finished thinking about, and a half-typed tail behind the cursor should
     /// not decide what can be typed at it.
     pub fn walked(&self) -> &[String] {
-        &self.words[..=self.cword]
+        self.words.get(..=self.cword).unwrap_or(&self.words)
     }
 
     /// The words a parser should walk: after the program name, before the cursor's word.
@@ -2408,7 +2428,7 @@ impl Split {
     /// user has not finished, when the question is what that word could be.
     pub fn argv(&self) -> &[String] {
         let start = 1.min(self.cword);
-        &self.words[start..self.cword]
+        self.words.get(start..self.cword).unwrap_or_default()
     }
 }
 
@@ -2463,8 +2483,11 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     // PowerShell writes a quote inside a quoted string by doubling it; the
                     // POSIX-shaped shells have no such rule, and there a second quote always
                     // ends the string.
-                    if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some('\'') {
-                        reached!(chars.peek().expect("peeked just above").0);
+                    if let Some(&(j, _)) = chars
+                        .peek()
+                        .filter(|&&(_, n)| shell.doubles_quotes() && n == '\'')
+                    {
+                        reached!(j);
                         push_char(&mut word, '\'');
                         chars.next();
                     } else {
@@ -2476,8 +2499,11 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
             }
             Some(q) => {
                 if c == q {
-                    if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some(q) {
-                        reached!(chars.peek().expect("peeked just above").0);
+                    if let Some(&(j, _)) = chars
+                        .peek()
+                        .filter(|&&(_, n)| shell.doubles_quotes() && n == q)
+                    {
+                        reached!(j);
                         push_char(&mut word, q);
                         chars.next();
                     } else {
