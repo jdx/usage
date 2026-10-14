@@ -4,8 +4,6 @@
 //! come from KDL rather than a Rust string literal. The parser touches only the template itself;
 //! substituted help sections are opaque, so prose that happens to contain `{$red}` stays prose.
 
-use std::borrow::Cow;
-
 use super::{Palette, Style};
 
 const MARK: char = '\u{2}';
@@ -49,25 +47,27 @@ struct AnsiStyle {
 }
 
 impl AnsiStyle {
-    fn apply(mut self, specification: &str) -> Option<Self> {
-        if specification.is_empty() {
-            return None;
-        }
+    /// `specification` laid over this style, `+` joining its parts. A role in it paints as the
+    /// `palette` says, and what the palette says is taken as written: its own roles mean their
+    /// defaults. `None` when any part is not a style.
+    fn apply(mut self, specification: &str, palette: Palette) -> Option<Self> {
         for fragment in specification.split('+') {
-            // Positions in `STYLES`: the four roles, then the eight colours and their bright
-            // twins in ANSI order, then the four attributes.
-            let index = STYLES.iter().position(|name| *name == fragment)?;
-            match index {
-                0..=3 => {
-                    self.foreground = Some([33, 32, 35, 32][index]);
-                    self.bold = true;
+            for atom in mapped_fragment(fragment, palette).split('+') {
+                // Positions in `STYLES`: the four roles, then the eight colours and their
+                // bright twins in ANSI order, then the four attributes.
+                let index = STYLES.iter().position(|name| *name == atom)?;
+                match index {
+                    0..=3 => {
+                        self.foreground = Some([33, 32, 35, 32][index]);
+                        self.bold = true;
+                    }
+                    4..=11 => self.foreground = Some(26 + index as u8),
+                    12..=19 => self.foreground = Some(78 + index as u8),
+                    20 => self.bold = true,
+                    21 => self.dim = true,
+                    22 => self.italic = true,
+                    _ => self.underline = true,
                 }
-                4..=11 => self.foreground = Some(26 + index as u8),
-                12..=19 => self.foreground = Some(78 + index as u8),
-                20 => self.bold = true,
-                21 => self.dim = true,
-                22 => self.italic = true,
-                _ => self.underline = true,
             }
         }
         Some(self)
@@ -118,21 +118,6 @@ fn mapped_fragment(fragment: &str, palette: Palette) -> &str {
     }
 }
 
-fn expand_spec(specification: &str, palette: Palette) -> Cow<'_, str> {
-    // One fragment, which is every role tag and nearly every other: nothing to join.
-    if !specification.contains('+') {
-        return Cow::Borrowed(mapped_fragment(specification, palette));
-    }
-    let mut out = String::with_capacity(specification.len());
-    for (i, fragment) in specification.split('+').enumerate() {
-        if i > 0 {
-            out.push('+');
-        }
-        out.push_str(mapped_fragment(fragment, palette));
-    }
-    Cow::Owned(out)
-}
-
 pub(super) fn semantic(specification: &str, text: &str, style: Style) -> String {
     let mut out = String::with_capacity(text.len() + 16);
     semantic_into(&mut out, specification, text, style);
@@ -145,9 +130,8 @@ pub(super) fn semantic_into(out: &mut String, specification: &str, text: &str, s
         out.push_str(text);
         return;
     }
-    let specification = expand_spec(specification, style.palette);
     AnsiStyle::default()
-        .apply(specification.as_ref())
+        .apply(specification, style.palette)
         .unwrap_or_default()
         .write(out);
     out.push_str(text);
@@ -171,7 +155,7 @@ pub(super) fn check(template: &str) -> Result<(), &'static str> {
                 if specification.is_empty() {
                     return Err("an empty style tag `{$}`");
                 }
-                if AnsiStyle::default().apply(specification).is_none() {
+                if AnsiStyle::default().apply(specification, Palette::DEFAULT).is_none() {
                     return Err("an unknown help-template style");
                 }
                 depth += 1;
@@ -395,12 +379,11 @@ fn render_marked(marked: &str, style: Style) -> String {
         };
         let marker = &after[..end];
         if let Some(specification) = marker.strip_prefix('+') {
-            let specification = expand_spec(specification, style.palette);
             let next = stack
                 .last()
                 .copied()
                 .unwrap_or_default()
-                .apply(specification.as_ref())
+                .apply(specification, style.palette)
                 .unwrap_or_default();
             stack.push(next);
             if style.coloured {
