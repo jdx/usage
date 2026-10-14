@@ -2066,7 +2066,7 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
         };
         if shorts {
             for &short in flag.shorts {
-                if meta.is_some_and(|m| m.extra.hidden_shorts.contains(&short)) {
+                if meta.is_some_and(|m| crate::has_byte(m.extra.hidden_shorts, short)) {
                     continue;
                 }
                 // Written out rather than with `is_none_or`, which this crate's MSRV predates.

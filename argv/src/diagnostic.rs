@@ -537,7 +537,7 @@ fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String 
     });
     let found = meta.flags.iter().find(|flag| {
         long.is_some_and(|long| flag.flag.longs.contains(&long) || flag.flag.negate == Some(long))
-            || short.is_some_and(|short| flag.flag.shorts.contains(&short))
+            || short.is_some_and(|short| crate::has_byte(flag.flag.shorts, short))
     });
     let Some(flag) = found else {
         return selector.to_string();
@@ -729,7 +729,7 @@ fn flag_span(
         }
         let shorts = bytes.strip_prefix(b"-")?;
         return shorts.iter().enumerate().find_map(|(offset, short)| {
-            flag.shorts.contains(short).then_some(ArgvSpan {
+            crate::has_byte(flag.shorts, *short).then_some(ArgvSpan {
                 index,
                 start: offset + 1,
                 end: offset + 2,

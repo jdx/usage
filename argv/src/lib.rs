@@ -1340,7 +1340,7 @@ pub fn is_version_arg(cmd: &Command<'_>, word: &OsStr) -> bool {
         return long == b"version" && cmd.version && !cmd.disable_version_flag;
     }
     if let [b'-', short] = token {
-        if let Some(flag) = cmd.flags.iter().find(|flag| flag.shorts.contains(short)) {
+        if let Some(flag) = cmd.flags.iter().find(|flag| has_byte(flag.shorts, *short)) {
             return is_version_flag(flag);
         }
         return *short == b'V' && cmd.version && !cmd.disable_version_flag;
@@ -2046,7 +2046,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                             .flags
                             .iter()
                             .copied()
-                            .find(|f| f.shorts.contains(byte))
+                            .find(|f| has_byte(f.shorts, *byte))
                     }) else {
                         return at;
                     };
@@ -2278,7 +2278,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             if self.find_short(*byte).is_some() {
                 return true;
             }
-            match default.flags.iter().find(|f| f.shorts.contains(byte)) {
+            match default.flags.iter().find(|f| has_byte(f.shorts, *byte)) {
                 Some(flag) if !flag.takes_value => {}
                 _ => break,
             }
@@ -3083,7 +3083,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         let mut answers = |f: &'t Flag<'t>| match want {
             Want::Long(name) => f.longs.iter().any(|l| l.as_bytes() == name),
             Want::Negation(name) => f.negate.is_some_and(|n| n.as_bytes() == name),
-            Want::Short(byte) => f.shorts.contains(&byte),
+            Want::Short(byte) => has_byte(f.shorts, byte),
             Want::All => {
                 all.push(f);
                 false
@@ -3124,7 +3124,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                     .flags
                     .iter()
                     .copied()
-                    .find(|f| f.shorts.contains(&byte))
+                    .find(|f| has_byte(f.shorts, byte))
             })
         {
             return Some(flag);
@@ -3172,6 +3172,20 @@ enum Want<'a> {
     Negation(&'a [u8]),
     Short(u8),
     All,
+}
+
+/// Whether `bytes` holds `wanted`.
+///
+/// A loop of its own rather than `<[u8]>::contains`, which expands at each call to a
+/// word-at-a-time search tuned for long slices. A flag has one or two short letters.
+#[inline]
+pub(crate) fn has_byte(bytes: &[u8], wanted: u8) -> bool {
+    for &byte in bytes {
+        if byte == wanted {
+            return true;
+        }
+    }
+    false
 }
 
 /// View a token as bytes.
