@@ -1029,14 +1029,22 @@ fn find_str(text: &str, needle: &str) -> Option<usize> {
         .position(|window| window == needle)
 }
 
-/// The first line of `text`, and what follows its newline: `None` when there is no newline.
-/// The lines of a page are walked through this one scan rather than a `split` at each walk.
+/// `text` up to the first `separator`, and what follows it: `None` when there is no separator.
+/// Pieces are walked through this one scan rather than a `split` at each walk.
 #[inline(never)]
-fn split_line(text: &str) -> (&str, Option<&str>) {
-    match find_char(text, '\n') {
-        Some(at) => (head(text, at), Some(tail(text, at + 1))),
+fn split_first(text: &str, separator: char) -> (&str, Option<&str>) {
+    let mut buf = [0u8; 4];
+    let separator = separator.encode_utf8(&mut buf);
+    match find_str(text, separator) {
+        Some(at) => (head(text, at), Some(tail(text, at + separator.len()))),
         None => (text, None),
     }
+}
+
+/// The first line of `text`, and what follows its newline.
+#[inline(always)]
+fn split_line(text: &str) -> (&str, Option<&str>) {
+    split_first(text, '\n')
 }
 
 /// The lines of `text`, as `str::lines` gives them, collected: its iterator expands into a copy

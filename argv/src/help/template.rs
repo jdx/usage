@@ -5,7 +5,8 @@
 //! substituted help sections are opaque, so prose that happens to contain `{$red}` stays prose.
 
 use super::{
-    Palette, PutStr as _, Style, Text as _, find_char, find_str, head, slice, split_line, tail,
+    Palette, PutStr as _, Style, Text as _, find_char, find_str, head, slice, split_first,
+    split_line, tail,
 };
 
 const MARK: char = '\u{2}';
@@ -76,8 +77,14 @@ impl AnsiStyle {
     /// `palette` says, and what the palette says is taken as written: its own roles mean their
     /// defaults. `None` when any part is not a style.
     fn apply(mut self, specification: &str, palette: Palette) -> Option<Self> {
-        for fragment in specification.split('+') {
-            for atom in mapped_fragment(fragment, palette).split('+') {
+        let mut fragments = Some(specification);
+        while let Some(remaining) = fragments {
+            let (fragment, next) = split_first(remaining, '+');
+            fragments = next;
+            let mut atoms = Some(mapped_fragment(fragment, palette));
+            while let Some(remaining) = atoms {
+                let (atom, next) = split_first(remaining, '+');
+                atoms = next;
                 // Positions in `STYLES`: the four roles, then the eight colours and their
                 // bright twins in ANSI order, then the four attributes.
                 let index = style_index(atom)?;
@@ -473,12 +480,17 @@ fn push_content(out: &mut String, text: &str, coloured: bool, active: AnsiStyle)
         };
         out.put_str(head(sequence, end + 1));
         let parameters = slice(sequence, 2, end);
-        if parameters.split(';').any(|parameter| {
-            matches!(
+        let mut resets = false;
+        let mut remaining = Some(parameters);
+        while let Some(list) = remaining {
+            let (parameter, next) = split_first(list, ';');
+            remaining = next;
+            resets |= matches!(
                 parameter,
                 "" | "0" | "22" | "23" | "24" | "25" | "27" | "28" | "29" | "39" | "49"
-            )
-        }) {
+            );
+        }
+        if resets {
             active.write(out);
         }
         rest = tail(sequence, end + 1);
