@@ -123,16 +123,10 @@ impl Style {
     /// every program, that they do not want this. `CLICOLOR_FORCE` is the other direction, for a
     /// pipe that ends up somewhere that does render colour.
     pub fn auto() -> Style {
-        use std::io::IsTerminal as _;
-        let forced = std::env::var_os("CLICOLOR_FORCE").is_some_and(|v| v != "0");
-        let refused = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
-        if refused {
-            return Style::PLAIN;
-        }
-        if forced || std::io::stderr().is_terminal() {
-            Style::COLOURED
-        } else {
-            Style::PLAIN
+        // The one decision help makes for its own stderr output, rather than a second copy of
+        // it: the two read the same environment and have to agree.
+        Style {
+            coloured: crate::help::Style::auto_stderr().is_coloured(),
         }
     }
 

@@ -570,6 +570,11 @@ impl Style {
         Self::auto_for(std::io::stderr().is_terminal())
     }
 
+    /// Whether this style colours, for the diagnostics, which share the environment's say.
+    pub(crate) const fn is_coloured(self) -> bool {
+        self.coloured
+    }
+
     fn auto_for(is_terminal: bool) -> Style {
         let forced = std::env::var_os("CLICOLOR_FORCE").is_some_and(|v| v != "0");
         let refused = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
