@@ -137,7 +137,10 @@ fn walk_inner<'t>(
     words: &[String],
     view: Option<&'t crate::spec::ViewMeta<'t>>,
 ) -> Position<'t> {
-    let argv: Vec<&std::ffi::OsStr> = words.iter().map(std::ffi::OsStr::new).collect();
+    let mut argv: Vec<&std::ffi::OsStr> = Vec::new();
+    for word in words {
+        argv.push(std::ffi::OsStr::new(word));
+    }
     let mut parser = Parser::for_completion(root, &argv);
     if let Some(view) = view {
         parser = parser.with_view(view);
@@ -1737,20 +1740,27 @@ fn sigil_arg_on_chain<'a, 'p>(
         return None;
     }
     let token = split.prefix.as_str();
-    chain
-        .iter()
-        .copied()
-        .flat_map(|owner| owner.args.iter().map(move |field| (owner, field)))
-        .filter_map(|(owner, field)| {
-            let sigil = field
+    // The longest sigil that fits, the later declaration winning a tie — what `max_by_key`
+    // answers, written as a loop because the adapter chain is a type of its own to compile.
+    let mut best = None;
+    for &owner in chain {
+        for field in owner.args {
+            let Some(sigil) = field
                 .arg
                 .sigil
-                .and_then(|value| core::str::from_utf8(value).ok())?;
-            token
-                .strip_prefix(sigil)
-                .map(|prefix| (owner, field, sigil, prefix))
-        })
-        .max_by_key(|(_, _, sigil, _)| sigil.len())
+                .and_then(|value| core::str::from_utf8(value).ok())
+            else {
+                continue;
+            };
+            if let Some(prefix) = token.strip_prefix(sigil)
+                && best
+                    .is_none_or(|(_, _, longest, _): (_, _, &str, _)| sigil.len() >= longest.len())
+            {
+                best = Some((owner, field, sigil, prefix));
+            }
+        }
+    }
+    best
 }
 
 fn flag_meta_owner_on_route<'a>(
@@ -2073,11 +2083,11 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
         }
         if longs {
             // No metadata hides a negation: `hidden_longs` names longs.
-            let visible_longs = flag
-                .longs
-                .iter()
-                .filter(|long| !meta.is_some_and(|m| m.extra.hidden_longs.contains(long)));
-            for long in visible_longs.chain(flag.negate.as_ref()) {
+            for (i, long) in flag.longs.iter().chain(flag.negate.as_ref()).enumerate() {
+                if i < flag.longs.len() && meta.is_some_and(|m| m.extra.hidden_longs.contains(long))
+                {
+                    continue;
+                }
                 // The table holds a negation the way the parser matches it — with the dashes
                 // already taken off — so a candidate has to put them back. Offered bare, it
                 // never matched a `--` the user had typed, and a lone `-` offered a word no
