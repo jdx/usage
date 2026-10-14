@@ -900,7 +900,7 @@ impl CompletionRequest {
         let mut bash_word = None;
         let mut bash_wordbreaks = None;
         let mut words: Option<Vec<String>> = None;
-        let mut rest = argv[1..].iter();
+        let mut rest = argv.get(1..).unwrap_or_default().iter();
         while let Some(arg) = rest.next() {
             let arg = arg.to_string_lossy();
             // `--line=LINE` as well as `--line LINE`: the `run=` a derived CLI writes for a typed
@@ -965,7 +965,7 @@ impl CompletionRequest {
                     words.push(String::new());
                 }
                 let cword = words.len() - 1;
-                let prefix = words[cword].clone();
+                let prefix = words.get(cword).cloned().unwrap_or_default();
                 Split {
                     words,
                     cword,
@@ -1001,22 +1001,25 @@ fn mark_bash_nonbreaking_colons(line: &str) -> String {
     // one of them, whether it is read here or skipped as the character after an escape.
     let mut marked = line.as_bytes().to_vec();
     let mut quote = None;
-    let mut i = 0;
-    while i < marked.len() {
-        let c = marked[i];
+    // Whether the byte in hand is the one a backslash escaped, which is skipped as a character
+    // of its own but may still be a colon to mark.
+    let mut escaped = false;
+    for byte in &mut marked {
+        let c = *byte;
+        if escaped {
+            escaped = false;
+            if c == b':' {
+                *byte = BASH_NONBREAKING_COLON as u8;
+            }
+            continue;
+        }
         match quote {
             Some(q) if c == q => quote = None,
-            Some(_) if c == b':' => marked[i] = BASH_NONBREAKING_COLON as u8,
-            Some(b'"') | None if c == b'\\' => {
-                i += 1;
-                if marked.get(i) == Some(&b':') {
-                    marked[i] = BASH_NONBREAKING_COLON as u8;
-                }
-            }
+            Some(_) if c == b':' => *byte = BASH_NONBREAKING_COLON as u8,
+            Some(b'"') | None if c == b'\\' => escaped = true,
             None if c == b'\'' || c == b'"' => quote = Some(c),
             _ => {}
         }
-        i += 1;
     }
     String::from_utf8(marked).unwrap_or_default()
 }
@@ -1046,7 +1049,7 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
         && request
             .bash_wordbreaks
             .as_deref()
-            .is_some_and(|wordbreaks| wordbreaks.contains(':'))
+            .is_some_and(|wordbreaks| wordbreaks.as_bytes().contains(&b':'))
         && let Some(word) = request.bash_word.as_deref()
     {
         // COMP_WORDS holds the entire Readline fragment even when the cursor is in its
@@ -1061,11 +1064,20 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
             .match_indices(':')
             .rev()
             .find_map(|(colon, _)| {
-                let fragment =
-                    replace_char(&marked_prefix[colon + 1..], BASH_NONBREAKING_COLON, ":");
+                let fragment = replace_char(
+                    marked_prefix.get(colon + 1..).unwrap_or_default(),
+                    BASH_NONBREAKING_COLON,
+                    ":",
+                );
                 ((fragment.is_empty() && word == ":")
                     || (!fragment.is_empty() && word.starts_with(&fragment)))
-                .then(|| replace_char(&marked_prefix[..=colon], BASH_NONBREAKING_COLON, ":"))
+                .then(|| {
+                    replace_char(
+                        marked_prefix.get(..=colon).unwrap_or_default(),
+                        BASH_NONBREAKING_COLON,
+                        ":",
+                    )
+                })
             });
         if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
             push_all(&mut out, &["\u{1}prefix\t", &prefix, "\n"]);
@@ -1191,11 +1203,15 @@ fn one_line(text: &str) -> String {
 /// The same rule the reference uses: left alone when every character is safe, and otherwise
 /// single-quoted with the close-open dance around any apostrophe.
 fn zsh_quote(value: &str) -> String {
-    let safe = |c: char| {
+    // Bytes: every safe character is ASCII, so a byte of anything else is an unsafe one.
+    let safe = |c: &u8| {
         c.is_ascii_alphanumeric()
-            || matches!(c, '_' | '-' | '.' | '/' | ':' | '@' | '+' | '=' | '%' | ',')
+            || matches!(
+                c,
+                b'_' | b'-' | b'.' | b'/' | b':' | b'@' | b'+' | b'=' | b'%' | b','
+            )
     };
-    if !value.is_empty() && value.chars().all(safe) {
+    if !value.is_empty() && value.as_bytes().iter().all(safe) {
         return value.to_string();
     }
     let mut quoted = String::new();
@@ -1213,19 +1229,25 @@ fn zsh_quote(value: &str) -> String {
 /// without a spec saying so. Reimplemented rather than modelled as new vocabulary, because it
 /// is the same rule read off the same names.
 fn files_for(name: &str) -> Option<Files> {
-    // Lowercased into a buffer on the stack rather than an allocated copy — a name is short,
-    // and this is a parser — and then matched once, rather than compared name by name.
-    let mut buffer = [0u8; 11];
-    let lower = buffer.get_mut(..name.len())?;
-    lower.copy_from_slice(name.as_bytes());
-    lower.make_ascii_lowercase();
-    match &*lower {
-        b"file" | b"path" | b"config_file" => Some(Files::Any),
-        b"dir" | b"directory" => Some(Files::Dirs),
-        b"executable" => Some(Files::ExecutablePaths),
-        b"command" => Some(Files::Commands),
-        _ => None,
-    }
+    // Compared one by one through the shared case-insensitive comparison, which is a loop over
+    // a short list rather than a lowercased copy and a match on each length.
+    let found = [
+        "file",
+        "path",
+        "config_file",
+        "dir",
+        "directory",
+        "executable",
+        "command",
+    ]
+    .iter()
+    .position(|known| same_name(name, known))?;
+    Some(match found {
+        0..=2 => Files::Any,
+        3 | 4 => Files::Dirs,
+        5 => Files::ExecutablePaths,
+        _ => Files::Commands,
+    })
 }
 
 fn declared_files(type_: &str, next_arg_values: u32) -> Option<Files> {
@@ -1596,23 +1618,20 @@ fn keep_prefixed(candidates: &mut Vec<Candidate<'_>>, prefix: &str) {
 /// display label or description.
 fn sort_and_dedup_candidates(candidates: &mut Vec<Candidate<'_>>) {
     crate::order::sort_by(candidates, &mut |a, b| a.cmp(b));
-    let mut deduped: Vec<Candidate<'_>> = Vec::with_capacity(candidates.len());
-    for mut candidate in candidates.drain(..) {
-        if let Some(existing) = deduped
-            .last_mut()
-            .filter(|existing| existing.value == candidate.value)
-        {
-            if existing.display.is_none() {
-                existing.display = candidate.display.take();
-            }
-            if existing.description.is_none() {
-                existing.description = candidate.description.take();
-            }
-        } else {
-            deduped.push(candidate);
+    // `dup` is the later of two neighbours with one value: it goes, and `kept` takes what it
+    // had that `kept` lacked.
+    candidates.dedup_by(|dup, kept| {
+        if kept.value != dup.value {
+            return false;
         }
-    }
-    *candidates = deduped;
+        if kept.display.is_none() {
+            kept.display = dup.display.take();
+        }
+        if kept.description.is_none() {
+            kept.description = dup.description.take();
+        }
+        true
+    });
 }
 
 fn overlay_for_name<'o>(
@@ -1993,14 +2012,22 @@ fn restarted(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
     let Some(token) = meta.and_then(|m| m.extra.restart_token) else {
         return false;
     };
-    split.cword > 0 && split.words[split.cword - 1] == token
+    split
+        .words
+        .get(split.cword.wrapping_sub(1))
+        .is_some_and(|word| word == token)
 }
 
 fn restart_seen(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
     let Some(token) = meta.and_then(|m| m.extra.restart_token) else {
         return false;
     };
-    split.words[..split.cword].iter().any(|word| word == token)
+    split
+        .words
+        .get(..split.cword)
+        .unwrap_or_default()
+        .iter()
+        .any(|word| word == token)
 }
 
 /// Add one candidate to a list, copying `value`. One routine for every place a list is built, so
@@ -2028,6 +2055,18 @@ fn offer_owned<'a>(
         display: None,
         description,
     });
+}
+
+/// [`offer_owned`] for a description that stays with the caller, copied here once rather than at
+/// each of the places that offer several candidates under one.
+#[inline(never)]
+fn offer_owned_like<'a>(
+    out: &mut Vec<Candidate<'a>>,
+    value: String,
+    kind: CandidateKind,
+    description: &Option<std::borrow::Cow<'a, str>>,
+) {
+    offer_owned(out, value, kind, description.clone());
 }
 
 /// The subcommands a word here could name, each under every name it answers to.
@@ -2095,7 +2134,7 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
             )
         });
         let mut offer = |value: String| {
-            offer_owned(&mut out, value, CandidateKind::Flag, description.clone());
+            offer_owned_like(&mut out, value, CandidateKind::Flag, &description);
         };
         if shorts {
             for &short in flag.shorts {
@@ -2116,7 +2155,11 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
         }
         if longs {
             // No metadata hides a negation: `hidden_longs` names longs.
-            for (i, long) in flag.longs.iter().chain(flag.negate.as_ref()).enumerate() {
+            for i in 0..flag.longs.len() + usize::from(flag.negate.is_some()) {
+                let long = match flag.longs.get(i) {
+                    Some(long) => *long,
+                    None => flag.negate.unwrap_or_default(),
+                };
                 if i < flag.longs.len()
                     && meta.is_some_and(|m| crate::has_str(m.extra.hidden_longs, long))
                 {
@@ -2282,6 +2325,7 @@ fn choices<'a>(
 /// By identity rather than by name: a global flag's metadata sits on the command that declared
 /// it, which is an ancestor of the one being completed, and two commands may declare different
 /// flags under one name.
+#[inline(never)]
 fn flag_meta<'a>(meta: &'a CommandMeta<'a>, flag: &Flag<'_>) -> Option<&'a FlagMeta<'a>> {
     meta.flags
         .iter()
@@ -2290,6 +2334,7 @@ fn flag_meta<'a>(meta: &'a CommandMeta<'a>, flag: &Flag<'_>) -> Option<&'a FlagM
 }
 
 /// The metadata for an argument, wherever in the tree it was declared.
+#[inline(never)]
 fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<'a>> {
     meta.args
         .iter()
@@ -2381,7 +2426,7 @@ impl Split {
     /// user has not finished thinking about, and a half-typed tail behind the cursor should
     /// not decide what can be typed at it.
     pub fn walked(&self) -> &[String] {
-        &self.words[..=self.cword]
+        self.words.get(..=self.cword).unwrap_or(&self.words)
     }
 
     /// The words a parser should walk: after the program name, before the cursor's word.
@@ -2392,7 +2437,7 @@ impl Split {
     /// user has not finished, when the question is what that word could be.
     pub fn argv(&self) -> &[String] {
         let start = 1.min(self.cword);
-        &self.words[start..self.cword]
+        self.words.get(start..self.cword).unwrap_or_default()
     }
 }
 
@@ -2402,20 +2447,15 @@ impl Split {
 /// offset landing inside a multi-byte character is moved back to that character's start rather
 /// than panicking — a completion request is not a place to be strict about a shell's arithmetic.
 pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
-    let cursor = floor_char_boundary(line, cursor.min(line.len()));
-
-    let mut words: Vec<String> = Vec::new();
-    let mut word = String::new();
-    // Whether anything has been written into `word` — including a quote that so far contains
-    // nothing, so that `mise ""` is a word and not a gap between two.
-    let mut started = false;
-    let mut cword = None;
-    // How much of the word in hand was before the cursor. A length rather than a copy: the word
-    // in hand is the one that lands at `cword`, so the prefix is read off it once, at the end.
-    let mut prefix_len = None;
-    // Whether the cursor sat inside a word rather than in the gap before one. A gap is a word
-    // the user is about to type, so one has to be made for them.
-    let mut cursor_in_word = false;
+    let mut at = Splitting {
+        cursor: floor_char_boundary(line, cursor.min(line.len())),
+        words: Vec::new(),
+        word: String::new(),
+        started: false,
+        cword: None,
+        prefix_len: None,
+        cursor_in_word: false,
+    };
 
     let mut chars = line.char_indices().peekable();
     let mut quote: Option<char> = None;
@@ -2423,23 +2463,12 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
     // The cursor is reached before the character it sits in front of is read, so the word in
     // hand is the word being completed and what is in it is the prefix.
     //
-    // A macro rather than a closure because it writes to four locals the loop also writes to,
-    // and it has to run at *two* places: at the top of each character, and again before an
-    // escape swallows the one after it. Only checking the top meant a cursor sitting on an
-    // escaped character was never noticed, and the split described the last word of the line
-    // instead of the one being typed.
-    macro_rules! reached {
-        ($idx:expr) => {
-            if $idx == cursor && prefix_len.is_none() {
-                cword = Some(words.len());
-                prefix_len = Some(word.len());
-                cursor_in_word = started;
-            }
-        };
-    }
-
+    // It is checked at *two* places: at the top of each character, and again before an escape
+    // swallows the one after it. Only checking the top meant a cursor sitting on an escaped
+    // character was never noticed, and the split described the last word of the line instead of
+    // the one being typed.
     while let Some((i, c)) = chars.next() {
-        reached!(i);
+        at.reached(i);
 
         match quote {
             Some('\'') => {
@@ -2447,22 +2476,28 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     // PowerShell writes a quote inside a quoted string by doubling it; the
                     // POSIX-shaped shells have no such rule, and there a second quote always
                     // ends the string.
-                    if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some('\'') {
-                        reached!(chars.peek().expect("peeked just above").0);
-                        push_char(&mut word, '\'');
+                    if let Some(&(j, _)) = chars
+                        .peek()
+                        .filter(|&&(_, n)| shell.doubles_quotes() && n == '\'')
+                    {
+                        at.reached(j);
+                        push_char(&mut at.word, '\'');
                         chars.next();
                     } else {
                         quote = None;
                     }
                 } else {
-                    push_char(&mut word, c);
+                    push_char(&mut at.word, c);
                 }
             }
             Some(q) => {
                 if c == q {
-                    if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some(q) {
-                        reached!(chars.peek().expect("peeked just above").0);
-                        push_char(&mut word, q);
+                    if let Some(&(j, _)) = chars
+                        .peek()
+                        .filter(|&&(_, n)| shell.doubles_quotes() && n == q)
+                    {
+                        at.reached(j);
+                        push_char(&mut at.word, q);
                         chars.next();
                     } else {
                         quote = None;
@@ -2473,41 +2508,38 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     // why a Windows path in double quotes survives.
                     match chars.peek() {
                         Some(&(j, next)) if escapable_in_quotes(next, shell) => {
-                            reached!(j);
-                            push_char(&mut word, next);
+                            at.reached(j);
+                            push_char(&mut at.word, next);
                             chars.next();
                         }
-                        _ => push_char(&mut word, c),
+                        _ => push_char(&mut at.word, c),
                     }
                 } else {
-                    push_char(&mut word, c);
+                    push_char(&mut at.word, c);
                 }
             }
             None => {
                 if c == '\'' || c == '"' {
                     quote = Some(c);
-                    started = true;
+                    at.started = true;
                 } else if is_escape(c, shell) {
                     // Before the check, because the escape has already started the word: a
                     // cursor on the escaped character is inside it, not in the gap before it.
-                    started = true;
+                    // A trailing escape is a line the user is still typing, not a mistake to
+                    // report: it escapes the character they have not typed yet.
+                    at.started = true;
                     if let Some(&(j, next)) = chars.peek() {
-                        reached!(j);
-                        push_char(&mut word, next);
+                        at.reached(j);
+                        push_char(&mut at.word, next);
                         chars.next();
-                    } else {
-                        // A trailing escape is a line the user is still typing, not a mistake
-                        // to report: it escapes the character they have not typed yet.
-                        started = true;
                     }
                 } else if c.is_whitespace() {
-                    if started {
-                        words.push(core::mem::take(&mut word));
-                        started = false;
+                    if at.started {
+                        at.end_word();
                     }
                 } else {
-                    push_char(&mut word, c);
-                    started = true;
+                    push_char(&mut at.word, c);
+                    at.started = true;
                 }
             }
         }
@@ -2515,16 +2547,19 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
 
     // The cursor at the very end of the line: the loop above only sees positions it reads a
     // character at, and there is no character there.
-    if prefix_len.is_none() {
-        cword = Some(words.len());
-        prefix_len = Some(word.len());
-        cursor_in_word = started;
+    at.reached(at.cursor);
+
+    if at.started {
+        at.end_word();
     }
 
-    if started {
-        words.push(word);
-    }
-
+    let Splitting {
+        mut words,
+        cword,
+        prefix_len,
+        cursor_in_word,
+        ..
+    } = at;
     let cword = cword.unwrap_or(0);
     // A word not yet started is empty, so a cursor in a gap has nothing before it. A started one
     // was pushed whole, at the index the cursor recorded.
@@ -2547,6 +2582,47 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
         words,
         cword,
         prefix,
+    }
+}
+
+/// What [`split`] has read of a line so far.
+struct Splitting {
+    /// Where the cursor is, as a byte offset.
+    cursor: usize,
+    words: Vec<String>,
+    word: String,
+    /// Whether anything has been written into `word` — including a quote that so far contains
+    /// nothing, so that `mise ""` is a word and not a gap between two.
+    started: bool,
+    cword: Option<usize>,
+    /// How much of the word in hand was before the cursor. A length rather than a copy: the word
+    /// in hand is the one that lands at `cword`, so the prefix is read off it once, at the end.
+    prefix_len: Option<usize>,
+    /// Whether the cursor sat inside a word rather than in the gap before one. A gap is a word
+    /// the user is about to type, so one has to be made for them.
+    cursor_in_word: bool,
+}
+
+impl Splitting {
+    /// Note the cursor, if `index` is where it is and it has not been noted yet.
+    ///
+    /// Out of line because it runs at several places in the loop, each of which would otherwise
+    /// carry a copy.
+    #[inline(never)]
+    fn reached(&mut self, index: usize) {
+        if index == self.cursor && self.prefix_len.is_none() {
+            self.cword = Some(self.words.len());
+            self.prefix_len = Some(self.word.len());
+            self.cursor_in_word = self.started;
+        }
+    }
+
+    /// Finish the word in hand.
+    #[inline(never)]
+    fn end_word(&mut self) {
+        let word = core::mem::take(&mut self.word);
+        self.words.push(word);
+        self.started = false;
     }
 }
 

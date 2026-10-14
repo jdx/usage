@@ -173,14 +173,14 @@ impl Style {
         // Bytes, because the hole is one: a multi-byte character never contains it.
         for (at, byte) in template.bytes().enumerate() {
             if byte == HOLE {
-                self.put(out, Ink::Plain, &template[from..at]);
+                self.put(out, Ink::Plain, template.get(from..at).unwrap_or_default());
                 if let Some(&(ink, text)) = args.next() {
                     self.put(out, ink, text);
                 }
                 from = at + 1;
             }
         }
-        self.put(out, Ink::Plain, &template[from..]);
+        self.put(out, Ink::Plain, template.get(from..).unwrap_or_default());
     }
 }
 
@@ -217,7 +217,7 @@ fn flag_named(token: &str) -> &str {
     match token.strip_prefix("--") {
         // Bytes, because `=` is one: `str::find` expands to a searcher for a single character.
         Some(body) => match body.bytes().position(|b| b == b'=') {
-            Some(i) => &token[..i + 2],
+            Some(i) => token.get(..i + 2).unwrap_or(token),
             None => token,
         },
         None => token,
@@ -244,7 +244,9 @@ fn long_names_in_scope<'a>(chain: &[&'a CommandMeta<'a>]) -> Vec<&'a str> {
         for f in meta.flags {
             if !f.hide && (own || f.flag.global) {
                 names.extend_from_slice(f.flag.longs);
-                names.extend(f.flag.negate);
+                if let Some(negation) = f.flag.negate {
+                    names.push(negation);
+                }
             }
         }
     }
@@ -268,7 +270,16 @@ fn long_names_in_scope<'a>(chain: &[&'a CommandMeta<'a>]) -> Vec<&'a str> {
 ///
 /// Written out rather than depended on, because this crate takes no dependencies.
 fn jaro(a: &str, b: &str) -> f64 {
-    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    // Each character with whether it has been matched yet, so that one lookup gets both.
+    #[inline(never)]
+    fn marked(text: &str) -> Vec<(char, bool)> {
+        let mut out = Vec::new();
+        for c in text.chars() {
+            out.push((c, false));
+        }
+        out
+    }
+    let (mut a, mut b) = (marked(a), marked(b));
     if a.is_empty() && b.is_empty() {
         return 1.0;
     }
@@ -278,17 +289,18 @@ fn jaro(a: &str, b: &str) -> f64 {
 
     // Two characters count as matching if they are the same and no further apart than this.
     let window = (a.len().max(b.len()) / 2).saturating_sub(1);
-    let mut a_matched = vec![false; a.len()];
-    let mut b_matched = vec![false; b.len()];
     let mut matches = 0usize;
 
-    for (i, ch) in a.iter().enumerate() {
+    for (i, mine) in a.iter_mut().enumerate() {
         let start = i.saturating_sub(window);
         let end = (i + window + 1).min(b.len());
         for j in start..end {
-            if !b_matched[j] && b[j] == *ch {
-                a_matched[i] = true;
-                b_matched[j] = true;
+            if let Some(theirs) = b.get_mut(j)
+                && !theirs.1
+                && theirs.0 == mine.0
+            {
+                mine.1 = true;
+                theirs.1 = true;
                 matches += 1;
                 break;
             }
@@ -298,20 +310,14 @@ fn jaro(a: &str, b: &str) -> f64 {
         return 0.0;
     }
 
-    // Matching characters that arrive in a different order are half a transposition each.
+    // Matching characters that arrive in a different order are half a transposition each. Both
+    // sides have the same number of them, so they pair off in order.
     let mut transpositions = 0usize;
-    let mut k = 0usize;
-    for (i, matched) in a_matched.iter().enumerate() {
-        if !matched {
-            continue;
-        }
-        while !b_matched[k] {
-            k += 1;
-        }
-        if a[i] != b[k] {
+    let mut theirs = b.iter().filter(|c| c.1);
+    for mine in a.iter().filter(|c| c.1) {
+        if theirs.next().is_some_and(|other| other.0 != mine.0) {
             transpositions += 1;
         }
-        k += 1;
     }
 
     let matches = matches as f64;
@@ -333,18 +339,39 @@ fn jaro(a: &str, b: &str) -> f64 {
 /// of this module is that an adopter's users see no change; it is a difference worth undoing on
 /// both sides rather than on one.
 fn nearest<'a>(typed: &str, candidates: &[&'a str]) -> Vec<&'a str> {
+    // Kept in order as they are found: a handful of items, so an insertion beats compiling a
+    // sort for this element type. Each goes after the ones it ties with, which is what a stable
+    // sort would do.
     let mut scored: Vec<(f64, &str)> = Vec::new();
     for candidate in candidates {
         let score = jaro(typed, candidate);
         if score > 0.7 {
-            scored.push((score, candidate));
+            let mut at = scored.len();
+            let mut repeat = false;
+            // One lookup of the item before the slot, so one place for it to be out of range.
+            while let Some(&(before, word)) = scored.get(at.wrapping_sub(1)) {
+                if !before
+                    .total_cmp(&score)
+                    .then_with(|| word.cmp(candidate))
+                    .is_gt()
+                {
+                    // The same word listed twice is one suggestion; equal words score alike, so
+                    // the copies end up side by side.
+                    repeat = word == *candidate;
+                    break;
+                }
+                at -= 1;
+            }
+            if !repeat {
+                scored.insert(at, (score, candidate));
+            }
         }
     }
-    crate::order::sort_by(&mut scored, &mut |a, b| {
-        a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1))
-    });
-    scored.dedup_by(|a, b| a.1 == b.1);
-    scored.into_iter().map(|(_, candidate)| candidate).collect()
+    let mut out = Vec::new();
+    for (_, candidate) in scored {
+        out.push(candidate);
+    }
+    out
 }
 
 /// A tip naming what was probably meant, or nothing when nothing was close.
@@ -506,7 +533,7 @@ fn unexpected_flag(
 /// `jobs` is about.
 fn shown<'a>(meta: Option<&'a CommandMeta<'a>>, name: &str) -> String {
     let Some(meta) = meta else {
-        return name.to_string();
+        return owned(name);
     };
     if let Some(arg) = meta.args.iter().find(|a| a.arg.name == name) {
         return crate::help::arg_usage(arg);
@@ -520,30 +547,30 @@ fn shown<'a>(meta: Option<&'a CommandMeta<'a>>, name: &str) -> String {
     {
         return crate::help::flag_spelling(flag);
     }
-    name.to_string()
+    owned(name)
 }
 
 /// A group member is stored as a selector (`--file` or `-f`), not a field name.
 fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String {
     let Some(meta) = meta else {
-        return selector.to_string();
+        return owned(selector);
     };
     // Compared in place rather than by spelling each candidate out, which allocated per flag.
     let long = selector.strip_prefix("--");
     // A short is a byte, and it matches the one character after the dash that is that byte
     // read as a `char`.
-    let short = selector.strip_prefix('-').and_then(|rest| {
-        let mut chars = rest.chars();
-        let only = u8::try_from(chars.next()?).ok()?;
-        chars.next().is_none().then_some(only)
-    });
+    let mut after_dash = selector.strip_prefix('-').unwrap_or_default().chars();
+    let short = match (after_dash.next(), after_dash.next()) {
+        (Some(only), None) => u8::try_from(only).ok(),
+        _ => None,
+    };
     let found = meta.flags.iter().find(|flag| {
         long.is_some_and(|long| {
             crate::has_str(flag.flag.longs, long) || flag.flag.negate == Some(long)
         }) || short.is_some_and(|short| crate::has_byte(flag.flag.shorts, short))
     });
     let Some(flag) = found else {
-        return selector.to_string();
+        return owned(selector);
     };
     let mut shown = crate::help::flag_spelling(flag);
     if flag.flag.takes_value {
@@ -939,7 +966,8 @@ fn render_plain(
     style: Style,
 ) -> String {
     let taken = path_taken(spec.root.cmd, argv, None);
-    let cmd = *taken.last().expect("the root is always on the path");
+    // The root starts the path, so this is never the fallback.
+    let cmd = taken.last().copied().unwrap_or(spec.root.cmd);
     let resolved = resolve(spec, &taken);
     let resolved = resolved
         .as_ref()
@@ -961,7 +989,8 @@ fn render_projected<'a>(
 ) -> String {
     let canonical_spec = spec;
     let taken = path_taken(spec.root.cmd, argv, Some(view));
-    let cmd = *taken.last().expect("the root is always on the path");
+    // The root starts the path, so this is never the fallback.
+    let cmd = taken.last().copied().unwrap_or(spec.root.cmd);
     let mut resolved = resolve(spec, &taken);
     let mut projected_spec = None;
     let mut projected_flags: Vec<FlagMeta<'_>> = Vec::new();
@@ -1026,6 +1055,19 @@ fn error_with(out: &mut String, style: Style, template: &str, args: &[(Ink, &str
     push_all(out, &["\n"]);
 }
 
+/// A name as an owned string, from one copy of the allocation and copy rather than one at each of
+/// the places an error spells a name.
+#[inline(never)]
+fn owned(text: &str) -> String {
+    text.to_string()
+}
+
+/// A count as text, from one copy of the conversion rather than one expanded at each use.
+#[inline(never)]
+fn number(n: usize) -> String {
+    n.to_string()
+}
+
 /// Where an argument goes in a [`Style::put_template`] template.
 const HOLE: u8 = 1;
 
@@ -1058,7 +1100,7 @@ fn describe(
     let path = || {
         resolved
             .map(|(names, _)| names.join(" "))
-            .unwrap_or_else(|| spec.bin.unwrap_or(spec.name).to_string())
+            .unwrap_or_else(|| owned(spec.bin.unwrap_or(spec.name)))
     };
 
     // The argument or flag most errors are about, spelled the way the help spells it. Worked out
@@ -1282,9 +1324,9 @@ fn describe(
                 style,
                 bound,
                 &[
-                    (Plain, &count.to_string()),
+                    (Plain, &number(*count)),
                     (Literal, &named),
-                    (Plain, &got.to_string()),
+                    (Plain, &number(*got)),
                 ],
             );
         }
