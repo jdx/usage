@@ -119,11 +119,9 @@ fn mapped_fragment(fragment: &str, palette: Palette) -> &str {
 }
 
 fn expand_spec(specification: &str, palette: Palette) -> Cow<'_, str> {
-    if specification
-        .split('+')
-        .all(|fragment| mapped_fragment(fragment, palette) == fragment)
-    {
-        return Cow::Borrowed(specification);
+    // One fragment, which is every role tag and nearly every other: nothing to join.
+    if !specification.contains('+') {
+        return Cow::Borrowed(mapped_fragment(specification, palette));
     }
     let mut out = String::with_capacity(specification.len());
     for (i, fragment) in specification.split('+').enumerate() {
