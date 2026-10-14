@@ -17,7 +17,7 @@
 
 use crate::spec::{ArgMeta, CommandMeta, CommandSelector, FlagMeta, Spec, SpecView};
 pub use crate::spec::{Candidate, CandidateKind, CompleteCtx, Completer};
-use crate::text::{push_all, push_char};
+use crate::text::{push_all, push_char, same_name};
 use crate::{Arg, Command, Error, Flag, Parser};
 use core::future::Future;
 use core::pin::Pin;
@@ -268,7 +268,7 @@ fn for_name_at<'a>(
                 .into_iter()
                 .flat_map(|clause| clause.args.iter()),
         ) {
-            if arg.arg.name.eq_ignore_ascii_case(name)
+            if same_name(arg.arg.name, name)
                 && let Some(completer) = arg.complete
             {
                 return Some(completer);
@@ -276,7 +276,7 @@ fn for_name_at<'a>(
         }
         for flag in meta.flags {
             let value = flag.value_name.unwrap_or(flag.flag.name);
-            if value.eq_ignore_ascii_case(name)
+            if same_name(value, name)
                 && let Some(completer) = flag.complete
             {
                 return Some(completer);
@@ -300,7 +300,7 @@ fn for_name_at<'a>(
         if let Some(wanted) = position.awaiting_value {
             let found = meta.flags.iter().find(|field| {
                 let value = field.value_name.unwrap_or(field.flag.name);
-                core::ptr::eq(field.flag, wanted) && value.eq_ignore_ascii_case(name)
+                core::ptr::eq(field.flag, wanted) && same_name(value, name)
             });
             if let Some(completer) = found.and_then(|field| field.complete) {
                 return Some(completer);
@@ -316,9 +316,7 @@ fn for_name_at<'a>(
                         .into_iter()
                         .flat_map(|clause| clause.args.iter()),
                 )
-                .find(|field| {
-                    core::ptr::eq(field.arg, wanted) && field.arg.name.eq_ignore_ascii_case(name)
-                });
+                .find(|field| core::ptr::eq(field.arg, wanted) && same_name(field.arg.name, name));
             if let Some(completer) = found.and_then(|field| field.complete) {
                 return Some(completer);
             }
@@ -1243,7 +1241,7 @@ fn declared_files(type_: &str, next_arg_values: u32) -> Option<Files> {
             return Some(Files::Extensions(extensions));
         }
     }
-    if type_.eq_ignore_ascii_case("command_args") {
+    if same_name(type_, "command_args") {
         return Some(if next_arg_values == 0 {
             Files::Commands
         } else {
@@ -1313,8 +1311,7 @@ fn declared_files_at_cursor(
             },
         )
         .or_else(|| {
-            type_
-                .eq_ignore_ascii_case("unknown")
+            same_name(type_, "unknown")
                 .then(|| name.and_then(files_for))
                 .flatten()
         }),
@@ -1424,8 +1421,7 @@ fn complete_inner<'a>(
             },
         )
         .or_else(|| {
-            type_
-                .eq_ignore_ascii_case("unknown")
+            same_name(type_, "unknown")
                 .then(|| named.and_then(files_for))
                 .flatten()
         }),
@@ -1449,8 +1445,8 @@ fn complete_inner<'a>(
     // between "there is nothing else this can be" and "nothing matched what you typed".
     // Offering the working directory for a mistyped choice answers the second as though it were
     // the first.
-    let declared_non_file_type = complete_type
-        .is_some_and(|type_| !type_.eq_ignore_ascii_case("unknown") && asked_for.is_none());
+    let declared_non_file_type =
+        complete_type.is_some_and(|type_| !same_name(type_, "unknown") && asked_for.is_none());
     let closed =
         !candidates.is_empty() || declares_choices || declared_non_file_type || position.help_topic;
 
@@ -1614,16 +1610,17 @@ fn overlay_for_name<'o>(
     name: &str,
 ) -> Option<&'o CompletionOverlay<'o>> {
     if let Some(overlay) = overlay_at_cursor(spec, split, position, overlays)
-        .filter(|overlay| overlay.value.eq_ignore_ascii_case(name))
+        .filter(|overlay| same_name(overlay.value, name))
     {
         return Some(overlay);
     }
     let chain = metadata_chain_on_route(spec, position)?;
     let owner = chain.last()?;
     let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
-    overlays.iter().rev().find(|overlay| {
-        overlay.value.eq_ignore_ascii_case(name) && overlay.command.matches(owner, &path)
-    })
+    overlays
+        .iter()
+        .rev()
+        .find(|overlay| same_name(overlay.value, name) && overlay.command.matches(owner, &path))
 }
 
 fn overlay_at_cursor<'o>(
@@ -1714,9 +1711,10 @@ fn overlay_at_cursor<'o>(
     } else {
         return None;
     };
-    overlays.iter().rev().find(|overlay| {
-        overlay.value.eq_ignore_ascii_case(value) && overlay.command.matches(owner, &path)
-    })
+    overlays
+        .iter()
+        .rev()
+        .find(|overlay| same_name(overlay.value, value) && overlay.command.matches(owner, &path))
 }
 
 fn sigil_arg_at_cursor<'a, 'p>(
