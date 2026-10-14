@@ -255,10 +255,7 @@ fn assemble(
     sections: &Sections,
     style: Style,
 ) -> String {
-    let page = match spec
-        .help_template
-        .filter(|template| !template.is_blank())
-    {
+    let page = match spec.help_template.filter(|template| !template.is_blank()) {
         Some(template) => sections.substituted(template, style),
         None => sections.concatenated(),
     };
@@ -640,9 +637,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         let rest = tail(text, at);
 
         // Markdown escapes are useful in prose that genuinely means `*`, `_`, `~`, or `` ` ``.
-        if let Some(escaped) = rest
-            .strip_prefix('\\')
-            .and_then(|after| after.first_char())
+        if let Some(escaped) = rest.strip_prefix('\\').and_then(|after| after.first_char())
             && matches!(escaped, '*' | '_' | '~' | '`' | '\\')
         {
             out.put_char(escaped);
@@ -793,8 +788,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
                 .char_indices()
                 .skip(1)
                 .find_map(|(i, c)| {
-                    (is_space(c) || matches!(c, ',' | '=' | '[' | ']' | '<' | '>'))
-                        .then_some(i)
+                    (is_space(c) || matches!(c, ',' | '=' | '[' | ']' | '<' | '>')).then_some(i)
                 })
                 .unwrap_or(rest.len());
             style.paint(&mut out, "option", head(rest, end));
@@ -862,9 +856,9 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
                 })
                 .unwrap_or(rest.len());
             let boundary = tail(rest, end).first_char();
-            if boundary.is_none_or(|c| {
-                is_space(c) || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.')
-            }) {
+            if boundary
+                .is_none_or(|c| is_space(c) || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.'))
+            {
                 style.paint(&mut out, "metavar", head(rest, end));
                 at += end;
                 continue;
@@ -1023,6 +1017,16 @@ fn find_str(text: &str, needle: &str) -> Option<usize> {
         .position(|window| window == needle)
 }
 
+/// The first line of `text`, and what follows its newline: `None` when there is no newline.
+/// The lines of a page are walked through this one scan rather than a `split` at each walk.
+#[inline(never)]
+fn split_line(text: &str) -> (&str, Option<&str>) {
+    match find_char(text, '\n') {
+        Some(at) => (head(text, at), Some(tail(text, at + 1))),
+        None => (text, None),
+    }
+}
+
 /// `text` from byte `at` on. The slicing below is written through these three so a binary
 /// carries one bounds-check failure per shape rather than one at each of dozens of sites.
 #[inline(never)]
@@ -1109,10 +1113,11 @@ fn paint_synopsis(usage: &mut String, style: Style) {
         return;
     }
     let mut out = String::with_capacity(usage.len() * 2);
-    for line in usage.split_inclusive('\n') {
-        let (body, newline) = line
-            .strip_suffix('\n')
-            .map_or((line, ""), |body| (body, "\n"));
+    let mut rest = usage.as_str();
+    while !rest.is_empty() {
+        let (body, next) = split_line(rest);
+        let newline = if next.is_some() { "\n" } else { "" };
+        rest = next.unwrap_or("");
         out.put_char(STRUCTURE);
         match body.strip_prefix("Usage:") {
             Some(rest) => {
@@ -1136,10 +1141,11 @@ fn painted_prose(page: String, style: Style) -> String {
         return page;
     }
     let mut out = String::with_capacity(page.len());
-    for line in page.split_inclusive('\n') {
-        let (body, newline) = line
-            .strip_suffix('\n')
-            .map_or((line, ""), |body| (body, "\n"));
+    let mut rest = page.as_str();
+    while !rest.is_empty() {
+        let (body, next) = split_line(rest);
+        let newline = if next.is_some() { "\n" } else { "" };
+        rest = next.unwrap_or("");
         if let Some(structure) = body.strip_prefix(STRUCTURE) {
             out.put_str(structure);
         } else if body.trimmed_start().starts_with("$ ") {
@@ -1174,10 +1180,7 @@ fn rendered_page(
         suppress_global,
         style,
     );
-    let page = match spec
-        .help_template
-        .filter(|template| !template.is_blank())
-    {
+    let page = match spec.help_template.filter(|template| !template.is_blank()) {
         Some(template) => template::substitute(template, style, |name| {
             sections.named(name).map(|part| painted_prose(part, style))
         }),
@@ -3115,12 +3118,17 @@ fn wrap_lead(
         }
     };
     if per_line {
-        for (index, line) in text.split('\n').enumerate() {
+        let mut index = 0;
+        let mut rest = Some(text);
+        while let Some(remaining) = rest {
+            let (line, next) = split_line(remaining);
+            rest = next;
             wrap_lines(
                 line,
                 if index == 0 { first_width } else { width },
                 &mut emit,
             );
+            index += 1;
         }
     } else {
         wrap_lines(text, width, &mut emit);
@@ -3184,7 +3192,10 @@ fn fits(text: &str, room: usize) -> bool {
 fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
     let mut emitted = false;
     let mut line = String::new();
-    for paragraph in text.split('\n') {
+    let mut rest = Some(text);
+    while let Some(remaining) = rest {
+        let (paragraph, next) = split_line(remaining);
+        rest = next;
         if paragraph.is_empty() {
             emit("");
             emitted = true;

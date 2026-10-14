@@ -4,7 +4,9 @@
 //! come from KDL rather than a Rust string literal. The parser touches only the template itself;
 //! substituted help sections are opaque, so prose that happens to contain `{$red}` stays prose.
 
-use super::{Palette, PutStr as _, Text as _, Style, find_char, find_str, head, slice, tail};
+use super::{
+    Palette, PutStr as _, Style, Text as _, find_char, find_str, head, slice, split_line, tail,
+};
 
 const MARK: char = '\u{2}';
 const END: char = '\u{3}';
@@ -303,7 +305,10 @@ fn collapse_blank_runs(page: &str, markers: bool) -> String {
     let mut out = String::with_capacity(page.len());
     let mut blank = false;
     let mut wrote_visible = false;
-    for line in page.split('\n') {
+    let mut rest = Some(page);
+    while let Some(remaining) = rest {
+        let (line, next) = split_line(remaining);
+        rest = next;
         if if markers {
             visible_is_blank(line)
         } else {
