@@ -940,13 +940,23 @@ fn cat(parts: &[&str]) -> String {
 /// the byte scan wherever it is written, and a page does it from a dozen places.
 #[inline(never)]
 fn find_char(text: &str, c: char) -> Option<usize> {
-    text.find(c)
+    let mut buf = [0u8; 4];
+    find_str(text, c.encode_utf8(&mut buf))
 }
 
 /// The byte offset of the first `needle` in `text`, for the same reason as [`find_char`].
+///
+/// A plain scan: the needles are a few bytes and the texts a page of help, so the substring
+/// searcher in `core` buys nothing and costs a kilobyte.
 #[inline(never)]
 fn find_str(text: &str, needle: &str) -> Option<usize> {
-    text.find(needle)
+    let needle = needle.as_bytes();
+    if needle.is_empty() {
+        return Some(0);
+    }
+    text.as_bytes()
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 /// `text` from byte `at` on. The slicing below is written through these three so a binary
