@@ -3210,11 +3210,20 @@ fn bytes<'v>(s: &&'v OsStr) -> &'v [u8] {
 /// splitting on it does: `a,b` is two, `a,` is two with an empty second, and `` is one.
 /// Counted rather than split because binding only needs the number, and the split itself
 /// belongs to the layer that owns the values.
+#[inline]
 fn values_in(word: &[u8], delimiter: ::core::option::Option<u8>) -> u32 {
     match delimiter {
-        Some(d) => 1 + word.iter().filter(|b| **b == d).count() as u32,
+        Some(d) => values_delimited(word, d),
         None => 1,
     }
+}
+
+/// [`values_in`] for a word that has a delimiter to count. Out of line: counting bytes is a loop
+/// the optimizer widens into vector code, and inlined at each of the places a word is bound it
+/// was most of what they weighed.
+#[inline(never)]
+fn values_delimited(word: &[u8], delimiter: u8) -> u32 {
+    1 + word.iter().filter(|b| **b == delimiter).count() as u32
 }
 
 /// Whether a token should be read as a flag.
