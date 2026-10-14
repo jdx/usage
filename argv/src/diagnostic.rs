@@ -559,11 +559,11 @@ fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String 
     let long = selector.strip_prefix("--");
     // A short is a byte, and it matches the one character after the dash that is that byte
     // read as a `char`.
-    let short = selector.strip_prefix('-').and_then(|rest| {
-        let mut chars = rest.chars();
-        let only = u8::try_from(chars.next()?).ok()?;
-        chars.next().is_none().then_some(only)
-    });
+    let mut after_dash = selector.strip_prefix('-').unwrap_or_default().chars();
+    let short = match (after_dash.next(), after_dash.next()) {
+        (Some(only), None) => u8::try_from(only).ok(),
+        _ => None,
+    };
     let found = meta.flags.iter().find(|flag| {
         long.is_some_and(|long| {
             crate::has_str(flag.flag.longs, long) || flag.flag.negate == Some(long)
