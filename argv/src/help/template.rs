@@ -39,6 +39,29 @@ pub const STYLES: [&str; 24] = [
     "underline",
 ];
 
+/// [`STYLES`] as one string, in the same order. A table of strings in a binary is a pointer and
+/// a length per entry and a load-time relocation for each pointer; this is the names alone.
+const STYLE_NAMES: &str = "heading option metavar command black red green yellow blue magenta \
+    cyan white bright-black bright-red bright-green bright-yellow bright-blue bright-magenta \
+    bright-cyan bright-white bold dim italic underline";
+
+/// Where `name` stands among the styles, as [`STYLES`] orders them.
+fn style_index(name: &str) -> Option<usize> {
+    let mut rest = STYLE_NAMES;
+    let mut index = 0;
+    loop {
+        let (word, next) = match find_char(rest, ' ') {
+            Some(at) => (head(rest, at), Some(tail(rest, at + 1))),
+            None => (rest, None),
+        };
+        if word == name {
+            return Some(index);
+        }
+        rest = next?;
+        index += 1;
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 struct AnsiStyle {
     foreground: Option<u8>,
@@ -57,7 +80,7 @@ impl AnsiStyle {
             for atom in mapped_fragment(fragment, palette).split('+') {
                 // Positions in `STYLES`: the four roles, then the eight colours and their
                 // bright twins in ANSI order, then the four attributes.
-                let index = STYLES.iter().position(|name| *name == atom)?;
+                let index = style_index(atom)?;
                 match index {
                     0..=3 => {
                         self.foreground = Some([33, 32, 35, 32][index]);
@@ -111,12 +134,16 @@ fn push_code(out: &mut String, code: u8) {
 }
 
 fn mapped_fragment(fragment: &str, palette: Palette) -> &str {
-    match fragment {
-        "heading" => palette.heading,
-        "option" => palette.option,
-        "metavar" => palette.metavar,
-        "command" => palette.command,
-        other => other,
+    // The roles are the first four styles, in this order.
+    let roles = [
+        palette.heading,
+        palette.option,
+        palette.metavar,
+        palette.command,
+    ];
+    match style_index(fragment) {
+        Some(role) if role < roles.len() => roles[role],
+        _ => fragment,
     }
 }
 
@@ -582,5 +609,11 @@ mod tests {
             substitute("{$heading}Title{/$}", style, |_| None),
             "\u{1b}[1;36mTitle\u{1b}[0m"
         );
+    }
+
+    #[test]
+    fn the_style_names_are_the_published_styles() {
+        let names: Vec<&str> = STYLE_NAMES.split(' ').collect();
+        assert_eq!(names, STYLES);
     }
 }
