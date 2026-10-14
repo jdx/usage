@@ -1025,17 +1025,44 @@ fn find_str(text: &str, needle: &str) -> Option<usize> {
     let Some(&first) = needle.first() else {
         return Some(0);
     };
-    for (at, &byte) in text.as_bytes().iter().enumerate() {
-        if byte == first
-            && text
-                .as_bytes()
-                .get(at..)
-                .is_some_and(|rest| rest.starts_with(needle))
-        {
+    let bytes = text.as_bytes();
+    let mut from = 0;
+    loop {
+        // The next place the needle could start, then whether it does.
+        let at = from + find_byte(bytes.get(from..)?, first)?;
+        if bytes.get(at..).is_some_and(|rest| rest.starts_with(needle)) {
             return Some(at);
         }
+        from = at + 1;
     }
-    None
+}
+
+/// The position of the first `wanted` in `bytes`, eight bytes to the test.
+///
+/// What `memchr` does, without the kilobyte of it: a word has a `wanted` in it exactly when
+/// the word xor-ed with `wanted` repeated has a zero byte, which the usual subtract-and-mask
+/// finds without looking at the bytes one at a time.
+fn find_byte(bytes: &[u8], wanted: u8) -> Option<usize> {
+    const LOW: u64 = 0x0101_0101_0101_0101;
+    const HIGH: u64 = 0x8080_8080_8080_8080;
+    let pattern = LOW * u64::from(wanted);
+    let mut words = bytes.chunks_exact(8);
+    let mut base = 0;
+    for chunk in &mut words {
+        let word = u64::from_le_bytes(chunk.try_into().unwrap_or_default()) ^ pattern;
+        if word.wrapping_sub(LOW) & !word & HIGH != 0 {
+            return chunk
+                .iter()
+                .position(|&byte| byte == wanted)
+                .map(|at| base + at);
+        }
+        base += 8;
+    }
+    words
+        .remainder()
+        .iter()
+        .position(|&byte| byte == wanted)
+        .map(|at| base + at)
 }
 
 /// `text` up to the first `separator`, and what follows it: `None` when there is no separator.
