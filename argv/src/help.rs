@@ -1022,12 +1022,20 @@ fn find_char(text: &str, c: char) -> Option<usize> {
 #[inline(never)]
 fn find_str(text: &str, needle: &str) -> Option<usize> {
     let needle = needle.as_bytes();
-    if needle.is_empty() {
+    let Some(&first) = needle.first() else {
         return Some(0);
+    };
+    for (at, &byte) in text.as_bytes().iter().enumerate() {
+        if byte == first
+            && text
+                .as_bytes()
+                .get(at..)
+                .is_some_and(|rest| rest.starts_with(needle))
+        {
+            return Some(at);
+        }
     }
-    text.as_bytes()
-        .windows(needle.len())
-        .position(|window| window == needle)
+    None
 }
 
 /// `text` up to the first `separator`, and what follows it: `None` when there is no separator.
