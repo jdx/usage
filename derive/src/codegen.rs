@@ -352,18 +352,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // Before the preamble, which interpolates the intercept.
     let (spec_endpoint, spec_endpoint_intercept) = spec_endpoint_fns(cli);
     let (completion, completion_intercept) = completion_fns(cli);
-    let parse_preamble = quote! {
-                    let __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
-                        usage_argv::__usage_process_args();
-                    let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        usage_argv::__usage_borrow_words(&__usage_all);
-                    // Before everything else, including the parse: a completion request is
-                    // not this CLI's grammar and must not be measured against it.
-                    #completion_intercept
-                    // In the shared preamble rather than in `parse` alone: the point of the
-                    // endpoint is that *any* usage binary answers `__usage_spec__`, so a CLI
-                    // that resolves settings has to answer it too.
-                    #spec_endpoint_intercept
+    // Without a view or multicall rewrite the words the parser sees are argv[1..] verbatim, so
+    // they are borrowed from the collected arguments instead of copied word by word.
+    let rewritten_argv = if cli.views.is_empty() && !cli.multicall {
+        quote! {
+            let __usage_argv: &[&::std::ffi::OsStr] =
+                __usage_all_refs.get(1..).unwrap_or_default();
+        }
+    } else {
+        quote! {
                     let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
                         if let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
                             __usage_all_refs.split_first()
@@ -401,6 +398,21 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         };
                     let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
                         usage_argv::__usage_borrow_words(&__usage_raw);
+        }
+    };
+    let parse_preamble = quote! {
+                    let __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
+                        usage_argv::__usage_process_args();
+                    let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
+                        usage_argv::__usage_borrow_words(&__usage_all);
+                    // Before everything else, including the parse: a completion request is
+                    // not this CLI's grammar and must not be measured against it.
+                    #completion_intercept
+                    // In the shared preamble rather than in `parse` alone: the point of the
+                    // endpoint is that *any* usage binary answers `__usage_spec__`, so a CLI
+                    // that resolves settings has to answer it too.
+                    #spec_endpoint_intercept
+                    #rewritten_argv
                     let __usage_selected_view = __usage_all
                         .first()
                         .and_then(|argv0| usage_argv::spec::view_for_program(&SPEC, argv0));
