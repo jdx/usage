@@ -192,7 +192,7 @@ impl Sections {
             &self.flattened,
             &self.after_help,
         ] {
-            out.push_str(part);
+            out.put_str(part);
         }
         out
     }
@@ -209,9 +209,9 @@ impl Sections {
                 let flattened = self.flattened.trim();
                 if !flattened.is_empty() {
                     if !out.is_empty() {
-                        out.push_str("\n\n");
+                        out.put_str("\n\n");
                     }
-                    out.push_str(flattened);
+                    out.put_str(flattened);
                 }
                 return Some(out);
             }
@@ -380,15 +380,15 @@ pub fn place_logo(
             // with its bottom sliced away looks like a rendering fault.
             for index in 0..page.lines().count().max(art.len()) {
                 if index > 0 {
-                    out.push('\n');
+                    out.put_char('\n');
                 }
                 let line = text.next().unwrap_or("");
-                out.push_str(line);
+                out.put_str(line);
                 if let Some(art) = art.get(index).filter(|art| !art.is_empty()) {
                     for _ in 0..column.saturating_sub(shown_width(line)) {
-                        out.push(' ');
+                        out.put_char(' ');
                     }
-                    out.push_str(&painted_logo(art, style, coloured));
+                    out.put_str(&painted_logo(art, style, coloured));
                 }
             }
             out
@@ -396,17 +396,17 @@ pub fn place_logo(
         None if art_width <= width => {
             let mut banner = String::new();
             for art in &art {
-                banner.push_str(&painted_logo(art, style, coloured));
-                banner.push('\n');
+                banner.put_str(&painted_logo(art, style, coloured));
+                banner.put_char('\n');
             }
-            banner.push('\n');
-            banner.push_str(page);
+            banner.put_char('\n');
+            banner.put_str(page);
             banner
         }
         None => return page.to_string(),
     };
     out.truncate(out.trim_end().len());
-    out.push('\n');
+    out.put_char('\n');
     out
 }
 
@@ -476,8 +476,8 @@ fn finish_page(page: String, style: Style) -> String {
     };
     let trimmed = page.trim();
     let mut done = String::with_capacity(trimmed.len() + 1);
-    done.push_str(trimmed);
-    done.push('\n');
+    done.put_str(trimmed);
+    done.put_char('\n');
     done
 }
 
@@ -512,11 +512,11 @@ fn strip_ansi_sequences(text: String) -> String {
             continue;
         }
 
-        plain.push_str(&text[copied..at]);
+        plain.put_str(&text[copied..at]);
         copied = end + 1;
         at = copied;
     }
-    plain.push_str(&text[copied..]);
+    plain.put_str(&text[copied..]);
     plain
 }
 
@@ -638,7 +638,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             .and_then(|after| after.chars().next())
             && matches!(escaped, '*' | '_' | '~' | '`' | '\\')
         {
-            out.push(escaped);
+            out.put_char(escaped);
             at += 1 + escaped.len_utf8();
             allow_run_remainder = false;
             continue;
@@ -664,21 +664,21 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         });
 
         if let Some((delimiter, open, close, recurse, content_start, end, after)) = span {
-            out.push_str("\u{1b}[");
-            out.push_str(open);
-            out.push('m');
+            out.put_str("\u{1b}[");
+            out.put_str(open);
+            out.put_char('m');
             if recurse {
-                out.push_str(&styled_inline(&text[content_start..end], Some(open)));
+                out.put_str(&styled_inline(&text[content_start..end], Some(open)));
             } else {
-                out.push_str(&text[content_start..end]);
+                out.put_str(&text[content_start..end]);
             }
-            out.push_str("\u{1b}[");
-            out.push_str(close);
-            out.push('m');
+            out.put_str("\u{1b}[");
+            out.put_str(close);
+            out.put_char('m');
             if let Some(parent) = parent {
-                out.push_str("\u{1b}[");
-                out.push_str(parent);
-                out.push('m');
+                out.put_str("\u{1b}[");
+                out.put_str(parent);
+                out.put_char('m');
             }
             let marker = delimiter.chars().next().expect("a delimiter has a marker");
             allow_run_remainder =
@@ -688,7 +688,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         }
 
         let ch = rest.chars().next().expect("at is on a character boundary");
-        out.push(ch);
+        out.put_char(ch);
         at += ch.len_utf8();
         allow_run_remainder = false;
     }
@@ -795,7 +795,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         // Required flags use angle brackets too (`<--force>`), but only the wrapper is a
         // delimiter: the option inside keeps its semantic colour.
         if rest.starts_with("<-") {
-            out.push('<');
+            out.put_char('<');
             at += 1;
             continue;
         }
@@ -812,15 +812,15 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         if let Some(value) = rest.strip_prefix("[=")
             && let Some(end) = value.find(']')
         {
-            out.push_str("[=");
+            out.put_str("[=");
             style.paint(&mut out, "metavar", &value[..end]);
-            out.push(']');
+            out.put_char(']');
             at += end + 3;
             continue;
         }
 
         if let Some(value) = rest.strip_prefix('=') {
-            out.push('=');
+            out.put_char('=');
             at += 1;
             if !value.starts_with('<') {
                 let end = value
@@ -862,7 +862,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         }
 
         let ch = rest.chars().next().expect("at is on a character boundary");
-        out.push(ch);
+        out.put_char(ch);
         at += ch.len_utf8();
     }
     out
@@ -889,12 +889,32 @@ fn flatten_help(meta: &CommandMeta<'_>) -> bool {
 /// plain page is never scanned for it.
 const STRUCTURE: char = '\u{1}';
 
+/// `String::push_str` that is not inlined: a page is written in hundreds of pushes, and each
+/// inlined one carries its own capacity check and copy. A call is smaller, and a help page is
+/// nowhere near fast enough for it to matter.
+trait PutStr {
+    fn put_str(&mut self, text: &str);
+    fn put_char(&mut self, c: char);
+}
+
+impl PutStr for String {
+    #[inline(never)]
+    fn put_str(&mut self, text: &str) {
+        self.push_str(text);
+    }
+
+    #[inline(never)]
+    fn put_char(&mut self, c: char) {
+        self.push(c);
+    }
+}
+
 /// Append `parts` in order. `write!` with format arguments pulls `core::fmt` into every call
 /// site; this is the same bytes with a push per part.
 #[inline(never)]
 fn put(out: &mut String, parts: &[&str]) {
     for part in parts {
-        out.push_str(part);
+        out.put_str(part);
     }
 }
 
@@ -909,7 +929,7 @@ fn cat(parts: &[&str]) -> String {
 #[inline(never)]
 fn put_pad(out: &mut String, indent: usize) {
     for _ in 0..indent {
-        out.push(' ');
+        out.put_char(' ');
     }
 }
 
@@ -917,16 +937,16 @@ fn put_pad(out: &mut String, indent: usize) {
 #[inline(never)]
 fn line_at(out: &mut String, indent: usize, text: &str) {
     put_pad(out, indent);
-    out.push_str(text);
-    out.push('\n');
+    out.put_str(text);
+    out.put_char('\n');
 }
 
 /// A name in brackets: `<NAME>`, `[-- NAME]`.
 #[inline(never)]
 fn put_bracketed(out: &mut String, open: char, prefix: &str, name: &str, close: char) {
-    out.push(open);
+    out.put_char(open);
     put(out, &[prefix, name]);
-    out.push(close);
+    out.put_char(close);
 }
 
 #[inline(never)]
@@ -937,24 +957,24 @@ fn long_form(name: &str) -> String {
 #[inline(never)]
 fn short_form(short: u8) -> String {
     let mut out = String::from("-");
-    out.push(short as char);
+    out.put_char(short as char);
     out
 }
 
 /// A heading, as every section writes one: after a blank line, and coloured on a coloured
 /// page.
 fn write_heading(out: &mut String, title: &str, style: Style) {
-    out.push('\n');
+    out.put_char('\n');
     if style.coloured {
-        out.push(STRUCTURE);
+        out.put_char(STRUCTURE);
         let mut titled = String::from(title);
-        titled.push(':');
-        out.push_str(&style.heading(&titled));
+        titled.put_char(':');
+        out.put_str(&style.heading(&titled));
     } else {
-        out.push_str(title);
-        out.push(':');
+        out.put_str(title);
+        out.put_char(':');
     }
-    out.push('\n');
+    out.put_char('\n');
 }
 
 /// A row's usage as it is printed: coloured on a coloured page. The column is still measured
@@ -977,15 +997,15 @@ fn paint_synopsis(usage: &mut String, style: Style) {
         let (body, newline) = line
             .strip_suffix('\n')
             .map_or((line, ""), |body| (body, "\n"));
-        out.push(STRUCTURE);
+        out.put_char(STRUCTURE);
         match body.strip_prefix("Usage:") {
             Some(rest) => {
-                out.push_str(&style.heading("Usage:"));
-                out.push_str(&styled_flag_usage(rest, style));
+                out.put_str(&style.heading("Usage:"));
+                out.put_str(&styled_flag_usage(rest, style));
             }
-            None => out.push_str(&styled_flag_usage(body, style)),
+            None => out.put_str(&styled_flag_usage(body, style)),
         }
-        out.push_str(newline);
+        out.put_str(newline);
     }
     *usage = out;
 }
@@ -1005,17 +1025,17 @@ fn painted_prose(page: String, style: Style) -> String {
             .strip_suffix('\n')
             .map_or((line, ""), |body| (body, "\n"));
         if let Some(structure) = body.strip_prefix(STRUCTURE) {
-            out.push_str(structure);
+            out.put_str(structure);
         } else if body.trim_start().starts_with("$ ") {
             // Examples are shell source, where paired backticks are command substitution rather
             // than prose markup. Every other line may contain author emphasis; option and
             // argument spellings are harmless because intraword underscores do not open spans
             // and unmatched shell globs remain literal.
-            out.push_str(body);
+            out.put_str(body);
         } else {
-            out.push_str(&style.inline(body));
+            out.put_str(&style.inline(body));
         }
-        out.push_str(newline);
+        out.put_str(newline);
     }
     out
 }
@@ -1137,9 +1157,9 @@ fn usage_line_with_subcommands(
     let mut out = String::new();
     for (i, part) in path.iter().enumerate() {
         if i > 0 {
-            out.push(' ');
+            out.put_char(' ');
         }
-        out.push_str(part);
+        out.put_str(part);
     }
 
     // Hidden entries are absent from the line as they are from the sections: help describes
@@ -1161,15 +1181,15 @@ fn usage_line_with_subcommands(
                 } else {
                     ('[', ']')
                 };
-                out.push(' ');
-                out.push(open);
-                out.push_str(&flag_usage(flag));
-                out.push(close);
+                out.put_char(' ');
+                out.put_char(open);
+                out.put_str(&flag_usage(flag));
+                out.put_char(close);
             }
         } else if required {
-            out.push_str(" <FLAGS>");
+            out.put_str(" <FLAGS>");
         } else {
-            out.push_str(" [FLAGS]");
+            out.put_str(" [FLAGS]");
         }
     }
 
@@ -1185,9 +1205,9 @@ fn usage_line_with_subcommands(
             let mut inner = String::new();
             for (index, arg) in positional_args.iter().filter(|a| !a.hide).enumerate() {
                 if index > 0 {
-                    inner.push(' ');
+                    inner.put_char(' ');
                 }
-                inner.push_str(&arg_usage(arg));
+                inner.put_str(&arg_usage(arg));
             }
             match clause.separator {
                 Some(separator) => {
@@ -1208,13 +1228,13 @@ fn usage_line_with_subcommands(
             }
         } else if args <= INLINE_LIMIT {
             for arg in positional_args.iter().filter(|a| !a.hide) {
-                out.push(' ');
-                out.push_str(&arg_usage(arg));
+                out.put_char(' ');
+                out.put_str(&arg_usage(arg));
             }
         } else if required {
-            out.push_str(" <ARGS>…");
+            out.put_str(" <ARGS>…");
         } else {
-            out.push_str(" [ARGS]…");
+            out.put_str(" [ARGS]…");
         }
     }
 
@@ -1390,14 +1410,14 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     }
     if let Some(short) = short {
         if !out.is_empty() {
-            out.push(' ');
+            out.put_char(' ');
         }
-        out.push('-');
-        out.push(*short as char);
+        out.put_char('-');
+        out.put_char(*short as char);
     }
     if let Some(long) = long {
         if !out.is_empty() {
-            out.push(' ');
+            out.put_char(' ');
         }
         put(&mut out, &["--", long]);
     }
@@ -1425,7 +1445,7 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
             );
         }
         if flag.variadic && meta.extra.value_names.len() <= 1 && exact.is_none() {
-            out.push('…');
+            out.put_char('…');
         }
     }
     out
@@ -1443,10 +1463,10 @@ fn append_flag_value(
     } else {
         let separator = if first && require_equals { "=" } else { " " };
         let (open, close) = if optional { ('[', ']') } else { ('<', '>') };
-        out.push_str(separator);
-        out.push(open);
-        out.push_str(name);
-        out.push(close);
+        out.put_str(separator);
+        out.put_char(open);
+        out.put_str(name);
+        out.put_char(close);
     }
 }
 
@@ -1498,11 +1518,11 @@ pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
     };
     let separator = arg.double_dash == DoubleDash::Required;
     if !single && separator {
-        out.push_str("-- ");
+        out.put_str("-- ");
     }
     for index in 0..count {
         if index > 0 {
-            out.push(' ');
+            out.put_char(' ');
         }
         let (name, prefix) = if single {
             (arg.name, if separator && count == 1 { "-- " } else { "" })
@@ -1512,7 +1532,7 @@ pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
         put_bracketed(&mut out, open, prefix, name, close);
     }
     if arg.var && meta.value_names.len() <= 1 && exact.is_none() {
-        out.push('…');
+        out.put_char('…');
     }
     out
 }
@@ -1611,7 +1631,7 @@ fn page_sections(
     };
     if let Some(before) = before {
         write_wrapped_indented(out, before, width, 0);
-        out.push('\n');
+        out.put_char('\n');
     }
 
     // The banner and the program's own description belong to the program's page. A
@@ -1639,7 +1659,7 @@ fn page_sections(
         // Trimmed for the same reason the entries below are: the blank line after the
         // description is written here, so one already in the text doubles it.
         write_wrapped_indented(out, about.trim_end(), width, 0);
-        out.push('\n');
+        out.put_char('\n');
     }
     command_deprecation(out, meta, 0, width);
     usage_section(&mut sections.usage, spec, path, meta);
@@ -1781,14 +1801,14 @@ fn page_sections(
         meta.extra.after_help
     };
     if let Some(after) = after {
-        out.push('\n');
+        out.put_char('\n');
         write_wrapped_indented(out, after, width, 0);
     }
     if long && root && (spec.author.is_some() || spec.license.is_some()) {
         // The reference template starts the footer in a new paragraph without trimming the
         // configured trailing help. A newline deliberately present in `after_help` therefore
         // remains an additional blank line before package metadata.
-        out.push('\n');
+        out.put_char('\n');
         if let Some(author) = spec.author {
             put(out, &["Author: ", author, "\n"]);
         }
@@ -2059,11 +2079,11 @@ fn with_default_command_help(
         true,
     );
     let mut out = parent.trim_end().to_string();
-    out.push_str("\n\nDefault command: ");
-    out.push_str(&style.command(child.cmd.name));
-    out.push_str("\n  Unmatched words select this command.\n\n");
-    out.push_str(child_page.trim_end());
-    out.push('\n');
+    out.put_str("\n\nDefault command: ");
+    out.put_str(&style.command(child.cmd.name));
+    out.put_str("\n  Unmatched words select this command.\n\n");
+    out.put_str(child_page.trim_end());
+    out.put_char('\n');
     out
 }
 
@@ -2147,7 +2167,7 @@ fn commands_section(
         // prose on the same terms: the long page only, and only once declared.
         if long && let Some(prose) = heading.and_then(|title| heading_help(meta, title)) {
             write_wrapped_indented(out, prose, width, 2);
-            out.push('\n');
+            out.put_char('\n');
         }
         for (_, sub) in lines
             .iter()
@@ -2207,32 +2227,32 @@ fn command_row<'a>(sub: &'a CommandMeta<'a>, is_default: bool) -> Option<Cow<'a,
     }
     let mut row = String::new();
     if let Some(summary) = summary {
-        row.push_str(summary);
+        row.put_str(summary);
     }
     if visible_aliases.peek().is_some() {
         if !row.is_empty() {
-            row.push(' ');
+            row.put_char(' ');
         }
-        row.push_str("[aliases: ");
+        row.put_str("[aliases: ");
         for (index, alias) in visible_aliases.enumerate() {
             if index > 0 {
-                row.push_str(", ");
+                row.put_str(", ");
             }
-            row.push_str(alias);
+            row.put_str(alias);
         }
-        row.push(']');
+        row.put_char(']');
     }
     if let Some(label) = label {
         if !row.is_empty() {
-            row.push(' ');
+            row.put_char(' ');
         }
-        row.push_str(&label);
+        row.put_str(&label);
     }
     if is_default {
         if !row.is_empty() {
-            row.push(' ');
+            row.put_char(' ');
         }
-        row.push_str("(default)");
+        row.put_str("(default)");
     }
     Some(Cow::Owned(row))
 }
@@ -2315,7 +2335,7 @@ fn flat_commands(
         if flatten_help(sub) {
             flat_commands(out, &sub_path, sub, width, long, style);
         }
-        out.push('\n');
+        out.put_char('\n');
     }
 }
 
@@ -2440,15 +2460,15 @@ fn grouped_sections<'m>(
         // Markdown page, so keying prose to it would mean different things per renderer.
         if let Some(prose) = heading.and_then(prose_of) {
             write_wrapped_indented(&mut section, prose, width, 2);
-            section.push('\n');
+            section.put_char('\n');
         }
         for index in (0..len).filter(|&index| heading_of(index) == heading) {
             write_item(&mut section, index);
         }
-        sink.page.push_str(&section);
+        sink.page.put_str(&section);
         match heading {
-            Some(_) => sink.grouped.push_str(&section),
-            None => sink.ungrouped.push_str(&section),
+            Some(_) => sink.grouped.put_str(&section),
+            None => sink.ungrouped.put_str(&section),
         }
     }
 }
@@ -2534,9 +2554,9 @@ fn inline_annotations(
     let mut out = String::new();
     let mut push = |part: &str| {
         if !out.is_empty() {
-            out.push(' ');
+            out.put_char(' ');
         }
-        out.push_str(part);
+        out.put_str(part);
     };
     if !choices.is_empty() {
         push(&cat(&["[", &choices.join(", "), "]"]));
@@ -2680,7 +2700,7 @@ fn examples_section(out: &mut String, examples: &[Example<'_>], long: bool, styl
     write_heading(out, "Examples", style);
     for (index, example) in examples.iter().enumerate() {
         if index > 0 {
-            out.push('\n');
+            out.put_char('\n');
         }
         if let Some(header) = example.header {
             put(out, &["  ", header, ":\n"]);
@@ -2812,13 +2832,13 @@ fn write_indented(out: &mut String, text: &str, indent: usize) {
         if i == 0 || !line.is_empty() {
             line_at(out, indent, line);
         } else {
-            out.push('\n');
+            out.put_char('\n');
         }
     }
     // A text that ends with a break has a blank line at the end, and `lines()` does not report
     // it. The reference writes the text verbatim, so the blank is part of what it prints.
     if text.ends_with('\n') {
-        out.push('\n');
+        out.put_char('\n');
     }
 }
 
@@ -2878,19 +2898,19 @@ fn entry(
     // Assembled rather than formatted. This is the row every entry on every page takes, and
     // `{usage:<col$}` drags in the whole formatting machinery to pad a string — and would pad
     // a coloured usage by its escapes as well as its text.
-    out.push_str("  ");
-    out.push_str(painted);
+    out.put_str("  ");
+    out.put_str(painted);
     // Padded by characters, measured on the plain spelling: a usage can hold a `…`.
     for _ in 0..col.saturating_sub(usage.chars().count()) {
-        out.push(' ');
+        out.put_char(' ');
     }
-    out.push_str("  ");
+    out.put_str("  ");
     // Text that already fits is text `wrap` would hand straight back, so skip it and the two
     // allocations it makes. Worth the check because it is the common case — most descriptions
     // are shorter than the column leaves room for.
     if fits(help, room) {
-        out.push_str(help);
-        out.push('\n');
+        out.put_str(help);
+        out.put_char('\n');
         return indent;
     }
 
@@ -2921,10 +2941,10 @@ fn wrap_lead(
         if first {
             first = false;
             put(out, lead);
-            out.push_str(line);
-            out.push('\n');
+            out.put_str(line);
+            out.put_char('\n');
         } else if line.is_empty() {
-            out.push('\n');
+            out.put_char('\n');
         } else {
             line_at(out, indent, line);
         }
@@ -2947,7 +2967,7 @@ fn write_wrapped_indented(out: &mut String, help: &str, width: usize, indent: us
     let room = width.saturating_sub(indent);
     wrap_lines(help, room, &mut |line| {
         if line.is_empty() {
-            out.push('\n');
+            out.put_char('\n');
         } else {
             line_at(out, indent, line);
         }
@@ -3017,7 +3037,7 @@ fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
         let body_width = width.saturating_sub(prefix_width);
         // The line under construction, prefix included; `words` says whether it holds any yet.
         line.clear();
-        line.push_str(prefix);
+        line.put_str(prefix);
         let mut words = false;
         let mut line_width = 0;
         for word in body.split_whitespace() {
@@ -3031,10 +3051,10 @@ fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
                 line_width = 0;
             }
             if words {
-                line.push(' ');
+                line.put_char(' ');
                 line_width += 1;
             }
-            line.push_str(word);
+            line.put_str(word);
             words = true;
             line_width += word_width;
         }
@@ -3157,13 +3177,13 @@ fn deprecation_label(
     for (lead, part) in [("", message), ("warns at ", warn_at), ("removed at ", remove_at)] {
         if let Some(part) = part {
             if !first {
-                out.push_str("; ");
+                out.put_str("; ");
             }
             first = false;
             put(&mut out, &[lead, part]);
         }
     }
-    out.push(']');
+    out.put_char(']');
     Some(out)
 }
 
@@ -3511,7 +3531,7 @@ fn topic_id(title: &str) -> String {
     for ch in title.chars() {
         if ch.is_alphanumeric() {
             if separator && !out.is_empty() {
-                out.push('-');
+                out.put_char('-');
             }
             out.extend(ch.to_lowercase());
             separator = false;
@@ -3562,9 +3582,9 @@ fn topic_blocks<'m>(
                         }
                     }
                     if !existing.is_empty() {
-                        existing.push_str("\n\n");
+                        existing.put_str("\n\n");
                     }
-                    existing.push_str(body);
+                    existing.put_str(body);
                 } else {
                     topics.push((title.to_string(), text));
                 }
@@ -3580,9 +3600,9 @@ fn topic_blocks<'m>(
             }
             if title.is_some() {
                 if !block.is_empty() {
-                    block.push('\n');
+                    block.put_char('\n');
                 }
-                block.push_str(line);
+                block.put_str(line);
             }
         }
         finish(title, &mut block, &mut topics);
@@ -3636,7 +3656,7 @@ pub fn render_topic(spec: &Spec<'_>, cmd: &Command<'_>, topic: &str, long: bool)
         .into_iter()
         .find(|(known, _)| known.id == topic || known.title.eq_ignore_ascii_case(topic))
         .map(|(_, mut block)| {
-            block.push('\n');
+            block.put_char('\n');
             block
         })
 }
@@ -4096,9 +4116,9 @@ fn recursive_help<'a>(
         inherit_version_actions: bool,
     ) {
         if !out.is_empty() {
-            out.push('\n');
+            out.put_char('\n');
         }
-        out.push_str(&assembled_help(
+        out.put_str(&assembled_help(
             spec,
             path,
             chain,
@@ -5154,7 +5174,7 @@ mod style_tests {
                     }
                 }
             } else {
-                out.push(ch);
+                out.put_char(ch);
             }
         }
         out

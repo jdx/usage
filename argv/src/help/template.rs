@@ -4,7 +4,7 @@
 //! come from KDL rather than a Rust string literal. The parser touches only the template itself;
 //! substituted help sections are opaque, so prose that happens to contain `{$red}` stays prose.
 
-use super::{Palette, Style};
+use super::{Palette, PutStr as _, Style};
 
 const MARK: char = '\u{2}';
 const END: char = '\u{3}';
@@ -75,7 +75,7 @@ impl AnsiStyle {
 
     fn write(self, out: &mut String) {
         let mut separator = "";
-        out.push_str("\u{1b}[");
+        out.put_str("\u{1b}[");
         for (enabled, code) in [
             (self.bold, 1u8),
             (self.dim, 2),
@@ -83,20 +83,20 @@ impl AnsiStyle {
             (self.underline, 4),
         ] {
             if enabled {
-                out.push_str(separator);
+                out.put_str(separator);
                 push_code(out, code);
                 separator = ";";
             }
         }
         if let Some(foreground) = self.foreground {
-            out.push_str(separator);
+            out.put_str(separator);
             push_code(out, foreground);
             separator = ";";
         }
         if separator.is_empty() {
-            out.push('0');
+            out.put_char('0');
         }
-        out.push('m');
+        out.put_char('m');
     }
 }
 
@@ -105,7 +105,7 @@ fn push_code(out: &mut String, code: u8) {
     if code >= 10 {
         push_code(out, code / 10);
     }
-    out.push(char::from(b'0' + code % 10));
+    out.put_char(char::from(b'0' + code % 10));
 }
 
 fn mapped_fragment(fragment: &str, palette: Palette) -> &str {
@@ -127,14 +127,14 @@ pub(super) fn semantic(specification: &str, text: &str, style: Style) -> String 
 /// [`semantic`], appended to `out` rather than returned.
 pub(super) fn semantic_into(out: &mut String, specification: &str, text: &str, style: Style) {
     if !style.coloured {
-        out.push_str(text);
+        out.put_str(text);
         return;
     }
     AnsiStyle::default()
         .apply(specification, style.palette)
         .unwrap_or_default()
         .write(out);
-    out.push_str(text);
+    out.put_str(text);
     AnsiStyle::default().write(out);
 }
 
@@ -216,16 +216,16 @@ pub(super) fn substitute(
                     push_escaped(&mut marked, rest, styled);
                     break;
                 };
-                marked.push(MARK);
-                marked.push('+');
-                marked.push_str(&rest[2..end]);
-                marked.push(END);
+                marked.put_char(MARK);
+                marked.put_char('+');
+                marked.put_str(&rest[2..end]);
+                marked.put_char(END);
                 rest = &rest[end + 1..];
             }
             Event::Close => {
-                marked.push(MARK);
-                marked.push('-');
-                marked.push(END);
+                marked.put_char(MARK);
+                marked.put_char('-');
+                marked.put_char(END);
                 rest = &rest[4..];
             }
             Event::EscapeOpen => {
@@ -283,13 +283,13 @@ fn next_style_event(text: &str) -> Option<(usize, Event)> {
 /// as the start of a tag. A page with no tags is not read for them, and takes the text as is.
 fn push_escaped(out: &mut String, text: &str, styled: bool) {
     if !styled || !text.contains(MARK) {
-        out.push_str(text);
+        out.put_str(text);
         return;
     }
     for ch in text.chars() {
-        out.push(ch);
+        out.put_char(ch);
         if ch == MARK {
-            out.push(MARK);
+            out.put_char(MARK);
         }
     }
 }
@@ -313,13 +313,13 @@ fn collapse_blank_runs(page: &str, markers: bool) -> String {
             continue;
         }
         if wrote_visible {
-            out.push('\n');
+            out.put_char('\n');
             if blank {
-                out.push('\n');
+                out.put_char('\n');
             }
         }
         blank = false;
-        out.push_str(line);
+        out.put_str(line);
         wrote_visible = true;
     }
     out
@@ -350,7 +350,7 @@ fn push_markers(out: &mut String, line: &str) {
         let Some(end) = marker.find(END) else {
             return;
         };
-        out.push_str(&marker[..=end]);
+        out.put_str(&marker[..=end]);
         rest = &marker[end + END.len_utf8()..];
     }
 }
@@ -368,13 +368,13 @@ fn render_marked(marked: &str, style: Style) -> String {
         );
         let after = &rest[at + MARK.len_utf8()..];
         if after.starts_with(MARK) {
-            out.push(MARK);
+            out.put_char(MARK);
             rest = &after[MARK.len_utf8()..];
             continue;
         }
         let Some(end) = after.find(END) else {
-            out.push(MARK);
-            out.push_str(after);
+            out.put_char(MARK);
+            out.put_str(after);
             break;
         };
         let marker = &after[..end];
@@ -425,18 +425,18 @@ fn push_content(out: &mut String, text: &str, coloured: bool, active: AnsiStyle)
             && !active.underline
             && active.foreground.is_none())
     {
-        out.push_str(text);
+        out.put_str(text);
         return;
     }
     let mut rest = text;
     while let Some(at) = rest.find("\u{1b}[") {
-        out.push_str(&rest[..at]);
+        out.put_str(&rest[..at]);
         let sequence = &rest[at..];
         let Some(end) = sequence.find('m') else {
-            out.push_str(sequence);
+            out.put_str(sequence);
             return;
         };
-        out.push_str(&sequence[..=end]);
+        out.put_str(&sequence[..=end]);
         let parameters = &sequence[2..end];
         if parameters.split(';').any(|parameter| {
             matches!(
@@ -448,7 +448,7 @@ fn push_content(out: &mut String, text: &str, coloured: bool, active: AnsiStyle)
         }
         rest = &sequence[end + 1..];
     }
-    out.push_str(rest);
+    out.put_str(rest);
 }
 
 #[cfg(test)]
