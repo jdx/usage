@@ -1229,19 +1229,25 @@ fn zsh_quote(value: &str) -> String {
 /// without a spec saying so. Reimplemented rather than modelled as new vocabulary, because it
 /// is the same rule read off the same names.
 fn files_for(name: &str) -> Option<Files> {
-    // Lowercased into a buffer on the stack rather than an allocated copy — a name is short,
-    // and this is a parser — and then matched once, rather than compared name by name.
-    let mut buffer = [0u8; 11];
-    let lower = buffer.get_mut(..name.len())?;
-    lower.copy_from_slice(name.as_bytes());
-    lower.make_ascii_lowercase();
-    match &*lower {
-        b"file" | b"path" | b"config_file" => Some(Files::Any),
-        b"dir" | b"directory" => Some(Files::Dirs),
-        b"executable" => Some(Files::ExecutablePaths),
-        b"command" => Some(Files::Commands),
-        _ => None,
-    }
+    // Compared one by one through the shared case-insensitive comparison, which is a loop over
+    // a short list rather than a lowercased copy and a match on each length.
+    let found = [
+        "file",
+        "path",
+        "config_file",
+        "dir",
+        "directory",
+        "executable",
+        "command",
+    ]
+    .iter()
+    .position(|known| same_name(name, known))?;
+    Some(match found {
+        0..=2 => Files::Any,
+        3 | 4 => Files::Dirs,
+        5 => Files::ExecutablePaths,
+        _ => Files::Commands,
+    })
 }
 
 fn declared_files(type_: &str, next_arg_values: u32) -> Option<Files> {
