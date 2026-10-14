@@ -2635,6 +2635,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         })
     }
 
+    #[inline(never)]
     fn flag_action(&self, flag: &'t Flag<'t>, long_spelling: bool) -> Option<Error<'t, 'v>> {
         if matches!(
             flag.key,
@@ -2889,6 +2890,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         })
     }
 
+    #[inline(never)]
     fn descend(&mut self, sub: &'t Command<'t>) -> Result<(), Error<'t, 'v>> {
         if self.depth >= MAX_DEPTH {
             return Err(Error::TooDeep);
@@ -2913,6 +2915,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     /// Move to the next positional, forgetting what the last one took.
+    #[inline(never)]
     fn advance_arg(&mut self) {
         self.skip_sigil_args();
         self.arg_pos += 1;
@@ -2925,6 +2928,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// The value it was given on the same token counts, which is why this starts at what
     /// that value holds: `--include a b` with `var_max=2` takes `a` and `b`, not three
     /// words — and `--include a,b` has already taken both on the one token.
+    #[inline(never)]
     fn start_collecting(&mut self, flag: &'t Flag<'t>, first: &[u8]) -> Result<(), Error<'t, 'v>> {
         self.collected = values_in(first, flag.delimiter);
         if let Some(max) = flag.var_max.filter(|max| self.collected > *max) {
