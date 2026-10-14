@@ -2318,6 +2318,7 @@ fn choices<'a>(
 /// By identity rather than by name: a global flag's metadata sits on the command that declared
 /// it, which is an ancestor of the one being completed, and two commands may declare different
 /// flags under one name.
+#[inline(never)]
 fn flag_meta<'a>(meta: &'a CommandMeta<'a>, flag: &Flag<'_>) -> Option<&'a FlagMeta<'a>> {
     meta.flags
         .iter()
@@ -2326,6 +2327,7 @@ fn flag_meta<'a>(meta: &'a CommandMeta<'a>, flag: &Flag<'_>) -> Option<&'a FlagM
 }
 
 /// The metadata for an argument, wherever in the tree it was declared.
+#[inline(never)]
 fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<'a>> {
     meta.args
         .iter()
