@@ -244,7 +244,9 @@ fn long_names_in_scope<'a>(chain: &[&'a CommandMeta<'a>]) -> Vec<&'a str> {
         for f in meta.flags {
             if !f.hide && (own || f.flag.global) {
                 names.extend_from_slice(f.flag.longs);
-                names.extend(f.flag.negate);
+                if let Some(negation) = f.flag.negate {
+                    names.push(negation);
+                }
             }
         }
     }
