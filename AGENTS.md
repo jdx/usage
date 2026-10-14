@@ -25,7 +25,7 @@ lockfiles. `release-plz` owns crate version updates and applies them as part of
 the release workflow.
 
 A change that would break a published crate's public API waits for the next major
-release. Ship the compatible part now and record the rest in `V7.md`.
+release. Ship the compatible part now and record the rest in `V8.md`.
 
 ## Conventional Commits
 
