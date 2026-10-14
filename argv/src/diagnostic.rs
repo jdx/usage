@@ -452,14 +452,13 @@ fn unexpected_flag(
     capture: ValueCapture,
 ) {
     use Ink::{Invalid, Plain, Valid};
-    error_line(
+    error_around(
         out,
         style,
-        &[
-            (Plain, "unexpected argument '"),
-            (Invalid, typed),
-            (Plain, "' found"),
-        ],
+        "unexpected argument '",
+        Invalid,
+        typed,
+        "' found",
     );
     // Scored without the dashes, and only then written back with them. Every flag
     // starts `--`, and the prefix bonus in Jaro-Winkler counts that agreement — so
@@ -1030,6 +1029,19 @@ fn error_line(out: &mut String, style: Style, parts: &[(Ink, &str)]) {
     push_all(out, &["\n"]);
 }
 
+/// An `error: …` line of the commonest shape: fixed text, one thing the user typed, fixed text.
+///
+/// Its own routine so that the seven messages shaped this way pass three strings and an ink,
+/// rather than each building the same three-piece array on the stack.
+#[inline(never)]
+fn error_around(out: &mut String, style: Style, before: &str, ink: Ink, middle: &str, after: &str) {
+    error_line(
+        out,
+        style,
+        &[(Ink::Plain, before), (ink, middle), (Ink::Plain, after)],
+    );
+}
+
 /// An indented line under the error, such as a missing argument's name.
 #[inline(never)]
 fn listed_line(out: &mut String, style: Style, text: &str) {
@@ -1100,24 +1112,22 @@ fn describe(
                 let capture = value_capture(argv, token, here);
                 unexpected_flag(&mut out, style, typed, chain, capture);
             } else if cmd.subcommands.is_empty() {
-                error_line(
+                error_around(
                     &mut out,
                     style,
-                    &[
-                        (Plain, "unexpected argument '"),
-                        (Invalid, &word),
-                        (Plain, "' found"),
-                    ],
+                    "unexpected argument '",
+                    Invalid,
+                    &word,
+                    "' found",
                 );
             } else {
-                error_line(
+                error_around(
                     &mut out,
                     style,
-                    &[
-                        (Plain, "unrecognized subcommand '"),
-                        (Invalid, &word),
-                        (Plain, "'"),
-                    ],
+                    "unrecognized subcommand '",
+                    Invalid,
+                    &word,
+                    "'",
                 );
                 // Every name a subcommand answers to, hidden ones included: a user who typed a
                 // near miss of an old alias should be told the name it still works under.
@@ -1130,17 +1140,13 @@ fn describe(
             }
         }
         Error::SubcommandConflict { subcommand } => {
-            error_line(
+            error_around(
                 &mut out,
                 style,
-                &[
-                    (Plain, "the subcommand '"),
-                    (Invalid, subcommand.name),
-                    (
-                        Plain,
-                        "' cannot be used with arguments on its parent command",
-                    ),
-                ],
+                "the subcommand '",
+                Invalid,
+                subcommand.name,
+                "' cannot be used with arguments on its parent command",
             );
         }
         Error::MissingRequired { .. } => {
@@ -1152,14 +1158,13 @@ fn describe(
             listed_line(&mut out, style, &named);
         }
         Error::DuplicateFlag { .. } => {
-            error_line(
+            error_around(
                 &mut out,
                 style,
-                &[
-                    (Plain, "the argument '"),
-                    (Invalid, &named),
-                    (Plain, "' cannot be used multiple times"),
-                ],
+                "the argument '",
+                Invalid,
+                &named,
+                "' cannot be used multiple times",
             );
         }
         Error::MissingSubcommand => {
@@ -1177,14 +1182,13 @@ fn describe(
             if let Some(help) = help {
                 return help;
             }
-            error_line(
+            error_around(
                 &mut out,
                 style,
-                &[
-                    (Plain, "'"),
-                    (Invalid, &path()),
-                    (Plain, "' requires a subcommand but one was not provided"),
-                ],
+                "'",
+                Invalid,
+                &path(),
+                "' requires a subcommand but one was not provided",
             );
         }
         Error::MissingFlagValue { flag } => {
@@ -1212,11 +1216,7 @@ fn describe(
             };
             let mut wanted = String::new();
             push_all(&mut wanted, &[dashes, spelled, joint, value, ">"]);
-            error_line(
-                &mut out,
-                style,
-                &[(Plain, before), (Invalid, &wanted), (Plain, after)],
-            );
+            error_around(&mut out, style, before, Invalid, &wanted, after);
         }
         Error::InvalidChoice { name, choices } => {
             with_usage = false;
@@ -1235,15 +1235,7 @@ fn describe(
                 ),
                 // Nothing in argv bound to it, which means the value came from somewhere else —
                 // an environment variable, or a default the spec declared.
-                None => error_line(
-                    &mut out,
-                    style,
-                    &[
-                        (Plain, "invalid value for '"),
-                        (Literal, &named),
-                        (Plain, "'"),
-                    ],
-                ),
+                None => error_around(&mut out, style, "invalid value for '", Literal, &named, "'"),
             }
             push_all(&mut out, &["  [possible values: "]);
             for (i, choice) in choices.iter().enumerate() {
