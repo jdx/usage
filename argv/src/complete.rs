@@ -2030,6 +2030,18 @@ fn offer_owned<'a>(
     });
 }
 
+/// [`offer_owned`] for a description that stays with the caller, copied here once rather than at
+/// each of the places that offer several candidates under one.
+#[inline(never)]
+fn offer_owned_like<'a>(
+    out: &mut Vec<Candidate<'a>>,
+    value: String,
+    kind: CandidateKind,
+    description: &Option<std::borrow::Cow<'a, str>>,
+) {
+    offer_owned(out, value, kind, description.clone());
+}
+
 /// The subcommands a word here could name, each under every name it answers to.
 ///
 /// Aliases are offered beside canonical names — someone who types `mise ls<TAB>` means `list`
@@ -2095,7 +2107,7 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
             )
         });
         let mut offer = |value: String| {
-            offer_owned(&mut out, value, CandidateKind::Flag, description.clone());
+            offer_owned_like(&mut out, value, CandidateKind::Flag, &description);
         };
         if shorts {
             for &short in flag.shorts {
@@ -2116,7 +2128,11 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
         }
         if longs {
             // No metadata hides a negation: `hidden_longs` names longs.
-            for (i, long) in flag.longs.iter().chain(flag.negate.as_ref()).enumerate() {
+            for i in 0..flag.longs.len() + usize::from(flag.negate.is_some()) {
+                let long = match flag.longs.get(i) {
+                    Some(long) => *long,
+                    None => flag.negate.unwrap_or_default(),
+                };
                 if i < flag.longs.len()
                     && meta.is_some_and(|m| crate::has_str(m.extra.hidden_longs, long))
                 {
