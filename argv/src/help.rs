@@ -726,23 +726,24 @@ fn closing_delimiter(
     reserve: usize,
 ) -> Option<(usize, usize)> {
     let marker = delimiter.first_char()?;
+    let marker_byte = byte_at(delimiter.as_bytes(), 0);
+    let bytes = text.as_bytes();
     let width = delimiter.len();
     let mut search_at = content_start;
 
     while let Some(found) = find_char(tail(text, search_at), marker) {
         let run_start = search_at + found;
-        let run_len = tail(text, run_start)
-            .chars()
-            .take_while(|ch| *ch == marker)
-            .count();
+        // Counted in bytes: a marker and a backslash are each one.
+        let mut run_len = 0;
+        while byte_at(bytes, run_start + run_len) == marker_byte {
+            run_len += 1;
+        }
         let run_end = run_start + run_len;
-        let escaped = head(text, run_start)
-            .chars()
-            .rev()
-            .take_while(|ch| *ch == '\\')
-            .count()
-            % 2
-            == 1;
+        let mut backslashes = 0;
+        while backslashes < run_start && byte_at(bytes, run_start - 1 - backslashes) == b'\\' {
+            backslashes += 1;
+        }
+        let escaped = backslashes % 2 == 1;
         if escaped {
             // A backslash escapes one marker, not its whole run. The rest may still close the
             // span: `*italic \**` is an escaped literal star followed by the italic close.
