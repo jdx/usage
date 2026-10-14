@@ -1504,23 +1504,13 @@ fn has_name(names: &[&str], name: &str) -> bool {
 /// The first long of `longs` that `keep` accepts.
 #[inline(never)]
 fn first_long<'a>(longs: &[&'a str], keep: &dyn Fn(&str) -> bool) -> Option<&'a str> {
-    for long in longs {
-        if keep(long) {
-            return Some(long);
-        }
-    }
-    None
+    longs.iter().copied().find(|long| keep(long))
 }
 
 /// The first short of `shorts` that `keep` accepts.
 #[inline(never)]
 fn first_short(shorts: &[u8], keep: &dyn Fn(u8) -> bool) -> Option<u8> {
-    for short in shorts {
-        if keep(*short) {
-            return Some(*short);
-        }
-    }
-    None
+    shorts.iter().copied().find(|short| keep(*short))
 }
 
 struct Shown<'a> {
@@ -2627,7 +2617,7 @@ fn split_groups_section<'m, T>(
         default_title,
         width,
         items.len(),
-        &|index| items.get(index).and_then(|item| heading_of(item)),
+        &|index| items.get(index).and_then(&heading_of),
         &prose_of,
         &mut |out, index| {
             if let Some(item) = items.get(index) {
