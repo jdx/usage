@@ -2208,7 +2208,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// cannot disagree — including the shadowing rule, where a subcommand redeclaring an
     /// inherited name hides it.
     pub fn flags_in_scope(&self) -> impl Iterator<Item = &'t Flag<'t>> + '_ {
-        self.in_scope()
+        let mut all = Vec::new();
+        self.find_in_scope(Want::All, &mut all);
+        all.into_iter()
     }
 
     /// Read the next event.
@@ -3065,49 +3067,52 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         flag.global
     }
 
-    /// Flags in scope: this command's own, then any ancestor's globals.
+    /// Walk the flags in scope: this command's own, then any ancestor's globals.
     ///
     /// Own flags come first so that a subcommand redeclaring an inherited name
     /// shadows it, which is what mise relies on when it redeclares root globals
     /// on `run` with different shorts.
-    fn in_scope(&self) -> impl Iterator<Item = &'t Flag<'t>> + '_ {
-        let own = self
-            .cmd
-            .flags
-            .iter()
-            .copied()
-            .filter(|flag| self.view_allows_own_flag(flag));
-        let inherited = self.ancestors[..self.depth]
-            .iter()
-            .rev()
-            .filter_map(|c| *c)
-            .flat_map(|c| c.flags.iter().copied())
-            .filter(|flag| self.inherited_flag_is_in_scope(flag))
-            .filter(|flag| self.view_allows_inherited_flag(flag));
-        own.chain(inherited)
-    }
-
-    /// The first flag in scope that answers to `want`.
     ///
-    /// One copy of the scope walk for the three ways a flag is looked up, rather than each
-    /// lookup compiling its own: the iterator that `in_scope` builds is a chain of filters and
-    /// a flat map, and inlined three times it was the larger part of what a lookup cost in
-    /// code. What is matched is a branch on a value the loop does not change.
+    /// The first flag that answers to `want`, or none; with [`Want::All`] every flag in scope
+    /// is appended to `all` instead. One loop for the three ways a flag is looked up and for
+    /// listing them, rather than an iterator chain compiled once per use: a chain of filters
+    /// and a flat map inlined at each lookup was the larger part of what a lookup cost in code.
+    /// What is matched is a branch on a value the loop does not change.
     #[inline(never)]
-    fn find_in_scope(&self, want: Want<'_>) -> Option<&'t Flag<'t>> {
-        self.in_scope().find(|f| match want {
+    fn find_in_scope(&self, want: Want<'_>, all: &mut Vec<&'t Flag<'t>>) -> Option<&'t Flag<'t>> {
+        let mut answers = |f: &'t Flag<'t>| match want {
             Want::Long(name) => f.longs.iter().any(|l| l.as_bytes() == name),
             Want::Negation(name) => f.negate.is_some_and(|n| n.as_bytes() == name),
             Want::Short(byte) => f.shorts.contains(&byte),
-        })
+            Want::All => {
+                all.push(f);
+                false
+            }
+        };
+        for &flag in self.cmd.flags {
+            if self.view_allows_own_flag(flag) && answers(flag) {
+                return Some(flag);
+            }
+        }
+        for ancestor in self.ancestors[..self.depth].iter().rev().flatten() {
+            for &flag in ancestor.flags {
+                if self.inherited_flag_is_in_scope(flag)
+                    && self.view_allows_inherited_flag(flag)
+                    && answers(flag)
+                {
+                    return Some(flag);
+                }
+            }
+        }
+        None
     }
 
     fn find_long(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
-        self.find_in_scope(Want::Long(name))
+        self.find_in_scope(Want::Long(name), &mut Vec::new())
     }
 
     fn find_negation(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
-        self.find_in_scope(Want::Negation(name))
+        self.find_in_scope(Want::Negation(name), &mut Vec::new())
     }
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
@@ -3124,7 +3129,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         {
             return Some(flag);
         }
-        self.find_in_scope(Want::Short(byte))
+        self.find_in_scope(Want::Short(byte), &mut Vec::new())
             // As for `--help`: supplied by the parser, and only where the command has not
             // declared a `-h` of its own.
             .or(if byte == b'h' && !self.cmd.disable_help_flag {
@@ -3160,12 +3165,13 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 }
 
-/// What a flag lookup is for: a long spelling, a negation, or a short letter.
+/// What a walk of the flags in scope is for: a long spelling, a negation, a short letter, or all.
 #[derive(Clone, Copy)]
 enum Want<'a> {
     Long(&'a [u8]),
     Negation(&'a [u8]),
     Short(u8),
+    All,
 }
 
 /// View a token as bytes.
