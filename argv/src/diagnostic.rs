@@ -217,7 +217,7 @@ fn flag_named(token: &str) -> &str {
     match token.strip_prefix("--") {
         // Bytes, because `=` is one: `str::find` expands to a searcher for a single character.
         Some(body) => match body.bytes().position(|b| b == b'=') {
-            Some(i) => &token[..i + 2],
+            Some(i) => token.get(..i + 2).unwrap_or(token),
             None => token,
         },
         None => token,
@@ -341,18 +341,22 @@ fn nearest<'a>(typed: &str, candidates: &[&'a str]) -> Vec<&'a str> {
         let score = jaro(typed, candidate);
         if score > 0.7 {
             let mut at = scored.len();
-            while at > 0
-                && scored[at - 1]
-                    .0
+            let mut repeat = false;
+            // One lookup of the item before the slot, so one place for it to be out of range.
+            while let Some(&(before, word)) = scored.get(at.wrapping_sub(1)) {
+                if !before
                     .total_cmp(&score)
-                    .then_with(|| scored[at - 1].1.cmp(candidate))
+                    .then_with(|| word.cmp(candidate))
                     .is_gt()
-            {
+                {
+                    // The same word listed twice is one suggestion; equal words score alike, so
+                    // the copies end up side by side.
+                    repeat = word == *candidate;
+                    break;
+                }
                 at -= 1;
             }
-            // The same word listed twice is one suggestion; equal words score alike, so the
-            // copies end up side by side.
-            if at == 0 || scored[at - 1].1 != *candidate {
+            if !repeat {
                 scored.insert(at, (score, candidate));
             }
         }
