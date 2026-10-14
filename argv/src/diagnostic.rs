@@ -22,6 +22,7 @@
 //! the ones about the shape of the command line do, the ones about a single value do not.
 
 use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
+use crate::text::push_all;
 use crate::{Command, DoubleDash, Error};
 
 /// A stable machine-readable category for one parse outcome.
@@ -172,17 +173,6 @@ impl Style {
         for (ink, text) in parts {
             self.put(out, *ink, text);
         }
-    }
-}
-
-/// Append each of `texts`.
-///
-/// One out-of-line loop instead of a `push_str` per piece at every call site, each of which
-/// inlines its own capacity check and copy.
-#[inline(never)]
-fn push_all(out: &mut String, texts: &[&str]) {
-    for text in texts {
-        out.push_str(text);
     }
 }
 

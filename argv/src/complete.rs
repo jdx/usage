@@ -17,6 +17,7 @@
 
 use crate::spec::{ArgMeta, CommandMeta, CommandSelector, FlagMeta, Spec, SpecView};
 pub use crate::spec::{Candidate, CandidateKind, CompleteCtx, Completer};
+use crate::text::push_all;
 use crate::{Arg, Command, Error, Flag, Parser};
 use core::future::Future;
 use core::pin::Pin;
@@ -1064,9 +1065,7 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
                 .then(|| marked_prefix[..=colon].replace(BASH_NONBREAKING_COLON, ":"))
             });
         if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
-            out.push_str("\u{1}prefix\t");
-            out.push_str(&prefix);
-            out.push('\n');
+            push_all(&mut out, &["\u{1}prefix\t", &prefix, "\n"]);
         }
     }
     out
@@ -1095,57 +1094,61 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
         if shell == Shell::Zsh {
             // Display, then description, then what to type: a candidate containing a space or
             // a quote has to reach the command line intact.
-            out.push_str(&display());
-            out.push('\t');
-            out.push_str(&description);
-            out.push('\t');
-            out.push_str(&zsh_quote(&candidate.value));
+            push_all(
+                &mut out,
+                &[
+                    &display(),
+                    "\t",
+                    &description,
+                    "\t",
+                    &zsh_quote(&candidate.value),
+                ],
+            );
         } else {
-            out.push_str(&candidate.value);
+            push_all(&mut out, &[&candidate.value]);
         }
         match shell {
             Shell::Bash | Shell::Zsh => {}
             Shell::PowerShell | Shell::Elvish => {
-                out.push('\t');
-                out.push_str(&description);
-                out.push('\t');
-                out.push_str(&display());
-                if shell == Shell::PowerShell {
-                    out.push('\t');
-                    out.push_str(match candidate.kind {
-                        CandidateKind::Value => "value",
-                        CandidateKind::Command => "command",
-                        CandidateKind::Flag => "flag",
-                        CandidateKind::File => "file",
-                        CandidateKind::Directory => "directory",
-                    });
-                }
+                let kind = if shell == Shell::PowerShell {
+                    match candidate.kind {
+                        CandidateKind::Value => "\tvalue",
+                        CandidateKind::Command => "\tcommand",
+                        CandidateKind::Flag => "\tflag",
+                        CandidateKind::File => "\tfile",
+                        CandidateKind::Directory => "\tdirectory",
+                    }
+                } else {
+                    ""
+                };
+                push_all(&mut out, &["\t", &description, "\t", &display(), kind]);
             }
             Shell::Fish | Shell::Nu => {
                 if described {
-                    out.push('\t');
-                    out.push_str(&description);
+                    push_all(&mut out, &["\t", &description]);
                 }
             }
         }
-        out.push('\n');
+        push_all(&mut out, &["\n"]);
     }
 
     if let Some(files) = &answer.files {
-        out.push_str(match files {
-            Files::Any => FILES_MARKER,
-            Files::Dirs => DIRS_MARKER,
-            Files::ExecutablePaths => EXECUTABLE_PATHS_MARKER,
-            Files::Commands => COMMANDS_MARKER,
-            Files::Extensions(_) => "\u{1}extensions",
-        });
+        push_all(
+            &mut out,
+            &[match files {
+                Files::Any => FILES_MARKER,
+                Files::Dirs => DIRS_MARKER,
+                Files::ExecutablePaths => EXECUTABLE_PATHS_MARKER,
+                Files::Commands => COMMANDS_MARKER,
+                Files::Extensions(_) => "\u{1}extensions",
+            }],
+        );
         if let Files::Extensions(extensions) = files {
             for extension in extensions {
-                out.push('\t');
-                out.push_str(extension);
+                push_all(&mut out, &["\t", extension]);
             }
         }
-        out.push('\n');
+        push_all(&mut out, &["\n"]);
     }
     out
 }
