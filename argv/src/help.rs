@@ -616,6 +616,17 @@ impl Style {
 /// would be disproportionate. Delimiters must close on the same line; an unmatched delimiter
 /// is ordinary text.
 fn styled_inline(text: &str, parent: Option<&str>) -> String {
+    // A table in the binary, not eight tuples built again for every character.
+    static SPANS: [(&str, &str, &str, bool, bool); 8] = [
+        ("***", "1;3", "22;23", false, true),
+        ("___", "1;3", "22;23", true, true),
+        ("**", "1", "22", false, true),
+        ("__", "1", "22", true, true),
+        ("~~", "9", "29", false, true),
+        ("*", "3", "23", false, true),
+        ("_", "3", "23", true, true),
+        ("`", "36", "39", false, false),
+    ];
     let mut out = String::with_capacity(text.len());
     let mut at = 0;
     let mut allow_run_remainder = false;
@@ -634,18 +645,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             continue;
         }
 
-        let span = [
-            ("***", "1;3", "22;23", false, true),
-            ("___", "1;3", "22;23", true, true),
-            ("**", "1", "22", false, true),
-            ("__", "1", "22", true, true),
-            ("~~", "9", "29", false, true),
-            ("*", "3", "23", false, true),
-            ("_", "3", "23", true, true),
-            ("`", "36", "39", false, false),
-        ]
-        .into_iter()
-        .find_map(|(delimiter, open, close, word_boundary, recurse)| {
+        let span = SPANS.iter().find_map(|&(delimiter, open, close, word_boundary, recurse)| {
             rest.strip_prefix(delimiter)?;
             let marker = delimiter.chars().next().expect("a delimiter has a marker");
             let previous = text[..at].chars().next_back();

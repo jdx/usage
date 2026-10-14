@@ -273,17 +273,20 @@ fn earliest(left: Option<(usize, Event)>, right: Option<(usize, Event)>) -> Opti
 }
 
 fn next_style_event(text: &str) -> Option<(usize, Event)> {
-    [
+    static TOKENS: [(&str, Event); 4] = [
         ("{$$", Event::EscapeOpen),
         ("{/$$}", Event::EscapeClose),
         ("{$", Event::Open),
         ("{/$}", Event::Close),
-    ]
-    .into_iter()
-    .enumerate()
-    .filter_map(|(priority, (token, event))| text.find(token).map(|at| ((at, priority), event)))
-    .min_by_key(|(position, _)| *position)
-    .map(|((at, _), event)| (at, event))
+    ];
+    TOKENS
+        .iter()
+        .enumerate()
+        .filter_map(|(priority, (token, event))| {
+            text.find(token).map(|at| ((at, priority), *event))
+        })
+        .min_by_key(|(position, _)| *position)
+        .map(|((at, _), event)| (at, event))
 }
 
 /// `text` for the marked page: a `MARK` already in it doubled, so it reads as text rather than
