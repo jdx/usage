@@ -3399,9 +3399,11 @@ fn write_labelled(out: &mut String, label: &str, text: &str, width: usize, inden
 
 /// A description reduced to what a list can show, or nothing if it says nothing.
 fn summarize(text: Option<&str>) -> Option<&str> {
-    text.map(str::trim_end).filter(|text| !text.is_empty())
+    text.map(|text| text.trimmed_end())
+        .filter(|text| !text.is_empty())
 }
 
+#[inline(never)]
 fn deprecation_label(
     message: Option<&str>,
     warn_at: Option<&str>,
