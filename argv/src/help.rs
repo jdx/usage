@@ -571,6 +571,7 @@ impl Style {
     }
 
     /// Whether this style colours, for the diagnostics, which share the environment's say.
+    #[cfg(feature = "diagnostics")]
     pub(crate) const fn is_coloured(self) -> bool {
         self.coloured
     }
