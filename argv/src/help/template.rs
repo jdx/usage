@@ -295,20 +295,20 @@ fn earliest(left: Option<(usize, Event)>, right: Option<(usize, Event)>) -> Opti
 }
 
 fn next_style_event(text: &str) -> Option<(usize, Event)> {
-    static TOKENS: [(&str, Event); 4] = [
-        ("{$$", Event::EscapeOpen),
-        ("{/$$}", Event::EscapeClose),
-        ("{$", Event::Open),
-        ("{/$}", Event::Close),
-    ];
-    TOKENS
-        .iter()
-        .enumerate()
-        .filter_map(|(priority, (token, event))| {
-            find_str(text, token).map(|at| ((at, priority), *event))
-        })
-        .min_by_key(|(position, _)| *position)
-        .map(|((at, _), event)| (at, event))
+    // The nearest of the four tags, the earlier-listed one winning a tie.
+    let mut nearest: Option<(usize, Event)> = None;
+    let mut look = |token: &str, event: Event| {
+        if let Some(at) = find_str(text, token)
+            && nearest.is_none_or(|(best, _)| at < best)
+        {
+            nearest = Some((at, event));
+        }
+    };
+    look("{$$", Event::EscapeOpen);
+    look("{/$$}", Event::EscapeClose);
+    look("{$", Event::Open);
+    look("{/$}", Event::Close);
+    nearest
 }
 
 /// `text` for the marked page: a `MARK` already in it doubled, so it reads as text rather than
