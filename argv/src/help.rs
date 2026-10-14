@@ -3434,20 +3434,19 @@ fn own_and_global<'a>(
     } else {
         // Every long and short anything in scope answers to, near or far: one of these always
         // beats a negation, so a negation survives only where none of them is the same word.
-        let every_form: Vec<Form<'_>> = here
-            .flags
-            .iter()
-            .chain(ancestors.iter().flat_map(|m| m.flags.iter()).filter(|f| {
-                f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
-            }))
-            .flat_map(Form::of)
-            .collect();
+        let visits = |f: &FlagMeta<'_>| {
+            f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
+        };
+        let mut every_form: Vec<Form<'_>> = taken.clone();
+        for meta in ancestors {
+            for f in meta.flags.iter().filter(|f| visits(f)) {
+                every_form.extend(Form::of(f));
+            }
+        }
 
         let mut keep: Vec<(*const FlagMeta<'_>, Shown<'_>)> = Vec::new();
         for meta in ancestors.iter().rev() {
-            for f in meta.flags.iter().filter(|f| {
-                f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
-            }) {
+            for f in meta.flags.iter().filter(|f| visits(f)) {
                 let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
                 // Reserved whether or not it is shown: a hidden one still binds, and so does one
                 // whose every spelling something nearer already took.
@@ -3459,19 +3458,14 @@ fn own_and_global<'a>(
                 keep.push((f as *const _, show));
             }
         }
-        let mut inherited: Vec<(&FlagMeta<'_>, String)> = ancestors
-            .iter()
-            .flat_map(|meta| meta.flags.iter())
-            .filter_map(|f| {
-                keep.iter()
-                    .find(|(p, _)| core::ptr::eq(*p, f as *const _))
-                    .map(|(_, show)| (f, column_usage_masked(f, show)))
-            })
-            .collect();
-        let inherited_positions: Vec<*const FlagMeta<'_>> = inherited
-            .iter()
-            .map(|(flag, _)| *flag as *const _)
-            .collect();
+        let mut inherited: Vec<(&FlagMeta<'_>, String)> = Vec::new();
+        let mut inherited_positions: Vec<*const FlagMeta<'_>> = Vec::new();
+        for f in ancestors.iter().flat_map(|meta| meta.flags.iter()) {
+            if let Some((_, show)) = keep.iter().find(|(p, _)| core::ptr::eq(*p, f as *const _)) {
+                inherited.push((f, column_usage_masked(f, show)));
+                inherited_positions.push(f as *const _);
+            }
+        }
         let key = |flag: &FlagMeta<'_>| {
             let position = inherited_positions
                 .iter()
