@@ -198,9 +198,9 @@ impl Sections {
     }
 
     fn named(&self, name: &str) -> Option<String> {
-        Some(match name {
-            "about" => self.about.trim().to_string(),
-            "usage" => self.usage.trim().to_string(),
+        let part = match name {
+            "about" => &self.about,
+            "usage" => &self.usage,
             // Whichever form this command's command list took. `flatten_help` replaces the
             // list with the subcommands' own bodies, so a template that places `{{commands}}`
             // places whichever one the command has.
@@ -213,17 +213,18 @@ impl Sections {
                     }
                     out.push_str(flattened);
                 }
-                out
+                return Some(out);
             }
-            "args" => self.args.trim().to_string(),
-            "flags" => self.flags.trim().to_string(),
-            "grouped_args" => self.grouped_args.trim().to_string(),
-            "ungrouped_args" => self.ungrouped_args.trim().to_string(),
-            "grouped_flags" => self.grouped_flags.trim().to_string(),
-            "ungrouped_flags" => self.ungrouped_flags.trim().to_string(),
-            "after_help" => self.after_help.trim().to_string(),
+            "args" => &self.args,
+            "flags" => &self.flags,
+            "grouped_args" => &self.grouped_args,
+            "ungrouped_args" => &self.ungrouped_args,
+            "grouped_flags" => &self.grouped_flags,
+            "ungrouped_flags" => &self.ungrouped_flags,
+            "after_help" => &self.after_help,
             _ => return None,
-        })
+        };
+        Some(part.trim().to_string())
     }
 
     /// A page laid out by an author's template.
@@ -373,22 +374,24 @@ pub fn place_logo(
     });
     let mut out = match column {
         Some(column) => {
-            let mut lines: Vec<String> = page.lines().map(str::to_string).collect();
+            let mut out = String::with_capacity(page.len() + art.len() * column);
+            let mut text = page.lines();
             // Art taller than the page keeps going below it rather than being cut off: a logo
             // with its bottom sliced away looks like a rendering fault.
-            if lines.len() < art.len() {
-                lines.resize(art.len(), String::new());
-            }
-            for (line, art) in lines.iter_mut().zip(&art) {
-                if art.is_empty() {
-                    continue;
+            for index in 0..page.lines().count().max(art.len()) {
+                if index > 0 {
+                    out.push('\n');
                 }
-                for _ in 0..column.saturating_sub(shown_width(line)) {
-                    line.push(' ');
+                let line = text.next().unwrap_or("");
+                out.push_str(line);
+                if let Some(art) = art.get(index).filter(|art| !art.is_empty()) {
+                    for _ in 0..column.saturating_sub(shown_width(line)) {
+                        out.push(' ');
+                    }
+                    out.push_str(&painted_logo(art, style, coloured));
                 }
-                line.push_str(&painted_logo(art, style, coloured));
             }
-            lines.join("\n")
+            out
         }
         None if art_width <= width => {
             let mut banner = String::new();
