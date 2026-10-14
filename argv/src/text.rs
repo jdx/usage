@@ -10,3 +10,10 @@ pub(crate) fn push_all(out: &mut String, texts: &[&str]) {
         out.push_str(text);
     }
 }
+
+/// Append one character, out of line: a routine that appends from a dozen places would
+/// otherwise carry a copy of the UTF-8 encoding and capacity check at each of them.
+#[inline(never)]
+pub(crate) fn push_char(out: &mut String, c: char) {
+    out.push(c);
+}

@@ -17,7 +17,7 @@
 
 use crate::spec::{ArgMeta, CommandMeta, CommandSelector, FlagMeta, Spec, SpecView};
 pub use crate::spec::{Candidate, CandidateKind, CompleteCtx, Completer};
-use crate::text::push_all;
+use crate::text::{push_all, push_char};
 use crate::{Arg, Command, Error, Flag, Parser};
 use core::future::Future;
 use core::pin::Pin;
@@ -1172,7 +1172,7 @@ fn one_line(text: &str) -> String {
                 spaced = true;
             }
         } else {
-            out.push(c);
+            push_char(&mut out, c);
             spaced = false;
         }
     }
@@ -1952,7 +1952,9 @@ fn attached_long_value<'t, 'p>(
 
 fn attach_candidates(candidates: &mut [Candidate<'_>], form: &str) {
     for candidate in candidates {
-        candidate.value = format!("{form}={}", candidate.value);
+        let mut value = String::new();
+        push_all(&mut value, &[form, "=", &candidate.value]);
+        candidate.value = value;
     }
 }
 
@@ -2095,19 +2097,26 @@ fn deprecated_description<'a>(
     if message.is_none() && warn_at.is_none() && remove_at.is_none() {
         return base.map(std::borrow::Cow::Borrowed);
     }
-    let mut parts = Vec::new();
-    if let Some(message) = message {
-        parts.push(message.to_string());
+    // Pieces appended in place; a `format!` per piece compiles its own copy of the formatting.
+    let mut label = String::from("[deprecated: ");
+    let mut first = true;
+    for (lead, text) in [
+        ("", message),
+        ("warns at ", warn_at),
+        ("removed at ", remove_at),
+    ] {
+        if let Some(text) = text {
+            push_all(&mut label, &[if first { "" } else { "; " }, lead, text]);
+            first = false;
+        }
     }
-    if let Some(at) = warn_at {
-        parts.push(format!("warns at {at}"));
-    }
-    if let Some(at) = remove_at {
-        parts.push(format!("removed at {at}"));
-    }
-    let label = format!("[deprecated: {}]", parts.join("; "));
+    label.push(']');
     Some(std::borrow::Cow::Owned(match base {
-        Some(base) if !base.is_empty() => format!("{base} {label}"),
+        Some(base) if !base.is_empty() => {
+            let mut full = String::new();
+            push_all(&mut full, &[base, " ", &label]);
+            full
+        }
         _ => label,
     }))
 }
@@ -2391,20 +2400,20 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     // ends the string.
                     if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some('\'') {
                         reached!(chars.peek().expect("peeked just above").0);
-                        word.push('\'');
+                        push_char(&mut word, '\'');
                         chars.next();
                     } else {
                         quote = None;
                     }
                 } else {
-                    word.push(c);
+                    push_char(&mut word, c);
                 }
             }
             Some(q) => {
                 if c == q {
                     if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some(q) {
                         reached!(chars.peek().expect("peeked just above").0);
-                        word.push(q);
+                        push_char(&mut word, q);
                         chars.next();
                     } else {
                         quote = None;
@@ -2416,13 +2425,13 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     match chars.peek() {
                         Some(&(j, next)) if escapable_in_quotes(next, shell) => {
                             reached!(j);
-                            word.push(next);
+                            push_char(&mut word, next);
                             chars.next();
                         }
-                        _ => word.push(c),
+                        _ => push_char(&mut word, c),
                     }
                 } else {
-                    word.push(c);
+                    push_char(&mut word, c);
                 }
             }
             None => {
@@ -2435,7 +2444,7 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     started = true;
                     if let Some(&(j, next)) = chars.peek() {
                         reached!(j);
-                        word.push(next);
+                        push_char(&mut word, next);
                         chars.next();
                     } else {
                         // A trailing escape is a line the user is still typing, not a mistake
@@ -2448,7 +2457,7 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                         started = false;
                     }
                 } else {
-                    word.push(c);
+                    push_char(&mut word, c);
                     started = true;
                 }
             }
