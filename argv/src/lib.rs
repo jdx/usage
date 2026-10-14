@@ -216,6 +216,7 @@ macro_rules! __usage_needs_complete_feature {
 pub mod help;
 #[cfg(feature = "spec")]
 mod order;
+mod slice;
 #[cfg(feature = "spec")]
 mod text;
 // Behind no feature: two traits and no code, so there is nothing here for a binary that
@@ -2012,7 +2013,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             let mut attached = None;
             if let Some(body) = token.strip_prefix(b"--") {
                 let end = body.iter().position(|b| *b == b'=').unwrap_or(body.len());
-                let name = &body[..end];
+                let name = slice::before(body, end);
                 let parent = self.find_long(name).or_else(|| self.find_negation(name));
                 if parent.is_none()
                     && ((name == b"help" && !self.cmd.disable_help_flag)
@@ -2037,10 +2038,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 }
                 if flag.takes_value && flag.negate.is_none_or(|n| n.as_bytes() != name) {
                     value_flag = Some(flag);
-                    attached = (end < body.len()).then(|| &body[end + 1..]);
+                    attached = (end < body.len()).then(|| slice::after(body, end + 1));
                 }
             } else {
-                for (offset, byte) in token[1..].iter().enumerate() {
+                for (offset, byte) in slice::after(token, 1).iter().enumerate() {
                     let parent = self.find_short(*byte);
                     let Some(flag) = parent.or_else(|| {
                         default
@@ -2056,7 +2057,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                     }
                     if flag.takes_value {
                         value_flag = Some(flag);
-                        let rest = &token[offset + 2..];
+                        let rest = slice::after(token, offset + 2);
                         attached =
                             (!rest.is_empty()).then_some(rest.strip_prefix(b"=").unwrap_or(rest));
                         break;
@@ -2149,7 +2150,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// the deepest one — a global flag is declared on an ancestor.
     pub fn command_path(&self) -> Vec<(&'t Command<'t>, usize)> {
         let mut out = Vec::with_capacity(self.depth + 1);
-        for (i, ancestor) in self.ancestors[..self.depth].iter().enumerate() {
+        for (i, ancestor) in slice::before(&self.ancestors, self.depth)
+            .iter()
+            .enumerate()
+        {
             if let Some(cmd) = ancestor {
                 // An ancestor's own words start where the one before it descended, and the
                 // root's start at the beginning.
@@ -2275,7 +2279,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if !token.starts_with(b"-") || token.starts_with(b"--") {
             return false;
         }
-        for byte in &token[1..] {
+        for byte in slice::after(token, 1) {
             if self.find_short(*byte).is_some() {
                 return true;
             }
@@ -2423,7 +2427,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             self.separator_seen = true;
             // An explicit separator unlocks any argument that required one, even
             // if earlier arguments are still unfilled.
-            if let Some(idx) = self.current_args()[self.arg_pos..]
+            if let Some(idx) = slice::after(self.current_args(), self.arg_pos)
                 .iter()
                 .position(|a| a.double_dash == DoubleDash::Required)
             {
@@ -2486,7 +2490,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 }
                 Err(_) => return Some(self.word(token)),
             }
-            self.bundle = &token[1..];
+            self.bundle = slice::after(token, 1);
             self.bundle_token = token;
             return Some(self.short_flag());
         }
@@ -2495,9 +2499,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn long_flag(&mut self, token: &'v [u8]) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
-        let body = &token[2..];
+        let body = slice::after(token, 2);
         let (name, attached) = match body.iter().position(|&b| b == b'=') {
-            Some(i) => (&body[..i], Some(&body[i + 1..])),
+            Some(i) => (slice::before(body, i), Some(slice::after(body, i + 1))),
             None => (body, None),
         };
 
@@ -2573,7 +2577,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// Scanning stops at the first letter whose flag takes a value, because
     /// everything after it is that value rather than more letters.
     fn check_bundle(&self, token: &'v [u8]) -> Result<(), Error<'t, 'v>> {
-        let mut rest = &token[1..];
+        let mut rest = slice::after(token, 1);
         while let Some((&byte, tail)) = rest.split_first() {
             match self.find_short(byte) {
                 None => return Err(Error::UnknownFlag { token }),
@@ -2585,8 +2589,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn short_flag(&mut self) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
-        let byte = self.bundle[0];
-        let rest = &self.bundle[1..];
+        let (byte, rest) = match self.bundle.split_first() {
+            Some((&byte, rest)) => (byte, rest),
+            None => (0, &[][..]),
+        };
 
         let Some(flag) = self.find_short(byte) else {
             // check_bundle already rejected any token containing an unrecognized
@@ -2614,12 +2620,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // A value-taking short ends the token: everything after it is the value,
         // less one separating `=`.
         self.bundle = &[];
-        let value = if rest.is_empty() {
-            self.take_detached_value(flag)?
-        } else if rest[0] == b'=' {
-            Some(&rest[1..])
-        } else {
-            Some(rest)
+        let value = match rest.split_first() {
+            None => self.take_detached_value(flag)?,
+            Some((b'=', value)) => Some(value),
+            Some(_) => Some(rest),
         };
         if flag.variadic
             && let Some(value) = value
@@ -2803,7 +2807,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 }
                 return Ok(Event::Arg {
                     arg,
-                    value: &token[sigil.len()..],
+                    value: slice::after(token, sigil.len()),
                     delimit: true,
                 });
             }
@@ -2819,7 +2823,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 let from = self.pos - 1;
                 self.pos = self.argv.len();
                 return Ok(Event::External {
-                    values: &self.argv[from..],
+                    values: slice::after(self.argv, from),
                 });
             }
         }
@@ -2833,7 +2837,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
             return Ok(Event::Arg {
                 arg,
-                value: &token[sigil.len()..],
+                value: slice::after(token, sigil.len()),
                 delimit: true,
             });
         }
@@ -2948,7 +2952,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn next_arg(&self) -> Option<&'t Arg<'t>> {
-        self.current_args()[self.arg_pos..]
+        slice::after(self.current_args(), self.arg_pos)
             .iter()
             .find(|arg| arg.sigil.is_none())
             .copied()
@@ -2983,7 +2987,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
         };
         consider(self.current_args());
-        for cmd in self.ancestors[..self.depth].iter().rev().flatten() {
+        for cmd in slice::before(&self.ancestors, self.depth)
+            .iter()
+            .rev()
+            .flatten()
+        {
             consider(cmd.args);
         }
         best
@@ -3009,14 +3017,14 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             if current.required {
                 return;
             }
-            let required_after = self.current_args()[self.arg_pos + 1..]
+            let required_after = slice::after(self.current_args(), self.arg_pos + 1)
                 .iter()
                 .filter(|arg| arg.required && arg.sigil.is_none())
                 .count();
             if required_after == 0 {
                 return;
             }
-            let remaining_values = 1 + self.argv[self.pos..]
+            let remaining_values = 1 + slice::after(self.argv, self.pos)
                 .iter()
                 .filter(|word| {
                     (self.flags_stopped || !is_flag_like(bytes(word)))
@@ -3097,7 +3105,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 return Some(flag);
             }
         }
-        for ancestor in self.ancestors[..self.depth].iter().rev().flatten() {
+        for ancestor in slice::before(&self.ancestors, self.depth)
+            .iter()
+            .rev()
+            .flatten()
+        {
             for &flag in ancestor.flags {
                 if self.inherited_flag_is_in_scope(flag)
                     && self.view_allows_inherited_flag(flag)
@@ -3279,7 +3291,7 @@ fn is_negative_number(token: &[u8]) -> bool {
 /// bytes.
 fn is_number(rest: &[u8]) -> bool {
     let (mantissa, exponent) = match rest.iter().position(|b| matches!(b, b'e' | b'E')) {
-        Some(at) => (&rest[..at], Some(&rest[at + 1..])),
+        Some(at) => (slice::before(rest, at), Some(slice::after(rest, at + 1))),
         None => (rest, None),
     };
 
