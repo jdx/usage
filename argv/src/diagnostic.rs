@@ -173,14 +173,14 @@ impl Style {
         // Bytes, because the hole is one: a multi-byte character never contains it.
         for (at, byte) in template.bytes().enumerate() {
             if byte == HOLE {
-                self.put(out, Ink::Plain, &template[from..at]);
+                self.put(out, Ink::Plain, template.get(from..at).unwrap_or_default());
                 if let Some(&(ink, text)) = args.next() {
                     self.put(out, ink, text);
                 }
                 from = at + 1;
             }
         }
-        self.put(out, Ink::Plain, &template[from..]);
+        self.put(out, Ink::Plain, template.get(from..).unwrap_or_default());
     }
 }
 
@@ -963,7 +963,8 @@ fn render_plain(
     style: Style,
 ) -> String {
     let taken = path_taken(spec.root.cmd, argv, None);
-    let cmd = *taken.last().expect("the root is always on the path");
+    // The root starts the path, so this is never the fallback.
+    let cmd = taken.last().copied().unwrap_or(spec.root.cmd);
     let resolved = resolve(spec, &taken);
     let resolved = resolved
         .as_ref()
@@ -985,7 +986,8 @@ fn render_projected<'a>(
 ) -> String {
     let canonical_spec = spec;
     let taken = path_taken(spec.root.cmd, argv, Some(view));
-    let cmd = *taken.last().expect("the root is always on the path");
+    // The root starts the path, so this is never the fallback.
+    let cmd = taken.last().copied().unwrap_or(spec.root.cmd);
     let mut resolved = resolve(spec, &taken);
     let mut projected_spec = None;
     let mut projected_flags: Vec<FlagMeta<'_>> = Vec::new();
