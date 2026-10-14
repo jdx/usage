@@ -1046,10 +1046,10 @@ fn find_byte(bytes: &[u8], wanted: u8) -> Option<usize> {
     const LOW: u64 = 0x0101_0101_0101_0101;
     const HIGH: u64 = 0x8080_8080_8080_8080;
     let pattern = LOW * u64::from(wanted);
-    let mut words = bytes.chunks_exact(8);
+    let (words, rest) = bytes.as_chunks::<8>();
     let mut base = 0;
-    for chunk in &mut words {
-        let word = u64::from_le_bytes(chunk.try_into().unwrap_or_default()) ^ pattern;
+    for chunk in words {
+        let word = u64::from_le_bytes(*chunk) ^ pattern;
         if word.wrapping_sub(LOW) & !word & HIGH != 0 {
             return chunk
                 .iter()
@@ -1058,9 +1058,7 @@ fn find_byte(bytes: &[u8], wanted: u8) -> Option<usize> {
         }
         base += 8;
     }
-    words
-        .remainder()
-        .iter()
+    rest.iter()
         .position(|&byte| byte == wanted)
         .map(|at| base + at)
 }
