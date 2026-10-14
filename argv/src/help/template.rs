@@ -134,18 +134,24 @@ fn expand_spec(specification: &str, palette: Palette) -> Cow<'_, str> {
 }
 
 pub(super) fn semantic(specification: &str, text: &str, style: Style) -> String {
+    let mut out = String::with_capacity(text.len() + 16);
+    semantic_into(&mut out, specification, text, style);
+    out
+}
+
+/// [`semantic`], appended to `out` rather than returned.
+pub(super) fn semantic_into(out: &mut String, specification: &str, text: &str, style: Style) {
     if !style.coloured {
-        return text.to_string();
+        out.push_str(text);
+        return;
     }
     let specification = expand_spec(specification, style.palette);
-    let mut out = String::with_capacity(text.len() + 16);
     AnsiStyle::default()
         .apply(specification.as_ref())
         .unwrap_or_default()
-        .write(&mut out);
+        .write(out);
     out.push_str(text);
-    AnsiStyle::default().write(&mut out);
-    out
+    AnsiStyle::default().write(out);
 }
 
 /// Validate the style tags in a help template.

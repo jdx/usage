@@ -579,16 +579,12 @@ impl Style {
         }
     }
 
+    fn paint(self, out: &mut String, role: &str, text: &str) {
+        template::semantic_into(out, role, text, self);
+    }
+
     fn heading(self, text: &str) -> String {
         template::semantic("heading", text, self)
-    }
-
-    fn literal(self, text: &str) -> String {
-        template::semantic("option", text, self)
-    }
-
-    fn metavar(self, text: &str) -> String {
-        template::semantic("metavar", text, self)
     }
 
     fn command(self, text: &str) -> String {
@@ -788,7 +784,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
                         .then_some(i)
                 })
                 .unwrap_or(rest.len());
-            out.push_str(&style.literal(&rest[..end]));
+            style.paint(&mut out, "option", &rest[..end]);
             at += end;
             continue;
         }
@@ -805,7 +801,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             && let Some(end) = rest.find('>')
         {
             let end = end + 1;
-            out.push_str(&style.metavar(&rest[..end]));
+            style.paint(&mut out, "metavar", &rest[..end]);
             at += end;
             continue;
         }
@@ -814,7 +810,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             && let Some(end) = value.find(']')
         {
             out.push_str("[=");
-            out.push_str(&style.metavar(&value[..end]));
+            style.paint(&mut out, "metavar", &value[..end]);
             out.push(']');
             at += end + 3;
             continue;
@@ -828,7 +824,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
                     .find(|c: char| c.is_whitespace() || matches!(c, ',' | ']' | '>'))
                     .unwrap_or(value.len());
                 if end > 0 {
-                    out.push_str(&style.metavar(&value[..end]));
+                    style.paint(&mut out, "metavar", &value[..end]);
                     at += end;
                 }
             }
@@ -838,7 +834,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         if previous == Some('[') && !rest.starts_with('-') {
             let end = rest.find(']').unwrap_or(rest.len());
             if end > 0 {
-                out.push_str(&style.metavar(&rest[..end]));
+                style.paint(&mut out, "metavar", &rest[..end]);
                 at += end;
                 continue;
             }
@@ -856,7 +852,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             if boundary.is_none_or(|c| {
                 c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.')
             }) {
-                out.push_str(&style.metavar(&rest[..end]));
+                style.paint(&mut out, "metavar", &rest[..end]);
                 at += end;
                 continue;
             }
@@ -3119,30 +3115,23 @@ fn long_annotations(out: &mut String, row: &Row<'_>, layout: AnnotationLayout) {
     {
         return;
     }
+    let mut note = |prefix: &str, body: &str, suffix: &str| {
+        write_wrapped_indented(out, &cat(&[prefix, body, suffix]), width, indent);
+    };
     if !choices.is_empty() {
-        write_wrapped_indented(
-            out,
-            &cat(&["[possible values: ", &choices.join(", "), "]"]),
-            width,
-            indent,
-        );
+        note("[possible values: ", &choices.join(", "), "]");
     }
     if let Some(env) = env {
-        write_wrapped_indented(out, &cat(&["[env: ", env, "]"]), width, indent);
+        note("[env: ", env, "]");
     }
     for env in env_fallback {
-        write_wrapped_indented(out, &cat(&["[env fallback: ", env, "]"]), width, indent);
+        note("[env fallback: ", env, "]");
     }
     for env in deprecated_env {
-        write_wrapped_indented(out, &cat(&["[deprecated env: ", env, "]"]), width, indent);
+        note("[deprecated env: ", env, "]");
     }
     if !default.is_empty() {
-        write_wrapped_indented(
-            out,
-            &cat(&["(default: ", &default.join(", "), ")"]),
-            width,
-            indent,
-        );
+        note("(default: ", &default.join(", "), ")");
     }
 }
 
@@ -3184,17 +3173,19 @@ fn deprecation_label(
     if message.is_none() && warn_at.is_none() && remove_at.is_none() {
         return None;
     }
-    let mut parts = Vec::new();
-    if let Some(message) = message {
-        parts.push(message.to_string());
+    let mut out = String::from("[deprecated: ");
+    let mut first = true;
+    for (lead, part) in [("", message), ("warns at ", warn_at), ("removed at ", remove_at)] {
+        if let Some(part) = part {
+            if !first {
+                out.push_str("; ");
+            }
+            first = false;
+            put(&mut out, &[lead, part]);
+        }
     }
-    if let Some(at) = warn_at {
-        parts.push(cat(&["warns at ", at]));
-    }
-    if let Some(at) = remove_at {
-        parts.push(cat(&["removed at ", at]));
-    }
-    Some(cat(&["[deprecated: ", &parts.join("; "), "]"]))
+    out.push(']');
+    Some(out)
 }
 
 fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, width: usize) {
