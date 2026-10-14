@@ -1613,19 +1613,13 @@ fn page_sections(
     style: Style,
 ) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
-    let (own, inherited) = own_and_global(chain, inherit_version_actions);
-    let own: Vec<_> = own
-        .into_iter()
-        .filter(|flag| !hidden_on(long, flag.hide_short_help, flag.hide_long_help))
-        .collect();
-    let inherited: Vec<_> = if suppress_global {
-        Vec::new()
+    let (mut own, mut inherited) = own_and_global(chain, inherit_version_actions);
+    own.retain(|flag| !hidden_on(long, flag.hide_short_help, flag.hide_long_help));
+    if suppress_global {
+        inherited.clear();
     } else {
-        inherited
-            .into_iter()
-            .filter(|(flag, _)| !hidden_on(long, flag.hide_short_help, flag.hide_long_help))
-            .collect()
-    };
+        inherited.retain(|(flag, _)| !hidden_on(long, flag.hide_short_help, flag.hide_long_help));
+    }
     let mut sections = Sections::default();
     // The narrow page wraps too. Its descriptions used to run off the end of the terminal,
     // which the wide page has never done — and `-h` is the form most people type.
@@ -1694,21 +1688,34 @@ fn page_sections(
     // computes, and separately, so a long flag does not push the arguments out. The short
     // page lines its columns up too: it did not, and nothing in `-h` lined up with anything.
     let positional_args = positional_args(meta);
-    let mut args: Vec<&ArgMeta<'_>> = positional_args
-        .iter()
-        .filter(|a| !a.hide && !hidden_on(long, a.hide_short_help, a.hide_long_help))
-        .collect();
-    order_args(&mut args, positional_args);
+    let mut shown_args: Vec<&ArgMeta<'_>> = Vec::new();
+    for arg in positional_args {
+        if !arg.hide && !hidden_on(long, arg.hide_short_help, arg.hide_long_help) {
+            shown_args.push(arg);
+        }
+    }
+    order_args(&mut shown_args, positional_args);
     // Each row's usage once: it sizes the column, is the row's text, and is what colouring
     // looks for at the start of a row.
-    let args: Vec<(&ArgMeta<'_>, String)> = args.into_iter().map(|a| (a, arg_usage(a))).collect();
-    let own: Vec<(&FlagMeta<'_>, String)> = own.into_iter().map(|f| (f, column_usage(f))).collect();
-    let arg_col = args
-        .iter()
-        .map(|(_, usage)| usage.chars().count())
-        .max()
-        .map(|longest| usage_column_width(longest, width))
-        .unwrap_or(0);
+    let mut args: Vec<(&ArgMeta<'_>, String)> = Vec::new();
+    let mut arg_longest = None;
+    for arg in shown_args {
+        let usage = arg_usage(arg);
+        arg_longest = arg_longest.max(Some(usage.chars().count()));
+        args.push((arg, usage));
+    }
+    let mut flag_longest = None;
+    let mut own_rows: Vec<(&FlagMeta<'_>, String)> = Vec::new();
+    for flag in own {
+        let usage = column_usage(flag);
+        flag_longest = flag_longest.max(Some(usage.chars().count()));
+        own_rows.push((flag, usage));
+    }
+    for (_, usage) in &inherited {
+        flag_longest = flag_longest.max(Some(usage.chars().count()));
+    }
+    let own = own_rows;
+    let arg_col = arg_longest.map_or(0, |longest| usage_column_width(longest, width));
     // Section prose belongs to the long page, like an entry's admonitions.
     let prose_of = |title: &str| {
         if long {
@@ -1742,13 +1749,7 @@ fn page_sections(
 
     // One column over *both* lists, so the two sections read as one table with a rule through
     // it rather than two tables that happen to be adjacent.
-    let flag_col = own
-        .iter()
-        .chain(&inherited)
-        .map(|(_, usage)| usage.chars().count())
-        .max()
-        .map(|longest| usage_column_width(longest, width))
-        .unwrap_or(0);
+    let flag_col = flag_longest.map_or(0, |longest| usage_column_width(longest, width));
     let layout = RowLayout {
         col: flag_col,
         ..layout
@@ -2106,7 +2107,12 @@ fn commands_section(
     default_name: Option<&str>,
     style: Style,
 ) {
-    let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
+    let mut visible: Vec<&&CommandMeta<'_>> = Vec::new();
+    for sub in meta.subcommands {
+        if !sub.hide {
+            visible.push(sub);
+        }
+    }
     order_commands(&mut visible);
     // Nothing visible, no section — `mise direnv` and `mise dotfiles` have subcommands and
     // every one of them is hidden. The usage *line* still says `<SUBCOMMAND>`, because
@@ -2119,14 +2125,14 @@ fn commands_section(
     // command with no flags or arguments the two agree, and where they differ this is the
     // order a reader sees in the reference. The usage is the sort key and nothing else now:
     // the row shows the name.
-    let mut lines: Vec<(String, &&CommandMeta<'_>)> = visible
-        .iter()
-        .map(|sub| {
-            let mut sub_path: Vec<&str> = path.to_vec();
-            sub_path.push(sub.cmd.name);
-            (usage_line(&sub_path, sub), *sub)
-        })
-        .collect();
+    let mut sub_path: Vec<&str> = path.to_vec();
+    sub_path.push("");
+    let last = sub_path.len() - 1;
+    let mut lines: Vec<(String, &&CommandMeta<'_>)> = Vec::new();
+    for sub in visible {
+        sub_path[last] = sub.cmd.name;
+        lines.push((usage_line(&sub_path, sub), sub));
+    }
     sort_rows(&mut lines, &mut |a, b| {
         a.1.extra
             .display_order
@@ -2138,13 +2144,19 @@ fn commands_section(
     // One column for the page, not for the section: a CLI that groups its commands reads as one
     // table with rules through it, which is what the flag list already does.
     let show_help = !meta.cmd.disable_help_subcommand;
-    let col = lines
-        .iter()
-        .map(|(_, sub)| sub.cmd.name.chars().count())
-        .chain(show_help.then(|| HELP_SUBCOMMAND.chars().count()))
-        .max()
-        .map(|longest| usage_column_width(longest, width))
-        .unwrap_or(0);
+    let mut longest = if show_help {
+        HELP_SUBCOMMAND.chars().count()
+    } else {
+        0
+    };
+    for (_, sub) in &lines {
+        longest = longest.max(sub.cmd.name.chars().count());
+    }
+    let col = if lines.is_empty() && !show_help {
+        0
+    } else {
+        usage_column_width(longest, width)
+    };
 
     let default_title = meta.extra.subcommand_help_heading.unwrap_or("Commands");
     let mut headings = vec![None];
