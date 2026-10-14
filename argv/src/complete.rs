@@ -910,10 +910,11 @@ impl CompletionRequest {
                 _ => (&*arg, None),
             };
             if option == "--words" && joined.is_none() {
-                words = Some(
-                    rest.map(|word| word.to_string_lossy().into_owned())
-                        .collect(),
-                );
+                let mut all = Vec::new();
+                for word in rest.by_ref() {
+                    all.push(word.to_string_lossy().into_owned());
+                }
+                words = Some(all);
                 break;
             }
             if !matches!(
@@ -1225,12 +1226,16 @@ fn declared_files(type_: &str, next_arg_values: u32) -> Option<Files> {
         .strip_prefix("path:")
         .or_else(|| type_.strip_prefix("file:"))
     {
-        let extensions = extensions
-            .split(',')
-            .map(|extension| extension.trim().trim_start_matches('.'))
-            .filter(|extension| !extension.is_empty())
-            .map(str::to_string)
-            .collect::<Vec<_>>();
+        // A loop and not an adapter chain: the chain is a type of its own to compile for a
+        // list that is read once, when a shell asks.
+        let mut found = Vec::new();
+        for extension in extensions.split(',') {
+            let extension = extension.trim().trim_start_matches('.');
+            if !extension.is_empty() {
+                found.push(extension.to_string());
+            }
+        }
+        let extensions = found;
         if !extensions.is_empty() {
             return Some(Files::Extensions(extensions));
         }
@@ -2210,10 +2215,12 @@ fn choices<'a>(
     details: &'a [crate::spec::ChoiceMeta<'a>],
     token: &str,
 ) -> Vec<Candidate<'a>> {
-    declared
-        .iter()
-        .filter(|c| c.starts_with(token))
-        .map(|c| Candidate {
+    let mut out = Vec::new();
+    for c in declared {
+        if !c.starts_with(token) {
+            continue;
+        }
+        out.push(Candidate {
             value: (*c).to_string(),
             kind: CandidateKind::Value,
             display: None,
@@ -2224,8 +2231,9 @@ fn choices<'a>(
                 })
                 .and_then(|detail| detail.help)
                 .map(::std::borrow::Cow::Borrowed),
-        })
-        .collect()
+        });
+    }
+    out
 }
 
 /// The metadata for a flag, wherever in the tree it was declared.
