@@ -189,7 +189,6 @@ pub(super) fn check(template: &str) -> Result<(), &'static str> {
 }
 
 /// Substitute sections and render template-authored colour markup.
-#[inline(never)]
 pub(super) fn substitute(
     template: &str,
     style: Style,
