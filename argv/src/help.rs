@@ -617,6 +617,26 @@ impl Style {
     }
 }
 
+/// The inline spans help prose accepts, longest delimiter first: the delimiter, the SGR codes
+/// that open and close it, whether it must start a word, and whether spans nest inside it.
+///
+/// A function rather than a static table: a table of strings is a load-time relocation per
+/// pointer in a position-independent binary, and this is a handful of immediate addresses.
+#[inline(never)]
+fn span_kind(kind: usize) -> Option<(&'static str, &'static str, &'static str, bool, bool)> {
+    Some(match kind {
+        0 => ("***", "1;3", "22;23", false, true),
+        1 => ("___", "1;3", "22;23", true, true),
+        2 => ("**", "1", "22", false, true),
+        3 => ("__", "1", "22", true, true),
+        4 => ("~~", "9", "29", false, true),
+        5 => ("*", "3", "23", false, true),
+        6 => ("_", "3", "23", true, true),
+        7 => ("`", "36", "39", false, false),
+        _ => return None,
+    })
+}
+
 /// Markdown-like emphasis in author-written help.
 ///
 /// Kept deliberately small and dependency-free: help is cold-path code, but the renderer is a
@@ -624,17 +644,6 @@ impl Style {
 /// would be disproportionate. Delimiters must close on the same line; an unmatched delimiter
 /// is ordinary text.
 fn styled_inline(text: &str, parent: Option<&str>) -> String {
-    // A table in the binary, not eight tuples built again for every character.
-    static SPANS: [(&str, &str, &str, bool, bool); 8] = [
-        ("***", "1;3", "22;23", false, true),
-        ("___", "1;3", "22;23", true, true),
-        ("**", "1", "22", false, true),
-        ("__", "1", "22", true, true),
-        ("~~", "9", "29", false, true),
-        ("*", "3", "23", false, true),
-        ("_", "3", "23", true, true),
-        ("`", "36", "39", false, false),
-    ];
     let mut out = String::with_capacity(text.len());
     let mut at = 0;
     let mut allow_run_remainder = false;
@@ -651,27 +660,25 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             continue;
         }
 
-        let span = SPANS
-            .iter()
-            .find_map(|&(delimiter, open, close, word_boundary, recurse)| {
-                rest.strip_prefix(delimiter)?;
-                let marker = delimiter.first_char().expect("a delimiter has a marker");
-                let previous = head(text, at).last_char();
-                // Do not reinterpret part of a delimiter run when the longer form was rejected.
-                // In particular, neither underscore in `word__word__` may become an italic opener.
-                if (previous == Some(marker) && !allow_run_remainder)
-                    || (delimiter.len() == 1 && tail(rest, delimiter.len()).starts_with(marker))
-                {
-                    return None;
-                }
-                if word_boundary && previous.is_some_and(char::is_alphanumeric) {
-                    return None;
-                }
-                let content_start = at + delimiter.len();
-                let (end, after) =
-                    closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
-                Some((delimiter, open, close, recurse, content_start, end, after))
-            });
+        let span = (0..8).find_map(|kind| {
+            let (delimiter, open, close, word_boundary, recurse) = span_kind(kind)?;
+            rest.strip_prefix(delimiter)?;
+            let marker = delimiter.first_char().expect("a delimiter has a marker");
+            let previous = head(text, at).last_char();
+            // Do not reinterpret part of a delimiter run when the longer form was rejected.
+            // In particular, neither underscore in `word__word__` may become an italic opener.
+            if (previous == Some(marker) && !allow_run_remainder)
+                || (delimiter.len() == 1 && tail(rest, delimiter.len()).starts_with(marker))
+            {
+                return None;
+            }
+            if word_boundary && previous.is_some_and(char::is_alphanumeric) {
+                return None;
+            }
+            let content_start = at + delimiter.len();
+            let (end, after) = closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
+            Some((delimiter, open, close, recurse, content_start, end, after))
+        });
 
         if let Some((delimiter, open, close, recurse, content_start, end, after)) = span {
             out.put_str("\u{1b}[");
