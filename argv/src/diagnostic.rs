@@ -268,7 +268,15 @@ fn long_names_in_scope<'a>(chain: &[&'a CommandMeta<'a>]) -> Vec<&'a str> {
 ///
 /// Written out rather than depended on, because this crate takes no dependencies.
 fn jaro(a: &str, b: &str) -> f64 {
-    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    // Each character with whether it has been matched yet, so that one lookup gets both.
+    fn marked(text: &str) -> Vec<(char, bool)> {
+        let mut out = Vec::new();
+        for c in text.chars() {
+            out.push((c, false));
+        }
+        out
+    }
+    let (mut a, mut b) = (marked(a), marked(b));
     if a.is_empty() && b.is_empty() {
         return 1.0;
     }
@@ -278,17 +286,18 @@ fn jaro(a: &str, b: &str) -> f64 {
 
     // Two characters count as matching if they are the same and no further apart than this.
     let window = (a.len().max(b.len()) / 2).saturating_sub(1);
-    let mut a_matched = vec![false; a.len()];
-    let mut b_matched = vec![false; b.len()];
     let mut matches = 0usize;
 
-    for (i, ch) in a.iter().enumerate() {
+    for (i, mine) in a.iter_mut().enumerate() {
         let start = i.saturating_sub(window);
         let end = (i + window + 1).min(b.len());
         for j in start..end {
-            if !b_matched[j] && b[j] == *ch {
-                a_matched[i] = true;
-                b_matched[j] = true;
+            if let Some(theirs) = b.get_mut(j)
+                && !theirs.1
+                && theirs.0 == mine.0
+            {
+                mine.1 = true;
+                theirs.1 = true;
                 matches += 1;
                 break;
             }
@@ -298,20 +307,14 @@ fn jaro(a: &str, b: &str) -> f64 {
         return 0.0;
     }
 
-    // Matching characters that arrive in a different order are half a transposition each.
+    // Matching characters that arrive in a different order are half a transposition each. Both
+    // sides have the same number of them, so they pair off in order.
     let mut transpositions = 0usize;
-    let mut k = 0usize;
-    for (i, matched) in a_matched.iter().enumerate() {
-        if !matched {
-            continue;
-        }
-        while !b_matched[k] {
-            k += 1;
-        }
-        if a[i] != b[k] {
+    let mut theirs = b.iter().filter(|c| c.1);
+    for mine in a.iter().filter(|c| c.1) {
+        if theirs.next().is_some_and(|other| other.0 != mine.0) {
             transpositions += 1;
         }
-        k += 1;
     }
 
     let matches = matches as f64;
