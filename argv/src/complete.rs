@@ -17,7 +17,7 @@
 
 use crate::spec::{ArgMeta, CommandMeta, CommandSelector, FlagMeta, Spec, SpecView};
 pub use crate::spec::{Candidate, CandidateKind, CompleteCtx, Completer};
-use crate::text::{push_all, push_char, same_name};
+use crate::text::{push_all, push_char, replace_char, same_name};
 use crate::{Arg, Command, Error, Flag, Parser};
 use core::future::Future;
 use core::pin::Pin;
@@ -1061,10 +1061,11 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
             .match_indices(':')
             .rev()
             .find_map(|(colon, _)| {
-                let fragment = marked_prefix[colon + 1..].replace(BASH_NONBREAKING_COLON, ":");
+                let fragment =
+                    replace_char(&marked_prefix[colon + 1..], BASH_NONBREAKING_COLON, ":");
                 ((fragment.is_empty() && word == ":")
                     || (!fragment.is_empty() && word.starts_with(&fragment)))
-                .then(|| marked_prefix[..=colon].replace(BASH_NONBREAKING_COLON, ":"))
+                .then(|| replace_char(&marked_prefix[..=colon], BASH_NONBREAKING_COLON, ":"))
             });
         if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
             push_all(&mut out, &["\u{1}prefix\t", &prefix, "\n"]);
@@ -1197,7 +1198,12 @@ fn zsh_quote(value: &str) -> String {
     if !value.is_empty() && value.chars().all(safe) {
         return value.to_string();
     }
-    format!("'{}'", value.replace('\'', "'\\''"))
+    let mut quoted = String::new();
+    push_all(
+        &mut quoted,
+        &["'", &replace_char(value, '\'', "'\\''"), "'"],
+    );
+    quoted
 }
 
 /// The paths an argument or value name asks for, by the name itself.

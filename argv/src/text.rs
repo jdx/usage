@@ -34,3 +34,11 @@ pub(crate) fn char_count(text: &str) -> usize {
 pub(crate) fn same_name(a: &str, b: &str) -> bool {
     a.eq_ignore_ascii_case(b)
 }
+
+/// `text` with every `from` replaced by `to`. One copy of the search for the three places a
+/// completion answer rewrites a character, rather than a `str::replace` expanded at each.
+#[cfg(feature = "complete")]
+#[inline(never)]
+pub(crate) fn replace_char(text: &str, from: char, to: &str) -> String {
+    text.replace(from, to)
+}
