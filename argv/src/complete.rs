@@ -2441,20 +2441,15 @@ impl Split {
 /// offset landing inside a multi-byte character is moved back to that character's start rather
 /// than panicking — a completion request is not a place to be strict about a shell's arithmetic.
 pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
-    let cursor = floor_char_boundary(line, cursor.min(line.len()));
-
-    let mut words: Vec<String> = Vec::new();
-    let mut word = String::new();
-    // Whether anything has been written into `word` — including a quote that so far contains
-    // nothing, so that `mise ""` is a word and not a gap between two.
-    let mut started = false;
-    let mut cword = None;
-    // How much of the word in hand was before the cursor. A length rather than a copy: the word
-    // in hand is the one that lands at `cword`, so the prefix is read off it once, at the end.
-    let mut prefix_len = None;
-    // Whether the cursor sat inside a word rather than in the gap before one. A gap is a word
-    // the user is about to type, so one has to be made for them.
-    let mut cursor_in_word = false;
+    let mut at = Splitting {
+        cursor: floor_char_boundary(line, cursor.min(line.len())),
+        words: Vec::new(),
+        word: String::new(),
+        started: false,
+        cword: None,
+        prefix_len: None,
+        cursor_in_word: false,
+    };
 
     let mut chars = line.char_indices().peekable();
     let mut quote: Option<char> = None;
@@ -2462,23 +2457,12 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
     // The cursor is reached before the character it sits in front of is read, so the word in
     // hand is the word being completed and what is in it is the prefix.
     //
-    // A macro rather than a closure because it writes to four locals the loop also writes to,
-    // and it has to run at *two* places: at the top of each character, and again before an
-    // escape swallows the one after it. Only checking the top meant a cursor sitting on an
-    // escaped character was never noticed, and the split described the last word of the line
-    // instead of the one being typed.
-    macro_rules! reached {
-        ($idx:expr) => {
-            if $idx == cursor && prefix_len.is_none() {
-                cword = Some(words.len());
-                prefix_len = Some(word.len());
-                cursor_in_word = started;
-            }
-        };
-    }
-
+    // It is checked at *two* places: at the top of each character, and again before an escape
+    // swallows the one after it. Only checking the top meant a cursor sitting on an escaped
+    // character was never noticed, and the split described the last word of the line instead of
+    // the one being typed.
     while let Some((i, c)) = chars.next() {
-        reached!(i);
+        at.reached(i);
 
         match quote {
             Some('\'') => {
@@ -2490,14 +2474,14 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                         .peek()
                         .filter(|&&(_, n)| shell.doubles_quotes() && n == '\'')
                     {
-                        reached!(j);
-                        push_char(&mut word, '\'');
+                        at.reached(j);
+                        push_char(&mut at.word, '\'');
                         chars.next();
                     } else {
                         quote = None;
                     }
                 } else {
-                    push_char(&mut word, c);
+                    push_char(&mut at.word, c);
                 }
             }
             Some(q) => {
@@ -2506,8 +2490,8 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                         .peek()
                         .filter(|&&(_, n)| shell.doubles_quotes() && n == q)
                     {
-                        reached!(j);
-                        push_char(&mut word, q);
+                        at.reached(j);
+                        push_char(&mut at.word, q);
                         chars.next();
                     } else {
                         quote = None;
@@ -2518,41 +2502,38 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     // why a Windows path in double quotes survives.
                     match chars.peek() {
                         Some(&(j, next)) if escapable_in_quotes(next, shell) => {
-                            reached!(j);
-                            push_char(&mut word, next);
+                            at.reached(j);
+                            push_char(&mut at.word, next);
                             chars.next();
                         }
-                        _ => push_char(&mut word, c),
+                        _ => push_char(&mut at.word, c),
                     }
                 } else {
-                    push_char(&mut word, c);
+                    push_char(&mut at.word, c);
                 }
             }
             None => {
                 if c == '\'' || c == '"' {
                     quote = Some(c);
-                    started = true;
+                    at.started = true;
                 } else if is_escape(c, shell) {
                     // Before the check, because the escape has already started the word: a
                     // cursor on the escaped character is inside it, not in the gap before it.
-                    started = true;
+                    // A trailing escape is a line the user is still typing, not a mistake to
+                    // report: it escapes the character they have not typed yet.
+                    at.started = true;
                     if let Some(&(j, next)) = chars.peek() {
-                        reached!(j);
-                        push_char(&mut word, next);
+                        at.reached(j);
+                        push_char(&mut at.word, next);
                         chars.next();
-                    } else {
-                        // A trailing escape is a line the user is still typing, not a mistake
-                        // to report: it escapes the character they have not typed yet.
-                        started = true;
                     }
                 } else if c.is_whitespace() {
-                    if started {
-                        words.push(core::mem::take(&mut word));
-                        started = false;
+                    if at.started {
+                        at.end_word();
                     }
                 } else {
-                    push_char(&mut word, c);
-                    started = true;
+                    push_char(&mut at.word, c);
+                    at.started = true;
                 }
             }
         }
@@ -2560,16 +2541,19 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
 
     // The cursor at the very end of the line: the loop above only sees positions it reads a
     // character at, and there is no character there.
-    if prefix_len.is_none() {
-        cword = Some(words.len());
-        prefix_len = Some(word.len());
-        cursor_in_word = started;
+    at.reached(at.cursor);
+
+    if at.started {
+        at.end_word();
     }
 
-    if started {
-        words.push(word);
-    }
-
+    let Splitting {
+        mut words,
+        cword,
+        prefix_len,
+        cursor_in_word,
+        ..
+    } = at;
     let cword = cword.unwrap_or(0);
     // A word not yet started is empty, so a cursor in a gap has nothing before it. A started one
     // was pushed whole, at the index the cursor recorded.
@@ -2592,6 +2576,47 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
         words,
         cword,
         prefix,
+    }
+}
+
+/// What [`split`] has read of a line so far.
+struct Splitting {
+    /// Where the cursor is, as a byte offset.
+    cursor: usize,
+    words: Vec<String>,
+    word: String,
+    /// Whether anything has been written into `word` — including a quote that so far contains
+    /// nothing, so that `mise ""` is a word and not a gap between two.
+    started: bool,
+    cword: Option<usize>,
+    /// How much of the word in hand was before the cursor. A length rather than a copy: the word
+    /// in hand is the one that lands at `cword`, so the prefix is read off it once, at the end.
+    prefix_len: Option<usize>,
+    /// Whether the cursor sat inside a word rather than in the gap before one. A gap is a word
+    /// the user is about to type, so one has to be made for them.
+    cursor_in_word: bool,
+}
+
+impl Splitting {
+    /// Note the cursor, if `index` is where it is and it has not been noted yet.
+    ///
+    /// Out of line because it runs at several places in the loop, each of which would otherwise
+    /// carry a copy.
+    #[inline(never)]
+    fn reached(&mut self, index: usize) {
+        if index == self.cursor && self.prefix_len.is_none() {
+            self.cword = Some(self.words.len());
+            self.prefix_len = Some(self.word.len());
+            self.cursor_in_word = self.started;
+        }
+    }
+
+    /// Finish the word in hand.
+    #[inline(never)]
+    fn end_word(&mut self) {
+        let word = core::mem::take(&mut self.word);
+        self.words.push(word);
+        self.started = false;
     }
 }
 
