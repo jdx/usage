@@ -446,13 +446,11 @@ fn unexpected_flag(
     capture: ValueCapture,
 ) {
     use Ink::{Invalid, Plain, Valid};
-    error_around(
+    error_with(
         out,
         style,
-        "unexpected argument '",
-        Invalid,
-        typed,
-        "' found",
+        "unexpected argument '\u{1}' found",
+        &[(Invalid, typed)],
     );
     // Scored without the dashes, and only then written back with them. Every flag
     // starts `--`, and the prefix bonus in Jaro-Winkler counts that agreement — so
@@ -1012,29 +1010,33 @@ fn render_projected<'a>(
     )
 }
 
-/// One `error: …` line, assembled from its pieces.
+/// An `error: …` line written as a template: fixed text with a `\u{1}` wherever one of `args`
+/// goes, each in its own ink.
 ///
-/// Every failure opens with one. Given as data rather than each through its own `writeln!`, the
-/// messages share this routine instead of each compiling a copy of the formatting.
+/// Every failure that names something the user typed is shaped like this, and a message built as
+/// a list of pieces spends code at each call site putting the fixed ones on the stack. Here the
+/// fixed text is one string and the call passes only what varies.
 #[inline(never)]
-fn error_line(out: &mut String, style: Style, parts: &[(Ink, &str)]) {
+fn error_with(out: &mut String, style: Style, template: &str, args: &[(Ink, &str)]) {
     style.put_all(out, &[(Ink::Error, "error:"), (Ink::Plain, " ")]);
-    style.put_all(out, parts);
+    let mut args = args.iter();
+    let mut from = 0;
+    // Bytes, because the hole is one: a multi-byte character never contains it.
+    for (at, byte) in template.bytes().enumerate() {
+        if byte == HOLE {
+            style.put(out, Ink::Plain, &template[from..at]);
+            if let Some(&(ink, text)) = args.next() {
+                style.put(out, ink, text);
+            }
+            from = at + 1;
+        }
+    }
+    style.put(out, Ink::Plain, &template[from..]);
     push_all(out, &["\n"]);
 }
 
-/// An `error: …` line of the commonest shape: fixed text, one thing the user typed, fixed text.
-///
-/// Its own routine so that the seven messages shaped this way pass three strings and an ink,
-/// rather than each building the same three-piece array on the stack.
-#[inline(never)]
-fn error_around(out: &mut String, style: Style, before: &str, ink: Ink, middle: &str, after: &str) {
-    error_line(
-        out,
-        style,
-        &[(Ink::Plain, before), (ink, middle), (Ink::Plain, after)],
-    );
-}
+/// Where an argument goes in an [`error_with`] template.
+const HOLE: u8 = 1;
 
 /// An indented line under the error, such as a missing argument's name.
 #[inline(never)]
@@ -1106,22 +1108,18 @@ fn describe(
                 let capture = value_capture(argv, token, here);
                 unexpected_flag(&mut out, style, typed, chain, capture);
             } else if cmd.subcommands.is_empty() {
-                error_around(
+                error_with(
                     &mut out,
                     style,
-                    "unexpected argument '",
-                    Invalid,
-                    &word,
-                    "' found",
+                    "unexpected argument '\u{1}' found",
+                    &[(Invalid, &word)],
                 );
             } else {
-                error_around(
+                error_with(
                     &mut out,
                     style,
-                    "unrecognized subcommand '",
-                    Invalid,
-                    &word,
-                    "'",
+                    "unrecognized subcommand '\u{1}'",
+                    &[(Invalid, &word)],
                 );
                 // Every name a subcommand answers to, hidden ones included: a user who typed a
                 // near miss of an old alias should be told the name it still works under.
@@ -1134,31 +1132,28 @@ fn describe(
             }
         }
         Error::SubcommandConflict { subcommand } => {
-            error_around(
+            error_with(
                 &mut out,
                 style,
-                "the subcommand '",
-                Invalid,
-                subcommand.name,
-                "' cannot be used with arguments on its parent command",
+                "the subcommand '\u{1}' cannot be used with arguments on its parent command",
+                &[(Invalid, subcommand.name)],
             );
         }
         Error::MissingRequired { .. } => {
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[(Plain, "the following required arguments were not provided:")],
+                "the following required arguments were not provided:",
+                &[],
             );
             listed_line(&mut out, style, &named);
         }
         Error::DuplicateFlag { .. } => {
-            error_around(
+            error_with(
                 &mut out,
                 style,
-                "the argument '",
-                Invalid,
-                &named,
-                "' cannot be used multiple times",
+                "the argument '\u{1}' cannot be used multiple times",
+                &[(Invalid, &named)],
             );
         }
         Error::MissingSubcommand => {
@@ -1176,13 +1171,11 @@ fn describe(
             if let Some(help) = help {
                 return help;
             }
-            error_around(
+            error_with(
                 &mut out,
                 style,
-                "'",
-                Invalid,
-                &path(),
-                "' requires a subcommand but one was not provided",
+                "'\u{1}' requires a subcommand but one was not provided",
+                &[(Invalid, &path())],
             );
         }
         Error::MissingFlagValue { flag } => {
@@ -1203,33 +1196,39 @@ fn describe(
                         .and_then(|m| m.value_name)
                 })
                 .unwrap_or(flag.name);
-            let (before, joint, after) = if flag.require_equals {
-                ("equal sign is needed when assigning values to '", "=<", "'")
+            let (template, joint) = if flag.require_equals {
+                (
+                    "equal sign is needed when assigning values to '\u{1}'",
+                    "=<",
+                )
             } else {
-                ("a value is required for '", " <", "' but none was supplied")
+                (
+                    "a value is required for '\u{1}' but none was supplied",
+                    " <",
+                )
             };
             let mut wanted = String::new();
             push_all(&mut wanted, &[dashes, spelled, joint, value, ">"]);
-            error_around(&mut out, style, before, Invalid, &wanted, after);
+            error_with(&mut out, style, template, &[(Invalid, &wanted)]);
         }
         Error::InvalidChoice { name, choices } => {
             with_usage = false;
             let typed = value_bound_to(canonical_root, argv, name, choices, view);
             match typed.as_deref() {
-                Some(value) => error_line(
+                Some(value) => error_with(
                     &mut out,
                     style,
-                    &[
-                        (Plain, "invalid value '"),
-                        (Invalid, value),
-                        (Plain, "' for '"),
-                        (Literal, &named),
-                        (Plain, "'"),
-                    ],
+                    "invalid value '\u{1}' for '\u{1}'",
+                    &[(Invalid, value), (Literal, &named)],
                 ),
                 // Nothing in argv bound to it, which means the value came from somewhere else —
                 // an environment variable, or a default the spec declared.
-                None => error_around(&mut out, style, "invalid value for '", Literal, &named, "'"),
+                None => error_with(
+                    &mut out,
+                    style,
+                    "invalid value for '\u{1}'",
+                    &[(Literal, &named)],
+                ),
             }
             push_all(&mut out, &["  [possible values: "]);
             for (i, choice) in choices.iter().enumerate() {
@@ -1248,15 +1247,13 @@ fn describe(
         }
         Error::InvalidValue(invalid) => {
             with_usage = false;
-            error_line(
+            error_with(
                 &mut out,
                 style,
+                "invalid value '\u{1}' for '\u{1}': \u{1}",
                 &[
-                    (Plain, "invalid value '"),
                     (Invalid, &invalid.value),
-                    (Plain, "' for '"),
                     (Literal, &named),
-                    (Plain, "': "),
                     (Plain, &invalid.reason),
                 ],
             );
@@ -1265,17 +1262,11 @@ fn describe(
             // clap's own shape for a required group, which is the required-arguments
             // message with the members listed under it. The group's name goes on the
             // first line rather than into the list, since it is not something to type.
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[
-                    (
-                        Plain,
-                        "one of the following required arguments was not provided (",
-                    ),
-                    (Plain, group),
-                    (Plain, "):"),
-                ],
+                "one of the following required arguments was not provided (\u{1}):",
+                &[(Plain, group)],
             );
             for member in *members {
                 listed_line(&mut out, style, &group_member_shown(here, member));
@@ -1284,16 +1275,11 @@ fn describe(
         Error::ConflictingFlags { other, .. } => {
             // Spelled by `help`, like every other name in this module — and like clap, which
             // writes `the argument '--force' cannot be used with '--jobs <JOBS>'`.
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[
-                    (Plain, "the argument '"),
-                    (Invalid, &named),
-                    (Plain, "' cannot be used with '"),
-                    (Invalid, &shown(here, other)),
-                    (Plain, "'"),
-                ],
+                "the argument '\u{1}' cannot be used with '\u{1}'",
+                &[(Invalid, &named), (Invalid, &shown(here, other))],
             );
         }
         Error::VarTooFew {
@@ -1304,42 +1290,36 @@ fn describe(
         } => {
             with_usage = false;
             let bound = if matches!(error, Error::VarTooFew { .. }) {
-                " values required for '"
+                "\u{1} values required for '\u{1}' but \u{1} were provided"
             } else {
-                " values allowed for '"
+                "\u{1} values allowed for '\u{1}' but \u{1} were provided"
             };
-            error_line(
+            error_with(
                 &mut out,
                 style,
+                bound,
                 &[
                     (Plain, &count.to_string()),
-                    (Plain, bound),
                     (Literal, &named),
-                    (Plain, "' but "),
                     (Plain, &got.to_string()),
-                    (Plain, " were provided"),
                 ],
             );
         }
         Error::ArgRequiresDoubleDash { .. } => {
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[
-                    (Plain, "'"),
-                    (Literal, &named),
-                    (Plain, "' can only be given after '"),
-                    (Literal, "--"),
-                    (Plain, "'"),
-                ],
+                "'\u{1}' can only be given after '\u{1}'",
+                &[(Literal, &named), (Literal, "--")],
             );
         }
         Error::TooDeep => {
             with_usage = false;
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[(Plain, "this command line nests deeper than the parser goes")],
+                "this command line nests deeper than the parser goes",
+                &[],
             );
         }
         // Neither is a failure, and a caller that has not handled them before reaching here
