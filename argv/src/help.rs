@@ -2905,15 +2905,7 @@ fn entry(
     }
 
     if overflow {
-        let lines = wrap_at(help, inline_room, room);
-        put(out, &["  ", painted, "  ", &lines[0], "\n"]);
-        for line in &lines[1..] {
-            if line.is_empty() {
-                out.push('\n');
-            } else {
-                line_at(out, indent, line);
-            }
-        }
+        wrap_lead(out, &["  ", painted, "  "], help, inline_room, room, indent, true);
         return indent;
     }
 
@@ -2936,35 +2928,48 @@ fn entry(
         return indent;
     }
 
-    let lines = wrap(help, room);
-    out.push_str(&lines[0]);
-    out.push('\n');
-    for line in &lines[1..] {
-        if line.is_empty() {
-            out.push('\n');
-        } else {
-            line_at(out, indent, line);
-        }
-    }
+    wrap_lead(out, &[], help, room, room, indent, false);
     // No blank line after a wrapped entry. The reference's template asks for one, and its
     // whitespace trimming eats it before it reaches the output — so a wrapped entry is followed
     // directly by the next, and matching means matching that.
     indent
 }
 
-fn wrap_at(text: &str, first_width: usize, continuation_width: usize) -> Vec<String> {
-    let mut lines = Vec::new();
-    for (index, line) in text.split('\n').enumerate() {
-        lines.extend(wrap(
-            line,
-            if index == 0 {
-                first_width
-            } else {
-                continuation_width
-            },
-        ));
+/// Wrapped text, written out: the first line follows `lead`, the others sit at `indent` with
+/// blank ones left blank.
+///
+/// `per_line` wraps each line the text already has on its own, the first to `first_width` and
+/// the rest to `width`; without it the text is wrapped as one, to `width`, and a line of nothing
+/// but spaces vanishes rather than staying a blank.
+fn wrap_lead(
+    out: &mut String,
+    lead: &[&str],
+    text: &str,
+    first_width: usize,
+    width: usize,
+    indent: usize,
+    per_line: bool,
+) {
+    let mut first = true;
+    let mut emit = |line: &str| {
+        if first {
+            first = false;
+            put(out, lead);
+            out.push_str(line);
+            out.push('\n');
+        } else if line.is_empty() {
+            out.push('\n');
+        } else {
+            line_at(out, indent, line);
+        }
+    };
+    if per_line {
+        for (index, line) in text.split('\n').enumerate() {
+            wrap_lines(line, if index == 0 { first_width } else { width }, &mut emit);
+        }
+    } else {
+        wrap_lines(text, width, &mut emit);
     }
-    lines
 }
 
 /// Wrap an overflowing entry's description across the width below its usage.
@@ -2974,13 +2979,13 @@ fn write_wrapped_block(out: &mut String, help: &str, width: usize) {
 
 fn write_wrapped_indented(out: &mut String, help: &str, width: usize, indent: usize) {
     let room = width.saturating_sub(indent);
-    for line in wrap(help, room) {
+    wrap_lines(help, room, &mut |line| {
         if line.is_empty() {
             out.push('\n');
         } else {
-            line_at(out, indent, &line);
+            line_at(out, indent, line);
         }
-    }
+    });
 }
 
 /// Whether [`wrap`] would return this text unchanged as a single line.
@@ -3019,15 +3024,18 @@ fn fits(text: &str, room: usize) -> bool {
 /// The width of the line under construction is carried along rather than recounted for each
 /// word. Recounting made this quadratic in the length of a line, which went unnoticed while
 /// only the long page wrapped and was 3% of `usage --help` once the command list did too.
-fn wrap(text: &str, width: usize) -> Vec<String> {
-    let mut lines = Vec::new();
+fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
+    let mut emitted = false;
+    let mut line = String::new();
     for paragraph in text.split('\n') {
         if paragraph.is_empty() {
-            lines.push(String::new());
+            emit("");
+            emitted = true;
             continue;
         }
         if paragraph.starts_with("    ") || paragraph.starts_with('\t') {
-            lines.push(paragraph.to_string());
+            emit(paragraph);
+            emitted = true;
             continue;
         }
         let trimmed = paragraph.trim();
@@ -3039,32 +3047,45 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
             ),
             None => ("", trimmed),
         };
-        let body_width = width.saturating_sub(prefix.chars().count());
-        let mut line_prefix = prefix.to_string();
-        let mut line = String::new();
+        let prefix_width = prefix.chars().count();
+        let body_width = width.saturating_sub(prefix_width);
+        // The line under construction, prefix included; `words` says whether it holds any yet.
+        line.clear();
+        line.push_str(prefix);
+        let mut words = false;
         let mut line_width = 0;
         for word in body.split_whitespace() {
             let word_width = word.chars().count();
-            if !line.is_empty() && line_width + 1 + word_width > body_width {
-                lines.push(format!("{line_prefix}{line}"));
+            if words && line_width + 1 + word_width > body_width {
+                emit(&line);
+                emitted = true;
                 line.clear();
-                line_prefix = " ".repeat(prefix.chars().count());
+                put_pad(&mut line, prefix_width);
+                words = false;
                 line_width = 0;
             }
-            if !line.is_empty() {
+            if words {
                 line.push(' ');
                 line_width += 1;
             }
             line.push_str(word);
+            words = true;
             line_width += word_width;
         }
-        if !line.is_empty() {
-            lines.push(format!("{line_prefix}{line}"));
+        if words {
+            emit(&line);
+            emitted = true;
         }
     }
-    if lines.is_empty() {
-        lines.push(String::new());
+    if !emitted {
+        emit("");
     }
+}
+
+#[cfg(test)]
+fn wrap(text: &str, width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    wrap_lines(text, width, &mut |line| lines.push(line.to_string()));
     lines
 }
 
@@ -3152,17 +3173,11 @@ fn admonitions(out: &mut String, blocks: &[AdmonitionMeta<'_>], width: usize) {
 
 fn write_labelled(out: &mut String, label: &str, text: &str, width: usize, indent: usize) {
     let continuation = indent + label.chars().count() + 2;
-    let lines = wrap(text, width.saturating_sub(continuation));
-    for (index, line) in lines.iter().enumerate() {
-        if index == 0 {
-            put_pad(out, indent);
-            put(out, &[label, ": ", line, "\n"]);
-        } else if line.is_empty() {
-            out.push('\n');
-        } else {
-            line_at(out, continuation, line);
-        }
-    }
+    let mut lead = String::new();
+    put_pad(&mut lead, indent);
+    put(&mut lead, &[label, ": "]);
+    let room = width.saturating_sub(continuation);
+    wrap_lead(out, &[&lead], text, room, room, continuation, false);
 }
 
 /// A description reduced to what a list can show, or nothing if it says nothing.
