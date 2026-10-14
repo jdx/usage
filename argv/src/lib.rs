@@ -2754,6 +2754,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         }
     }
 
+    #[inline(never)]
     fn clause_separator(&self, token: &[u8]) -> Option<&'t Clause<'t>> {
         (!self.separator_seen)
             .then_some(self.cmd.clause)
@@ -3000,6 +3001,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         Ok(())
     }
 
+    #[inline(never)]
     fn next_arg(&self) -> Option<&'t Arg<'t>> {
         slice::after(self.current_args(), self.arg_pos)
             .iter()
