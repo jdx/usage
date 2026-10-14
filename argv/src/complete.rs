@@ -1992,6 +1992,33 @@ fn restart_seen(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
     split.words[..split.cword].iter().any(|word| word == token)
 }
 
+/// Add one candidate to a list, copying `value`. One routine for every place a list is built, so
+/// the allocation, the growth check and the write are compiled once rather than at each of them.
+fn offer<'a>(
+    out: &mut Vec<Candidate<'a>>,
+    value: &str,
+    kind: CandidateKind,
+    description: Option<std::borrow::Cow<'a, str>>,
+) {
+    offer_owned(out, value.to_string(), kind, description);
+}
+
+/// [`offer`] for a value that is already a `String`.
+#[inline(never)]
+fn offer_owned<'a>(
+    out: &mut Vec<Candidate<'a>>,
+    value: String,
+    kind: CandidateKind,
+    description: Option<std::borrow::Cow<'a, str>>,
+) {
+    out.push(Candidate {
+        value,
+        kind,
+        display: None,
+        description,
+    });
+}
+
 /// The subcommands a word here could name, each under every name it answers to.
 ///
 /// Aliases are offered beside canonical names — someone who types `mise ls<TAB>` means `list`
@@ -2012,17 +2039,17 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
                 continue;
             }
             if name.starts_with(token) {
-                out.push(Candidate {
-                    value: (*name).to_string(),
-                    kind: CandidateKind::Command,
-                    display: None,
-                    description: deprecated_description(
+                offer(
+                    &mut out,
+                    name,
+                    CandidateKind::Command,
+                    deprecated_description(
                         sub.about,
                         sub.extra.deprecated,
                         sub.extra.deprecated_warn_at,
                         sub.extra.deprecated_remove_at,
                     ),
-                });
+                );
             }
         }
     }
@@ -2057,12 +2084,7 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
             )
         });
         let mut offer = |value: String| {
-            out.push(Candidate {
-                value,
-                kind: CandidateKind::Flag,
-                display: None,
-                description: description.clone(),
-            });
+            offer_owned(&mut out, value, CandidateKind::Flag, description.clone());
         };
         if shorts {
             for &short in flag.shorts {
@@ -2150,12 +2172,9 @@ fn positional<'a>(
 ) -> Vec<Candidate<'a>> {
     if meta.arg.double_dash == crate::DoubleDash::Required && !position.separator_seen {
         if token.is_empty() {
-            return vec![Candidate {
-                value: "--".to_string(),
-                kind: CandidateKind::Value,
-                display: None,
-                description: None,
-            }];
+            let mut out = Vec::new();
+            offer(&mut out, "--", CandidateKind::Value, None);
+            return out;
         }
         return Vec::new();
     }
@@ -2230,18 +2249,18 @@ fn choices<'a>(
         if !c.starts_with(token) {
             continue;
         }
-        out.push(Candidate {
-            value: (*c).to_string(),
-            kind: CandidateKind::Value,
-            display: None,
-            description: details
+        offer(
+            &mut out,
+            c,
+            CandidateKind::Value,
+            details
                 .iter()
                 .find(|detail| {
                     detail.value == *c || detail.aliases.iter().any(|alias| alias.value == *c)
                 })
                 .and_then(|detail| detail.help)
                 .map(::std::borrow::Cow::Borrowed),
-        });
+        );
     }
     out
 }
