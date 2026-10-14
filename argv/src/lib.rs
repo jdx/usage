@@ -3091,17 +3091,8 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// What is matched is a branch on a value the loop does not change.
     #[inline(never)]
     fn find_in_scope(&self, want: Want<'_>, all: &mut Vec<&'t Flag<'t>>) -> Option<&'t Flag<'t>> {
-        let mut answers = |f: &'t Flag<'t>| match want {
-            Want::Long(name) => f.longs.iter().any(|l| l.as_bytes() == name),
-            Want::Negation(name) => f.negate.is_some_and(|n| n.as_bytes() == name),
-            Want::Short(byte) => has_byte(f.shorts, byte),
-            Want::All => {
-                all.push(f);
-                false
-            }
-        };
         for &flag in self.cmd.flags {
-            if self.view_allows_own_flag(flag) && answers(flag) {
+            if self.view_allows_own_flag(flag) && visit(want, all, flag) {
                 return Some(flag);
             }
         }
@@ -3109,7 +3100,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             for &flag in ancestor.flags {
                 if self.inherited_flag_is_in_scope(flag)
                     && self.view_allows_inherited_flag(flag)
-                    && answers(flag)
+                    && visit(want, all, flag)
                 {
                     return Some(flag);
                 }
@@ -3173,6 +3164,22 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // Shared with `help` rather than spelled out again, so descending into a command and
         // asking about one cannot drift apart.
         find_named(self.cmd, name)
+    }
+}
+
+/// One flag met on a walk of the flags in scope: whether it answers to `want`, or, for
+/// [`Want::All`], noted in `all`. Always inlined, so that the walk's loop carries the test itself
+/// and not a call to it for every flag.
+#[inline(always)]
+fn visit<'t>(want: Want<'_>, all: &mut Vec<&'t Flag<'t>>, f: &'t Flag<'t>) -> bool {
+    match want {
+        Want::Long(name) => f.longs.iter().any(|l| l.as_bytes() == name),
+        Want::Negation(name) => f.negate.is_some_and(|n| n.as_bytes() == name),
+        Want::Short(byte) => has_byte(f.shorts, byte),
+        Want::All => {
+            all.push(f);
+            false
+        }
     }
 }
 
