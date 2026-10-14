@@ -22,6 +22,7 @@
 //! the ones about the shape of the command line do, the ones about a single value do not.
 
 use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
+use crate::text::push_all;
 use crate::{Command, DoubleDash, Error};
 
 /// A stable machine-readable category for one parse outcome.
@@ -122,16 +123,10 @@ impl Style {
     /// every program, that they do not want this. `CLICOLOR_FORCE` is the other direction, for a
     /// pipe that ends up somewhere that does render colour.
     pub fn auto() -> Style {
-        use std::io::IsTerminal as _;
-        let forced = std::env::var_os("CLICOLOR_FORCE").is_some_and(|v| v != "0");
-        let refused = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
-        if refused {
-            return Style::PLAIN;
-        }
-        if forced || std::io::stderr().is_terminal() {
-            Style::COLOURED
-        } else {
-            Style::PLAIN
+        // The one decision help makes for its own stderr output, rather than a second copy of
+        // it: the two read the same environment and have to agree.
+        Style {
+            coloured: crate::help::Style::auto_stderr().is_coloured(),
         }
     }
 
@@ -166,23 +161,26 @@ impl Style {
         }
     }
 
-    /// Append each piece in turn; a message given as data rather than as a `format!`.
+    /// Append a message written as a template: fixed text, with a `\u{1}` wherever one of
+    /// `args` goes, each in its own ink.
+    ///
+    /// A message built as a list of pieces spends code at each call site putting the fixed ones
+    /// on the stack. Here the fixed text is one string and the call passes only what varies.
     #[inline(never)]
-    fn put_all(self, out: &mut String, parts: &[(Ink, &str)]) {
-        for (ink, text) in parts {
-            self.put(out, *ink, text);
+    fn put_template(self, out: &mut String, template: &str, args: &[(Ink, &str)]) {
+        let mut args = args.iter();
+        let mut from = 0;
+        // Bytes, because the hole is one: a multi-byte character never contains it.
+        for (at, byte) in template.bytes().enumerate() {
+            if byte == HOLE {
+                self.put(out, Ink::Plain, &template[from..at]);
+                if let Some(&(ink, text)) = args.next() {
+                    self.put(out, ink, text);
+                }
+                from = at + 1;
+            }
         }
-    }
-}
-
-/// Append each of `texts`.
-///
-/// One out-of-line loop instead of a `push_str` per piece at every call site, each of which
-/// inlines its own capacity check and copy.
-#[inline(never)]
-fn push_all(out: &mut String, texts: &[&str]) {
-    for text in texts {
-        out.push_str(text);
+        self.put(out, Ink::Plain, &template[from..]);
     }
 }
 
@@ -217,7 +215,8 @@ enum Ink {
 /// attached, and `-j=4` is a value clap keeps.
 fn flag_named(token: &str) -> &str {
     match token.strip_prefix("--") {
-        Some(body) => match body.find('=') {
+        // Bytes, because `=` is one: `str::find` expands to a searcher for a single character.
+        Some(body) => match body.bytes().position(|b| b == b'=') {
             Some(i) => &token[..i + 2],
             None => token,
         },
@@ -358,18 +357,14 @@ fn tip(out: &mut String, style: Style, noun: &str, prefix: &str, near: &[&str]) 
         return;
     }
     let one = near.len() == 1;
-    style.put_all(
+    style.put_template(
         out,
-        &[
-            (Ink::Plain, "\n  "),
-            (Ink::Valid, "tip:"),
-            (
-                Ink::Plain,
-                if one { " a similar " } else { " some similar " },
-            ),
-            (Ink::Plain, noun),
-            (Ink::Plain, if one { " exists: " } else { "s exist: " }),
-        ],
+        if one {
+            "\n  \u{1} a similar \u{1} exists: "
+        } else {
+            "\n  \u{1} some similar \u{1}s exist: "
+        },
+        &[(Ink::Valid, "tip:"), (Ink::Plain, noun)],
     );
     for (i, candidate) in near.iter().enumerate() {
         // Each separator closes the quote the previous candidate opened.
@@ -461,15 +456,12 @@ fn unexpected_flag(
     chain: &[&CommandMeta<'_>],
     capture: ValueCapture,
 ) {
-    use Ink::{Invalid, Plain, Valid};
-    error_line(
+    use Ink::{Invalid, Valid};
+    error_with(
         out,
         style,
-        &[
-            (Plain, "unexpected argument '"),
-            (Invalid, typed),
-            (Plain, "' found"),
-        ],
+        "unexpected argument '\u{1}' found",
+        &[(Invalid, typed)],
     );
     // Scored without the dashes, and only then written back with them. Every flag
     // starts `--`, and the prefix bonus in Jaro-Winkler counts that agreement — so
@@ -491,15 +483,14 @@ fn unexpected_flag(
     // `tip` opens with the blank line separating the tips from the error above; when there was
     // no spelling to suggest, this supplies it instead.
     if as_value {
-        style.put_all(
+        style.put_template(
             out,
-            &[
-                (Plain, if near.is_empty() { "\n  " } else { "  " }),
-                (Valid, "tip:"),
-                (Plain, " to pass '"),
-                (Invalid, typed),
-                (Plain, "' as a value, use '"),
-            ],
+            if near.is_empty() {
+                "\n  \u{1} to pass '\u{1}' as a value, use '"
+            } else {
+                "  \u{1} to pass '\u{1}' as a value, use '"
+            },
+            &[(Valid, "tip:"), (Invalid, typed)],
         );
         style.put_joined(out, Valid, &["-- ", typed]);
         push_all(out, &["'\n"]);
@@ -547,8 +538,9 @@ fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String 
         chars.next().is_none().then_some(only)
     });
     let found = meta.flags.iter().find(|flag| {
-        long.is_some_and(|long| flag.flag.longs.contains(&long) || flag.flag.negate == Some(long))
-            || short.is_some_and(|short| flag.flag.shorts.contains(&short))
+        long.is_some_and(|long| {
+            crate::has_str(flag.flag.longs, long) || flag.flag.negate == Some(long)
+        }) || short.is_some_and(|short| crate::has_byte(flag.flag.shorts, short))
     });
     let Some(flag) = found else {
         return selector.to_string();
@@ -601,7 +593,7 @@ fn value_bound_to(
         // given several values, and the check refuses the first that is not allowed — reporting
         // whichever came last would name a value that is perfectly good and leave the wrong one
         // unmentioned.
-        if !refused.is_empty() && !refused.contains(&value.as_str()) {
+        if !refused.is_empty() && !crate::has_str(refused, &value) {
             return Some(value);
         }
         last = Some(value);
@@ -740,7 +732,7 @@ fn flag_span(
         }
         let shorts = bytes.strip_prefix(b"-")?;
         return shorts.iter().enumerate().find_map(|(offset, short)| {
-            flag.shorts.contains(short).then_some(ArgvSpan {
+            crate::has_byte(flag.shorts, *short).then_some(ArgvSpan {
                 index,
                 start: offset + 1,
                 end: offset + 2,
@@ -901,30 +893,25 @@ pub fn render(
 pub fn render_warnings(warnings: &[crate::warn::Warning<'_>], style: Style) -> String {
     let mut out = String::new();
     for warning in warnings {
-        style.put_all(
+        style.put_template(
             &mut out,
+            "\u{1} \u{1} is deprecated",
             &[
                 (Ink::Warning, "warning:"),
-                (Ink::Plain, " "),
                 (Ink::Invalid, &crate::warn::subject(warning)),
-                (Ink::Plain, " is deprecated"),
             ],
         );
         if let Some(at) = warning.remove_at {
-            style.put_all(
-                &mut out,
-                &[(Ink::Plain, ", removed at "), (Ink::Literal, at)],
-            );
+            style.put_template(&mut out, ", removed at \u{1}", &[(Ink::Literal, at)]);
         }
         // A replacement is something to type, so it is coloured like anything else that would
         // have worked; an author's own message is prose, and colouring a sentence green would
         // claim more about it than is known.
         match crate::warn::tail(warning) {
             Some(crate::warn::Tail::Message(message)) => push_all(&mut out, &[": ", message]),
-            Some(crate::warn::Tail::Replacement(replacement)) => style.put_all(
-                &mut out,
-                &[(Ink::Plain, ": use "), (Ink::Valid, replacement)],
-            ),
+            Some(crate::warn::Tail::Replacement(replacement)) => {
+                style.put_template(&mut out, ": use \u{1}", &[(Ink::Valid, replacement)])
+            }
             None => {}
         }
         push_all(&mut out, &["\n"]);
@@ -1029,24 +1016,23 @@ fn render_projected<'a>(
     )
 }
 
-/// One `error: …` line, assembled from its pieces.
+/// An `error: …` line written as a template, as [`Style::put_template`] reads one.
 ///
-/// Every failure opens with one. Given as data rather than each through its own `writeln!`, the
-/// messages share this routine instead of each compiling a copy of the formatting.
+/// Every failure that names something the user typed is shaped like this.
 #[inline(never)]
-fn error_line(out: &mut String, style: Style, parts: &[(Ink, &str)]) {
-    style.put_all(out, &[(Ink::Error, "error:"), (Ink::Plain, " ")]);
-    style.put_all(out, parts);
+fn error_with(out: &mut String, style: Style, template: &str, args: &[(Ink, &str)]) {
+    style.put_template(out, "\u{1} ", &[(Ink::Error, "error:")]);
+    style.put_template(out, template, args);
     push_all(out, &["\n"]);
 }
+
+/// Where an argument goes in a [`Style::put_template`] template.
+const HOLE: u8 = 1;
 
 /// An indented line under the error, such as a missing argument's name.
 #[inline(never)]
 fn listed_line(out: &mut String, style: Style, text: &str) {
-    style.put_all(
-        out,
-        &[(Ink::Plain, "  "), (Ink::Valid, text), (Ink::Plain, "\n")],
-    );
+    style.put_template(out, "  \u{1}\n", &[(Ink::Valid, text)]);
 }
 
 /// The message for an error at the command `resolved` ends on.
@@ -1110,24 +1096,18 @@ fn describe(
                 let capture = value_capture(argv, token, here);
                 unexpected_flag(&mut out, style, typed, chain, capture);
             } else if cmd.subcommands.is_empty() {
-                error_line(
+                error_with(
                     &mut out,
                     style,
-                    &[
-                        (Plain, "unexpected argument '"),
-                        (Invalid, &word),
-                        (Plain, "' found"),
-                    ],
+                    "unexpected argument '\u{1}' found",
+                    &[(Invalid, &word)],
                 );
             } else {
-                error_line(
+                error_with(
                     &mut out,
                     style,
-                    &[
-                        (Plain, "unrecognized subcommand '"),
-                        (Invalid, &word),
-                        (Plain, "'"),
-                    ],
+                    "unrecognized subcommand '\u{1}'",
+                    &[(Invalid, &word)],
                 );
                 // Every name a subcommand answers to, hidden ones included: a user who typed a
                 // near miss of an old alias should be told the name it still works under.
@@ -1140,36 +1120,28 @@ fn describe(
             }
         }
         Error::SubcommandConflict { subcommand } => {
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[
-                    (Plain, "the subcommand '"),
-                    (Invalid, subcommand.name),
-                    (
-                        Plain,
-                        "' cannot be used with arguments on its parent command",
-                    ),
-                ],
+                "the subcommand '\u{1}' cannot be used with arguments on its parent command",
+                &[(Invalid, subcommand.name)],
             );
         }
         Error::MissingRequired { .. } => {
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[(Plain, "the following required arguments were not provided:")],
+                "the following required arguments were not provided:",
+                &[],
             );
             listed_line(&mut out, style, &named);
         }
         Error::DuplicateFlag { .. } => {
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[
-                    (Plain, "the argument '"),
-                    (Invalid, &named),
-                    (Plain, "' cannot be used multiple times"),
-                ],
+                "the argument '\u{1}' cannot be used multiple times",
+                &[(Invalid, &named)],
             );
         }
         Error::MissingSubcommand => {
@@ -1187,14 +1159,11 @@ fn describe(
             if let Some(help) = help {
                 return help;
             }
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[
-                    (Plain, "'"),
-                    (Invalid, &path()),
-                    (Plain, "' requires a subcommand but one was not provided"),
-                ],
+                "'\u{1}' requires a subcommand but one was not provided",
+                &[(Invalid, &path())],
             );
         }
         Error::MissingFlagValue { flag } => {
@@ -1215,55 +1184,44 @@ fn describe(
                         .and_then(|m| m.value_name)
                 })
                 .unwrap_or(flag.name);
-            let (before, joint, after) = if flag.require_equals {
-                ("equal sign is needed when assigning values to '", "=<", "'")
+            let (template, joint) = if flag.require_equals {
+                (
+                    "equal sign is needed when assigning values to '\u{1}'",
+                    "=<",
+                )
             } else {
-                ("a value is required for '", " <", "' but none was supplied")
+                (
+                    "a value is required for '\u{1}' but none was supplied",
+                    " <",
+                )
             };
             let mut wanted = String::new();
             push_all(&mut wanted, &[dashes, spelled, joint, value, ">"]);
-            error_line(
-                &mut out,
-                style,
-                &[(Plain, before), (Invalid, &wanted), (Plain, after)],
-            );
+            error_with(&mut out, style, template, &[(Invalid, &wanted)]);
         }
         Error::InvalidChoice { name, choices } => {
             with_usage = false;
             let typed = value_bound_to(canonical_root, argv, name, choices, view);
             match typed.as_deref() {
-                Some(value) => error_line(
+                Some(value) => error_with(
                     &mut out,
                     style,
-                    &[
-                        (Plain, "invalid value '"),
-                        (Invalid, value),
-                        (Plain, "' for '"),
-                        (Literal, &named),
-                        (Plain, "'"),
-                    ],
+                    "invalid value '\u{1}' for '\u{1}'",
+                    &[(Invalid, value), (Literal, &named)],
                 ),
                 // Nothing in argv bound to it, which means the value came from somewhere else —
                 // an environment variable, or a default the spec declared.
-                None => error_line(
+                None => error_with(
                     &mut out,
                     style,
-                    &[
-                        (Plain, "invalid value for '"),
-                        (Literal, &named),
-                        (Plain, "'"),
-                    ],
+                    "invalid value for '\u{1}'",
+                    &[(Literal, &named)],
                 ),
             }
             push_all(&mut out, &["  [possible values: "]);
             for (i, choice) in choices.iter().enumerate() {
-                style.put_all(
-                    &mut out,
-                    &[
-                        (Plain, if i == 0 { "" } else { ", " }),
-                        (Ink::Valid, choice),
-                    ],
-                );
+                push_all(&mut out, &[if i == 0 { "" } else { ", " }]);
+                style.put(&mut out, Ink::Valid, choice);
             }
             push_all(&mut out, &["]\n"]);
             if let Some(typed) = typed {
@@ -1272,15 +1230,13 @@ fn describe(
         }
         Error::InvalidValue(invalid) => {
             with_usage = false;
-            error_line(
+            error_with(
                 &mut out,
                 style,
+                "invalid value '\u{1}' for '\u{1}': \u{1}",
                 &[
-                    (Plain, "invalid value '"),
                     (Invalid, &invalid.value),
-                    (Plain, "' for '"),
                     (Literal, &named),
-                    (Plain, "': "),
                     (Plain, &invalid.reason),
                 ],
             );
@@ -1289,17 +1245,11 @@ fn describe(
             // clap's own shape for a required group, which is the required-arguments
             // message with the members listed under it. The group's name goes on the
             // first line rather than into the list, since it is not something to type.
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[
-                    (
-                        Plain,
-                        "one of the following required arguments was not provided (",
-                    ),
-                    (Plain, group),
-                    (Plain, "):"),
-                ],
+                "one of the following required arguments was not provided (\u{1}):",
+                &[(Plain, group)],
             );
             for member in *members {
                 listed_line(&mut out, style, &group_member_shown(here, member));
@@ -1308,16 +1258,11 @@ fn describe(
         Error::ConflictingFlags { other, .. } => {
             // Spelled by `help`, like every other name in this module — and like clap, which
             // writes `the argument '--force' cannot be used with '--jobs <JOBS>'`.
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[
-                    (Plain, "the argument '"),
-                    (Invalid, &named),
-                    (Plain, "' cannot be used with '"),
-                    (Invalid, &shown(here, other)),
-                    (Plain, "'"),
-                ],
+                "the argument '\u{1}' cannot be used with '\u{1}'",
+                &[(Invalid, &named), (Invalid, &shown(here, other))],
             );
         }
         Error::VarTooFew {
@@ -1328,42 +1273,36 @@ fn describe(
         } => {
             with_usage = false;
             let bound = if matches!(error, Error::VarTooFew { .. }) {
-                " values required for '"
+                "\u{1} values required for '\u{1}' but \u{1} were provided"
             } else {
-                " values allowed for '"
+                "\u{1} values allowed for '\u{1}' but \u{1} were provided"
             };
-            error_line(
+            error_with(
                 &mut out,
                 style,
+                bound,
                 &[
                     (Plain, &count.to_string()),
-                    (Plain, bound),
                     (Literal, &named),
-                    (Plain, "' but "),
                     (Plain, &got.to_string()),
-                    (Plain, " were provided"),
                 ],
             );
         }
         Error::ArgRequiresDoubleDash { .. } => {
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[
-                    (Plain, "'"),
-                    (Literal, &named),
-                    (Plain, "' can only be given after '"),
-                    (Literal, "--"),
-                    (Plain, "'"),
-                ],
+                "'\u{1}' can only be given after '\u{1}'",
+                &[(Literal, &named), (Literal, "--")],
             );
         }
         Error::TooDeep => {
             with_usage = false;
-            error_line(
+            error_with(
                 &mut out,
                 style,
-                &[(Plain, "this command line nests deeper than the parser goes")],
+                "this command line nests deeper than the parser goes",
+                &[],
             );
         }
         // Neither is a failure, and a caller that has not handled them before reaching here
@@ -1381,24 +1320,16 @@ fn describe(
             (Some((names, _)), Some(meta)) => crate::help::usage_line(names, meta),
             _ => path(),
         };
-        style.put_all(
+        style.put_template(
             &mut out,
-            &[
-                (Plain, "\n"),
-                (Ink::Heading, "Usage:"),
-                (Plain, " "),
-                (Literal, &usage),
-                (Plain, "\n"),
-            ],
+            "\n\u{1} \u{1}\n",
+            &[(Ink::Heading, "Usage:"), (Literal, &usage)],
         );
     }
-    style.put_all(
+    style.put_template(
         &mut out,
-        &[
-            (Plain, "\nFor more information, try '"),
-            (Literal, "--help"),
-            (Plain, "'.\n"),
-        ],
+        "\nFor more information, try '\u{1}'.\n",
+        &[(Literal, "--help")],
     );
     out
 }

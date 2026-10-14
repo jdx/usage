@@ -216,6 +216,8 @@ macro_rules! __usage_needs_complete_feature {
 pub mod help;
 #[cfg(feature = "spec")]
 mod order;
+#[cfg(feature = "spec")]
+mod text;
 // Behind no feature: two traits and no code, so there is nothing here for a binary that
 // does not dispatch to pay for, and a hand-written CLI on the bare runtime can use them.
 pub mod run;
@@ -1100,6 +1102,7 @@ pub static HELP_SHORT: Flag<'static> = Flag {
 /// Names across every subcommand before any alias, the precedence the grammar states — and
 /// the reason this is the only implementation of it on argv's side. `ex run` and `ex help run`
 /// selecting different commands would be exactly the divergence this rule was written to end.
+#[inline(never)]
 pub(crate) fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t>> {
     let subcommands = || cmd.subcommands.iter().copied();
     subcommands()
@@ -1338,7 +1341,7 @@ pub fn is_version_arg(cmd: &Command<'_>, word: &OsStr) -> bool {
         return long == b"version" && cmd.version && !cmd.disable_version_flag;
     }
     if let [b'-', short] = token {
-        if let Some(flag) = cmd.flags.iter().find(|flag| flag.shorts.contains(short)) {
+        if let Some(flag) = cmd.flags.iter().find(|flag| has_byte(flag.shorts, *short)) {
             return is_version_flag(flag);
         }
         return *short == b'V' && cmd.version && !cmd.disable_version_flag;
@@ -1579,6 +1582,21 @@ pub fn os_string_from_bytes(value: Vec<u8>) -> Result<OsString, Vec<u8>> {
             Err(bad) => Err(bad.into_bytes()),
         }
     }
+}
+
+/// A sigil argument given its sigil and nothing after it. Out of line and cold: two places in the
+/// parser report it, and neither is on the path of a command line that parses.
+#[cold]
+#[inline(never)]
+fn sigil_without_value<'t, 'v>(arg: &'t Arg<'t>, token: &[u8], sigil: &[u8]) -> Error<'t, 'v> {
+    invalid_value_error(
+        arg.name,
+        as_str(token).unwrap_or_default().to_string(),
+        format!(
+            "expected a value after sigil {:?}",
+            as_str(sigil).unwrap_or_default()
+        ),
+    )
 }
 
 /// One [`Error::InvalidValue`], built out of line.
@@ -2029,7 +2047,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                             .flags
                             .iter()
                             .copied()
-                            .find(|f| f.shorts.contains(byte))
+                            .find(|f| has_byte(f.shorts, *byte))
                     }) else {
                         return at;
                     };
@@ -2191,7 +2209,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// cannot disagree — including the shadowing rule, where a subcommand redeclaring an
     /// inherited name hides it.
     pub fn flags_in_scope(&self) -> impl Iterator<Item = &'t Flag<'t>> + '_ {
-        self.in_scope()
+        let mut all = Vec::new();
+        self.find_in_scope(Want::All, &mut all);
+        all.into_iter()
     }
 
     /// Read the next event.
@@ -2259,7 +2279,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             if self.find_short(*byte).is_some() {
                 return true;
             }
-            match default.flags.iter().find(|f| f.shorts.contains(byte)) {
+            match default.flags.iter().find(|f| has_byte(f.shorts, *byte)) {
                 Some(flag) if !flag.takes_value => {}
                 _ => break,
             }
@@ -2616,6 +2636,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         })
     }
 
+    #[inline(never)]
     fn flag_action(&self, flag: &'t Flag<'t>, long_spelling: bool) -> Option<Error<'t, 'v>> {
         if matches!(
             flag.key,
@@ -2778,14 +2799,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             // then claims its classified word before an external-subcommand catch-all can.
             if let Some((arg, sigil)) = self.match_sigil_arg(token) {
                 if token.len() == sigil.len() {
-                    return Err(invalid_value_error(
-                        arg.name,
-                        as_str(token).unwrap_or_default().to_string(),
-                        format!(
-                            "expected a value after sigil {:?}",
-                            as_str(sigil).unwrap_or_default()
-                        ),
-                    ));
+                    return Err(sigil_without_value(arg, token, sigil));
                 }
                 return Ok(Event::Arg {
                     arg,
@@ -2815,14 +2829,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             && let Some((arg, sigil)) = self.match_sigil_arg(token)
         {
             if token.len() == sigil.len() {
-                return Err(invalid_value_error(
-                    arg.name,
-                    as_str(token).unwrap_or_default().to_string(),
-                    format!(
-                        "expected a value after sigil {:?}",
-                        as_str(sigil).unwrap_or_default()
-                    ),
-                ));
+                return Err(sigil_without_value(arg, token, sigil));
             }
             return Ok(Event::Arg {
                 arg,
@@ -2884,6 +2891,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         })
     }
 
+    #[inline(never)]
     fn descend(&mut self, sub: &'t Command<'t>) -> Result<(), Error<'t, 'v>> {
         if self.depth >= MAX_DEPTH {
             return Err(Error::TooDeep);
@@ -2908,6 +2916,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     /// Move to the next positional, forgetting what the last one took.
+    #[inline(never)]
     fn advance_arg(&mut self) {
         self.skip_sigil_args();
         self.arg_pos += 1;
@@ -2920,6 +2929,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// The value it was given on the same token counts, which is why this starts at what
     /// that value holds: `--include a b` with `var_max=2` takes `a` and `b`, not three
     /// words — and `--include a,b` has already taken both on the one token.
+    #[inline(never)]
     fn start_collecting(&mut self, flag: &'t Flag<'t>, first: &[u8]) -> Result<(), Error<'t, 'v>> {
         self.collected = values_in(first, flag.delimiter);
         if let Some(max) = flag.var_max.filter(|max| self.collected > *max) {
@@ -2958,18 +2968,25 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if self.flags_stopped {
             return None;
         }
-        let own = self.current_args().iter().copied();
-        let inherited = self.ancestors[..self.depth]
-            .iter()
-            .rev()
-            .filter_map(|cmd| *cmd)
-            .flat_map(|cmd| cmd.args.iter().copied());
-        own.chain(inherited)
-            .filter_map(|arg| {
-                let sigil = arg.sigil?;
-                (token.len() >= sigil.len() && token.starts_with(sigil)).then_some((arg, sigil))
-            })
-            .max_by_key(|(_, sigil)| sigil.len())
+        // The longest sigil that fits, the later declaration winning a tie, as `max_by_key`
+        // would say — written as loops, which are smaller than the adapter chain and are
+        // walked for every positional word.
+        let mut best: Option<(&'t Arg<'t>, &'t [u8])> = None;
+        let mut consider = |args: &'t [&'t Arg<'t>]| {
+            for &arg in args {
+                if let Some(sigil) = arg.sigil
+                    && token.starts_with(sigil)
+                    && best.is_none_or(|(_, longest)| sigil.len() >= longest.len())
+                {
+                    best = Some((arg, sigil));
+                }
+            }
+        };
+        consider(self.current_args());
+        for cmd in self.ancestors[..self.depth].iter().rev().flatten() {
+            consider(cmd.args);
+        }
+        best
     }
 
     fn current_args(&self) -> &'t [&'t Arg<'t>] {
@@ -3062,36 +3079,43 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         flag.global
     }
 
-    /// Flags in scope: this command's own, then any ancestor's globals.
+    /// Walk the flags in scope: this command's own, then any ancestor's globals.
     ///
     /// Own flags come first so that a subcommand redeclaring an inherited name
     /// shadows it, which is what mise relies on when it redeclares root globals
     /// on `run` with different shorts.
-    fn in_scope(&self) -> impl Iterator<Item = &'t Flag<'t>> + '_ {
-        let own = self
-            .cmd
-            .flags
-            .iter()
-            .copied()
-            .filter(|flag| self.view_allows_own_flag(flag));
-        let inherited = self.ancestors[..self.depth]
-            .iter()
-            .rev()
-            .filter_map(|c| *c)
-            .flat_map(|c| c.flags.iter().copied())
-            .filter(|flag| self.inherited_flag_is_in_scope(flag))
-            .filter(|flag| self.view_allows_inherited_flag(flag));
-        own.chain(inherited)
+    ///
+    /// The first flag that answers to `want`, or none; with [`Want::All`] every flag in scope
+    /// is appended to `all` instead. One loop for the three ways a flag is looked up and for
+    /// listing them, rather than an iterator chain compiled once per use: a chain of filters
+    /// and a flat map inlined at each lookup was the larger part of what a lookup cost in code.
+    /// What is matched is a branch on a value the loop does not change.
+    #[inline(never)]
+    fn find_in_scope(&self, want: Want<'_>, all: &mut Vec<&'t Flag<'t>>) -> Option<&'t Flag<'t>> {
+        for &flag in self.cmd.flags {
+            if self.view_allows_own_flag(flag) && visit(want, all, flag) {
+                return Some(flag);
+            }
+        }
+        for ancestor in self.ancestors[..self.depth].iter().rev().flatten() {
+            for &flag in ancestor.flags {
+                if self.inherited_flag_is_in_scope(flag)
+                    && self.view_allows_inherited_flag(flag)
+                    && visit(want, all, flag)
+                {
+                    return Some(flag);
+                }
+            }
+        }
+        None
     }
 
     fn find_long(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
-        self.in_scope()
-            .find(|f| f.longs.iter().any(|l| l.as_bytes() == name))
+        self.find_in_scope(Want::Long(name), &mut Vec::new())
     }
 
     fn find_negation(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
-        self.in_scope()
-            .find(|f| f.negate.is_some_and(|n| n.as_bytes() == name))
+        self.find_in_scope(Want::Negation(name), &mut Vec::new())
     }
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
@@ -3103,13 +3127,12 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                     .flags
                     .iter()
                     .copied()
-                    .find(|f| f.shorts.contains(&byte))
+                    .find(|f| has_byte(f.shorts, byte))
             })
         {
             return Some(flag);
         }
-        self.in_scope()
-            .find(|f| f.shorts.contains(&byte))
+        self.find_in_scope(Want::Short(byte), &mut Vec::new())
             // As for `--help`: supplied by the parser, and only where the command has not
             // declared a `-h` of its own.
             .or(if byte == b'h' && !self.cmd.disable_help_flag {
@@ -3145,6 +3168,58 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 }
 
+/// One flag met on a walk of the flags in scope: whether it answers to `want`, or, for
+/// [`Want::All`], noted in `all`. Always inlined, so that the walk's loop carries the test itself
+/// and not a call to it for every flag.
+#[inline(always)]
+fn visit<'t>(want: Want<'_>, all: &mut Vec<&'t Flag<'t>>, f: &'t Flag<'t>) -> bool {
+    match want {
+        Want::Long(name) => f.longs.iter().any(|l| l.as_bytes() == name),
+        Want::Negation(name) => f.negate.is_some_and(|n| n.as_bytes() == name),
+        Want::Short(byte) => has_byte(f.shorts, byte),
+        Want::All => {
+            all.push(f);
+            false
+        }
+    }
+}
+
+/// What a walk of the flags in scope is for: a long spelling, a negation, a short letter, or all.
+#[derive(Clone, Copy)]
+enum Want<'a> {
+    Long(&'a [u8]),
+    Negation(&'a [u8]),
+    Short(u8),
+    All,
+}
+
+/// Whether `bytes` holds `wanted`.
+///
+/// A loop of its own rather than `<[u8]>::contains`, which expands at each call to a
+/// word-at-a-time search tuned for long slices. A flag has one or two short letters.
+#[inline]
+pub(crate) fn has_byte(bytes: &[u8], wanted: u8) -> bool {
+    for &byte in bytes {
+        if byte == wanted {
+            return true;
+        }
+    }
+    false
+}
+
+/// Whether `list` holds the name `wanted`. One copy for every place a table of names is searched:
+/// `<[&str]>::contains` expands to its own comparison loop at each of them.
+#[cfg(any(feature = "complete", feature = "diagnostics"))]
+#[inline(never)]
+pub(crate) fn has_str(list: &[&str], wanted: &str) -> bool {
+    for item in list {
+        if *item == wanted {
+            return true;
+        }
+    }
+    false
+}
+
 /// View a token as bytes.
 ///
 /// `as_encoded_bytes` is a plain accessor with no conversion and no allocation.
@@ -3160,11 +3235,20 @@ fn bytes<'v>(s: &&'v OsStr) -> &'v [u8] {
 /// splitting on it does: `a,b` is two, `a,` is two with an empty second, and `` is one.
 /// Counted rather than split because binding only needs the number, and the split itself
 /// belongs to the layer that owns the values.
+#[inline]
 fn values_in(word: &[u8], delimiter: ::core::option::Option<u8>) -> u32 {
     match delimiter {
-        Some(d) => 1 + word.iter().filter(|b| **b == d).count() as u32,
+        Some(d) => values_delimited(word, d),
         None => 1,
     }
+}
+
+/// [`values_in`] for a word that has a delimiter to count. Out of line: counting bytes is a loop
+/// the optimizer widens into vector code, and inlined at each of the places a word is bound it
+/// was most of what they weighed.
+#[inline(never)]
+fn values_delimited(word: &[u8], delimiter: u8) -> u32 {
+    1 + word.iter().filter(|b| **b == delimiter).count() as u32
 }
 
 /// Whether a token should be read as a flag.

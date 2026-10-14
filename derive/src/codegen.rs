@@ -351,11 +351,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // view- or multicall-rewritten words for help routing, and the selected view.
     // Before the preamble, which interpolates the intercept.
     let (spec_endpoint, spec_endpoint_intercept) = spec_endpoint_fns(cli);
+    let (completion, completion_intercept) = completion_fns(cli);
     let parse_preamble = quote! {
                     let __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
                         ::std::env::args_os().collect();
                     let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
                         __usage_all.iter().map(|a| a.as_os_str()).collect();
+                    // Before everything else, including the parse: a completion request is
+                    // not this CLI's grammar and must not be measured against it.
+                    #completion_intercept
                     // In the shared preamble rather than in `parse` alone: the point of the
                     // endpoint is that *any* usage binary answers `__usage_spec__`, so a CLI
                     // that resolves settings has to answer it too.
@@ -519,7 +523,6 @@ pub fn emit(cli: &Cli) -> TokenStream {
     });
     let apply = apply_fn(cli);
     let post = post_binding(cli);
-    let (completion, completion_intercept) = completion_fns(cli);
     let embedded_spec_request = cli.spec_endpoint.then(|| {
         quote! {
             if let ::std::option::Option::Some(__usage_answer) =
@@ -641,7 +644,6 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
         /// Parse the process's arguments and finalize them into the domain type.
         pub fn parse_into() -> #target {
-            #completion_intercept
             #parse_preamble
             let mut __usage_warnings = ::std::vec::Vec::new();
             let __usage_result = Self::__usage_parse_from_argv(
@@ -779,7 +781,6 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// [`Self::parse`] with the layer beside the struct: it prints a help page or
             /// a version and leaves, and renders a failure to stderr with exit 2.
             pub fn parse_with_settings() -> (Self, #config::CliLayer) {
-                #completion_intercept
                 #parse_preamble
                 // The same as `parse`: this is an entry point that *is* the process, so it is
                 // one of the two that may write to stderr, and a failure prints nothing about
@@ -1760,7 +1761,6 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 #completion
 
                 pub fn parse() -> Self {
-                    #completion_intercept
                     #parse_preamble
                     // Collected here rather than printed where they are found: `parse` is the
                     // entry point that *is* the process, so it is the one that may write to
@@ -2147,12 +2147,11 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
         }
     };
     let intercept = quote! {
-        // Before anything else, including the parse: a completion request is not this CLI's
-        // grammar and must not be measured against it.
+        // Asked of the arguments the preamble already collected rather than a second copy.
         {
-            let __usage_args: ::std::vec::Vec<::std::ffi::OsString> =
-                ::std::env::args_os().skip(1).collect();
-            if let ::std::option::Option::Some(answer) = Self::completion_request(&__usage_args) {
+            if let ::std::option::Option::Some(answer) = Self::completion_request(
+                __usage_all.get(1..).unwrap_or_default(),
+            ) {
                 usage_argv::__usage_print(::std::format_args!("{answer}"));
                 usage_argv::__usage_process_exit(0);
             }

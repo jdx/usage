@@ -17,6 +17,7 @@
 
 use crate::spec::{ArgMeta, CommandMeta, CommandSelector, FlagMeta, Spec, SpecView};
 pub use crate::spec::{Candidate, CandidateKind, CompleteCtx, Completer};
+use crate::text::{push_all, push_char, replace_char, same_name, split_once_eq};
 use crate::{Arg, Command, Error, Flag, Parser};
 use core::future::Future;
 use core::pin::Pin;
@@ -136,7 +137,10 @@ fn walk_inner<'t>(
     words: &[String],
     view: Option<&'t crate::spec::ViewMeta<'t>>,
 ) -> Position<'t> {
-    let argv: Vec<&std::ffi::OsStr> = words.iter().map(std::ffi::OsStr::new).collect();
+    let mut argv: Vec<&std::ffi::OsStr> = Vec::new();
+    for word in words {
+        argv.push(std::ffi::OsStr::new(word));
+    }
     let mut parser = Parser::for_completion(root, &argv);
     if let Some(view) = view {
         parser = parser.with_view(view);
@@ -264,7 +268,7 @@ fn for_name_at<'a>(
                 .into_iter()
                 .flat_map(|clause| clause.args.iter()),
         ) {
-            if arg.arg.name.eq_ignore_ascii_case(name)
+            if same_name(arg.arg.name, name)
                 && let Some(completer) = arg.complete
             {
                 return Some(completer);
@@ -272,7 +276,7 @@ fn for_name_at<'a>(
         }
         for flag in meta.flags {
             let value = flag.value_name.unwrap_or(flag.flag.name);
-            if value.eq_ignore_ascii_case(name)
+            if same_name(value, name)
                 && let Some(completer) = flag.complete
             {
                 return Some(completer);
@@ -296,7 +300,7 @@ fn for_name_at<'a>(
         if let Some(wanted) = position.awaiting_value {
             let found = meta.flags.iter().find(|field| {
                 let value = field.value_name.unwrap_or(field.flag.name);
-                core::ptr::eq(field.flag, wanted) && value.eq_ignore_ascii_case(name)
+                core::ptr::eq(field.flag, wanted) && same_name(value, name)
             });
             if let Some(completer) = found.and_then(|field| field.complete) {
                 return Some(completer);
@@ -312,9 +316,7 @@ fn for_name_at<'a>(
                         .into_iter()
                         .flat_map(|clause| clause.args.iter()),
                 )
-                .find(|field| {
-                    core::ptr::eq(field.arg, wanted) && field.arg.name.eq_ignore_ascii_case(name)
-                });
+                .find(|field| core::ptr::eq(field.arg, wanted) && same_name(field.arg.name, name));
             if let Some(completer) = found.and_then(|field| field.complete) {
                 return Some(completer);
             }
@@ -360,7 +362,7 @@ fn for_name_at<'a>(
     };
     let completer = at_cursor.or(fallback)?;
     let mut found = completer(ctx);
-    found.retain(|c| c.value.starts_with(ctx.prefix));
+    keep_prefixed(&mut found, ctx.prefix);
     Some(found)
 }
 
@@ -904,15 +906,16 @@ impl CompletionRequest {
             // `--line=LINE` as well as `--line LINE`: the `run=` a derived CLI writes for a typed
             // completer passes the line joined, and a request read without it would complete an
             // empty line.
-            let (option, joined) = match arg.split_once('=') {
+            let (option, joined) = match split_once_eq(&arg) {
                 Some((option, value)) if option.starts_with("--") => (option, Some(value)),
                 _ => (&*arg, None),
             };
             if option == "--words" && joined.is_none() {
-                words = Some(
-                    rest.map(|word| word.to_string_lossy().into_owned())
-                        .collect(),
-                );
+                let mut all = Vec::new();
+                for word in rest.by_ref() {
+                    all.push(word.to_string_lossy().into_owned());
+                }
+                words = Some(all);
                 break;
             }
             if !matches!(
@@ -1058,15 +1061,14 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
             .match_indices(':')
             .rev()
             .find_map(|(colon, _)| {
-                let fragment = marked_prefix[colon + 1..].replace(BASH_NONBREAKING_COLON, ":");
+                let fragment =
+                    replace_char(&marked_prefix[colon + 1..], BASH_NONBREAKING_COLON, ":");
                 ((fragment.is_empty() && word == ":")
                     || (!fragment.is_empty() && word.starts_with(&fragment)))
-                .then(|| marked_prefix[..=colon].replace(BASH_NONBREAKING_COLON, ":"))
+                .then(|| replace_char(&marked_prefix[..=colon], BASH_NONBREAKING_COLON, ":"))
             });
         if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
-            out.push_str("\u{1}prefix\t");
-            out.push_str(&prefix);
-            out.push('\n');
+            push_all(&mut out, &["\u{1}prefix\t", &prefix, "\n"]);
         }
     }
     out
@@ -1095,57 +1097,61 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
         if shell == Shell::Zsh {
             // Display, then description, then what to type: a candidate containing a space or
             // a quote has to reach the command line intact.
-            out.push_str(&display());
-            out.push('\t');
-            out.push_str(&description);
-            out.push('\t');
-            out.push_str(&zsh_quote(&candidate.value));
+            push_all(
+                &mut out,
+                &[
+                    &display(),
+                    "\t",
+                    &description,
+                    "\t",
+                    &zsh_quote(&candidate.value),
+                ],
+            );
         } else {
-            out.push_str(&candidate.value);
+            push_all(&mut out, &[&candidate.value]);
         }
         match shell {
             Shell::Bash | Shell::Zsh => {}
             Shell::PowerShell | Shell::Elvish => {
-                out.push('\t');
-                out.push_str(&description);
-                out.push('\t');
-                out.push_str(&display());
-                if shell == Shell::PowerShell {
-                    out.push('\t');
-                    out.push_str(match candidate.kind {
-                        CandidateKind::Value => "value",
-                        CandidateKind::Command => "command",
-                        CandidateKind::Flag => "flag",
-                        CandidateKind::File => "file",
-                        CandidateKind::Directory => "directory",
-                    });
-                }
+                let kind = if shell == Shell::PowerShell {
+                    match candidate.kind {
+                        CandidateKind::Value => "\tvalue",
+                        CandidateKind::Command => "\tcommand",
+                        CandidateKind::Flag => "\tflag",
+                        CandidateKind::File => "\tfile",
+                        CandidateKind::Directory => "\tdirectory",
+                    }
+                } else {
+                    ""
+                };
+                push_all(&mut out, &["\t", &description, "\t", &display(), kind]);
             }
             Shell::Fish | Shell::Nu => {
                 if described {
-                    out.push('\t');
-                    out.push_str(&description);
+                    push_all(&mut out, &["\t", &description]);
                 }
             }
         }
-        out.push('\n');
+        push_all(&mut out, &["\n"]);
     }
 
     if let Some(files) = &answer.files {
-        out.push_str(match files {
-            Files::Any => FILES_MARKER,
-            Files::Dirs => DIRS_MARKER,
-            Files::ExecutablePaths => EXECUTABLE_PATHS_MARKER,
-            Files::Commands => COMMANDS_MARKER,
-            Files::Extensions(_) => "\u{1}extensions",
-        });
+        push_all(
+            &mut out,
+            &[match files {
+                Files::Any => FILES_MARKER,
+                Files::Dirs => DIRS_MARKER,
+                Files::ExecutablePaths => EXECUTABLE_PATHS_MARKER,
+                Files::Commands => COMMANDS_MARKER,
+                Files::Extensions(_) => "\u{1}extensions",
+            }],
+        );
         if let Files::Extensions(extensions) = files {
             for extension in extensions {
-                out.push('\t');
-                out.push_str(extension);
+                push_all(&mut out, &["\t", extension]);
             }
         }
-        out.push('\n');
+        push_all(&mut out, &["\n"]);
     }
     out
 }
@@ -1169,7 +1175,7 @@ fn one_line(text: &str) -> String {
                 spaced = true;
             }
         } else {
-            out.push(c);
+            push_char(&mut out, c);
             spaced = false;
         }
     }
@@ -1192,7 +1198,12 @@ fn zsh_quote(value: &str) -> String {
     if !value.is_empty() && value.chars().all(safe) {
         return value.to_string();
     }
-    format!("'{}'", value.replace('\'', "'\\''"))
+    let mut quoted = String::new();
+    push_all(
+        &mut quoted,
+        &["'", &replace_char(value, '\'', "'\\''"), "'"],
+    );
+    quoted
 }
 
 /// The paths an argument or value name asks for, by the name itself.
@@ -1222,17 +1233,21 @@ fn declared_files(type_: &str, next_arg_values: u32) -> Option<Files> {
         .strip_prefix("path:")
         .or_else(|| type_.strip_prefix("file:"))
     {
-        let extensions = extensions
-            .split(',')
-            .map(|extension| extension.trim().trim_start_matches('.'))
-            .filter(|extension| !extension.is_empty())
-            .map(str::to_string)
-            .collect::<Vec<_>>();
+        // A loop and not an adapter chain: the chain is a type of its own to compile for a
+        // list that is read once, when a shell asks.
+        let mut found = Vec::new();
+        for extension in extensions.split(',') {
+            let extension = extension.trim().trim_start_matches('.');
+            if !extension.is_empty() {
+                found.push(extension.to_string());
+            }
+        }
+        let extensions = found;
         if !extensions.is_empty() {
             return Some(Files::Extensions(extensions));
         }
     }
-    if type_.eq_ignore_ascii_case("command_args") {
+    if same_name(type_, "command_args") {
         return Some(if next_arg_values == 0 {
             Files::Commands
         } else {
@@ -1302,8 +1317,7 @@ fn declared_files_at_cursor(
             },
         )
         .or_else(|| {
-            type_
-                .eq_ignore_ascii_case("unknown")
+            same_name(type_, "unknown")
                 .then(|| name.and_then(files_for))
                 .flatten()
         }),
@@ -1413,8 +1427,7 @@ fn complete_inner<'a>(
             },
         )
         .or_else(|| {
-            type_
-                .eq_ignore_ascii_case("unknown")
+            same_name(type_, "unknown")
                 .then(|| named.and_then(files_for))
                 .flatten()
         }),
@@ -1438,8 +1451,8 @@ fn complete_inner<'a>(
     // between "there is nothing else this can be" and "nothing matched what you typed".
     // Offering the working directory for a mistyped choice answers the second as though it were
     // the first.
-    let declared_non_file_type = complete_type
-        .is_some_and(|type_| !type_.eq_ignore_ascii_case("unknown") && asked_for.is_none());
+    let declared_non_file_type =
+        complete_type.is_some_and(|type_| !same_name(type_, "unknown") && asked_for.is_none());
     let closed =
         !candidates.is_empty() || declares_choices || declared_non_file_type || position.help_topic;
 
@@ -1497,7 +1510,7 @@ pub async fn complete_with<'a>(
         CompletionHandler::Sync(completer) => completer(&ctx),
         CompletionHandler::Async(completer) => completer(ctx).await,
     };
-    dynamic.retain(|candidate| candidate.value.starts_with(value_prefix));
+    keep_prefixed(&mut dynamic, value_prefix);
     if let Some((_, form, _)) = attached {
         attach_candidates(&mut dynamic, form);
     } else if let Some((sigil, _)) = sigil {
@@ -1554,7 +1567,7 @@ async fn complete_named_with<'a>(
         };
         candidates.append(&mut dynamic);
     }
-    candidates.retain(|candidate| candidate.value.starts_with(value_prefix));
+    keep_prefixed(&mut candidates, value_prefix);
     if let Some((_, form, _)) = attached {
         attach_candidates(&mut candidates, form);
     } else if let Some((sigil, _)) = sigil {
@@ -1567,6 +1580,13 @@ async fn complete_named_with<'a>(
         candidates,
         files: None,
     }
+}
+
+/// Drop the candidates that do not start with what has been typed. One copy for every place a
+/// completer's answer is filtered, since each `retain` with a closure of its own is compiled again.
+#[inline(never)]
+fn keep_prefixed(candidates: &mut Vec<Candidate<'_>>, prefix: &str) {
+    candidates.retain(|candidate| candidate.value.starts_with(prefix));
 }
 
 /// Sort candidates by insertion value and merge presentation metadata from duplicates.
@@ -1603,16 +1623,17 @@ fn overlay_for_name<'o>(
     name: &str,
 ) -> Option<&'o CompletionOverlay<'o>> {
     if let Some(overlay) = overlay_at_cursor(spec, split, position, overlays)
-        .filter(|overlay| overlay.value.eq_ignore_ascii_case(name))
+        .filter(|overlay| same_name(overlay.value, name))
     {
         return Some(overlay);
     }
     let chain = metadata_chain_on_route(spec, position)?;
     let owner = chain.last()?;
     let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
-    overlays.iter().rev().find(|overlay| {
-        overlay.value.eq_ignore_ascii_case(name) && overlay.command.matches(owner, &path)
-    })
+    overlays
+        .iter()
+        .rev()
+        .find(|overlay| same_name(overlay.value, name) && overlay.command.matches(owner, &path))
 }
 
 fn overlay_at_cursor<'o>(
@@ -1703,9 +1724,10 @@ fn overlay_at_cursor<'o>(
     } else {
         return None;
     };
-    overlays.iter().rev().find(|overlay| {
-        overlay.value.eq_ignore_ascii_case(value) && overlay.command.matches(owner, &path)
-    })
+    overlays
+        .iter()
+        .rev()
+        .find(|overlay| same_name(overlay.value, value) && overlay.command.matches(owner, &path))
 }
 
 fn sigil_arg_at_cursor<'a, 'p>(
@@ -1729,20 +1751,27 @@ fn sigil_arg_on_chain<'a, 'p>(
         return None;
     }
     let token = split.prefix.as_str();
-    chain
-        .iter()
-        .copied()
-        .flat_map(|owner| owner.args.iter().map(move |field| (owner, field)))
-        .filter_map(|(owner, field)| {
-            let sigil = field
+    // The longest sigil that fits, the later declaration winning a tie — what `max_by_key`
+    // answers, written as a loop because the adapter chain is a type of its own to compile.
+    let mut best = None;
+    for &owner in chain {
+        for field in owner.args {
+            let Some(sigil) = field
                 .arg
                 .sigil
-                .and_then(|value| core::str::from_utf8(value).ok())?;
-            token
-                .strip_prefix(sigil)
-                .map(|prefix| (owner, field, sigil, prefix))
-        })
-        .max_by_key(|(_, _, sigil, _)| sigil.len())
+                .and_then(|value| core::str::from_utf8(value).ok())
+            else {
+                continue;
+            };
+            if let Some(prefix) = token.strip_prefix(sigil)
+                && best
+                    .is_none_or(|(_, _, longest, _): (_, _, &str, _)| sigil.len() >= longest.len())
+            {
+                best = Some((owner, field, sigil, prefix));
+            }
+        }
+    }
+    best
 }
 
 fn flag_meta_owner_on_route<'a>(
@@ -1795,7 +1824,7 @@ fn default_subcommand_arg<'a>(
     let subcommands = || spec.root.subcommands.iter().copied();
     subcommands()
         .find(|sub| sub.cmd.name == default)
-        .or_else(|| subcommands().find(|sub| sub.cmd.aliases.contains(&default)))
+        .or_else(|| subcommands().find(|sub| crate::has_str(sub.cmd.aliases, default)))
         .and_then(|sub| restart_arg(sub).map(|field| (sub, field)))
 }
 
@@ -1937,19 +1966,21 @@ fn attached_long_value<'t, 'p>(
     position: &Position<'t>,
     token: &'p str,
 ) -> Option<(&'t Flag<'t>, &'p str, &'p str)> {
-    let (form, prefix) = token.split_once('=')?;
+    let (form, prefix) = split_once_eq(token)?;
     let long = form.strip_prefix("--")?;
     position
         .flags
         .iter()
         .copied()
-        .find(|flag| (flag.takes_value || flag.bool_value) && flag.longs.contains(&long))
+        .find(|flag| (flag.takes_value || flag.bool_value) && crate::has_str(flag.longs, long))
         .map(|flag| (flag, form, prefix))
 }
 
 fn attach_candidates(candidates: &mut [Candidate<'_>], form: &str) {
     for candidate in candidates {
-        candidate.value = format!("{form}={}", candidate.value);
+        let mut value = String::new();
+        push_all(&mut value, &[form, "=", &candidate.value]);
+        candidate.value = value;
     }
 }
 
@@ -1972,6 +2003,33 @@ fn restart_seen(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
     split.words[..split.cword].iter().any(|word| word == token)
 }
 
+/// Add one candidate to a list, copying `value`. One routine for every place a list is built, so
+/// the allocation, the growth check and the write are compiled once rather than at each of them.
+fn offer<'a>(
+    out: &mut Vec<Candidate<'a>>,
+    value: &str,
+    kind: CandidateKind,
+    description: Option<std::borrow::Cow<'a, str>>,
+) {
+    offer_owned(out, value.to_string(), kind, description);
+}
+
+/// [`offer`] for a value that is already a `String`.
+#[inline(never)]
+fn offer_owned<'a>(
+    out: &mut Vec<Candidate<'a>>,
+    value: String,
+    kind: CandidateKind,
+    description: Option<std::borrow::Cow<'a, str>>,
+) {
+    out.push(Candidate {
+        value,
+        kind,
+        display: None,
+        description,
+    });
+}
+
 /// The subcommands a word here could name, each under every name it answers to.
 ///
 /// Aliases are offered beside canonical names — someone who types `mise ls<TAB>` means `list`
@@ -1988,21 +2046,21 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             // old name kept working after a rename. The parse table holds it beside the
             // visible ones because both must be *accepted*; only the metadata says which are
             // meant to be *offered*.
-            if sub.extra.hidden_aliases.contains(name) {
+            if crate::has_str(sub.extra.hidden_aliases, name) {
                 continue;
             }
             if name.starts_with(token) {
-                out.push(Candidate {
-                    value: (*name).to_string(),
-                    kind: CandidateKind::Command,
-                    display: None,
-                    description: deprecated_description(
+                offer(
+                    &mut out,
+                    name,
+                    CandidateKind::Command,
+                    deprecated_description(
                         sub.about,
                         sub.extra.deprecated,
                         sub.extra.deprecated_warn_at,
                         sub.extra.deprecated_remove_at,
                     ),
-                });
+                );
             }
         }
     }
@@ -2037,16 +2095,11 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
             )
         });
         let mut offer = |value: String| {
-            out.push(Candidate {
-                value,
-                kind: CandidateKind::Flag,
-                display: None,
-                description: description.clone(),
-            });
+            offer_owned(&mut out, value, CandidateKind::Flag, description.clone());
         };
         if shorts {
             for &short in flag.shorts {
-                if meta.is_some_and(|m| m.extra.hidden_shorts.contains(&short)) {
+                if meta.is_some_and(|m| crate::has_byte(m.extra.hidden_shorts, short)) {
                     continue;
                 }
                 // Written out rather than with `is_none_or`, which this crate's MSRV predates.
@@ -2063,11 +2116,12 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
         }
         if longs {
             // No metadata hides a negation: `hidden_longs` names longs.
-            let visible_longs = flag
-                .longs
-                .iter()
-                .filter(|long| !meta.is_some_and(|m| m.extra.hidden_longs.contains(long)));
-            for long in visible_longs.chain(flag.negate.as_ref()) {
+            for (i, long) in flag.longs.iter().chain(flag.negate.as_ref()).enumerate() {
+                if i < flag.longs.len()
+                    && meta.is_some_and(|m| crate::has_str(m.extra.hidden_longs, long))
+                {
+                    continue;
+                }
                 // The table holds a negation the way the parser matches it — with the dashes
                 // already taken off — so a candidate has to put them back. Offered bare, it
                 // never matched a `--` the user had typed, and a lone `-` offered a word no
@@ -2092,19 +2146,26 @@ fn deprecated_description<'a>(
     if message.is_none() && warn_at.is_none() && remove_at.is_none() {
         return base.map(std::borrow::Cow::Borrowed);
     }
-    let mut parts = Vec::new();
-    if let Some(message) = message {
-        parts.push(message.to_string());
+    // Pieces appended in place; a `format!` per piece compiles its own copy of the formatting.
+    let mut label = String::from("[deprecated: ");
+    let mut first = true;
+    for (lead, text) in [
+        ("", message),
+        ("warns at ", warn_at),
+        ("removed at ", remove_at),
+    ] {
+        if let Some(text) = text {
+            push_all(&mut label, &[if first { "" } else { "; " }, lead, text]);
+            first = false;
+        }
     }
-    if let Some(at) = warn_at {
-        parts.push(format!("warns at {at}"));
-    }
-    if let Some(at) = remove_at {
-        parts.push(format!("removed at {at}"));
-    }
-    let label = format!("[deprecated: {}]", parts.join("; "));
+    label.push(']');
     Some(std::borrow::Cow::Owned(match base {
-        Some(base) if !base.is_empty() => format!("{base} {label}"),
+        Some(base) if !base.is_empty() => {
+            let mut full = String::new();
+            push_all(&mut full, &[base, " ", &label]);
+            full
+        }
         _ => label,
     }))
 }
@@ -2123,12 +2184,9 @@ fn positional<'a>(
 ) -> Vec<Candidate<'a>> {
     if meta.arg.double_dash == crate::DoubleDash::Required && !position.separator_seen {
         if token.is_empty() {
-            return vec![Candidate {
-                value: "--".to_string(),
-                kind: CandidateKind::Value,
-                display: None,
-                description: None,
-            }];
+            let mut out = Vec::new();
+            offer(&mut out, "--", CandidateKind::Value, None);
+            return out;
         }
         return Vec::new();
     }
@@ -2178,7 +2236,7 @@ fn declared<'a>(
         command_path: &path,
     };
     let mut found = completer(&ctx);
-    found.retain(|c| c.value.starts_with(token));
+    keep_prefixed(&mut found, token);
     found
 }
 
@@ -2198,22 +2256,25 @@ fn choices<'a>(
     details: &'a [crate::spec::ChoiceMeta<'a>],
     token: &str,
 ) -> Vec<Candidate<'a>> {
-    declared
-        .iter()
-        .filter(|c| c.starts_with(token))
-        .map(|c| Candidate {
-            value: (*c).to_string(),
-            kind: CandidateKind::Value,
-            display: None,
-            description: details
+    let mut out = Vec::new();
+    for c in declared {
+        if !c.starts_with(token) {
+            continue;
+        }
+        offer(
+            &mut out,
+            c,
+            CandidateKind::Value,
+            details
                 .iter()
                 .find(|detail| {
                     detail.value == *c || detail.aliases.iter().any(|alias| alias.value == *c)
                 })
                 .and_then(|detail| detail.help)
                 .map(::std::borrow::Cow::Borrowed),
-        })
-        .collect()
+        );
+    }
+    out
 }
 
 /// The metadata for a flag, wherever in the tree it was declared.
@@ -2388,20 +2449,20 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     // ends the string.
                     if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some('\'') {
                         reached!(chars.peek().expect("peeked just above").0);
-                        word.push('\'');
+                        push_char(&mut word, '\'');
                         chars.next();
                     } else {
                         quote = None;
                     }
                 } else {
-                    word.push(c);
+                    push_char(&mut word, c);
                 }
             }
             Some(q) => {
                 if c == q {
                     if shell.doubles_quotes() && chars.peek().map(|&(_, n)| n) == Some(q) {
                         reached!(chars.peek().expect("peeked just above").0);
-                        word.push(q);
+                        push_char(&mut word, q);
                         chars.next();
                     } else {
                         quote = None;
@@ -2413,13 +2474,13 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     match chars.peek() {
                         Some(&(j, next)) if escapable_in_quotes(next, shell) => {
                             reached!(j);
-                            word.push(next);
+                            push_char(&mut word, next);
                             chars.next();
                         }
-                        _ => word.push(c),
+                        _ => push_char(&mut word, c),
                     }
                 } else {
-                    word.push(c);
+                    push_char(&mut word, c);
                 }
             }
             None => {
@@ -2432,7 +2493,7 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                     started = true;
                     if let Some(&(j, next)) = chars.peek() {
                         reached!(j);
-                        word.push(next);
+                        push_char(&mut word, next);
                         chars.next();
                     } else {
                         // A trailing escape is a line the user is still typing, not a mistake
@@ -2445,7 +2506,7 @@ pub fn split(line: &str, cursor: usize, shell: Shell) -> Split {
                         started = false;
                     }
                 } else {
-                    word.push(c);
+                    push_char(&mut word, c);
                     started = true;
                 }
             }

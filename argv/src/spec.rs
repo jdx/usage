@@ -412,19 +412,19 @@ pub struct ViewMeta<'a> {
 impl ViewMeta<'_> {
     /// Whether this view carries a root-global flag into its executable surface.
     pub fn carries(self, flag: &crate::Flag<'_>) -> bool {
-        flag.global
-            && (self.all_globals
-                || self.globals.iter().any(|selector| {
-                    selector
-                        .strip_prefix("--")
-                        .is_some_and(|long| flag.longs.contains(&long))
-                        || selector
-                            .strip_prefix('-')
-                            .filter(|short| short.len() == 1)
-                            .and_then(|short| short.as_bytes().first().copied())
-                            .is_some_and(|short| flag.shorts.contains(&short))
-                }))
+        flag.global && (self.all_globals || self.globals.iter().any(|s| names_flag(s, flag)))
     }
+}
+
+/// Whether a view's global selector — `--long` or `-s` — names this flag.
+fn names_flag(selector: &str, flag: &crate::Flag<'_>) -> bool {
+    let selector = selector.as_bytes();
+    if let Some(long) = selector.strip_prefix(b"--")
+        && flag.longs.iter().any(|l| l.as_bytes() == long)
+    {
+        return true;
+    }
+    matches!(selector, [b'-', short] if crate::has_byte(flag.shorts, *short))
 }
 
 /// The declared executable view selected by argv0, if any.
@@ -3042,15 +3042,9 @@ fn write_body<'a>(
     write_flag_layout(out, meta, depth, &w.sets)?;
     let mut claimed = Vec::new();
     for flag in inherited_globals.iter().copied().chain(meta.flags) {
-        claimed.extend(flag.flag.longs.iter().map(|long| format!("--{long}")));
-        claimed.extend(
-            flag.flag
-                .shorts
-                .iter()
-                .map(|short| format!("-{}", *short as char)),
-        );
+        claimed.extend(crate::help::Form::of(flag));
         if let Some(negate) = flag.flag.negate {
-            claimed.push(format!("--{negate}"));
+            claimed.push(crate::help::Form::Long(negate));
         }
     }
     for supplied in crate::help::supplied_entries(meta.cmd, &claimed) {

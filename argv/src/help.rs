@@ -17,7 +17,6 @@
 //! Where the two disagree the difference is recorded, in the same spirit as the parser's
 //! corpus: usage-lib is the reference, and a divergence is a decision rather than an accident.
 
-use core::fmt::Write as _;
 use std::borrow::Cow;
 
 use crate::Command;
@@ -26,6 +25,7 @@ use crate::order::sort_by as sort_rows;
 use crate::spec::{
     AdmonitionKind, AdmonitionMeta, ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta,
 };
+use crate::text::char_count;
 
 mod template;
 pub use template::STYLES;
@@ -193,15 +193,15 @@ impl Sections {
             &self.flattened,
             &self.after_help,
         ] {
-            out.push_str(part);
+            out.put_str(part);
         }
         out
     }
 
     fn named(&self, name: &str) -> Option<String> {
-        Some(match name {
-            "about" => self.about.trim().to_string(),
-            "usage" => self.usage.trim().to_string(),
+        let part = match name {
+            "about" => &self.about,
+            "usage" => &self.usage,
             // Whichever form this command's command list took. `flatten_help` replaces the
             // list with the subcommands' own bodies, so a template that places `{{commands}}`
             // places whichever one the command has.
@@ -210,21 +210,22 @@ impl Sections {
                 let flattened = self.flattened.trim();
                 if !flattened.is_empty() {
                     if !out.is_empty() {
-                        out.push_str("\n\n");
+                        out.put_str("\n\n");
                     }
-                    out.push_str(flattened);
+                    out.put_str(flattened);
                 }
-                out
+                return Some(out);
             }
-            "args" => self.args.trim().to_string(),
-            "flags" => self.flags.trim().to_string(),
-            "grouped_args" => self.grouped_args.trim().to_string(),
-            "ungrouped_args" => self.ungrouped_args.trim().to_string(),
-            "grouped_flags" => self.grouped_flags.trim().to_string(),
-            "ungrouped_flags" => self.ungrouped_flags.trim().to_string(),
-            "after_help" => self.after_help.trim().to_string(),
+            "args" => &self.args,
+            "flags" => &self.flags,
+            "grouped_args" => &self.grouped_args,
+            "ungrouped_args" => &self.ungrouped_args,
+            "grouped_flags" => &self.grouped_flags,
+            "ungrouped_flags" => &self.ungrouped_flags,
+            "after_help" => &self.after_help,
             _ => return None,
-        })
+        };
+        Some(part.trim().to_string())
     }
 
     /// A page laid out by an author's template.
@@ -374,37 +375,39 @@ pub fn place_logo(
     });
     let mut out = match column {
         Some(column) => {
-            let mut lines: Vec<String> = page.lines().map(str::to_string).collect();
+            let mut out = String::with_capacity(page.len() + art.len() * column);
+            let mut text = page.lines();
             // Art taller than the page keeps going below it rather than being cut off: a logo
             // with its bottom sliced away looks like a rendering fault.
-            if lines.len() < art.len() {
-                lines.resize(art.len(), String::new());
-            }
-            for (line, art) in lines.iter_mut().zip(&art) {
-                if art.is_empty() {
-                    continue;
+            for index in 0..page.lines().count().max(art.len()) {
+                if index > 0 {
+                    out.put_char('\n');
                 }
-                for _ in 0..column.saturating_sub(shown_width(line)) {
-                    line.push(' ');
+                let line = text.next().unwrap_or("");
+                out.put_str(line);
+                if let Some(art) = art.get(index).filter(|art| !art.is_empty()) {
+                    for _ in 0..column.saturating_sub(shown_width(line)) {
+                        out.put_char(' ');
+                    }
+                    out.put_str(&painted_logo(art, style, coloured));
                 }
-                line.push_str(&painted_logo(art, style, coloured));
             }
-            lines.join("\n")
+            out
         }
         None if art_width <= width => {
             let mut banner = String::new();
             for art in &art {
-                banner.push_str(&painted_logo(art, style, coloured));
-                banner.push('\n');
+                banner.put_str(&painted_logo(art, style, coloured));
+                banner.put_char('\n');
             }
-            banner.push('\n');
-            banner.push_str(page);
+            banner.put_char('\n');
+            banner.put_str(page);
             banner
         }
         None => return page.to_string(),
     };
     out.truncate(out.trim_end().len());
-    out.push('\n');
+    out.put_char('\n');
     out
 }
 
@@ -474,8 +477,8 @@ fn finish_page(page: String, style: Style) -> String {
     };
     let trimmed = page.trim();
     let mut done = String::with_capacity(trimmed.len() + 1);
-    done.push_str(trimmed);
-    done.push('\n');
+    done.put_str(trimmed);
+    done.put_char('\n');
     done
 }
 
@@ -510,11 +513,11 @@ fn strip_ansi_sequences(text: String) -> String {
             continue;
         }
 
-        plain.push_str(&text[copied..at]);
+        plain.put_str(&text[copied..at]);
         copied = end + 1;
         at = copied;
     }
-    plain.push_str(&text[copied..]);
+    plain.put_str(&text[copied..]);
     plain
 }
 
@@ -568,6 +571,12 @@ impl Style {
         Self::auto_for(std::io::stderr().is_terminal())
     }
 
+    /// Whether this style colours, for the diagnostics, which share the environment's say.
+    #[cfg(feature = "diagnostics")]
+    pub(crate) const fn is_coloured(self) -> bool {
+        self.coloured
+    }
+
     fn auto_for(is_terminal: bool) -> Style {
         let forced = std::env::var_os("CLICOLOR_FORCE").is_some_and(|v| v != "0");
         let refused = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
@@ -580,16 +589,12 @@ impl Style {
         }
     }
 
+    fn paint(self, out: &mut String, role: &str, text: &str) {
+        template::semantic_into(out, role, text, self);
+    }
+
     fn heading(self, text: &str) -> String {
         template::semantic("heading", text, self)
-    }
-
-    fn literal(self, text: &str) -> String {
-        template::semantic("option", text, self)
-    }
-
-    fn metavar(self, text: &str) -> String {
-        template::semantic("metavar", text, self)
     }
 
     fn command(self, text: &str) -> String {
@@ -617,6 +622,17 @@ impl Style {
 /// would be disproportionate. Delimiters must close on the same line; an unmatched delimiter
 /// is ordinary text.
 fn styled_inline(text: &str, parent: Option<&str>) -> String {
+    // A table in the binary, not eight tuples built again for every character.
+    static SPANS: [(&str, &str, &str, bool, bool); 8] = [
+        ("***", "1;3", "22;23", false, true),
+        ("___", "1;3", "22;23", true, true),
+        ("**", "1", "22", false, true),
+        ("__", "1", "22", true, true),
+        ("~~", "9", "29", false, true),
+        ("*", "3", "23", false, true),
+        ("_", "3", "23", true, true),
+        ("`", "36", "39", false, false),
+    ];
     let mut out = String::with_capacity(text.len());
     let mut at = 0;
     let mut allow_run_remainder = false;
@@ -629,58 +645,50 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             .and_then(|after| after.chars().next())
             && matches!(escaped, '*' | '_' | '~' | '`' | '\\')
         {
-            out.push(escaped);
+            out.put_char(escaped);
             at += 1 + escaped.len_utf8();
             allow_run_remainder = false;
             continue;
         }
 
-        let span = [
-            ("***", "1;3", "22;23", false, true),
-            ("___", "1;3", "22;23", true, true),
-            ("**", "1", "22", false, true),
-            ("__", "1", "22", true, true),
-            ("~~", "9", "29", false, true),
-            ("*", "3", "23", false, true),
-            ("_", "3", "23", true, true),
-            ("`", "36", "39", false, false),
-        ]
-        .into_iter()
-        .find_map(|(delimiter, open, close, word_boundary, recurse)| {
-            rest.strip_prefix(delimiter)?;
-            let marker = delimiter.chars().next().expect("a delimiter has a marker");
-            let previous = text[..at].chars().next_back();
-            // Do not reinterpret part of a delimiter run when the longer form was rejected.
-            // In particular, neither underscore in `word__word__` may become an italic opener.
-            if (previous == Some(marker) && !allow_run_remainder)
-                || (delimiter.len() == 1 && rest[delimiter.len()..].starts_with(marker))
-            {
-                return None;
-            }
-            if word_boundary && previous.is_some_and(char::is_alphanumeric) {
-                return None;
-            }
-            let content_start = at + delimiter.len();
-            let (end, after) = closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
-            Some((delimiter, open, close, recurse, content_start, end, after))
-        });
+        let span = SPANS
+            .iter()
+            .find_map(|&(delimiter, open, close, word_boundary, recurse)| {
+                rest.strip_prefix(delimiter)?;
+                let marker = delimiter.chars().next().expect("a delimiter has a marker");
+                let previous = text[..at].chars().next_back();
+                // Do not reinterpret part of a delimiter run when the longer form was rejected.
+                // In particular, neither underscore in `word__word__` may become an italic opener.
+                if (previous == Some(marker) && !allow_run_remainder)
+                    || (delimiter.len() == 1 && rest[delimiter.len()..].starts_with(marker))
+                {
+                    return None;
+                }
+                if word_boundary && previous.is_some_and(char::is_alphanumeric) {
+                    return None;
+                }
+                let content_start = at + delimiter.len();
+                let (end, after) =
+                    closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
+                Some((delimiter, open, close, recurse, content_start, end, after))
+            });
 
         if let Some((delimiter, open, close, recurse, content_start, end, after)) = span {
-            out.push_str("\u{1b}[");
-            out.push_str(open);
-            out.push('m');
+            out.put_str("\u{1b}[");
+            out.put_str(open);
+            out.put_char('m');
             if recurse {
-                out.push_str(&styled_inline(&text[content_start..end], Some(open)));
+                out.put_str(&styled_inline(&text[content_start..end], Some(open)));
             } else {
-                out.push_str(&text[content_start..end]);
+                out.put_str(&text[content_start..end]);
             }
-            out.push_str("\u{1b}[");
-            out.push_str(close);
-            out.push('m');
+            out.put_str("\u{1b}[");
+            out.put_str(close);
+            out.put_char('m');
             if let Some(parent) = parent {
-                out.push_str("\u{1b}[");
-                out.push_str(parent);
-                out.push('m');
+                out.put_str("\u{1b}[");
+                out.put_str(parent);
+                out.put_char('m');
             }
             let marker = delimiter.chars().next().expect("a delimiter has a marker");
             allow_run_remainder =
@@ -690,7 +698,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         }
 
         let ch = rest.chars().next().expect("at is on a character boundary");
-        out.push(ch);
+        out.put_char(ch);
         at += ch.len_utf8();
         allow_run_remainder = false;
     }
@@ -789,7 +797,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
                         .then_some(i)
                 })
                 .unwrap_or(rest.len());
-            out.push_str(&style.literal(&rest[..end]));
+            style.paint(&mut out, "option", &rest[..end]);
             at += end;
             continue;
         }
@@ -797,7 +805,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         // Required flags use angle brackets too (`<--force>`), but only the wrapper is a
         // delimiter: the option inside keeps its semantic colour.
         if rest.starts_with("<-") {
-            out.push('<');
+            out.put_char('<');
             at += 1;
             continue;
         }
@@ -806,7 +814,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             && let Some(end) = rest.find('>')
         {
             let end = end + 1;
-            out.push_str(&style.metavar(&rest[..end]));
+            style.paint(&mut out, "metavar", &rest[..end]);
             at += end;
             continue;
         }
@@ -814,22 +822,22 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         if let Some(value) = rest.strip_prefix("[=")
             && let Some(end) = value.find(']')
         {
-            out.push_str("[=");
-            out.push_str(&style.metavar(&value[..end]));
-            out.push(']');
+            out.put_str("[=");
+            style.paint(&mut out, "metavar", &value[..end]);
+            out.put_char(']');
             at += end + 3;
             continue;
         }
 
         if let Some(value) = rest.strip_prefix('=') {
-            out.push('=');
+            out.put_char('=');
             at += 1;
             if !value.starts_with('<') {
                 let end = value
                     .find(|c: char| c.is_whitespace() || matches!(c, ',' | ']' | '>'))
                     .unwrap_or(value.len());
                 if end > 0 {
-                    out.push_str(&style.metavar(&value[..end]));
+                    style.paint(&mut out, "metavar", &value[..end]);
                     at += end;
                 }
             }
@@ -839,7 +847,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         if previous == Some('[') && !rest.starts_with('-') {
             let end = rest.find(']').unwrap_or(rest.len());
             if end > 0 {
-                out.push_str(&style.metavar(&rest[..end]));
+                style.paint(&mut out, "metavar", &rest[..end]);
                 at += end;
                 continue;
             }
@@ -857,14 +865,14 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             if boundary.is_none_or(|c| {
                 c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.')
             }) {
-                out.push_str(&style.metavar(&rest[..end]));
+                style.paint(&mut out, "metavar", &rest[..end]);
                 at += end;
                 continue;
             }
         }
 
         let ch = rest.chars().next().expect("at is on a character boundary");
-        out.push(ch);
+        out.put_char(ch);
         at += ch.len_utf8();
     }
     out
@@ -891,18 +899,92 @@ fn flatten_help(meta: &CommandMeta<'_>) -> bool {
 /// plain page is never scanned for it.
 const STRUCTURE: char = '\u{1}';
 
+/// `String::push_str` that is not inlined: a page is written in hundreds of pushes, and each
+/// inlined one carries its own capacity check and copy. A call is smaller, and a help page is
+/// nowhere near fast enough for it to matter.
+trait PutStr {
+    fn put_str(&mut self, text: &str);
+    fn put_char(&mut self, c: char);
+}
+
+impl PutStr for String {
+    #[inline(never)]
+    fn put_str(&mut self, text: &str) {
+        self.push_str(text);
+    }
+
+    #[inline(never)]
+    fn put_char(&mut self, c: char) {
+        self.push(c);
+    }
+}
+
+/// Append `parts` in order. `write!` with format arguments pulls `core::fmt` into every call
+/// site; this is the same bytes with a push per part.
+#[inline(never)]
+fn put(out: &mut String, parts: &[&str]) {
+    for part in parts {
+        out.put_str(part);
+    }
+}
+
+/// `parts`, joined into a new string: `format!` without the formatting machinery.
+#[inline(never)]
+fn cat(parts: &[&str]) -> String {
+    let mut out = String::new();
+    put(&mut out, parts);
+    out
+}
+
+#[inline(never)]
+fn put_pad(out: &mut String, indent: usize) {
+    for _ in 0..indent {
+        out.put_char(' ');
+    }
+}
+
+/// One line of text at `indent`, newline included.
+#[inline(never)]
+fn line_at(out: &mut String, indent: usize, text: &str) {
+    put_pad(out, indent);
+    out.put_str(text);
+    out.put_char('\n');
+}
+
+/// A name in brackets: `<NAME>`, `[-- NAME]`.
+#[inline(never)]
+fn put_bracketed(out: &mut String, open: char, prefix: &str, name: &str, close: char) {
+    out.put_char(open);
+    put(out, &[prefix, name]);
+    out.put_char(close);
+}
+
+#[inline(never)]
+fn long_form(name: &str) -> String {
+    cat(&["--", name])
+}
+
+#[inline(never)]
+fn short_form(short: u8) -> String {
+    let mut out = String::from("-");
+    out.put_char(short as char);
+    out
+}
+
 /// A heading, as every section writes one: after a blank line, and coloured on a coloured
 /// page.
 fn write_heading(out: &mut String, title: &str, style: Style) {
-    out.push('\n');
+    out.put_char('\n');
     if style.coloured {
-        out.push(STRUCTURE);
-        out.push_str(&style.heading(&format!("{title}:")));
+        out.put_char(STRUCTURE);
+        let mut titled = String::from(title);
+        titled.put_char(':');
+        out.put_str(&style.heading(&titled));
     } else {
-        out.push_str(title);
-        out.push(':');
+        out.put_str(title);
+        out.put_char(':');
     }
-    out.push('\n');
+    out.put_char('\n');
 }
 
 /// A row's usage as it is printed: coloured on a coloured page. The column is still measured
@@ -925,15 +1007,15 @@ fn paint_synopsis(usage: &mut String, style: Style) {
         let (body, newline) = line
             .strip_suffix('\n')
             .map_or((line, ""), |body| (body, "\n"));
-        out.push(STRUCTURE);
+        out.put_char(STRUCTURE);
         match body.strip_prefix("Usage:") {
             Some(rest) => {
-                out.push_str(&style.heading("Usage:"));
-                out.push_str(&styled_flag_usage(rest, style));
+                out.put_str(&style.heading("Usage:"));
+                out.put_str(&styled_flag_usage(rest, style));
             }
-            None => out.push_str(&styled_flag_usage(body, style)),
+            None => out.put_str(&styled_flag_usage(body, style)),
         }
-        out.push_str(newline);
+        out.put_str(newline);
     }
     *usage = out;
 }
@@ -953,17 +1035,17 @@ fn painted_prose(page: String, style: Style) -> String {
             .strip_suffix('\n')
             .map_or((line, ""), |body| (body, "\n"));
         if let Some(structure) = body.strip_prefix(STRUCTURE) {
-            out.push_str(structure);
+            out.put_str(structure);
         } else if body.trim_start().starts_with("$ ") {
             // Examples are shell source, where paired backticks are command substitution rather
             // than prose markup. Every other line may contain author emphasis; option and
             // argument spellings are harmless because intraword underscores do not open spans
             // and unmatched shell globs remain literal.
-            out.push_str(body);
+            out.put_str(body);
         } else {
-            out.push_str(&style.inline(body));
+            out.put_str(&style.inline(body));
         }
-        out.push_str(newline);
+        out.put_str(newline);
     }
     out
 }
@@ -1085,22 +1167,23 @@ fn usage_line_with_subcommands(
     let mut out = String::new();
     for (i, part) in path.iter().enumerate() {
         if i > 0 {
-            out.push(' ');
+            out.put_char(' ');
         }
-        out.push_str(part);
+        out.put_str(part);
     }
 
     // Hidden entries are absent from the line as they are from the sections: help describes
     // what a user is invited to type.
-    let command_flags = meta
-        .flags
-        .iter()
-        .filter(|f| !f.hide && !f.builtin && !is_clause_flag(meta, f));
-    let flags = command_flags.clone().count();
+    let listed = |f: &&FlagMeta<'_>| !f.hide && !f.builtin && !is_clause_flag(meta, f);
+    let mut flags = 0;
+    let mut required = false;
+    for flag in meta.flags.iter().filter(listed) {
+        flags += 1;
+        required |= flag_demanded(flag);
+    }
     if flags > 0 {
-        let required = command_flags.clone().any(flag_demanded);
         if flags <= INLINE_LIMIT {
-            for flag in command_flags {
+            for flag in meta.flags.iter().filter(listed) {
                 // A required flag is angled, like a required argument: the brackets are what
                 // say whether leaving it out is allowed.
                 let (open, close) = if flag_demanded(flag) {
@@ -1108,29 +1191,40 @@ fn usage_line_with_subcommands(
                 } else {
                     ('[', ']')
                 };
-                let _ = write!(out, " {open}{}{close}", flag_usage(flag));
+                out.put_char(' ');
+                out.put_char(open);
+                out.put_str(&flag_usage(flag));
+                out.put_char(close);
             }
         } else if required {
-            out.push_str(" <FLAGS>");
+            out.put_str(" <FLAGS>");
         } else {
-            out.push_str(" [FLAGS]");
+            out.put_str(" [FLAGS]");
         }
     }
 
     let positional_args = positional_args(meta);
-    let args: usize = positional_args.iter().filter(|a| !a.hide).count();
+    let mut args = 0;
+    let mut required = false;
+    for arg in positional_args.iter().filter(|a| !a.hide) {
+        args += 1;
+        required |= demanded(arg);
+    }
     if args > 0 {
-        let required = positional_args.iter().any(|a| !a.hide && demanded(a));
         if let Some(clause) = meta.extra.clause {
-            let inner = positional_args
-                .iter()
-                .filter(|a| !a.hide)
-                .map(arg_usage)
-                .collect::<Vec<_>>()
-                .join(" ");
+            let mut inner = String::new();
+            for (index, arg) in positional_args.iter().filter(|a| !a.hide).enumerate() {
+                if index > 0 {
+                    inner.put_char(' ');
+                }
+                inner.put_str(&arg_usage(arg));
+            }
             match clause.separator {
                 Some(separator) => {
-                    let _ = write!(out, " [{inner} [{separator} {inner}]…]");
+                    put(
+                        &mut out,
+                        &[" [", &inner, " [", separator, " ", &inner, "]…]"],
+                    );
                 }
                 None => {
                     let arg = positional_args
@@ -1142,26 +1236,27 @@ fn usage_line_with_subcommands(
                     } else {
                         ""
                     };
-                    let _ = write!(out, " [{separator}{}]…", arg.arg.name);
+                    put(&mut out, &[" [", separator, arg.arg.name, "]…"]);
                 }
             }
         } else if args <= INLINE_LIMIT {
             for arg in positional_args.iter().filter(|a| !a.hide) {
-                let _ = write!(out, " {}", arg_usage(arg));
+                out.put_char(' ');
+                out.put_str(&arg_usage(arg));
             }
         } else if required {
-            out.push_str(" <ARGS>…");
+            out.put_str(" <ARGS>…");
         } else {
-            out.push_str(" [ARGS]…");
+            out.put_str(" [ARGS]…");
         }
     }
 
     if include_subcommands && !meta.cmd.subcommands.is_empty() {
         let name = meta.extra.subcommand_value_name.unwrap_or("SUBCOMMAND");
         if meta.extra.subcommand_required {
-            let _ = write!(out, " <{name}>");
+            put(&mut out, &[" <", name, ">"]);
         } else {
-            let _ = write!(out, " [{name}]");
+            put(&mut out, &[" [", name, "]"]);
         }
     }
     out
@@ -1175,12 +1270,12 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
     if path.len() <= 1
         && let Some(usage) = spec.usage.filter(|usage| !usage.trim().is_empty())
     {
-        let _ = writeln!(out, "{}", usage.trim());
+        put(out, &[usage.trim(), "\n"]);
         return;
     }
     // Only flattened help needs a synopsis for every visible child.
     if !flatten_help(meta) || !meta.subcommands.iter().any(|sub| !sub.hide) {
-        let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+        put(out, &["Usage: ", &usage_line(path, meta), "\n"]);
         return;
     }
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
@@ -1198,9 +1293,9 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
         lines.push(usage_line(&sub_path, sub));
     }
     if let Some((first, rest)) = lines.split_first() {
-        let _ = writeln!(out, "Usage: {first}");
+        put(out, &["Usage: ", first, "\n"]);
         for line in rest {
-            let _ = writeln!(out, "       {line}");
+            put(out, &["       ", line, "\n"]);
         }
     }
 }
@@ -1215,6 +1310,24 @@ fn flag_usage(meta: &FlagMeta<'_>) -> String {
 /// Not "hide the long" and "hide the short": a flag may answer to several of each, and a
 /// descendant claiming `--jobs` leaves an inherited `--workers` working. What is shown is the
 /// first of each kind that nothing nearer has taken.
+/// One spelling a flag answers to, compared without being written out: `--name` or `-n`.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Form<'a> {
+    Long(&'a str),
+    Short(u8),
+}
+
+impl<'a> Form<'a> {
+    /// Every long and short `f` answers to.
+    pub(crate) fn of(f: &'a FlagMeta<'a>) -> impl Iterator<Item = Form<'a>> {
+        f.flag
+            .longs
+            .iter()
+            .map(|l| Form::Long(l))
+            .chain(f.flag.shorts.iter().map(|s| Form::Short(*s)))
+    }
+}
+
 struct Shown<'a> {
     long: Option<&'a str>,
     short: Option<u8>,
@@ -1250,30 +1363,25 @@ impl<'a> Shown<'a> {
     /// a word against all of those before it looks at a negation at all.
     fn surviving(
         meta: &'a FlagMeta<'a>,
-        taken: &[String],
-        taken_negations: &[String],
-        every_form: &[String],
+        taken: &[Form<'_>],
+        taken_negations: &[Form<'_>],
+        every_form: &[Form<'_>],
     ) -> Self {
-        let mine: Vec<String> = meta
-            .flag
-            .longs
-            .iter()
-            .map(|l| format!("--{l}"))
-            .chain(meta.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
-            .collect();
         Shown {
-            long: meta.flag.longs.iter().copied().find(|l| {
-                !meta.extra.hidden_longs.contains(l) && !taken.contains(&format!("--{l}"))
-            }),
+            long: meta
+                .flag
+                .longs
+                .iter()
+                .copied()
+                .find(|l| !meta.extra.hidden_longs.contains(l) && !taken.contains(&Form::Long(l))),
             short: meta.flag.shorts.iter().copied().find(|s| {
-                !meta.extra.hidden_shorts.contains(s)
-                    && !taken.contains(&format!("-{}", *s as char))
+                !meta.extra.hidden_shorts.contains(s) && !taken.contains(&Form::Short(*s))
             }),
             negate: meta.flag.negate.is_some_and(|n| {
-                let spelling = format!("--{n}");
+                let spelling = Form::Long(n);
                 // A long anywhere in scope wins over this, this flag's own excepted.
                 !taken_negations.contains(&spelling)
-                    && (!every_form.contains(&spelling) || mine.contains(&spelling))
+                    && (!every_form.contains(&spelling) || meta.flag.longs.contains(&n))
             }),
         }
     }
@@ -1314,70 +1422,50 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
         _ => show.negate && flag.negate == Some(flag.name),
     };
     if !implied_matches {
-        let _ = write!(out, "{}:", flag.name);
+        put(&mut out, &[flag.name, ":"]);
     }
     if let Some(short) = short {
         if !out.is_empty() {
-            out.push(' ');
+            out.put_char(' ');
         }
-        let _ = write!(out, "-{}", *short as char);
+        out.put_char('-');
+        out.put_char(*short as char);
     }
     if let Some(long) = long {
         if !out.is_empty() {
-            out.push(' ');
+            out.put_char(' ');
         }
-        let _ = write!(out, "--{long}");
+        put(&mut out, &["--", long]);
     }
 
     if flag.takes_value {
         // Angled where the value must be given, squared where it need not — the same brackets
         // an argument uses, and for the same reason. pitchfork's `--bump` is the fleet's case.
         let exact = exact_arity(meta.extra.value_var_min, meta.extra.value_var_max);
-        if meta.extra.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
-            let name = meta
-                .extra
-                .value_names
-                .first()
-                .copied()
-                .or(meta.value_name)
-                .unwrap_or(flag.name);
-            for index in 0..exact.unwrap() {
-                append_flag_value(
-                    &mut out,
-                    name,
-                    meta.value_optional,
-                    flag.require_equals,
-                    index == 0,
-                );
-            }
-        } else if meta.extra.value_names.len() <= 1 {
-            let name = meta
-                .extra
-                .value_names
-                .first()
-                .copied()
-                .or(meta.value_name)
-                .unwrap_or(flag.name);
+        let names = meta.extra.value_names;
+        let single = names.len() <= 1;
+        // One name, written once or `exact` times, or one entry per declared name.
+        let count = if !single {
+            names.len()
+        } else {
+            exact.filter(|n| *n > 1).unwrap_or(1)
+        };
+        let only = names
+            .first()
+            .copied()
+            .or(meta.value_name)
+            .unwrap_or(flag.name);
+        for index in 0..count {
             append_flag_value(
                 &mut out,
-                name,
+                names.get(index).copied().unwrap_or(only),
                 meta.value_optional,
                 flag.require_equals,
-                true,
+                index == 0,
             );
-        } else {
-            for (index, name) in meta.extra.value_names.iter().enumerate() {
-                append_flag_value(
-                    &mut out,
-                    name,
-                    meta.value_optional,
-                    flag.require_equals,
-                    index == 0,
-                );
-            }
         }
         if flag.variadic && meta.extra.value_names.len() <= 1 && exact.is_none() {
-            out.push('…');
+            out.put_char('…');
         }
     }
     out
@@ -1391,11 +1479,14 @@ fn append_flag_value(
     first: bool,
 ) {
     if first && optional && require_equals {
-        let _ = write!(out, "[={name}]");
+        put(out, &["[=", name, "]"]);
     } else {
         let separator = if first && require_equals { "=" } else { " " };
         let (open, close) = if optional { ('[', ']') } else { ('<', '>') };
-        let _ = write!(out, "{separator}{open}{name}{close}");
+        out.put_str(separator);
+        out.put_char(open);
+        out.put_str(name);
+        out.put_char(close);
     }
 }
 
@@ -1439,32 +1530,29 @@ pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
     // it, as usage-lib writes it: `[-- COMMAND]…`, one optional thing rather than a literal
     // `--` followed by an optional word.
     let exact = exact_arity(meta.var_min, meta.var_max);
-    if meta.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
-        for index in 0..exact.unwrap() {
-            if index > 0 {
-                out.push(' ');
-            }
-            let _ = write!(out, "{open}{}{close}", arg.name);
-        }
-    } else if meta.value_names.len() <= 1 {
-        if arg.double_dash == DoubleDash::Required {
-            let _ = write!(out, "{open}-- {}{close}", arg.name);
-        } else {
-            let _ = write!(out, "{open}{}{close}", arg.name);
-        }
+    let single = meta.value_names.len() <= 1;
+    let count = if !single {
+        meta.value_names.len()
     } else {
-        if arg.double_dash == DoubleDash::Required {
-            out.push_str("-- ");
+        exact.filter(|n| *n > 1).unwrap_or(1)
+    };
+    let separator = arg.double_dash == DoubleDash::Required;
+    if !single && separator {
+        out.put_str("-- ");
+    }
+    for index in 0..count {
+        if index > 0 {
+            out.put_char(' ');
         }
-        for (index, name) in meta.value_names.iter().enumerate() {
-            if index > 0 {
-                out.push(' ');
-            }
-            let _ = write!(out, "{open}{name}{close}");
-        }
+        let (name, prefix) = if single {
+            (arg.name, if separator && count == 1 { "-- " } else { "" })
+        } else {
+            (meta.value_names.get(index).copied().unwrap_or_default(), "")
+        };
+        put_bracketed(&mut out, open, prefix, name, close);
     }
     if arg.var && meta.value_names.len() <= 1 && exact.is_none() {
-        out.push('…');
+        out.put_char('…');
     }
     out
 }
@@ -1540,19 +1628,13 @@ fn page_sections(
     style: Style,
 ) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
-    let (own, inherited) = own_and_global(chain, inherit_version_actions);
-    let own: Vec<_> = own
-        .into_iter()
-        .filter(|flag| !hidden_on(long, flag.hide_short_help, flag.hide_long_help))
-        .collect();
-    let inherited: Vec<_> = if suppress_global {
-        Vec::new()
+    let (mut own, mut inherited) = own_and_global(chain, inherit_version_actions);
+    own.retain(|flag| !hidden_on(long, flag.hide_short_help, flag.hide_long_help));
+    if suppress_global {
+        inherited.clear();
     } else {
-        inherited
-            .into_iter()
-            .filter(|(flag, _)| !hidden_on(long, flag.hide_short_help, flag.hide_long_help))
-            .collect()
-    };
+        inherited.retain(|(flag, _)| !hidden_on(long, flag.hide_short_help, flag.hide_long_help));
+    }
     let mut sections = Sections::default();
     // The narrow page wraps too. Its descriptions used to run off the end of the terminal,
     // which the wide page has never done — and `-h` is the form most people type.
@@ -1569,7 +1651,7 @@ fn page_sections(
     };
     if let Some(before) = before {
         write_wrapped_indented(out, before, width, 0);
-        out.push('\n');
+        out.put_char('\n');
     }
 
     // The banner and the program's own description belong to the program's page. A
@@ -1585,7 +1667,7 @@ fn page_sections(
         } else {
             spec.name
         };
-        let _ = writeln!(out, "{name} {version}");
+        put(out, &[name, " ", version, "\n"]);
     }
     let about = match (root, long) {
         (true, true) => spec.long_about.or(spec.about),
@@ -1597,7 +1679,7 @@ fn page_sections(
         // Trimmed for the same reason the entries below are: the blank line after the
         // description is written here, so one already in the text doubles it.
         write_wrapped_indented(out, about.trim_end(), width, 0);
-        out.push('\n');
+        out.put_char('\n');
     }
     command_deprecation(out, meta, 0, width);
     usage_section(&mut sections.usage, spec, path, meta);
@@ -1621,21 +1703,34 @@ fn page_sections(
     // computes, and separately, so a long flag does not push the arguments out. The short
     // page lines its columns up too: it did not, and nothing in `-h` lined up with anything.
     let positional_args = positional_args(meta);
-    let mut args: Vec<&ArgMeta<'_>> = positional_args
-        .iter()
-        .filter(|a| !a.hide && !hidden_on(long, a.hide_short_help, a.hide_long_help))
-        .collect();
-    order_args(&mut args, positional_args);
+    let mut shown_args: Vec<&ArgMeta<'_>> = Vec::new();
+    for arg in positional_args {
+        if !arg.hide && !hidden_on(long, arg.hide_short_help, arg.hide_long_help) {
+            shown_args.push(arg);
+        }
+    }
+    order_args(&mut shown_args, positional_args);
     // Each row's usage once: it sizes the column, is the row's text, and is what colouring
     // looks for at the start of a row.
-    let args: Vec<(&ArgMeta<'_>, String)> = args.into_iter().map(|a| (a, arg_usage(a))).collect();
-    let own: Vec<(&FlagMeta<'_>, String)> = own.into_iter().map(|f| (f, column_usage(f))).collect();
-    let arg_col = args
-        .iter()
-        .map(|(_, usage)| usage.chars().count())
-        .max()
-        .map(|longest| usage_column_width(longest, width))
-        .unwrap_or(0);
+    let mut args: Vec<(&ArgMeta<'_>, String)> = Vec::new();
+    let mut arg_longest = None;
+    for arg in shown_args {
+        let usage = arg_usage(arg);
+        arg_longest = arg_longest.max(Some(char_count(&usage)));
+        args.push((arg, usage));
+    }
+    let mut flag_longest = None;
+    let mut own_rows: Vec<(&FlagMeta<'_>, String)> = Vec::new();
+    for flag in own {
+        let usage = column_usage(flag);
+        flag_longest = flag_longest.max(Some(char_count(&usage)));
+        own_rows.push((flag, usage));
+    }
+    for (_, usage) in &inherited {
+        flag_longest = flag_longest.max(Some(char_count(usage)));
+    }
+    let own = own_rows;
+    let arg_col = arg_longest.map_or(0, |longest| usage_column_width(longest, width));
     // Section prose belongs to the long page, like an entry's admonitions.
     let prose_of = |title: &str| {
         if long {
@@ -1669,13 +1764,7 @@ fn page_sections(
 
     // One column over *both* lists, so the two sections read as one table with a rule through
     // it rather than two tables that happen to be adjacent.
-    let flag_col = own
-        .iter()
-        .chain(&inherited)
-        .map(|(_, usage)| usage.chars().count())
-        .max()
-        .map(|longest| usage_column_width(longest, width))
-        .unwrap_or(0);
+    let flag_col = flag_longest.map_or(0, |longest| usage_column_width(longest, width));
     let layout = RowLayout {
         col: flag_col,
         ..layout
@@ -1732,19 +1821,19 @@ fn page_sections(
         meta.extra.after_help
     };
     if let Some(after) = after {
-        out.push('\n');
+        out.put_char('\n');
         write_wrapped_indented(out, after, width, 0);
     }
     if long && root && (spec.author.is_some() || spec.license.is_some()) {
         // The reference template starts the footer in a new paragraph without trimming the
         // configured trailing help. A newline deliberately present in `after_help` therefore
         // remains an additional blank line before package metadata.
-        out.push('\n');
+        out.put_char('\n');
         if let Some(author) = spec.author {
-            let _ = writeln!(out, "Author: {author}");
+            put(out, &["Author: ", author, "\n"]);
         }
         if let Some(license) = spec.license {
-            let _ = writeln!(out, "License: {license}");
+            put(out, &["License: ", license, "\n"]);
         }
     }
 
@@ -1893,7 +1982,7 @@ fn write_row(out: &mut String, row: &Row<'_>, layout: RowLayout) {
         admonitions(out, row.admonitions, width);
         if aligned { indent } else { BLOCK_INDENT }
     } else if next_line {
-        let _ = writeln!(out, "  {painted}");
+        line_at(out, 2, &painted);
         if let Some(help) = row.help.filter(|h| !h.trim().is_empty()) {
             write_wrapped_block(out, help, width);
         }
@@ -2010,11 +2099,11 @@ fn with_default_command_help(
         true,
     );
     let mut out = parent.trim_end().to_string();
-    out.push_str("\n\nDefault command: ");
-    out.push_str(&style.command(child.cmd.name));
-    out.push_str("\n  Unmatched words select this command.\n\n");
-    out.push_str(child_page.trim_end());
-    out.push('\n');
+    out.put_str("\n\nDefault command: ");
+    out.put_str(&style.command(child.cmd.name));
+    out.put_str("\n  Unmatched words select this command.\n\n");
+    out.put_str(child_page.trim_end());
+    out.put_char('\n');
     out
 }
 
@@ -2033,7 +2122,12 @@ fn commands_section(
     default_name: Option<&str>,
     style: Style,
 ) {
-    let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
+    let mut visible: Vec<&&CommandMeta<'_>> = Vec::new();
+    for sub in meta.subcommands {
+        if !sub.hide {
+            visible.push(sub);
+        }
+    }
     order_commands(&mut visible);
     // Nothing visible, no section — `mise direnv` and `mise dotfiles` have subcommands and
     // every one of them is hidden. The usage *line* still says `<SUBCOMMAND>`, because
@@ -2046,14 +2140,14 @@ fn commands_section(
     // command with no flags or arguments the two agree, and where they differ this is the
     // order a reader sees in the reference. The usage is the sort key and nothing else now:
     // the row shows the name.
-    let mut lines: Vec<(String, &&CommandMeta<'_>)> = visible
-        .iter()
-        .map(|sub| {
-            let mut sub_path: Vec<&str> = path.to_vec();
-            sub_path.push(sub.cmd.name);
-            (usage_line(&sub_path, sub), *sub)
-        })
-        .collect();
+    let mut sub_path: Vec<&str> = path.to_vec();
+    sub_path.push("");
+    let last = sub_path.len() - 1;
+    let mut lines: Vec<(String, &&CommandMeta<'_>)> = Vec::new();
+    for sub in visible {
+        sub_path[last] = sub.cmd.name;
+        lines.push((usage_line(&sub_path, sub), sub));
+    }
     sort_rows(&mut lines, &mut |a, b| {
         a.1.extra
             .display_order
@@ -2065,13 +2159,19 @@ fn commands_section(
     // One column for the page, not for the section: a CLI that groups its commands reads as one
     // table with rules through it, which is what the flag list already does.
     let show_help = !meta.cmd.disable_help_subcommand;
-    let col = lines
-        .iter()
-        .map(|(_, sub)| sub.cmd.name.chars().count())
-        .chain(show_help.then(|| HELP_SUBCOMMAND.chars().count()))
-        .max()
-        .map(|longest| usage_column_width(longest, width))
-        .unwrap_or(0);
+    let mut longest = if show_help {
+        char_count(HELP_SUBCOMMAND)
+    } else {
+        0
+    };
+    for (_, sub) in &lines {
+        longest = longest.max(char_count(sub.cmd.name));
+    }
+    let col = if lines.is_empty() && !show_help {
+        0
+    } else {
+        usage_column_width(longest, width)
+    };
 
     let default_title = meta.extra.subcommand_help_heading.unwrap_or("Commands");
     let mut headings = vec![None];
@@ -2087,7 +2187,7 @@ fn commands_section(
         // prose on the same terms: the long page only, and only once declared.
         if long && let Some(prose) = heading.and_then(|title| heading_help(meta, title)) {
             write_wrapped_indented(out, prose, width, 2);
-            out.push('\n');
+            out.put_char('\n');
         }
         for (_, sub) in lines
             .iter()
@@ -2147,32 +2247,32 @@ fn command_row<'a>(sub: &'a CommandMeta<'a>, is_default: bool) -> Option<Cow<'a,
     }
     let mut row = String::new();
     if let Some(summary) = summary {
-        row.push_str(summary);
+        row.put_str(summary);
     }
     if visible_aliases.peek().is_some() {
         if !row.is_empty() {
-            row.push(' ');
+            row.put_char(' ');
         }
-        row.push_str("[aliases: ");
+        row.put_str("[aliases: ");
         for (index, alias) in visible_aliases.enumerate() {
             if index > 0 {
-                row.push_str(", ");
+                row.put_str(", ");
             }
-            row.push_str(alias);
+            row.put_str(alias);
         }
-        row.push(']');
+        row.put_char(']');
     }
     if let Some(label) = label {
         if !row.is_empty() {
-            row.push(' ');
+            row.put_char(' ');
         }
-        row.push_str(&label);
+        row.put_str(&label);
     }
     if is_default {
         if !row.is_empty() {
-            row.push(' ');
+            row.put_char(' ');
         }
-        row.push_str("(default)");
+        row.put_str("(default)");
     }
     Some(Cow::Owned(row))
 }
@@ -2224,13 +2324,13 @@ fn flat_commands(
         order_flags(&mut flags, sub.flags);
         let arg_col = args
             .iter()
-            .map(|arg| arg_usage(arg).chars().count())
+            .map(|arg| char_count(&arg_usage(arg)))
             .max()
             .map(|longest| usage_column_width(longest, width))
             .unwrap_or(0);
         let flag_col = flags
             .iter()
-            .map(|flag| column_usage(flag).chars().count())
+            .map(|flag| char_count(&column_usage(flag)))
             .max()
             .map(|longest| usage_column_width(longest, width))
             .unwrap_or(0);
@@ -2255,7 +2355,7 @@ fn flat_commands(
         if flatten_help(sub) {
             flat_commands(out, &sub_path, sub, width, long, style);
         }
-        out.push('\n');
+        out.put_char('\n');
     }
 }
 
@@ -2380,15 +2480,15 @@ fn grouped_sections<'m>(
         // Markdown page, so keying prose to it would mean different things per renderer.
         if let Some(prose) = heading.and_then(prose_of) {
             write_wrapped_indented(&mut section, prose, width, 2);
-            section.push('\n');
+            section.put_char('\n');
         }
         for index in (0..len).filter(|&index| heading_of(index) == heading) {
             write_item(&mut section, index);
         }
-        sink.page.push_str(&section);
+        sink.page.put_str(&section);
         match heading {
-            Some(_) => sink.grouped.push_str(&section),
-            None => sink.ungrouped.push_str(&section),
+            Some(_) => sink.grouped.put_str(&section),
+            None => sink.ungrouped.put_str(&section),
         }
     }
 }
@@ -2474,21 +2574,21 @@ fn inline_annotations(
     let mut out = String::new();
     let mut push = |part: &str| {
         if !out.is_empty() {
-            out.push(' ');
+            out.put_char(' ');
         }
-        out.push_str(part);
+        out.put_str(part);
     };
     if !choices.is_empty() {
-        push(&format!("[{}]", choices.join(", ")));
+        push(&cat(&["[", &choices.join(", "), "]"]));
     }
     if let Some(env) = env {
-        push(&format!("[env: {env}]"));
+        push(&cat(&["[env: ", env, "]"]));
     }
     if let Some(environment) = environment {
         push(environment);
     }
     if !default.is_empty() {
-        push(&format!("(default: {})", default.join(", ")));
+        push(&cat(&["(default: ", &default.join(", "), ")"]));
     }
     if let Some(suffix) = suffix {
         push(suffix);
@@ -2512,7 +2612,7 @@ fn with_annotations<'a>(
     match (summarize(help), annotations) {
         (Some(help), None) => Some(Cow::Borrowed(help)),
         (None, Some(annotations)) => Some(Cow::Owned(annotations)),
-        (Some(help), Some(annotations)) => Some(Cow::Owned(format!("{help} {annotations}"))),
+        (Some(help), Some(annotations)) => Some(Cow::Owned(cat(&[help, " ", &annotations]))),
         (None, None) => None,
     }
 }
@@ -2527,15 +2627,15 @@ pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
         .longs
         .iter()
         .find(|long| !meta.extra.hidden_longs.contains(long))
-        .map(|long| format!("--{long}"))
+        .map(|long| long_form(long))
         .or_else(|| {
             meta.flag
                 .shorts
                 .iter()
                 .find(|short| !meta.extra.hidden_shorts.contains(short))
-                .map(|short| format!("-{}", *short as char))
+                .map(|short| short_form(*short))
         })
-        .or_else(|| meta.flag.negate.map(|negate| format!("--{negate}")))
+        .or_else(|| meta.flag.negate.map(long_form))
         .unwrap_or_else(|| meta.flag.name.to_string())
 }
 
@@ -2545,11 +2645,11 @@ fn display_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
         // A flag whose only spelling is its negation has nothing before it: the name prefix
         // would repeat the spelling, so `flag_usage_masked` writes nothing and the negation
         // is the whole entry. Joining with a space put one at the front of the column.
-        Some(negate) if usage.is_empty() => format!("--{negate}"),
+        Some(negate) if usage.is_empty() => long_form(negate),
         Some(negate) if show.long.is_none() && show.short.is_none() => {
-            format!("{usage} --{negate}")
+            cat(&[&usage, " --", negate])
         }
-        Some(negate) => format!("{usage} / --{negate}"),
+        Some(negate) => cat(&[&usage, " / --", negate]),
         None => usage,
     }
 }
@@ -2586,7 +2686,7 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     };
     // Only when the text actually begins with the long form. The `name:` prefix case does not,
     // and splitting it would put `verbose:` in a column meant for `-v, `.
-    let Some(at) = rest.find(&format!("--{long}")) else {
+    let Some(at) = rest.find(&*long_form(long)) else {
         return rest;
     };
     let (before, after) = rest.split_at(at);
@@ -2596,7 +2696,7 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     // with a comma after: it rendered `jobs: -j,--parallel`, losing the space entirely, because
     // the glued string is already wider than the column.
     let bare_short = short.is_empty()
-        || (short.starts_with('-') && !short.starts_with("--") && short.chars().count() == 2);
+        || (short.starts_with('-') && !short.starts_with("--") && char_count(short) == 2);
     if !bare_short {
         return rest;
     }
@@ -2620,17 +2720,17 @@ fn examples_section(out: &mut String, examples: &[Example<'_>], long: bool, styl
     write_heading(out, "Examples", style);
     for (index, example) in examples.iter().enumerate() {
         if index > 0 {
-            out.push('\n');
+            out.put_char('\n');
         }
         if let Some(header) = example.header {
-            let _ = writeln!(out, "  {header}:");
+            put(out, &["  ", header, ":\n"]);
         }
         // The long page describes the command before it, which is the order the reference
         // prints them in: the description introduces the line rather than commenting on it.
         if let Some(help) = example.help.filter(|_| long) {
-            let _ = writeln!(out, "    {help}");
+            line_at(out, 4, help);
         }
-        let _ = writeln!(out, "    $ {}", example.code);
+        put(out, &["    $ ", example.code, "\n"]);
     }
 }
 
@@ -2741,7 +2841,6 @@ fn long_help_with(
 /// An indented empty line would be trailing whitespace, which the reference does not emit and
 /// a diff would show as a line that is not empty.
 fn write_indented(out: &mut String, text: &str, indent: usize) {
-    let pad = " ".repeat(indent);
     for (i, line) in text.lines().enumerate() {
         // The first line is always indented, even when it is empty, and later blank lines are
         // left blank. That is not a choice: the reference writes the indent literally before the
@@ -2751,15 +2850,15 @@ fn write_indented(out: &mut String, text: &str, indent: usize) {
         // on it and still indents one that holds only spaces, so emptying the latter would lose
         // whitespace the author wrote.
         if i == 0 || !line.is_empty() {
-            let _ = writeln!(out, "{pad}{line}");
+            line_at(out, indent, line);
         } else {
-            out.push('\n');
+            out.put_char('\n');
         }
     }
     // A text that ends with a break has a blank line at the end, and `lines()` does not report
     // it. The reference writes the text verbatim, so the blank is part of what it prints.
     if text.ends_with('\n') {
-        out.push('\n');
+        out.put_char('\n');
     }
 }
 
@@ -2779,9 +2878,9 @@ fn entry(
     let room = width.saturating_sub(indent);
     // A long outlier leaves the shared column to ordinary entries, but keeps its own help on
     // the row when at least a useful line of prose remains.
-    let overflow = usage.chars().count() > col;
+    let overflow = char_count(usage) > col;
     let inline_start = if overflow {
-        2 + usage.chars().count() + 2
+        2 + char_count(usage) + 2
     } else {
         indent
     };
@@ -2799,79 +2898,96 @@ fn entry(
         BLOCK_INDENT
     };
     let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
-        let _ = writeln!(out, "  {painted}");
+        line_at(out, 2, painted);
         // An entry with nothing in the column still has annotations to place, and the column is
         // where they go: it is this entry's row that is empty, not the table's.
         return if block { block_indent } else { indent };
     };
 
     if block {
-        let _ = writeln!(out, "  {painted}");
+        line_at(out, 2, painted);
         write_wrapped_indented(out, help, width, block_indent);
         return block_indent;
     }
 
     if overflow {
-        let lines = wrap_at(help, inline_room, room);
-        let _ = writeln!(out, "  {painted}  {}", lines[0]);
-        for line in &lines[1..] {
-            if line.is_empty() {
-                out.push('\n');
-            } else {
-                let _ = writeln!(out, "{}{line}", " ".repeat(indent));
-            }
-        }
+        wrap_lead(
+            out,
+            &["  ", painted, "  "],
+            help,
+            inline_room,
+            room,
+            indent,
+            true,
+        );
         return indent;
     }
 
     // Assembled rather than formatted. This is the row every entry on every page takes, and
     // `{usage:<col$}` drags in the whole formatting machinery to pad a string — and would pad
     // a coloured usage by its escapes as well as its text.
-    out.push_str("  ");
-    out.push_str(painted);
+    out.put_str("  ");
+    out.put_str(painted);
     // Padded by characters, measured on the plain spelling: a usage can hold a `…`.
-    for _ in 0..col.saturating_sub(usage.chars().count()) {
-        out.push(' ');
+    for _ in 0..col.saturating_sub(char_count(usage)) {
+        out.put_char(' ');
     }
-    out.push_str("  ");
+    out.put_str("  ");
     // Text that already fits is text `wrap` would hand straight back, so skip it and the two
     // allocations it makes. Worth the check because it is the common case — most descriptions
     // are shorter than the column leaves room for.
     if fits(help, room) {
-        out.push_str(help);
-        out.push('\n');
+        out.put_str(help);
+        out.put_char('\n');
         return indent;
     }
 
-    let lines = wrap(help, room);
-    out.push_str(&lines[0]);
-    out.push('\n');
-    for line in &lines[1..] {
-        if line.is_empty() {
-            out.push('\n');
-        } else {
-            let _ = writeln!(out, "{}{line}", " ".repeat(indent));
-        }
-    }
+    wrap_lead(out, &[], help, room, room, indent, false);
     // No blank line after a wrapped entry. The reference's template asks for one, and its
     // whitespace trimming eats it before it reaches the output — so a wrapped entry is followed
     // directly by the next, and matching means matching that.
     indent
 }
 
-fn wrap_at(text: &str, first_width: usize, continuation_width: usize) -> Vec<String> {
-    let mut lines = Vec::new();
-    for (index, line) in text.split('\n').enumerate() {
-        lines.extend(wrap(
-            line,
-            if index == 0 {
-                first_width
-            } else {
-                continuation_width
-            },
-        ));
+/// Wrapped text, written out: the first line follows `lead`, the others sit at `indent` with
+/// blank ones left blank.
+///
+/// `per_line` wraps each line the text already has on its own, the first to `first_width` and
+/// the rest to `width`; without it the text is wrapped as one, to `width`, and a line of nothing
+/// but spaces vanishes rather than staying a blank.
+fn wrap_lead(
+    out: &mut String,
+    lead: &[&str],
+    text: &str,
+    first_width: usize,
+    width: usize,
+    indent: usize,
+    per_line: bool,
+) {
+    let mut first = true;
+    let mut emit = |line: &str| {
+        if first {
+            first = false;
+            put(out, lead);
+            out.put_str(line);
+            out.put_char('\n');
+        } else if line.is_empty() {
+            out.put_char('\n');
+        } else {
+            line_at(out, indent, line);
+        }
+    };
+    if per_line {
+        for (index, line) in text.split('\n').enumerate() {
+            wrap_lines(
+                line,
+                if index == 0 { first_width } else { width },
+                &mut emit,
+            );
+        }
+    } else {
+        wrap_lines(text, width, &mut emit);
     }
-    lines
 }
 
 /// Wrap an overflowing entry's description across the width below its usage.
@@ -2881,14 +2997,13 @@ fn write_wrapped_block(out: &mut String, help: &str, width: usize) {
 
 fn write_wrapped_indented(out: &mut String, help: &str, width: usize, indent: usize) {
     let room = width.saturating_sub(indent);
-    let pad = " ".repeat(indent);
-    for line in wrap(help, room) {
+    wrap_lines(help, room, &mut |line| {
         if line.is_empty() {
-            out.push('\n');
+            out.put_char('\n');
         } else {
-            let _ = writeln!(out, "{pad}{line}");
+            line_at(out, indent, line);
         }
-    }
+    });
 }
 
 /// Whether [`wrap`] would return this text unchanged as a single line.
@@ -2927,15 +3042,18 @@ fn fits(text: &str, room: usize) -> bool {
 /// The width of the line under construction is carried along rather than recounted for each
 /// word. Recounting made this quadratic in the length of a line, which went unnoticed while
 /// only the long page wrapped and was 3% of `usage --help` once the command list did too.
-fn wrap(text: &str, width: usize) -> Vec<String> {
-    let mut lines = Vec::new();
+fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
+    let mut emitted = false;
+    let mut line = String::new();
     for paragraph in text.split('\n') {
         if paragraph.is_empty() {
-            lines.push(String::new());
+            emit("");
+            emitted = true;
             continue;
         }
         if paragraph.starts_with("    ") || paragraph.starts_with('\t') {
-            lines.push(paragraph.to_string());
+            emit(paragraph);
+            emitted = true;
             continue;
         }
         let trimmed = paragraph.trim();
@@ -2947,32 +3065,45 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
             ),
             None => ("", trimmed),
         };
-        let body_width = width.saturating_sub(prefix.chars().count());
-        let mut line_prefix = prefix.to_string();
-        let mut line = String::new();
+        let prefix_width = char_count(prefix);
+        let body_width = width.saturating_sub(prefix_width);
+        // The line under construction, prefix included; `words` says whether it holds any yet.
+        line.clear();
+        line.put_str(prefix);
+        let mut words = false;
         let mut line_width = 0;
         for word in body.split_whitespace() {
-            let word_width = word.chars().count();
-            if !line.is_empty() && line_width + 1 + word_width > body_width {
-                lines.push(format!("{line_prefix}{line}"));
+            let word_width = char_count(word);
+            if words && line_width + 1 + word_width > body_width {
+                emit(&line);
+                emitted = true;
                 line.clear();
-                line_prefix = " ".repeat(prefix.chars().count());
+                put_pad(&mut line, prefix_width);
+                words = false;
                 line_width = 0;
             }
-            if !line.is_empty() {
-                line.push(' ');
+            if words {
+                line.put_char(' ');
                 line_width += 1;
             }
-            line.push_str(word);
+            line.put_str(word);
+            words = true;
             line_width += word_width;
         }
-        if !line.is_empty() {
-            lines.push(format!("{line_prefix}{line}"));
+        if words {
+            emit(&line);
+            emitted = true;
         }
     }
-    if lines.is_empty() {
-        lines.push(String::new());
+    if !emitted {
+        emit("");
     }
+}
+
+#[cfg(test)]
+fn wrap(text: &str, width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    wrap_lines(text, width, &mut |line| lines.push(line.to_string()));
     lines
 }
 
@@ -3015,30 +3146,23 @@ fn long_annotations(out: &mut String, row: &Row<'_>, layout: AnnotationLayout) {
     {
         return;
     }
+    let mut note = |prefix: &str, body: &str, suffix: &str| {
+        write_wrapped_indented(out, &cat(&[prefix, body, suffix]), width, indent);
+    };
     if !choices.is_empty() {
-        write_wrapped_indented(
-            out,
-            &format!("[possible values: {}]", choices.join(", ")),
-            width,
-            indent,
-        );
+        note("[possible values: ", &choices.join(", "), "]");
     }
     if let Some(env) = env {
-        write_wrapped_indented(out, &format!("[env: {env}]"), width, indent);
+        note("[env: ", env, "]");
     }
     for env in env_fallback {
-        write_wrapped_indented(out, &format!("[env fallback: {env}]"), width, indent);
+        note("[env fallback: ", env, "]");
     }
     for env in deprecated_env {
-        write_wrapped_indented(out, &format!("[deprecated env: {env}]"), width, indent);
+        note("[deprecated env: ", env, "]");
     }
     if !default.is_empty() {
-        write_wrapped_indented(
-            out,
-            &format!("(default: {})", default.join(", ")),
-            width,
-            indent,
-        );
+        note("(default: ", &default.join(", "), ")");
     }
 }
 
@@ -3059,20 +3183,12 @@ fn admonitions(out: &mut String, blocks: &[AdmonitionMeta<'_>], width: usize) {
 }
 
 fn write_labelled(out: &mut String, label: &str, text: &str, width: usize, indent: usize) {
-    let prefix = format!("{label}: ");
-    let continuation = indent + prefix.chars().count();
-    let lines = wrap(text, width.saturating_sub(continuation));
-    let pad = " ".repeat(indent);
-    let continuation_pad = " ".repeat(continuation);
-    for (index, line) in lines.iter().enumerate() {
-        if index == 0 {
-            let _ = writeln!(out, "{pad}{prefix}{line}");
-        } else if line.is_empty() {
-            out.push('\n');
-        } else {
-            let _ = writeln!(out, "{continuation_pad}{line}");
-        }
-    }
+    let continuation = indent + char_count(label) + 2;
+    let mut lead = String::new();
+    put_pad(&mut lead, indent);
+    put(&mut lead, &[label, ": "]);
+    let room = width.saturating_sub(continuation);
+    wrap_lead(out, &[&lead], text, room, room, continuation, false);
 }
 
 /// A description reduced to what a list can show, or nothing if it says nothing.
@@ -3088,17 +3204,23 @@ fn deprecation_label(
     if message.is_none() && warn_at.is_none() && remove_at.is_none() {
         return None;
     }
-    let mut parts = Vec::new();
-    if let Some(message) = message {
-        parts.push(message.to_string());
+    let mut out = String::from("[deprecated: ");
+    let mut first = true;
+    for (lead, part) in [
+        ("", message),
+        ("warns at ", warn_at),
+        ("removed at ", remove_at),
+    ] {
+        if let Some(part) = part {
+            if !first {
+                out.put_str("; ");
+            }
+            first = false;
+            put(&mut out, &[lead, part]);
+        }
     }
-    if let Some(at) = warn_at {
-        parts.push(format!("warns at {at}"));
-    }
-    if let Some(at) = remove_at {
-        parts.push(format!("removed at {at}"));
-    }
-    Some(format!("[deprecated: {}]", parts.join("; ")))
+    out.put_char(']');
+    Some(out)
 }
 
 fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, width: usize) {
@@ -3115,11 +3237,15 @@ fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, 
 /// already empty: see [`Row`].
 fn inline_environment_notes(fallbacks: &[&str], deprecated: &[&str]) -> Option<String> {
     let mut notes = Vec::new();
-    notes.extend(fallbacks.iter().map(|env| format!("[env fallback: {env}]")));
+    notes.extend(
+        fallbacks
+            .iter()
+            .map(|env| cat(&["[env fallback: ", env, "]"])),
+    );
     notes.extend(
         deprecated
             .iter()
-            .map(|env| format!("[deprecated env: {env}]")),
+            .map(|env| cat(&["[deprecated env: ", env, "]"])),
     );
     (!notes.is_empty()).then(|| notes.join(" "))
 }
@@ -3266,14 +3392,14 @@ mod supplied {
 /// parser would refuse is worse than a page that stays quiet.
 pub(crate) fn supplied_entries(
     cmd: &Command<'_>,
-    taken: &[String],
+    taken: &[Form<'_>],
 ) -> Vec<&'static FlagMeta<'static>> {
     // Against the same set every other decision on this page uses, so a spelling claimed by a
     // hidden declaration or by a negation is claimed here too. Offering a `--help` that
     // something else binds is exactly the lie the model exists to prevent.
-    let pick = |long: &str, short: char, both, l, s| match (
-        taken.contains(&format!("--{long}")),
-        taken.contains(&format!("-{short}")),
+    let pick = |long: &str, short: u8, both, l, s| match (
+        taken.contains(&Form::Long(long)),
+        taken.contains(&Form::Short(short)),
     ) {
         (true, true) => None,
         (true, false) => Some(s),
@@ -3285,7 +3411,7 @@ pub(crate) fn supplied_entries(
     if !cmd.disable_help_flag {
         out.extend(pick(
             "help",
-            'h',
+            b'h',
             &supplied::HELP_BOTH,
             &supplied::HELP_LONG_ONLY,
             &supplied::HELP_SHORT_ONLY,
@@ -3295,7 +3421,7 @@ pub(crate) fn supplied_entries(
     if cmd.version && !cmd.disable_version_flag {
         out.extend(pick(
             "version",
-            'V',
+            b'V',
             &supplied::VERSION_BOTH,
             &supplied::VERSION_LONG_ONLY,
             &supplied::VERSION_SHORT_ONLY,
@@ -3337,19 +3463,12 @@ fn own_and_global<'a>(
     // scope before it asks `find_negation`, so *any* long beats *any* negation — a nearer
     // command's `--cache` negation does not take the spelling from a farther command's `--cache`
     // long, and reading them as one set said it did.
-    fn forms<'f>(f: &'f FlagMeta<'_>) -> impl Iterator<Item = String> + 'f {
-        f.flag
-            .longs
-            .iter()
-            .map(|l| format!("--{l}"))
-            .chain(f.flag.shorts.iter().map(|s| format!("-{}", *s as char)))
-    }
-    fn negation(f: &FlagMeta<'_>) -> Option<String> {
-        f.flag.negate.map(|n| format!("--{n}"))
+    fn negation<'f>(f: &'f FlagMeta<'f>) -> Option<Form<'f>> {
+        f.flag.negate.map(Form::Long)
     }
 
-    let mut taken: Vec<String> = here.flags.iter().flat_map(forms).collect();
-    let mut taken_negations: Vec<String> = here.flags.iter().filter_map(negation).collect();
+    let mut taken: Vec<Form<'_>> = here.flags.iter().flat_map(Form::of).collect();
+    let mut taken_negations: Vec<Form<'_>> = here.flags.iter().filter_map(negation).collect();
     // A root page has nothing to inherit. Do not allocate another copy of every
     // spelling just to resolve shadowing against an empty ancestor list.
     let mut inherited = if ancestors.is_empty() {
@@ -3357,24 +3476,23 @@ fn own_and_global<'a>(
     } else {
         // Every long and short anything in scope answers to, near or far: one of these always
         // beats a negation, so a negation survives only where none of them is the same word.
-        let every_form: Vec<String> = here
-            .flags
-            .iter()
-            .chain(ancestors.iter().flat_map(|m| m.flags.iter()).filter(|f| {
-                f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
-            }))
-            .flat_map(forms)
-            .collect();
+        let visits = |f: &FlagMeta<'_>| {
+            f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
+        };
+        let mut every_form: Vec<Form<'_>> = taken.clone();
+        for meta in ancestors {
+            for f in meta.flags.iter().filter(|f| visits(f)) {
+                every_form.extend(Form::of(f));
+            }
+        }
 
         let mut keep: Vec<(*const FlagMeta<'_>, Shown<'_>)> = Vec::new();
         for meta in ancestors.iter().rev() {
-            for f in meta.flags.iter().filter(|f| {
-                f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
-            }) {
+            for f in meta.flags.iter().filter(|f| visits(f)) {
                 let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
                 // Reserved whether or not it is shown: a hidden one still binds, and so does one
                 // whose every spelling something nearer already took.
-                taken.extend(forms(f));
+                taken.extend(Form::of(f));
                 taken_negations.extend(negation(f));
                 if f.hide || show.nothing() {
                     continue;
@@ -3382,19 +3500,14 @@ fn own_and_global<'a>(
                 keep.push((f as *const _, show));
             }
         }
-        let mut inherited: Vec<(&FlagMeta<'_>, String)> = ancestors
-            .iter()
-            .flat_map(|meta| meta.flags.iter())
-            .filter_map(|f| {
-                keep.iter()
-                    .find(|(p, _)| core::ptr::eq(*p, f as *const _))
-                    .map(|(_, show)| (f, column_usage_masked(f, show)))
-            })
-            .collect();
-        let inherited_positions: Vec<*const FlagMeta<'_>> = inherited
-            .iter()
-            .map(|(flag, _)| *flag as *const _)
-            .collect();
+        let mut inherited: Vec<(&FlagMeta<'_>, String)> = Vec::new();
+        let mut inherited_positions: Vec<*const FlagMeta<'_>> = Vec::new();
+        for f in ancestors.iter().flat_map(|meta| meta.flags.iter()) {
+            if let Some((_, show)) = keep.iter().find(|(p, _)| core::ptr::eq(*p, f as *const _)) {
+                inherited.push((f, column_usage_masked(f, show)));
+                inherited_positions.push(f as *const _);
+            }
+        }
         let key = |flag: &FlagMeta<'_>| {
             let position = inherited_positions
                 .iter()
@@ -3423,11 +3536,7 @@ fn own_and_global<'a>(
     order_flags(&mut own, here.flags);
     // Forms *and* negations: `long_flag` asks `find_negation` before it offers `--version`,
     // so a declared negation beats a supplied flag even though it loses to a long.
-    let claimed: Vec<String> = taken
-        .iter()
-        .cloned()
-        .chain(taken_negations.iter().cloned())
-        .collect();
+    let claimed: Vec<Form<'_>> = taken.iter().chain(&taken_negations).copied().collect();
     if inherit_version_actions && let Some(root) = ancestors.first() {
         inherited.extend(
             supplied_entries(root.cmd, &claimed)
@@ -3462,7 +3571,7 @@ fn topic_id(title: &str) -> String {
     for ch in title.chars() {
         if ch.is_alphanumeric() {
             if separator && !out.is_empty() {
-                out.push('-');
+                out.put_char('-');
             }
             out.extend(ch.to_lowercase());
             separator = false;
@@ -3513,9 +3622,9 @@ fn topic_blocks<'m>(
                         }
                     }
                     if !existing.is_empty() {
-                        existing.push_str("\n\n");
+                        existing.put_str("\n\n");
                     }
-                    existing.push_str(body);
+                    existing.put_str(body);
                 } else {
                     topics.push((title.to_string(), text));
                 }
@@ -3531,9 +3640,9 @@ fn topic_blocks<'m>(
             }
             if title.is_some() {
                 if !block.is_empty() {
-                    block.push('\n');
+                    block.put_char('\n');
                 }
-                block.push_str(line);
+                block.put_str(line);
             }
         }
         finish(title, &mut block, &mut topics);
@@ -3587,7 +3696,7 @@ pub fn render_topic(spec: &Spec<'_>, cmd: &Command<'_>, topic: &str, long: bool)
         .into_iter()
         .find(|(known, _)| known.id == topic || known.title.eq_ignore_ascii_case(topic))
         .map(|(_, mut block)| {
-            block.push('\n');
+            block.put_char('\n');
             block
         })
 }
@@ -4047,9 +4156,9 @@ fn recursive_help<'a>(
         inherit_version_actions: bool,
     ) {
         if !out.is_empty() {
-            out.push('\n');
+            out.put_char('\n');
         }
-        out.push_str(&assembled_help(
+        out.put_str(&assembled_help(
             spec,
             path,
             chain,
