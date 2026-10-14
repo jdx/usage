@@ -978,6 +978,20 @@ fn put(out: &mut String, parts: &[&str]) {
     }
 }
 
+/// `parts` with `separator` between them: `[&str]::join` without a copy of its machinery at
+/// every call.
+#[inline(never)]
+fn joined(parts: &[&str], separator: &str) -> String {
+    let mut out = String::new();
+    for (index, part) in parts.iter().enumerate() {
+        if index > 0 {
+            out.put_str(separator);
+        }
+        out.put_str(part);
+    }
+    out
+}
+
 /// `parts`, joined into a new string: `format!` without the formatting machinery.
 #[inline(never)]
 fn cat(parts: &[&str]) -> String {
@@ -2418,7 +2432,7 @@ fn flat_commands(
     for sub in visible {
         let mut sub_path = path.to_vec();
         sub_path.push(sub.cmd.name);
-        write_heading(out, &sub_path.join(" "), style);
+        write_heading(out, &joined(&sub_path, " "), style);
         let about = if long {
             sub.long_about.or(sub.about)
         } else {
@@ -2702,7 +2716,7 @@ fn inline_annotations(
         out.put_str(part);
     };
     if !choices.is_empty() {
-        push(&cat(&["[", &choices.join(", "), "]"]));
+        push(&cat(&["[", &joined(choices, ", "), "]"]));
     }
     if let Some(env) = env {
         push(&cat(&["[env: ", env, "]"]));
@@ -2711,7 +2725,7 @@ fn inline_annotations(
         push(environment);
     }
     if !default.is_empty() {
-        push(&cat(&["(default: ", &default.join(", "), ")"]));
+        push(&cat(&["(default: ", &joined(default, ", "), ")"]));
     }
     if let Some(suffix) = suffix {
         push(suffix);
@@ -3275,7 +3289,7 @@ fn long_annotations(out: &mut String, row: &Row<'_>, layout: AnnotationLayout) {
         write_wrapped_indented(out, &cat(&[prefix, body, suffix]), width, indent);
     };
     if !choices.is_empty() {
-        note("[possible values: ", &choices.join(", "), "]");
+        note("[possible values: ", &joined(choices, ", "), "]");
     }
     if let Some(env) = env {
         note("[env: ", env, "]");
@@ -3287,7 +3301,7 @@ fn long_annotations(out: &mut String, row: &Row<'_>, layout: AnnotationLayout) {
         note("[deprecated env: ", env, "]");
     }
     if !default.is_empty() {
-        note("(default: ", &default.join(", "), ")");
+        note("(default: ", &joined(default, ", "), ")");
     }
 }
 
@@ -3361,18 +3375,19 @@ fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, 
 /// A row's other environment names, for the short page. A hidden environment arrives here
 /// already empty: see [`Row`].
 fn inline_environment_notes(fallbacks: &[&str], deprecated: &[&str]) -> Option<String> {
-    let mut notes = Vec::new();
-    notes.extend(
-        fallbacks
-            .iter()
-            .map(|env| cat(&["[env fallback: ", env, "]"])),
-    );
-    notes.extend(
-        deprecated
-            .iter()
-            .map(|env| cat(&["[deprecated env: ", env, "]"])),
-    );
-    (!notes.is_empty()).then(|| notes.join(" "))
+    let mut out = String::new();
+    for (label, names) in [
+        ("[env fallback: ", fallbacks),
+        ("[deprecated env: ", deprecated),
+    ] {
+        for name in names {
+            if !out.is_empty() {
+                out.put_char(' ');
+            }
+            put(&mut out, &[label, name, "]"]);
+        }
+    }
+    (!out.is_empty()).then_some(out)
 }
 
 /// The path and metadata for a command, found by identity within a spec.
