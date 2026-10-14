@@ -1052,6 +1052,12 @@ fn error_with(out: &mut String, style: Style, template: &str, args: &[(Ink, &str
     push_all(out, &["\n"]);
 }
 
+/// A count as text, from one copy of the conversion rather than one expanded at each use.
+#[inline(never)]
+fn number(n: usize) -> String {
+    n.to_string()
+}
+
 /// Where an argument goes in a [`Style::put_template`] template.
 const HOLE: u8 = 1;
 
@@ -1308,9 +1314,9 @@ fn describe(
                 style,
                 bound,
                 &[
-                    (Plain, &count.to_string()),
+                    (Plain, &number(*count)),
                     (Literal, &named),
-                    (Plain, &got.to_string()),
+                    (Plain, &number(*got)),
                 ],
             );
         }
