@@ -3042,15 +3042,9 @@ fn write_body<'a>(
     write_flag_layout(out, meta, depth, &w.sets)?;
     let mut claimed = Vec::new();
     for flag in inherited_globals.iter().copied().chain(meta.flags) {
-        claimed.extend(flag.flag.longs.iter().map(|long| format!("--{long}")));
-        claimed.extend(
-            flag.flag
-                .shorts
-                .iter()
-                .map(|short| format!("-{}", *short as char)),
-        );
+        claimed.extend(crate::help::Form::of(flag));
         if let Some(negate) = flag.flag.negate {
-            claimed.push(format!("--{negate}"));
+            claimed.push(crate::help::Form::Long(negate));
         }
     }
     for supplied in crate::help::supplied_entries(meta.cmd, &claimed) {

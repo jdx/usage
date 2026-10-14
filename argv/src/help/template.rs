@@ -54,44 +54,20 @@ impl AnsiStyle {
             return None;
         }
         for fragment in specification.split('+') {
-            match fragment {
-                "heading" => {
-                    self.foreground = Some(33);
+            // Positions in `STYLES`: the four roles, then the eight colours and their bright
+            // twins in ANSI order, then the four attributes.
+            let index = STYLES.iter().position(|name| *name == fragment)?;
+            match index {
+                0..=3 => {
+                    self.foreground = Some([33, 32, 35, 32][index]);
                     self.bold = true;
                 }
-                "option" => {
-                    self.foreground = Some(32);
-                    self.bold = true;
-                }
-                "metavar" => {
-                    self.foreground = Some(35);
-                    self.bold = true;
-                }
-                "command" => {
-                    self.foreground = Some(32);
-                    self.bold = true;
-                }
-                "black" => self.foreground = Some(30),
-                "red" => self.foreground = Some(31),
-                "green" => self.foreground = Some(32),
-                "yellow" => self.foreground = Some(33),
-                "blue" => self.foreground = Some(34),
-                "magenta" => self.foreground = Some(35),
-                "cyan" => self.foreground = Some(36),
-                "white" => self.foreground = Some(37),
-                "bright-black" => self.foreground = Some(90),
-                "bright-red" => self.foreground = Some(91),
-                "bright-green" => self.foreground = Some(92),
-                "bright-yellow" => self.foreground = Some(93),
-                "bright-blue" => self.foreground = Some(94),
-                "bright-magenta" => self.foreground = Some(95),
-                "bright-cyan" => self.foreground = Some(96),
-                "bright-white" => self.foreground = Some(97),
-                "bold" => self.bold = true,
-                "dim" => self.dim = true,
-                "italic" => self.italic = true,
-                "underline" => self.underline = true,
-                _ => return None,
+                4..=11 => self.foreground = Some(26 + index as u8),
+                12..=19 => self.foreground = Some(78 + index as u8),
+                20 => self.bold = true,
+                21 => self.dim = true,
+                22 => self.italic = true,
+                _ => self.underline = true,
             }
         }
         Some(self)
@@ -101,20 +77,20 @@ impl AnsiStyle {
         let mut separator = "";
         out.push_str("\u{1b}[");
         for (enabled, code) in [
-            (self.bold, 1),
+            (self.bold, 1u8),
             (self.dim, 2),
             (self.italic, 3),
             (self.underline, 4),
         ] {
             if enabled {
                 out.push_str(separator);
-                out.push_str(&code.to_string());
+                push_code(out, code);
                 separator = ";";
             }
         }
         if let Some(foreground) = self.foreground {
             out.push_str(separator);
-            out.push_str(&foreground.to_string());
+            push_code(out, foreground);
             separator = ";";
         }
         if separator.is_empty() {
@@ -122,6 +98,14 @@ impl AnsiStyle {
         }
         out.push('m');
     }
+}
+
+/// A code in decimal, without `core::fmt`.
+fn push_code(out: &mut String, code: u8) {
+    if code >= 10 {
+        push_code(out, code / 10);
+    }
+    out.push(char::from(b'0' + code % 10));
 }
 
 fn mapped_fragment(fragment: &str, palette: Palette) -> &str {
@@ -207,6 +191,7 @@ pub(super) fn check(template: &str) -> Result<(), &'static str> {
 }
 
 /// Substitute sections and render template-authored colour markup.
+#[inline(never)]
 pub(super) fn substitute(
     template: &str,
     style: Style,

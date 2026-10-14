@@ -246,6 +246,7 @@ impl Sections {
 /// usage-lib trims the whole document and puts back one newline, which is what keeps the blank
 /// lines between sections from becoming trailing ones. That applies to a template's output too:
 /// a page ends in exactly one newline however it was assembled.
+#[inline(never)]
 fn assemble(
     spec: &Spec<'_>,
     path: &[&str],
@@ -300,6 +301,7 @@ fn logo_margin(spec: &Spec<'_>, root: bool, width: usize) -> Option<(usize, usiz
 }
 
 /// The width a page's own text is laid out in: the terminal, less any logo margin.
+#[inline(never)]
 fn page_width(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> usize {
     let width = terminal_width(meta);
     match logo_margin(spec, path.len() <= 1, width) {
@@ -312,6 +314,7 @@ fn page_width(spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) -> usize {
 ///
 /// The program's own page only: a logo is what a program is, and reprinting it on forty
 /// subcommand pages would make it furniture.
+#[inline(never)]
 fn with_logo(
     spec: &Spec<'_>,
     path: &[&str],
@@ -349,6 +352,7 @@ fn with_logo(
 ///
 /// The twins of this are usage-lib's `docs::logo` and Go's `placeLogo`; `conformance/tests/
 /// render.rs` is what says the three still agree.
+#[inline(never)]
 pub fn place_logo(
     page: &str,
     logo: &str,
@@ -427,6 +431,7 @@ fn painted_logo(line: &str, style: Option<&str>, coloured: bool) -> String {
 ///
 /// An author writes a logo as an indented block in KDL or a raw string in Rust, and both
 /// commonly arrive with a leading newline and a trailing one. Neither is part of the picture.
+#[inline(never)]
 fn logo_lines(logo: &str) -> Vec<&str> {
     let mut lines: Vec<&str> = logo.lines().map(str::trim_end).collect();
     while lines.first().is_some_and(|line| line.is_empty()) {
@@ -465,6 +470,7 @@ fn shown_width(line: &str) -> usize {
     columns
 }
 
+#[inline(never)]
 fn finish_page(page: String, style: Style) -> String {
     let page = if style.coloured {
         page
@@ -483,6 +489,7 @@ fn finish_page(page: String, style: Style) -> String {
 /// Applications migrating from clap commonly carry `color_print::cstr!` output in fields such
 /// as `after_long_help`. Those bytes were present before this renderer selected a style, so a
 /// plain page has to remove them as well as declining to add its own styling.
+#[inline(never)]
 fn strip_ansi_sequences(text: String) -> String {
     let bytes = text.as_bytes();
     let Some(mut at) = bytes.windows(2).position(|pair| pair == b"\x1b[") else {
@@ -944,6 +951,7 @@ fn short_form(short: u8) -> String {
 
 /// A heading, as every section writes one: after a blank line, and coloured on a coloured
 /// page.
+#[inline(never)]
 fn write_heading(out: &mut String, title: &str, style: Style) {
     out.push('\n');
     if style.coloured {
@@ -969,6 +977,7 @@ fn painted_usage(usage: &str, style: Style) -> Cow<'_, str> {
 }
 
 /// The synopsis, coloured in place: `Usage:` as a heading, and every line's spellings.
+#[inline(never)]
 fn paint_synopsis(usage: &mut String, style: Style) {
     if !style.coloured {
         return;
@@ -996,6 +1005,7 @@ fn paint_synopsis(usage: &mut String, style: Style) {
 /// The structure itself — headings, the synopsis, the usage and command name at the start of
 /// each row — is coloured where it is written, so nothing here has to recognise it. Text an
 /// author wrote is prose however much it looks like a heading or a row.
+#[inline(never)]
 fn painted_prose(page: String, style: Style) -> String {
     if !style.coloured {
         return page;
@@ -1021,6 +1031,7 @@ fn painted_prose(page: String, style: Style) -> String {
     out
 }
 
+#[inline(never)]
 fn rendered_page(
     spec: &Spec<'_>,
     path: &[&str],
@@ -1228,6 +1239,7 @@ fn usage_line_with_subcommands(
 ///
 /// An explicit synopsis belongs to the program rather than every command below it. Subcommand
 /// pages still derive their own invocation from the route and command metadata.
+#[inline(never)]
 fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) {
     if path.len() <= 1
         && let Some(usage) = spec.usage.filter(|usage| !usage.trim().is_empty())
@@ -1272,6 +1284,24 @@ fn flag_usage(meta: &FlagMeta<'_>) -> String {
 /// Not "hide the long" and "hide the short": a flag may answer to several of each, and a
 /// descendant claiming `--jobs` leaves an inherited `--workers` working. What is shown is the
 /// first of each kind that nothing nearer has taken.
+/// One spelling a flag answers to, compared without being written out: `--name` or `-n`.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Form<'a> {
+    Long(&'a str),
+    Short(u8),
+}
+
+impl<'a> Form<'a> {
+    /// Every long and short `f` answers to.
+    pub(crate) fn of(f: &'a FlagMeta<'a>) -> impl Iterator<Item = Form<'a>> {
+        f.flag
+            .longs
+            .iter()
+            .map(|l| Form::Long(l))
+            .chain(f.flag.shorts.iter().map(|s| Form::Short(*s)))
+    }
+}
+
 struct Shown<'a> {
     long: Option<&'a str>,
     short: Option<u8>,
@@ -1307,30 +1337,22 @@ impl<'a> Shown<'a> {
     /// a word against all of those before it looks at a negation at all.
     fn surviving(
         meta: &'a FlagMeta<'a>,
-        taken: &[String],
-        taken_negations: &[String],
-        every_form: &[String],
+        taken: &[Form<'_>],
+        taken_negations: &[Form<'_>],
+        every_form: &[Form<'_>],
     ) -> Self {
-        let mine: Vec<String> = meta
-            .flag
-            .longs
-            .iter()
-            .map(|l| long_form(l))
-            .chain(meta.flag.shorts.iter().map(|s| short_form(*s)))
-            .collect();
         Shown {
             long: meta.flag.longs.iter().copied().find(|l| {
-                !meta.extra.hidden_longs.contains(l) && !taken.contains(&long_form(l))
+                !meta.extra.hidden_longs.contains(l) && !taken.contains(&Form::Long(l))
             }),
             short: meta.flag.shorts.iter().copied().find(|s| {
-                !meta.extra.hidden_shorts.contains(s)
-                    && !taken.contains(&short_form(*s))
+                !meta.extra.hidden_shorts.contains(s) && !taken.contains(&Form::Short(*s))
             }),
             negate: meta.flag.negate.is_some_and(|n| {
-                let spelling = long_form(n);
+                let spelling = Form::Long(n);
                 // A long anywhere in scope wins over this, this flag's own excepted.
                 !taken_negations.contains(&spelling)
-                    && (!every_form.contains(&spelling) || mine.contains(&spelling))
+                    && (!every_form.contains(&spelling) || meta.flag.longs.contains(&n))
             }),
         }
     }
@@ -1593,6 +1615,7 @@ fn hidden_on(long: bool, hide_short_help: bool, hide_long_help: bool) -> bool {
 /// Both pages, in one body: `-h` and `--help` lay out the same sections in the same order,
 /// and differ only in which text they choose and how much of it they show. One function
 /// rather than two near copies, so a binary carries the section logic once.
+#[inline(never)]
 fn page_sections(
     spec: &Spec<'_>,
     path: &[&str],
@@ -2035,6 +2058,7 @@ fn root_default_command_name<'a>(
 }
 
 /// Parent page, then the default command's own page when that opt-in is set.
+#[inline(never)]
 fn with_default_command_help(
     spec: &Spec<'_>,
     path: &[&str],
@@ -2087,6 +2111,7 @@ fn with_default_command_help(
 /// command takes belongs to that command's own page. Both pages read the same summary: a
 /// parent's list says what each child is *for*, and what a child does at length belongs on the
 /// child's own page rather than repeated in every ancestor's.
+#[inline(never)]
 fn commands_section(
     out: &mut String,
     path: &[&str],
@@ -2245,6 +2270,7 @@ fn command_row<'a>(sub: &'a CommandMeta<'a>, is_default: bool) -> Option<Cow<'a,
 /// Each one's rows are written by [`write_row`] like the page's own, except that the long
 /// page's notes sit at the block indent rather than under a column: every subcommand has its
 /// own columns, and notes aligned to one of them would wander from body to body.
+#[inline(never)]
 fn flat_commands(
     out: &mut String,
     path: &[&str],
@@ -2384,6 +2410,7 @@ struct SectionSink<'s> {
 
 /// One section per heading, unheaded first, while also keeping the named and default groups
 /// available to a template.
+#[inline(never)]
 fn split_groups_section<'m, T>(
     sink: SectionSink<'_>,
     default_title: &str,
@@ -2475,6 +2502,7 @@ fn declaration_position<T>(item: &T, declared: &[T]) -> usize {
         .map_or(usize::MAX, |_| index)
 }
 
+#[inline(never)]
 fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
     fn compare(a: &ArgMeta<'_>, b: &ArgMeta<'_>, declared: &[ArgMeta<'_>]) -> core::cmp::Ordering {
         let key = |item: &ArgMeta<'_>| {
@@ -2489,6 +2517,7 @@ fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>])
     sort_rows(items, &mut |a, b| compare(a, b, declared));
 }
 
+#[inline(never)]
 fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a>]) {
     fn compare(
         a: &FlagMeta<'_>,
@@ -2509,6 +2538,7 @@ fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a
     sort_rows(items, &mut |a, b| compare(a, b, declared));
 }
 
+#[inline(never)]
 fn order_commands(items: &mut Vec<&&CommandMeta<'_>>) {
     fn compare(a: &CommandMeta<'_>, b: &CommandMeta<'_>) -> core::cmp::Ordering {
         a.extra
@@ -2676,6 +2706,7 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
 /// that many on its front page — reads as a wall of commands without the separation, and
 /// there is no way to tell where the interesting one is. The same rule applies to both
 /// pages, so `-h` and `--help` do not disagree about how a list is spaced.
+#[inline(never)]
 fn examples_section(out: &mut String, examples: &[Example<'_>], long: bool, style: Style) {
     if examples.is_empty() {
         return;
@@ -3160,6 +3191,7 @@ fn deprecation_label(
     Some(cat(&["[deprecated: ", &parts.join("; "), "]"]))
 }
 
+#[inline(never)]
 fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, width: usize) {
     if let Some(label) = deprecation_label(
         meta.extra.deprecated,
@@ -3325,14 +3357,14 @@ mod supplied {
 /// parser would refuse is worse than a page that stays quiet.
 pub(crate) fn supplied_entries(
     cmd: &Command<'_>,
-    taken: &[String],
+    taken: &[Form<'_>],
 ) -> Vec<&'static FlagMeta<'static>> {
     // Against the same set every other decision on this page uses, so a spelling claimed by a
     // hidden declaration or by a negation is claimed here too. Offering a `--help` that
     // something else binds is exactly the lie the model exists to prevent.
-    let pick = |long: &str, short: char, both, l, s| match (
-        taken.contains(&long_form(long)),
-        taken.contains(&short_form(short as u8)),
+    let pick = |long: &str, short: u8, both, l, s| match (
+        taken.contains(&Form::Long(long)),
+        taken.contains(&Form::Short(short)),
     ) {
         (true, true) => None,
         (true, false) => Some(s),
@@ -3344,7 +3376,7 @@ pub(crate) fn supplied_entries(
     if !cmd.disable_help_flag {
         out.extend(pick(
             "help",
-            'h',
+            b'h',
             &supplied::HELP_BOTH,
             &supplied::HELP_LONG_ONLY,
             &supplied::HELP_SHORT_ONLY,
@@ -3354,7 +3386,7 @@ pub(crate) fn supplied_entries(
     if cmd.version && !cmd.disable_version_flag {
         out.extend(pick(
             "version",
-            'V',
+            b'V',
             &supplied::VERSION_BOTH,
             &supplied::VERSION_LONG_ONLY,
             &supplied::VERSION_SHORT_ONLY,
@@ -3371,6 +3403,7 @@ pub(crate) fn supplied_entries(
 /// Inherited flags were listed nowhere. `communique generate` accepts `--config`, `--verbose`
 /// and `--quiet` from its root, and its page mentioned none of them — a flag a user can type
 /// and cannot discover, which is the worst way for help to be wrong.
+#[inline(never)]
 fn own_and_global<'a>(
     chain: &[&'a CommandMeta<'a>],
     inherit_version_actions: bool,
@@ -3396,19 +3429,12 @@ fn own_and_global<'a>(
     // scope before it asks `find_negation`, so *any* long beats *any* negation — a nearer
     // command's `--cache` negation does not take the spelling from a farther command's `--cache`
     // long, and reading them as one set said it did.
-    fn forms<'f>(f: &'f FlagMeta<'_>) -> impl Iterator<Item = String> + 'f {
-        f.flag
-            .longs
-            .iter()
-            .map(|l| long_form(l))
-            .chain(f.flag.shorts.iter().map(|s| short_form(*s)))
-    }
-    fn negation(f: &FlagMeta<'_>) -> Option<String> {
-        f.flag.negate.map(long_form)
+    fn negation<'f>(f: &'f FlagMeta<'f>) -> Option<Form<'f>> {
+        f.flag.negate.map(Form::Long)
     }
 
-    let mut taken: Vec<String> = here.flags.iter().flat_map(forms).collect();
-    let mut taken_negations: Vec<String> = here.flags.iter().filter_map(negation).collect();
+    let mut taken: Vec<Form<'_>> = here.flags.iter().flat_map(Form::of).collect();
+    let mut taken_negations: Vec<Form<'_>> = here.flags.iter().filter_map(negation).collect();
     // A root page has nothing to inherit. Do not allocate another copy of every
     // spelling just to resolve shadowing against an empty ancestor list.
     let mut inherited = if ancestors.is_empty() {
@@ -3416,13 +3442,13 @@ fn own_and_global<'a>(
     } else {
         // Every long and short anything in scope answers to, near or far: one of these always
         // beats a negation, so a negation survives only where none of them is the same word.
-        let every_form: Vec<String> = here
+        let every_form: Vec<Form<'_>> = here
             .flags
             .iter()
             .chain(ancestors.iter().flat_map(|m| m.flags.iter()).filter(|f| {
                 f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
             }))
-            .flat_map(forms)
+            .flat_map(Form::of)
             .collect();
 
         let mut keep: Vec<(*const FlagMeta<'_>, Shown<'_>)> = Vec::new();
@@ -3433,7 +3459,7 @@ fn own_and_global<'a>(
                 let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
                 // Reserved whether or not it is shown: a hidden one still binds, and so does one
                 // whose every spelling something nearer already took.
-                taken.extend(forms(f));
+                taken.extend(Form::of(f));
                 taken_negations.extend(negation(f));
                 if f.hide || show.nothing() {
                     continue;
@@ -3482,11 +3508,7 @@ fn own_and_global<'a>(
     order_flags(&mut own, here.flags);
     // Forms *and* negations: `long_flag` asks `find_negation` before it offers `--version`,
     // so a declared negation beats a supplied flag even though it loses to a long.
-    let claimed: Vec<String> = taken
-        .iter()
-        .cloned()
-        .chain(taken_negations.iter().cloned())
-        .collect();
+    let claimed: Vec<Form<'_>> = taken.iter().chain(&taken_negations).copied().collect();
     if inherit_version_actions && let Some(root) = ancestors.first() {
         inherited.extend(
             supplied_entries(root.cmd, &claimed)
