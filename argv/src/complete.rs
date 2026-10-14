@@ -1049,7 +1049,7 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
         && request
             .bash_wordbreaks
             .as_deref()
-            .is_some_and(|wordbreaks| wordbreaks.contains(':'))
+            .is_some_and(|wordbreaks| wordbreaks.as_bytes().contains(&b':'))
         && let Some(word) = request.bash_word.as_deref()
     {
         // COMP_WORDS holds the entire Readline fragment even when the cursor is in its
@@ -1203,11 +1203,15 @@ fn one_line(text: &str) -> String {
 /// The same rule the reference uses: left alone when every character is safe, and otherwise
 /// single-quoted with the close-open dance around any apostrophe.
 fn zsh_quote(value: &str) -> String {
-    let safe = |c: char| {
+    // Bytes: every safe character is ASCII, so a byte of anything else is an unsafe one.
+    let safe = |c: &u8| {
         c.is_ascii_alphanumeric()
-            || matches!(c, '_' | '-' | '.' | '/' | ':' | '@' | '+' | '=' | '%' | ',')
+            || matches!(
+                c,
+                b'_' | b'-' | b'.' | b'/' | b':' | b'@' | b'+' | b'=' | b'%' | b','
+            )
     };
-    if !value.is_empty() && value.chars().all(safe) {
+    if !value.is_empty() && value.as_bytes().iter().all(safe) {
         return value.to_string();
     }
     let mut quoted = String::new();
