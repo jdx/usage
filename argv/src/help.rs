@@ -147,7 +147,7 @@ pub fn unsupported_section(template: &str) -> Result<Option<&str>, &'static str>
         let Some(end) = find_str(after, "}}") else {
             return Err("a `{{` with no `}}` after it");
         };
-        let name = head(after, end).trim();
+        let name = head(after, end).trimmed();
         if !SECTIONS.contains(&name) {
             return Ok(Some(name));
         }
@@ -206,8 +206,8 @@ impl Sections {
             // list with the subcommands' own bodies, so a template that places `{{commands}}`
             // places whichever one the command has.
             "commands" => {
-                let mut out = self.commands.trim().to_string();
-                let flattened = self.flattened.trim();
+                let mut out = self.commands.trimmed().to_string();
+                let flattened = self.flattened.trimmed();
                 if !flattened.is_empty() {
                     if !out.is_empty() {
                         out.put_str("\n\n");
@@ -225,7 +225,7 @@ impl Sections {
             "after_help" => &self.after_help,
             _ => return None,
         };
-        Some(part.trim().to_string())
+        Some(part.trimmed().to_string())
     }
 
     /// A page laid out by an author's template.
@@ -257,7 +257,7 @@ fn assemble(
 ) -> String {
     let page = match spec
         .help_template
-        .filter(|template| !template.trim().is_empty())
+        .filter(|template| !template.is_blank())
     {
         Some(template) => sections.substituted(template, style),
         None => sections.concatenated(),
@@ -406,7 +406,7 @@ pub fn place_logo(
         }
         None => return page.to_string(),
     };
-    out.truncate(out.trim_end().len());
+    out.truncate(out.trimmed_end().len());
     out.put_char('\n');
     out
 }
@@ -422,7 +422,7 @@ fn painted_logo(line: &str, style: Option<&str>, coloured: bool) -> String {
         return strip_ansi_sequences(line.to_string());
     }
     match style {
-        Some(style) if !line.trim().is_empty() => template::semantic(style, line, Style::COLOURED),
+        Some(style) if !line.is_blank() => template::semantic(style, line, Style::COLOURED),
         _ => line.to_string(),
     }
 }
@@ -475,7 +475,7 @@ fn finish_page(page: String, style: Style) -> String {
     } else {
         strip_ansi_sequences(page)
     };
-    let trimmed = page.trim();
+    let trimmed = page.trimmed();
     let mut done = String::with_capacity(trimmed.len() + 1);
     done.put_str(trimmed);
     done.put_char('\n');
@@ -642,7 +642,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         // Markdown escapes are useful in prose that genuinely means `*`, `_`, `~`, or `` ` ``.
         if let Some(escaped) = rest
             .strip_prefix('\\')
-            .and_then(|after| after.chars().next())
+            .and_then(|after| after.first_char())
             && matches!(escaped, '*' | '_' | '~' | '`' | '\\')
         {
             out.put_char(escaped);
@@ -655,8 +655,8 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             .iter()
             .find_map(|&(delimiter, open, close, word_boundary, recurse)| {
                 rest.strip_prefix(delimiter)?;
-                let marker = delimiter.chars().next().expect("a delimiter has a marker");
-                let previous = head(text, at).chars().next_back();
+                let marker = delimiter.first_char().expect("a delimiter has a marker");
+                let previous = head(text, at).last_char();
                 // Do not reinterpret part of a delimiter run when the longer form was rejected.
                 // In particular, neither underscore in `word__word__` may become an italic opener.
                 if (previous == Some(marker) && !allow_run_remainder)
@@ -690,14 +690,14 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
                 out.put_str(parent);
                 out.put_char('m');
             }
-            let marker = delimiter.chars().next().expect("a delimiter has a marker");
+            let marker = delimiter.first_char().expect("a delimiter has a marker");
             allow_run_remainder =
                 tail(text, after).starts_with(marker) && head(text, after).ends_with(marker);
             at = after;
             continue;
         }
 
-        let ch = rest.chars().next().expect("at is on a character boundary");
+        let ch = rest.first_char().expect("at is on a character boundary");
         out.put_char(ch);
         at += ch.len_utf8();
         allow_run_remainder = false;
@@ -718,7 +718,7 @@ fn closing_delimiter(
     word_boundary: bool,
     reserve: usize,
 ) -> Option<(usize, usize)> {
-    let marker = delimiter.chars().next()?;
+    let marker = delimiter.first_char()?;
     let width = delimiter.len();
     let mut search_at = content_start;
 
@@ -767,7 +767,7 @@ fn closing_delimiter(
                     .next()
                     .is_some_and(char::is_alphanumeric);
             if run_start > content_start
-                && !slice(text, content_start, run_start).trim().is_empty()
+                && !slice(text, content_start, run_start).is_blank()
                 && leaves_parent_close
                 && boundary_ok
             {
@@ -784,16 +784,16 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
     let mut at = 0;
     while at < usage.len() {
         let rest = tail(usage, at);
-        let previous = head(usage, at).chars().next_back();
+        let previous = head(usage, at).last_char();
 
         if rest.starts_with('-')
-            && previous.is_none_or(|c| c.is_whitespace() || matches!(c, ',' | ':' | '[' | '<'))
+            && previous.is_none_or(|c| is_space(c) || matches!(c, ',' | ':' | '[' | '<'))
         {
             let end = rest
                 .char_indices()
                 .skip(1)
                 .find_map(|(i, c)| {
-                    (c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>'))
+                    (is_space(c) || matches!(c, ',' | '=' | '[' | ']' | '<' | '>'))
                         .then_some(i)
                 })
                 .unwrap_or(rest.len());
@@ -834,7 +834,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             at += 1;
             if !value.starts_with('<') {
                 let end = value
-                    .find(|c: char| c.is_whitespace() || matches!(c, ',' | ']' | '>'))
+                    .find(|c: char| is_space(c) || matches!(c, ',' | ']' | '>'))
                     .unwrap_or(value.len());
                 if end > 0 {
                     style.paint(&mut out, "metavar", head(value, end));
@@ -854,16 +854,16 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         }
 
         if rest.starts_with(|c: char| c.is_ascii_uppercase())
-            && previous.is_none_or(|c| c.is_whitespace() || matches!(c, '=' | '[' | '<'))
+            && previous.is_none_or(|c| is_space(c) || matches!(c, '=' | '[' | '<'))
         {
             let end = rest
                 .find(|c: char| {
                     !(c.is_ascii_uppercase() || c.is_ascii_digit() || matches!(c, '_' | '-' | '@'))
                 })
                 .unwrap_or(rest.len());
-            let boundary = tail(rest, end).chars().next();
+            let boundary = tail(rest, end).first_char();
             if boundary.is_none_or(|c| {
-                c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.')
+                is_space(c) || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.')
             }) {
                 style.paint(&mut out, "metavar", head(rest, end));
                 at += end;
@@ -871,7 +871,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             }
         }
 
-        let ch = rest.chars().next().expect("at is on a character boundary");
+        let ch = rest.first_char().expect("at is on a character boundary");
         out.put_char(ch);
         at += ch.len_utf8();
     }
@@ -917,6 +917,56 @@ impl PutStr for String {
     fn put_char(&mut self, c: char) {
         self.push(c);
     }
+}
+
+/// The `str` queries a page makes from a dozen places, each out of line: `trim` and
+/// `chars().next()` expand into their own copy of the UTF-8 and white-space tables at every
+/// call site.
+trait Text {
+    fn trimmed(&self) -> &str;
+    fn trimmed_start(&self) -> &str;
+    fn trimmed_end(&self) -> &str;
+    fn is_blank(&self) -> bool;
+    fn first_char(&self) -> Option<char>;
+    fn last_char(&self) -> Option<char>;
+}
+
+impl Text for str {
+    #[inline(never)]
+    fn trimmed(&self) -> &str {
+        self.trim()
+    }
+
+    #[inline(never)]
+    fn trimmed_start(&self) -> &str {
+        self.trim_start()
+    }
+
+    #[inline(never)]
+    fn trimmed_end(&self) -> &str {
+        self.trim_end()
+    }
+
+    #[inline(never)]
+    fn is_blank(&self) -> bool {
+        self.trim().is_empty()
+    }
+
+    #[inline(never)]
+    fn first_char(&self) -> Option<char> {
+        self.chars().next()
+    }
+
+    #[inline(never)]
+    fn last_char(&self) -> Option<char> {
+        self.chars().next_back()
+    }
+}
+
+/// Whether `c` is white space, in one place rather than a table lookup at each test.
+#[inline(never)]
+fn is_space(c: char) -> bool {
+    c.is_whitespace()
 }
 
 /// Append `parts` in order. `write!` with format arguments pulls `core::fmt` into every call
@@ -1078,7 +1128,7 @@ fn painted_prose(page: String, style: Style) -> String {
             .map_or((line, ""), |body| (body, "\n"));
         if let Some(structure) = body.strip_prefix(STRUCTURE) {
             out.put_str(structure);
-        } else if body.trim_start().starts_with("$ ") {
+        } else if body.trimmed_start().starts_with("$ ") {
             // Examples are shell source, where paired backticks are command substitution rather
             // than prose markup. Every other line may contain author emphasis; option and
             // argument spellings are harmless because intraword underscores do not open spans
@@ -1112,7 +1162,7 @@ fn rendered_page(
     );
     let page = match spec
         .help_template
-        .filter(|template| !template.trim().is_empty())
+        .filter(|template| !template.is_blank())
     {
         Some(template) => template::substitute(template, style, |name| {
             sections.named(name).map(|part| painted_prose(part, style))
@@ -1310,9 +1360,9 @@ fn usage_line_with_subcommands(
 /// pages still derive their own invocation from the route and command metadata.
 fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) {
     if path.len() <= 1
-        && let Some(usage) = spec.usage.filter(|usage| !usage.trim().is_empty())
+        && let Some(usage) = spec.usage.filter(|usage| !usage.is_blank())
     {
-        put(out, &[usage.trim(), "\n"]);
+        put(out, &[usage.trimmed(), "\n"]);
         return;
     }
     // Only flattened help needs a synopsis for every visible child.
@@ -1751,7 +1801,7 @@ fn page_sections(
     if let Some(about) = about {
         // Trimmed for the same reason the entries below are: the blank line after the
         // description is written here, so one already in the text doubles it.
-        write_wrapped_indented(out, about.trim_end(), width, 0);
+        write_wrapped_indented(out, about.trimmed_end(), width, 0);
         out.put_char('\n');
     }
     command_deprecation(out, meta, 0, width);
@@ -2056,7 +2106,7 @@ fn write_row(out: &mut String, row: &Row<'_>, layout: RowLayout) {
         if aligned { indent } else { BLOCK_INDENT }
     } else if next_line {
         line_at(out, 2, &painted);
-        if let Some(help) = row.help.filter(|h| !h.trim().is_empty()) {
+        if let Some(help) = row.help.filter(|h| !h.is_blank()) {
             write_wrapped_block(out, help, width);
         }
         BLOCK_INDENT
@@ -2171,11 +2221,11 @@ fn with_default_command_help(
         inherit_version_actions,
         true,
     );
-    let mut out = parent.trim_end().to_string();
+    let mut out = parent.trimmed_end().to_string();
     out.put_str("\n\nDefault command: ");
     out.put_str(&style.command(child.cmd.name));
     out.put_str("\n  Unmatched words select this command.\n\n");
-    out.put_str(child_page.trim_end());
+    out.put_str(child_page.trimmed_end());
     out.put_char('\n');
     out
 }
@@ -2374,8 +2424,8 @@ fn flat_commands(
         } else {
             sub.about
         };
-        if let Some(about) = about.filter(|about| !about.trim().is_empty()) {
-            write_wrapped_indented(out, about.trim_end(), width, 0);
+        if let Some(about) = about.filter(|about| !about.is_blank()) {
+            write_wrapped_indented(out, about.trimmed_end(), width, 0);
         }
         command_deprecation(out, sub, 0, width);
 
@@ -2763,7 +2813,7 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
         return rest;
     };
     let (before, after) = rest.split_at(at);
-    let short = before.trim();
+    let short = before.trimmed();
     // Only a bare short form belongs in the short column. A flag may carry a declared name the
     // forms do not imply — `jobs: -j --parallel` — and that prefix is not something to line up
     // with a comma after: it rendered `jobs: -j,--parallel`, losing the space entirely, because
@@ -2970,7 +3020,7 @@ fn entry(
     } else {
         BLOCK_INDENT
     };
-    let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
+    let Some(help) = help.filter(|h| !h.is_blank()) else {
         line_at(out, 2, painted);
         // An entry with nothing in the column still has annotations to place, and the column is
         // where they go: it is this entry's row that is empty, not the table's.
@@ -3131,7 +3181,7 @@ fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
             emitted = true;
             continue;
         }
-        let trimmed = paragraph.trim();
+        let trimmed = paragraph.trimmed();
         let leading_trimmed = paragraph.trim_start_matches(' ');
         let (prefix, body) = match list_prefix(leading_trimmed) {
             Some((marker, body)) => (

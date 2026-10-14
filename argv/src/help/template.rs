@@ -4,7 +4,7 @@
 //! come from KDL rather than a Rust string literal. The parser touches only the template itself;
 //! substituted help sections are opaque, so prose that happens to contain `{$red}` stays prose.
 
-use super::{Palette, PutStr as _, Style, find_char, find_str, head, slice, tail};
+use super::{Palette, PutStr as _, Text as _, Style, find_char, find_str, head, slice, tail};
 
 const MARK: char = '\u{2}';
 const END: char = '\u{3}';
@@ -208,7 +208,7 @@ pub(super) fn substitute(
                     push_escaped(&mut marked, rest, styled);
                     break;
                 };
-                match section(head(after, end).trim()) {
+                match section(head(after, end).trimmed()) {
                     Some(text) => push_escaped(&mut marked, &text, styled),
                     None => push_escaped(&mut marked, head(rest, 2 + end + 2), styled),
                 }
@@ -307,7 +307,7 @@ fn collapse_blank_runs(page: &str, markers: bool) -> String {
         if if markers {
             visible_is_blank(line)
         } else {
-            line.trim().is_empty()
+            line.is_blank()
         } {
             if markers {
                 push_markers(&mut out, line);
@@ -331,7 +331,7 @@ fn collapse_blank_runs(page: &str, markers: bool) -> String {
 fn visible_is_blank(line: &str) -> bool {
     let mut rest = line;
     while let Some(at) = find_char(rest, MARK) {
-        if !head(rest, at).trim().is_empty() {
+        if !head(rest, at).is_blank() {
             return false;
         }
         let after = tail(rest, at + MARK.len_utf8());
@@ -343,7 +343,7 @@ fn visible_is_blank(line: &str) -> bool {
             return false;
         }
     }
-    rest.trim().is_empty()
+    rest.is_blank()
 }
 
 fn push_markers(out: &mut String, line: &str) {
