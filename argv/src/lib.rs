@@ -115,6 +115,44 @@ pub fn __usage_print(output: std::fmt::Arguments<'_>) {
     let _ = stdout.write_fmt(output).and_then(|()| stdout.flush());
 }
 
+/// The process's arguments, argv[0] included.
+///
+/// Out of line so each derived entry point calls it rather than carrying its own copy of
+/// the collecting loop.
+#[doc(hidden)]
+pub fn __usage_process_args() -> Vec<OsString> {
+    let args = std::env::args_os();
+    let mut all = Vec::with_capacity(args.len());
+    for arg in args {
+        all.push(arg);
+    }
+    all
+}
+
+/// Borrow every word of `words`, for a parse that takes `&[&OsStr]`.
+#[doc(hidden)]
+pub fn __usage_borrow_words(words: &[OsString]) -> Vec<&OsStr> {
+    let mut refs = Vec::with_capacity(words.len());
+    for word in words {
+        refs.push(word.as_os_str());
+    }
+    refs
+}
+
+/// Own every word of `words`, behind a `prefix` of whitespace-separated words, the shape a
+/// view or multicall rewrite hands the parser.
+#[doc(hidden)]
+pub fn __usage_own_words(prefix: &str, words: &[&OsStr]) -> Vec<OsString> {
+    let mut owned = Vec::with_capacity(words.len());
+    for word in prefix.split_ascii_whitespace() {
+        owned.push(OsString::from(word));
+    }
+    for word in words {
+        owned.push((*word).to_os_string());
+    }
+    owned
+}
+
 /// Build a command's future on the heap, for a generated async dispatch to await.
 ///
 /// The future is created inside this function, not by the caller, and that is the point:

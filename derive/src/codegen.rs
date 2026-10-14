@@ -354,9 +354,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let (completion, completion_intercept) = completion_fns(cli);
     let parse_preamble = quote! {
                     let __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
-                        ::std::env::args_os().collect();
+                        usage_argv::__usage_process_args();
                     let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        __usage_all.iter().map(|a| a.as_os_str()).collect();
+                        usage_argv::__usage_borrow_words(&__usage_all);
                     // Before everything else, including the parse: a completion request is
                     // not this CLI's grammar and must not be measured against it.
                     #completion_intercept
@@ -375,28 +375,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                     usage_argv::is_version_arg(SPEC.root.cmd, word)
                                 })
                                 {
-                                    __usage_words
-                                        .iter()
-                                        .map(|word| (*word).to_os_string())
-                                        .collect()
+                                    usage_argv::__usage_own_words("", __usage_words)
                                 } else {
-                                    __usage_view
-                                        .root
-                                        .split_ascii_whitespace()
-                                        .map(::std::ffi::OsString::from)
-                                        .chain(
-                                            __usage_words
-                                                .iter()
-                                                .map(|word| (*word).to_os_string()),
-                                        )
-                                        .collect()
+                                    usage_argv::__usage_own_words(__usage_view.root, __usage_words)
                                 }
                             } else if SPEC.multicall {
-                                let mut __usage_words: ::std::vec::Vec<::std::ffi::OsString> =
-                                    __usage_words
-                                        .iter()
-                                        .map(|word| (*word).to_os_string())
-                                        .collect();
+                                let mut __usage_words =
+                                    usage_argv::__usage_own_words("", __usage_words);
                                 if let ::std::option::Option::Some(__usage_word) =
                                     __usage_argv0.to_str().and_then(|s| {
                                         usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
@@ -409,16 +394,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 }
                                 __usage_words
                             } else {
-                                __usage_words
-                                    .iter()
-                                    .map(|word| (*word).to_os_string())
-                                    .collect()
+                                usage_argv::__usage_own_words("", __usage_words)
                             }
                         } else {
                             ::std::vec::Vec::new()
                         };
                     let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        __usage_raw.iter().map(|a| a.as_os_str()).collect();
+                        usage_argv::__usage_borrow_words(&__usage_raw);
                     let __usage_selected_view = __usage_all
                         .first()
                         .and_then(|argv0| usage_argv::spec::view_for_program(&SPEC, argv0));
@@ -941,7 +923,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 argv: &[::std::ffi::OsString],
             ) -> usage_argv::embedded::Outcome<#target> {
                 let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                    argv.iter().map(|arg| arg.as_os_str()).collect();
+                    usage_argv::__usage_borrow_words(argv);
                 #embedded_spec_request
                 #embedded_completion_request
                 #effective_spec
@@ -959,7 +941,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 palette: usage_argv::help::Palette,
             ) -> usage_argv::embedded::Outcome<#target> {
                 let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                    argv.iter().map(|arg| arg.as_os_str()).collect();
+                    usage_argv::__usage_borrow_words(argv);
                 #embedded_spec_request
                 #embedded_completion_request
                 #effective_spec
@@ -1419,7 +1401,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     argv: &[::std::ffi::OsString],
                 ) -> usage_argv::embedded::Outcome<Self> {
                     let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        argv.iter().map(|arg| arg.as_os_str()).collect();
+                        usage_argv::__usage_borrow_words(argv);
                     #embedded_spec_request
                     #embedded_completion_request
                     #effective_spec
@@ -1437,7 +1419,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     palette: usage_argv::help::Palette,
                 ) -> usage_argv::embedded::Outcome<Self> {
                     let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        argv.iter().map(|arg| arg.as_os_str()).collect();
+                        usage_argv::__usage_borrow_words(argv);
                     #embedded_spec_request
                     #embedded_completion_request
                     #effective_spec
@@ -2472,7 +2454,7 @@ fn completer_tokens(
                 .map(::std::ffi::OsString::from)
                 .collect();
             let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
-                __usage_owned.iter().map(|a| a.as_os_str()).collect();
+                usage_argv::__usage_borrow_words(&__usage_owned);
             let mut partial = <#owner as usage_argv::spec::CommandArgs>::start();
             let mut parser = usage_argv::Parser::new(
                 __usage_command,
