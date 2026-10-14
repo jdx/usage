@@ -154,6 +154,7 @@ fn mapped_fragment(fragment: &str, palette: Palette) -> &str {
     }
 }
 
+#[inline(never)]
 pub(super) fn semantic(specification: &str, text: &str, style: Style) -> String {
     let mut out = String::with_capacity(text.len() + 16);
     semantic_into(&mut out, specification, text, style);
@@ -161,6 +162,7 @@ pub(super) fn semantic(specification: &str, text: &str, style: Style) -> String 
 }
 
 /// [`semantic`], appended to `out` rather than returned.
+#[inline(never)]
 pub(super) fn semantic_into(out: &mut String, specification: &str, text: &str, style: Style) {
     if !style.coloured {
         out.put_str(text);

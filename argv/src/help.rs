@@ -1130,6 +1130,7 @@ fn short_form(short: u8) -> String {
 
 /// A heading, as every section writes one: after a blank line, and coloured on a coloured
 /// page.
+#[inline(never)]
 fn write_heading(out: &mut String, title: &str, style: Style) {
     out.put_char('\n');
     if style.coloured {
@@ -1146,6 +1147,7 @@ fn write_heading(out: &mut String, title: &str, style: Style) {
 
 /// A row's usage as it is printed: coloured on a coloured page. The column is still measured
 /// on the plain spelling, which is what the reader sees.
+#[inline(never)]
 fn painted_usage(usage: &str, style: Style) -> Cow<'_, str> {
     if style.coloured {
         Cow::Owned(styled_flag_usage(usage, style))
@@ -2969,6 +2971,7 @@ fn probed_width() -> Option<usize> {
 /// After the two-space indent and gap, usage gets at most two fifths of what remains. Entries
 /// beyond the cap use block layout on their own; an explicitly unbounded page keeps its natural
 /// column.
+#[inline(never)]
 fn usage_column_width(longest: usize, terminal_width: usize) -> usize {
     if terminal_width == usize::MAX {
         return longest;
@@ -3421,6 +3424,7 @@ fn deprecation_label(
     Some(out)
 }
 
+#[inline(never)]
 fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, width: usize) {
     if let Some(label) = deprecation_label(
         meta.extra.deprecated,
