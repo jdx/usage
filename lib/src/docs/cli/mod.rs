@@ -1936,15 +1936,30 @@ testcli version
 
 built today
 """# help="Show the version"
+cmd "version" {
+    example #"""
+testcli version
+1.2.3 linux
+
+built today
+"""# help="Show the version"
+}
         "## }
         .unwrap();
+        let version = spec
+            .cmd
+            .subcommands
+            .get("version")
+            .expect("version command");
 
         for long in [false, true] {
-            let page = render_help(&spec, &spec.cmd, long);
-            assert!(
-                page.contains("    $ testcli version\n    1.2.3 linux\n\n    built today"),
-                "long={long}:\n{page}"
-            );
+            for cmd in [&spec.cmd, version] {
+                let page = render_help(&spec, cmd, long);
+                assert!(
+                    page.contains("    $ testcli version\n    1.2.3 linux\n\n    built today"),
+                    "long={long}:\n{page}"
+                );
+            }
         }
     }
 
