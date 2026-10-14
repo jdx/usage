@@ -533,7 +533,7 @@ fn unexpected_flag(
 /// `jobs` is about.
 fn shown<'a>(meta: Option<&'a CommandMeta<'a>>, name: &str) -> String {
     let Some(meta) = meta else {
-        return name.to_string();
+        return owned(name);
     };
     if let Some(arg) = meta.args.iter().find(|a| a.arg.name == name) {
         return crate::help::arg_usage(arg);
@@ -547,13 +547,13 @@ fn shown<'a>(meta: Option<&'a CommandMeta<'a>>, name: &str) -> String {
     {
         return crate::help::flag_spelling(flag);
     }
-    name.to_string()
+    owned(name)
 }
 
 /// A group member is stored as a selector (`--file` or `-f`), not a field name.
 fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String {
     let Some(meta) = meta else {
-        return selector.to_string();
+        return owned(selector);
     };
     // Compared in place rather than by spelling each candidate out, which allocated per flag.
     let long = selector.strip_prefix("--");
@@ -570,7 +570,7 @@ fn group_member_shown(meta: Option<&CommandMeta<'_>>, selector: &str) -> String 
         }) || short.is_some_and(|short| crate::has_byte(flag.flag.shorts, short))
     });
     let Some(flag) = found else {
-        return selector.to_string();
+        return owned(selector);
     };
     let mut shown = crate::help::flag_spelling(flag);
     if flag.flag.takes_value {
@@ -1055,6 +1055,13 @@ fn error_with(out: &mut String, style: Style, template: &str, args: &[(Ink, &str
     push_all(out, &["\n"]);
 }
 
+/// A name as an owned string, from one copy of the allocation and copy rather than one at each of
+/// the places an error spells a name.
+#[inline(never)]
+fn owned(text: &str) -> String {
+    text.to_string()
+}
+
 /// A count as text, from one copy of the conversion rather than one expanded at each use.
 #[inline(never)]
 fn number(n: usize) -> String {
@@ -1093,7 +1100,7 @@ fn describe(
     let path = || {
         resolved
             .map(|(names, _)| names.join(" "))
-            .unwrap_or_else(|| spec.bin.unwrap_or(spec.name).to_string())
+            .unwrap_or_else(|| owned(spec.bin.unwrap_or(spec.name)))
     };
 
     // The argument or flag most errors are about, spelled the way the help spells it. Worked out
