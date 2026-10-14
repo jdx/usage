@@ -1583,6 +1583,21 @@ pub fn os_string_from_bytes(value: Vec<u8>) -> Result<OsString, Vec<u8>> {
     }
 }
 
+/// A sigil argument given its sigil and nothing after it. Out of line and cold: two places in the
+/// parser report it, and neither is on the path of a command line that parses.
+#[cold]
+#[inline(never)]
+fn sigil_without_value<'t, 'v>(arg: &'t Arg<'t>, token: &[u8], sigil: &[u8]) -> Error<'t, 'v> {
+    invalid_value_error(
+        arg.name,
+        as_str(token).unwrap_or_default().to_string(),
+        format!(
+            "expected a value after sigil {:?}",
+            as_str(sigil).unwrap_or_default()
+        ),
+    )
+}
+
 /// One [`Error::InvalidValue`], built out of line.
 ///
 /// Cold and never inlined on purpose: this is the failure path of every value
@@ -2780,14 +2795,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             // then claims its classified word before an external-subcommand catch-all can.
             if let Some((arg, sigil)) = self.match_sigil_arg(token) {
                 if token.len() == sigil.len() {
-                    return Err(invalid_value_error(
-                        arg.name,
-                        as_str(token).unwrap_or_default().to_string(),
-                        format!(
-                            "expected a value after sigil {:?}",
-                            as_str(sigil).unwrap_or_default()
-                        ),
-                    ));
+                    return Err(sigil_without_value(arg, token, sigil));
                 }
                 return Ok(Event::Arg {
                     arg,
@@ -2817,14 +2825,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             && let Some((arg, sigil)) = self.match_sigil_arg(token)
         {
             if token.len() == sigil.len() {
-                return Err(invalid_value_error(
-                    arg.name,
-                    as_str(token).unwrap_or_default().to_string(),
-                    format!(
-                        "expected a value after sigil {:?}",
-                        as_str(sigil).unwrap_or_default()
-                    ),
-                ));
+                return Err(sigil_without_value(arg, token, sigil));
             }
             return Ok(Event::Arg {
                 arg,
@@ -3086,14 +3087,27 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         own.chain(inherited)
     }
 
+    /// The first flag in scope that answers to `want`.
+    ///
+    /// One copy of the scope walk for the three ways a flag is looked up, rather than each
+    /// lookup compiling its own: the iterator that `in_scope` builds is a chain of filters and
+    /// a flat map, and inlined three times it was the larger part of what a lookup cost in
+    /// code. What is matched is a branch on a value the loop does not change.
+    #[inline(never)]
+    fn find_in_scope(&self, want: Want<'_>) -> Option<&'t Flag<'t>> {
+        self.in_scope().find(|f| match want {
+            Want::Long(name) => f.longs.iter().any(|l| l.as_bytes() == name),
+            Want::Negation(name) => f.negate.is_some_and(|n| n.as_bytes() == name),
+            Want::Short(byte) => f.shorts.contains(&byte),
+        })
+    }
+
     fn find_long(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
-        self.in_scope()
-            .find(|f| f.longs.iter().any(|l| l.as_bytes() == name))
+        self.find_in_scope(Want::Long(name))
     }
 
     fn find_negation(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
-        self.in_scope()
-            .find(|f| f.negate.is_some_and(|n| n.as_bytes() == name))
+        self.find_in_scope(Want::Negation(name))
     }
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
@@ -3110,8 +3124,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         {
             return Some(flag);
         }
-        self.in_scope()
-            .find(|f| f.shorts.contains(&byte))
+        self.find_in_scope(Want::Short(byte))
             // As for `--help`: supplied by the parser, and only where the command has not
             // declared a `-h` of its own.
             .or(if byte == b'h' && !self.cmd.disable_help_flag {
@@ -3145,6 +3158,14 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // asking about one cannot drift apart.
         find_named(self.cmd, name)
     }
+}
+
+/// What a flag lookup is for: a long spelling, a negation, or a short letter.
+#[derive(Clone, Copy)]
+enum Want<'a> {
+    Long(&'a [u8]),
+    Negation(&'a [u8]),
+    Short(u8),
 }
 
 /// View a token as bytes.
