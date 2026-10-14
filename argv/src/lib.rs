@@ -115,6 +115,44 @@ pub fn __usage_print(output: std::fmt::Arguments<'_>) {
     let _ = stdout.write_fmt(output).and_then(|()| stdout.flush());
 }
 
+/// The process's arguments, argv[0] included.
+///
+/// Out of line so each derived entry point calls it rather than carrying its own copy of
+/// the collecting loop.
+#[doc(hidden)]
+pub fn __usage_process_args() -> Vec<OsString> {
+    let args = std::env::args_os();
+    let mut all = Vec::with_capacity(args.len());
+    for arg in args {
+        all.push(arg);
+    }
+    all
+}
+
+/// Borrow every word of `words`, for a parse that takes `&[&OsStr]`.
+#[doc(hidden)]
+pub fn __usage_borrow_words(words: &[OsString]) -> Vec<&OsStr> {
+    let mut refs = Vec::with_capacity(words.len());
+    for word in words {
+        refs.push(word.as_os_str());
+    }
+    refs
+}
+
+/// Own every word of `words`, behind a `prefix` of whitespace-separated words, the shape a
+/// view or multicall rewrite hands the parser.
+#[doc(hidden)]
+pub fn __usage_own_words(prefix: &str, words: &[&OsStr]) -> Vec<OsString> {
+    let mut owned = Vec::with_capacity(words.len());
+    for word in prefix.split_ascii_whitespace() {
+        owned.push(OsString::from(word));
+    }
+    for word in words {
+        owned.push((*word).to_os_string());
+    }
+    owned
+}
+
 /// Build a command's future on the heap, for a generated async dispatch to await.
 ///
 /// The future is created inside this function, not by the caller, and that is the point:
@@ -216,6 +254,7 @@ macro_rules! __usage_needs_complete_feature {
 pub mod help;
 #[cfg(feature = "spec")]
 mod order;
+mod slice;
 #[cfg(feature = "spec")]
 mod text;
 // Behind no feature: two traits and no code, so there is nothing here for a binary that
@@ -947,6 +986,17 @@ pub const fn table_len<T>(groups: &[&[T]]) -> usize {
         i += 1;
     }
     total
+}
+
+/// `all[start..start + len]`, at compile time, for a table that points into a joined one.
+///
+/// A flattened type's metadata names its own run of the parent's joined tables rather than
+/// keeping a second copy of every entry.
+#[doc(hidden)]
+pub const fn __usage_subslice<T>(all: &'static [T], start: usize, len: usize) -> &'static [T] {
+    let (_, tail) = all.split_at(start);
+    let (run, _) = tail.split_at(len);
+    run
 }
 
 /// Join groups of flag tables into one, at compile time.
@@ -2012,7 +2062,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             let mut attached = None;
             if let Some(body) = token.strip_prefix(b"--") {
                 let end = body.iter().position(|b| *b == b'=').unwrap_or(body.len());
-                let name = &body[..end];
+                let name = slice::before(body, end);
                 let parent = self.find_long(name).or_else(|| self.find_negation(name));
                 if parent.is_none()
                     && ((name == b"help" && !self.cmd.disable_help_flag)
@@ -2037,10 +2087,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 }
                 if flag.takes_value && flag.negate.is_none_or(|n| n.as_bytes() != name) {
                     value_flag = Some(flag);
-                    attached = (end < body.len()).then(|| &body[end + 1..]);
+                    attached = (end < body.len()).then(|| slice::after(body, end + 1));
                 }
             } else {
-                for (offset, byte) in token[1..].iter().enumerate() {
+                for (offset, byte) in slice::after(token, 1).iter().enumerate() {
                     let parent = self.find_short(*byte);
                     let Some(flag) = parent.or_else(|| {
                         default
@@ -2056,7 +2106,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                     }
                     if flag.takes_value {
                         value_flag = Some(flag);
-                        let rest = &token[offset + 2..];
+                        let rest = slice::after(token, offset + 2);
                         attached =
                             (!rest.is_empty()).then_some(rest.strip_prefix(b"=").unwrap_or(rest));
                         break;
@@ -2149,7 +2199,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// the deepest one — a global flag is declared on an ancestor.
     pub fn command_path(&self) -> Vec<(&'t Command<'t>, usize)> {
         let mut out = Vec::with_capacity(self.depth + 1);
-        for (i, ancestor) in self.ancestors[..self.depth].iter().enumerate() {
+        for (i, ancestor) in slice::before(&self.ancestors, self.depth)
+            .iter()
+            .enumerate()
+        {
             if let Some(cmd) = ancestor {
                 // An ancestor's own words start where the one before it descended, and the
                 // root's start at the beginning.
@@ -2275,7 +2328,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if !token.starts_with(b"-") || token.starts_with(b"--") {
             return false;
         }
-        for byte in &token[1..] {
+        for byte in slice::after(token, 1) {
             if self.find_short(*byte).is_some() {
                 return true;
             }
@@ -2423,7 +2476,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             self.separator_seen = true;
             // An explicit separator unlocks any argument that required one, even
             // if earlier arguments are still unfilled.
-            if let Some(idx) = self.current_args()[self.arg_pos..]
+            if let Some(idx) = slice::after(self.current_args(), self.arg_pos)
                 .iter()
                 .position(|a| a.double_dash == DoubleDash::Required)
             {
@@ -2486,7 +2539,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 }
                 Err(_) => return Some(self.word(token)),
             }
-            self.bundle = &token[1..];
+            self.bundle = slice::after(token, 1);
             self.bundle_token = token;
             return Some(self.short_flag());
         }
@@ -2495,9 +2548,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn long_flag(&mut self, token: &'v [u8]) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
-        let body = &token[2..];
+        let body = slice::after(token, 2);
         let (name, attached) = match body.iter().position(|&b| b == b'=') {
-            Some(i) => (&body[..i], Some(&body[i + 1..])),
+            Some(i) => (slice::before(body, i), Some(slice::after(body, i + 1))),
             None => (body, None),
         };
 
@@ -2573,7 +2626,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// Scanning stops at the first letter whose flag takes a value, because
     /// everything after it is that value rather than more letters.
     fn check_bundle(&self, token: &'v [u8]) -> Result<(), Error<'t, 'v>> {
-        let mut rest = &token[1..];
+        let mut rest = slice::after(token, 1);
         while let Some((&byte, tail)) = rest.split_first() {
             match self.find_short(byte) {
                 None => return Err(Error::UnknownFlag { token }),
@@ -2585,8 +2638,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn short_flag(&mut self) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
-        let byte = self.bundle[0];
-        let rest = &self.bundle[1..];
+        let (byte, rest) = match self.bundle.split_first() {
+            Some((&byte, rest)) => (byte, rest),
+            None => (0, &[][..]),
+        };
 
         let Some(flag) = self.find_short(byte) else {
             // check_bundle already rejected any token containing an unrecognized
@@ -2614,12 +2669,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // A value-taking short ends the token: everything after it is the value,
         // less one separating `=`.
         self.bundle = &[];
-        let value = if rest.is_empty() {
-            self.take_detached_value(flag)?
-        } else if rest[0] == b'=' {
-            Some(&rest[1..])
-        } else {
-            Some(rest)
+        let value = match rest.split_first() {
+            None => self.take_detached_value(flag)?,
+            Some((b'=', value)) => Some(value),
+            Some(_) => Some(rest),
         };
         if flag.variadic
             && let Some(value) = value
@@ -2701,6 +2754,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         }
     }
 
+    #[inline(never)]
     fn clause_separator(&self, token: &[u8]) -> Option<&'t Clause<'t>> {
         (!self.separator_seen)
             .then_some(self.cmd.clause)
@@ -2803,7 +2857,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 }
                 return Ok(Event::Arg {
                     arg,
-                    value: &token[sigil.len()..],
+                    value: slice::after(token, sigil.len()),
                     delimit: true,
                 });
             }
@@ -2819,7 +2873,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 let from = self.pos - 1;
                 self.pos = self.argv.len();
                 return Ok(Event::External {
-                    values: &self.argv[from..],
+                    values: slice::after(self.argv, from),
                 });
             }
         }
@@ -2833,7 +2887,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
             return Ok(Event::Arg {
                 arg,
-                value: &token[sigil.len()..],
+                value: slice::after(token, sigil.len()),
                 delimit: true,
             });
         }
@@ -2947,8 +3001,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         Ok(())
     }
 
+    #[inline(never)]
     fn next_arg(&self) -> Option<&'t Arg<'t>> {
-        self.current_args()[self.arg_pos..]
+        slice::after(self.current_args(), self.arg_pos)
             .iter()
             .find(|arg| arg.sigil.is_none())
             .copied()
@@ -2983,7 +3038,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
         };
         consider(self.current_args());
-        for cmd in self.ancestors[..self.depth].iter().rev().flatten() {
+        for cmd in slice::before(&self.ancestors, self.depth)
+            .iter()
+            .rev()
+            .flatten()
+        {
             consider(cmd.args);
         }
         best
@@ -3009,14 +3068,14 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             if current.required {
                 return;
             }
-            let required_after = self.current_args()[self.arg_pos + 1..]
+            let required_after = slice::after(self.current_args(), self.arg_pos + 1)
                 .iter()
                 .filter(|arg| arg.required && arg.sigil.is_none())
                 .count();
             if required_after == 0 {
                 return;
             }
-            let remaining_values = 1 + self.argv[self.pos..]
+            let remaining_values = 1 + slice::after(self.argv, self.pos)
                 .iter()
                 .filter(|word| {
                     (self.flags_stopped || !is_flag_like(bytes(word)))
@@ -3097,7 +3156,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 return Some(flag);
             }
         }
-        for ancestor in self.ancestors[..self.depth].iter().rev().flatten() {
+        for ancestor in slice::before(&self.ancestors, self.depth)
+            .iter()
+            .rev()
+            .flatten()
+        {
             for &flag in ancestor.flags {
                 if self.inherited_flag_is_in_scope(flag)
                     && self.view_allows_inherited_flag(flag)
@@ -3277,36 +3340,45 @@ fn is_negative_number(token: &[u8]) -> bool {
 /// Written out rather than deferred to `f64::from_str` because this runs on the hot
 /// path, and a parse would mean a UTF-8 check on a slice already decided by its
 /// bytes.
+#[inline(never)]
 fn is_number(rest: &[u8]) -> bool {
-    let (mantissa, exponent) = match rest.iter().position(|b| matches!(b, b'e' | b'E')) {
-        Some(at) => (&rest[..at], Some(&rest[at + 1..])),
-        None => (rest, None),
-    };
-
-    let mut seen_digit = false;
+    // One pass: the mantissa's digits and at most one dot, then an optional exponent.
+    let mut at = 0;
+    let mut digits = 0;
     let mut seen_dot = false;
-    for &b in mantissa {
-        match b {
-            b'0'..=b'9' => seen_digit = true,
-            b'.' if !seen_dot => seen_dot = true,
-            _ => return false,
+    while let Some(&b) = rest.get(at) {
+        if b.is_ascii_digit() {
+            digits += 1;
+        } else if b == b'.' && !seen_dot {
+            seen_dot = true;
+        } else {
+            break;
         }
+        at += 1;
     }
-    if !seen_digit {
+    if digits == 0 {
         return false;
     }
-
-    match exponent {
-        None => true,
-        // An exponent needs digits of its own, and may carry a sign.
-        Some(exp) => {
-            let digits = exp
-                .strip_prefix(b"+")
-                .or_else(|| exp.strip_prefix(b"-"))
-                .unwrap_or(exp);
-            !digits.is_empty() && digits.iter().all(|b| b.is_ascii_digit())
+    let Some(&marker) = rest.get(at) else {
+        return true;
+    };
+    if marker != b'e' && marker != b'E' {
+        return false;
+    }
+    // An exponent needs digits of its own, and may carry a sign.
+    let mut exponent = slice::after(rest, at + 1);
+    if let [b'+' | b'-', tail @ ..] = exponent {
+        exponent = tail;
+    }
+    if exponent.is_empty() {
+        return false;
+    }
+    for b in exponent {
+        if !b.is_ascii_digit() {
+            return false;
         }
     }
+    true
 }
 
 fn validate_bool_value<'t, 'v>(

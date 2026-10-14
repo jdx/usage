@@ -352,18 +352,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // Before the preamble, which interpolates the intercept.
     let (spec_endpoint, spec_endpoint_intercept) = spec_endpoint_fns(cli);
     let (completion, completion_intercept) = completion_fns(cli);
-    let parse_preamble = quote! {
-                    let __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
-                        ::std::env::args_os().collect();
-                    let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        __usage_all.iter().map(|a| a.as_os_str()).collect();
-                    // Before everything else, including the parse: a completion request is
-                    // not this CLI's grammar and must not be measured against it.
-                    #completion_intercept
-                    // In the shared preamble rather than in `parse` alone: the point of the
-                    // endpoint is that *any* usage binary answers `__usage_spec__`, so a CLI
-                    // that resolves settings has to answer it too.
-                    #spec_endpoint_intercept
+    // Without a view or multicall rewrite the words the parser sees are argv[1..] verbatim, so
+    // they are borrowed from the collected arguments instead of copied word by word.
+    let rewritten_argv = if cli.views.is_empty() && !cli.multicall {
+        quote! {
+            let __usage_argv: &[&::std::ffi::OsStr] =
+                __usage_all_refs.get(1..).unwrap_or_default();
+        }
+    } else {
+        quote! {
                     let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
                         if let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
                             __usage_all_refs.split_first()
@@ -375,28 +372,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                     usage_argv::is_version_arg(SPEC.root.cmd, word)
                                 })
                                 {
-                                    __usage_words
-                                        .iter()
-                                        .map(|word| (*word).to_os_string())
-                                        .collect()
+                                    usage_argv::__usage_own_words("", __usage_words)
                                 } else {
-                                    __usage_view
-                                        .root
-                                        .split_ascii_whitespace()
-                                        .map(::std::ffi::OsString::from)
-                                        .chain(
-                                            __usage_words
-                                                .iter()
-                                                .map(|word| (*word).to_os_string()),
-                                        )
-                                        .collect()
+                                    usage_argv::__usage_own_words(__usage_view.root, __usage_words)
                                 }
                             } else if SPEC.multicall {
-                                let mut __usage_words: ::std::vec::Vec<::std::ffi::OsString> =
-                                    __usage_words
-                                        .iter()
-                                        .map(|word| (*word).to_os_string())
-                                        .collect();
+                                let mut __usage_words =
+                                    usage_argv::__usage_own_words("", __usage_words);
                                 if let ::std::option::Option::Some(__usage_word) =
                                     __usage_argv0.to_str().and_then(|s| {
                                         usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
@@ -409,16 +391,28 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 }
                                 __usage_words
                             } else {
-                                __usage_words
-                                    .iter()
-                                    .map(|word| (*word).to_os_string())
-                                    .collect()
+                                usage_argv::__usage_own_words("", __usage_words)
                             }
                         } else {
                             ::std::vec::Vec::new()
                         };
                     let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        __usage_raw.iter().map(|a| a.as_os_str()).collect();
+                        usage_argv::__usage_borrow_words(&__usage_raw);
+        }
+    };
+    let parse_preamble = quote! {
+                    let __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
+                        usage_argv::__usage_process_args();
+                    let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
+                        usage_argv::__usage_borrow_words(&__usage_all);
+                    // Before everything else, including the parse: a completion request is
+                    // not this CLI's grammar and must not be measured against it.
+                    #completion_intercept
+                    // In the shared preamble rather than in `parse` alone: the point of the
+                    // endpoint is that *any* usage binary answers `__usage_spec__`, so a CLI
+                    // that resolves settings has to answer it too.
+                    #spec_endpoint_intercept
+                    #rewritten_argv
                     let __usage_selected_view = __usage_all
                         .first()
                         .and_then(|argv0| usage_argv::spec::view_for_program(&SPEC, argv0));
@@ -941,7 +935,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 argv: &[::std::ffi::OsString],
             ) -> usage_argv::embedded::Outcome<#target> {
                 let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                    argv.iter().map(|arg| arg.as_os_str()).collect();
+                    usage_argv::__usage_borrow_words(argv);
                 #embedded_spec_request
                 #embedded_completion_request
                 #effective_spec
@@ -959,7 +953,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 palette: usage_argv::help::Palette,
             ) -> usage_argv::embedded::Outcome<#target> {
                 let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                    argv.iter().map(|arg| arg.as_os_str()).collect();
+                    usage_argv::__usage_borrow_words(argv);
                 #embedded_spec_request
                 #embedded_completion_request
                 #effective_spec
@@ -1419,7 +1413,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     argv: &[::std::ffi::OsString],
                 ) -> usage_argv::embedded::Outcome<Self> {
                     let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        argv.iter().map(|arg| arg.as_os_str()).collect();
+                        usage_argv::__usage_borrow_words(argv);
                     #embedded_spec_request
                     #embedded_completion_request
                     #effective_spec
@@ -1437,7 +1431,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     palette: usage_argv::help::Palette,
                 ) -> usage_argv::embedded::Outcome<Self> {
                     let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        argv.iter().map(|arg| arg.as_os_str()).collect();
+                        usage_argv::__usage_borrow_words(argv);
                     #embedded_spec_request
                     #embedded_completion_request
                     #effective_spec
@@ -2472,7 +2466,7 @@ fn completer_tokens(
                 .map(::std::ffi::OsString::from)
                 .collect();
             let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
-                __usage_owned.iter().map(|a| a.as_os_str()).collect();
+                usage_argv::__usage_borrow_words(&__usage_owned);
             let mut partial = <#owner as usage_argv::spec::CommandArgs>::start();
             let mut parser = usage_argv::Parser::new(
                 __usage_command,
@@ -3054,6 +3048,10 @@ fn tables(cli: &Cli) -> Tables {
     let mut flatten_groups: Vec<TokenStream> = Vec::new();
     let mut flag_offset: Vec<TokenStream> = Vec::new();
     let mut own_since_flatten = 0usize;
+    // The same running offset for positionals, so a group can name its slice of the joined
+    // argument tables.
+    let mut arg_offset: Vec<TokenStream> = Vec::new();
+    let mut own_args_since_flatten = 0usize;
 
     // Flush the runs collected so far, so that what follows lands after them.
     fn flush_flags(
@@ -3101,6 +3099,7 @@ fn tables(cli: &Cli) -> Tables {
             Kind::Arg { .. } => {
                 own_args.push(arg_at);
                 arg_at += 1;
+                own_args_since_flatten += 1;
             }
             Kind::Flatten { ty, help_heading } => {
                 flattened = true;
@@ -3108,19 +3107,57 @@ fn tables(cli: &Cli) -> Tables {
                     flag_offset.push(quote!(#own_since_flatten));
                     own_since_flatten = 0;
                 }
+                if own_args_since_flatten > 0 {
+                    arg_offset.push(quote!(#own_args_since_flatten));
+                    own_args_since_flatten = 0;
+                }
                 let name = flagset_name(ty);
                 let terms = flag_offset.iter();
+                let flag_start = quote!(0 #(+ #terms)*);
+                let arg_terms = arg_offset.iter();
+                let arg_start = quote!(0 #(+ #arg_terms)*);
                 let help_heading = option_str(help_heading.as_deref());
+                // The group's metadata, with its tables pointed at this command's own joined
+                // ones instead of at a second copy of every flag's metadata kept for the
+                // flattened type alone. What is read is identical; what the binary carries is
+                // one array per table rather than two.
+                let group = quote!(<#ty as usage_argv::spec::CommandArgs>);
                 flatten_groups.push(quote! {
                     usage_argv::spec::FlattenGroup {
                         name: #name,
-                        start: 0 #(+ #terms)*,
-                        meta: <#ty as usage_argv::spec::CommandArgs>::META,
+                        start: #flag_start,
+                        meta: &usage_argv::spec::CommandMeta {
+                            cmd: &usage_argv::Command {
+                                flags: usage_argv::__usage_subslice(
+                                    &FLAGS,
+                                    #flag_start,
+                                    #group::COMMAND.flags.len(),
+                                ),
+                                args: usage_argv::__usage_subslice(
+                                    &ARGS,
+                                    #arg_start,
+                                    #group::COMMAND.args.len(),
+                                ),
+                                ..*#group::COMMAND
+                            },
+                            flags: usage_argv::__usage_subslice(
+                                &FLAG_METAS,
+                                #flag_start,
+                                #group::META.flags.len(),
+                            ),
+                            args: usage_argv::__usage_subslice(
+                                &ARG_METAS,
+                                #arg_start,
+                                #group::META.args.len(),
+                            ),
+                            ..*#group::META
+                        },
                         help_heading: #help_heading,
                     }
                 });
                 flag_offset
                     .push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.flags.len()));
+                arg_offset.push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.args.len()));
                 flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
                 flush_args(&mut own_args, &mut arg_groups, &mut arg_meta_groups);
                 flag_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.flags));
