@@ -644,24 +644,27 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             continue;
         }
 
-        let span = SPANS.iter().find_map(|&(delimiter, open, close, word_boundary, recurse)| {
-            rest.strip_prefix(delimiter)?;
-            let marker = delimiter.chars().next().expect("a delimiter has a marker");
-            let previous = text[..at].chars().next_back();
-            // Do not reinterpret part of a delimiter run when the longer form was rejected.
-            // In particular, neither underscore in `word__word__` may become an italic opener.
-            if (previous == Some(marker) && !allow_run_remainder)
-                || (delimiter.len() == 1 && rest[delimiter.len()..].starts_with(marker))
-            {
-                return None;
-            }
-            if word_boundary && previous.is_some_and(char::is_alphanumeric) {
-                return None;
-            }
-            let content_start = at + delimiter.len();
-            let (end, after) = closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
-            Some((delimiter, open, close, recurse, content_start, end, after))
-        });
+        let span = SPANS
+            .iter()
+            .find_map(|&(delimiter, open, close, word_boundary, recurse)| {
+                rest.strip_prefix(delimiter)?;
+                let marker = delimiter.chars().next().expect("a delimiter has a marker");
+                let previous = text[..at].chars().next_back();
+                // Do not reinterpret part of a delimiter run when the longer form was rejected.
+                // In particular, neither underscore in `word__word__` may become an italic opener.
+                if (previous == Some(marker) && !allow_run_remainder)
+                    || (delimiter.len() == 1 && rest[delimiter.len()..].starts_with(marker))
+                {
+                    return None;
+                }
+                if word_boundary && previous.is_some_and(char::is_alphanumeric) {
+                    return None;
+                }
+                let content_start = at + delimiter.len();
+                let (end, after) =
+                    closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
+                Some((delimiter, open, close, recurse, content_start, end, after))
+            });
 
         if let Some((delimiter, open, close, recurse, content_start, end, after)) = span {
             out.put_str("\u{1b}[");
@@ -1211,7 +1214,10 @@ fn usage_line_with_subcommands(
             }
             match clause.separator {
                 Some(separator) => {
-                    put(&mut out, &[" [", &inner, " [", separator, " ", &inner, "]…]"]);
+                    put(
+                        &mut out,
+                        &[" [", &inner, " [", separator, " ", &inner, "]…]"],
+                    );
                 }
                 None => {
                     let arg = positional_args
@@ -1355,9 +1361,12 @@ impl<'a> Shown<'a> {
         every_form: &[Form<'_>],
     ) -> Self {
         Shown {
-            long: meta.flag.longs.iter().copied().find(|l| {
-                !meta.extra.hidden_longs.contains(l) && !taken.contains(&Form::Long(l))
-            }),
+            long: meta
+                .flag
+                .longs
+                .iter()
+                .copied()
+                .find(|l| !meta.extra.hidden_longs.contains(l) && !taken.contains(&Form::Long(l))),
             short: meta.flag.shorts.iter().copied().find(|s| {
                 !meta.extra.hidden_shorts.contains(s) && !taken.contains(&Form::Short(*s))
             }),
@@ -1434,11 +1443,15 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
         } else {
             exact.filter(|n| *n > 1).unwrap_or(1)
         };
-        let only = names.first().copied().or(meta.value_name).unwrap_or(flag.name);
+        let only = names
+            .first()
+            .copied()
+            .or(meta.value_name)
+            .unwrap_or(flag.name);
         for index in 0..count {
             append_flag_value(
                 &mut out,
-                if single { only } else { names[index] },
+                names.get(index).copied().unwrap_or(only),
                 meta.value_optional,
                 flag.require_equals,
                 index == 0,
@@ -1527,7 +1540,7 @@ pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
         let (name, prefix) = if single {
             (arg.name, if separator && count == 1 { "-- " } else { "" })
         } else {
-            (meta.value_names[index], "")
+            (meta.value_names.get(index).copied().unwrap_or_default(), "")
         };
         put_bracketed(&mut out, open, prefix, name, close);
     }
@@ -2891,7 +2904,15 @@ fn entry(
     }
 
     if overflow {
-        wrap_lead(out, &["  ", painted, "  "], help, inline_room, room, indent, true);
+        wrap_lead(
+            out,
+            &["  ", painted, "  "],
+            help,
+            inline_room,
+            room,
+            indent,
+            true,
+        );
         return indent;
     }
 
@@ -2951,7 +2972,11 @@ fn wrap_lead(
     };
     if per_line {
         for (index, line) in text.split('\n').enumerate() {
-            wrap_lines(line, if index == 0 { first_width } else { width }, &mut emit);
+            wrap_lines(
+                line,
+                if index == 0 { first_width } else { width },
+                &mut emit,
+            );
         }
     } else {
         wrap_lines(text, width, &mut emit);
@@ -3174,7 +3199,11 @@ fn deprecation_label(
     }
     let mut out = String::from("[deprecated: ");
     let mut first = true;
-    for (lead, part) in [("", message), ("warns at ", warn_at), ("removed at ", remove_at)] {
+    for (lead, part) in [
+        ("", message),
+        ("warns at ", warn_at),
+        ("removed at ", remove_at),
+    ] {
         if let Some(part) = part {
             if !first {
                 out.put_str("; ");
@@ -3201,7 +3230,11 @@ fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, 
 /// already empty: see [`Row`].
 fn inline_environment_notes(fallbacks: &[&str], deprecated: &[&str]) -> Option<String> {
     let mut notes = Vec::new();
-    notes.extend(fallbacks.iter().map(|env| cat(&["[env fallback: ", env, "]"])));
+    notes.extend(
+        fallbacks
+            .iter()
+            .map(|env| cat(&["[env fallback: ", env, "]"])),
+    );
     notes.extend(
         deprecated
             .iter()
@@ -5174,7 +5207,7 @@ mod style_tests {
                     }
                 }
             } else {
-                out.put_char(ch);
+                out.push(ch);
             }
         }
         out

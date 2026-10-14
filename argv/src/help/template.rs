@@ -155,7 +155,10 @@ pub(super) fn check(template: &str) -> Result<(), &'static str> {
                 if specification.is_empty() {
                     return Err("an empty style tag `{$}`");
                 }
-                if AnsiStyle::default().apply(specification, Palette::DEFAULT).is_none() {
+                if AnsiStyle::default()
+                    .apply(specification, Palette::DEFAULT)
+                    .is_none()
+                {
                     return Err("an unknown help-template style");
                 }
                 depth += 1;
