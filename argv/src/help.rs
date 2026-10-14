@@ -142,9 +142,9 @@ pub const SECTIONS: [&str; 10] = [
 pub fn unsupported_section(template: &str) -> Result<Option<&str>, &'static str> {
     template::check(template)?;
     let mut rest = template;
-    while let Some(at) = rest.find("{{") {
+    while let Some(at) = find_str(rest, "{{") {
         let after = tail(rest, at + 2);
-        let Some(end) = after.find("}}") else {
+        let Some(end) = find_str(after, "}}") else {
             return Err("a `{{` with no `}}` after it");
         };
         let name = head(after, end).trim();
@@ -722,7 +722,7 @@ fn closing_delimiter(
     let width = delimiter.len();
     let mut search_at = content_start;
 
-    while let Some(found) = tail(text, search_at).find(marker) {
+    while let Some(found) = find_char(tail(text, search_at), marker) {
         let run_start = search_at + found;
         let run_len = tail(text, run_start)
             .chars()
@@ -811,7 +811,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         }
 
         if rest.starts_with('<')
-            && let Some(end) = rest.find('>')
+            && let Some(end) = find_char(rest, '>')
         {
             let end = end + 1;
             style.paint(&mut out, "metavar", head(rest, end));
@@ -820,7 +820,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         }
 
         if let Some(value) = rest.strip_prefix("[=")
-            && let Some(end) = value.find(']')
+            && let Some(end) = find_char(value, ']')
         {
             out.put_str("[=");
             style.paint(&mut out, "metavar", head(value, end));
@@ -845,7 +845,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         }
 
         if previous == Some('[') && !rest.starts_with('-') {
-            let end = rest.find(']').unwrap_or(rest.len());
+            let end = find_char(rest, ']').unwrap_or(rest.len());
             if end > 0 {
                 style.paint(&mut out, "metavar", head(rest, end));
                 at += end;
@@ -934,6 +934,19 @@ fn cat(parts: &[&str]) -> String {
     let mut out = String::new();
     put(&mut out, parts);
     out
+}
+
+/// The byte offset of the first `c` in `text`. A character search expands to its own copy of
+/// the byte scan wherever it is written, and a page does it from a dozen places.
+#[inline(never)]
+fn find_char(text: &str, c: char) -> Option<usize> {
+    text.find(c)
+}
+
+/// The byte offset of the first `needle` in `text`, for the same reason as [`find_char`].
+#[inline(never)]
+fn find_str(text: &str, needle: &str) -> Option<usize> {
+    text.find(needle)
 }
 
 /// `text` from byte `at` on. The slicing below is written through these three so a binary
@@ -2736,7 +2749,7 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     };
     // Only when the text actually begins with the long form. The `name:` prefix case does not,
     // and splitting it would put `verbose:` in a column meant for `-v, `.
-    let Some(at) = rest.find(&*long_form(long)) else {
+    let Some(at) = find_str(&rest, &long_form(long)) else {
         return rest;
     };
     let (before, after) = rest.split_at(at);

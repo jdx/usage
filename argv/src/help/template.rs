@@ -4,7 +4,7 @@
 //! come from KDL rather than a Rust string literal. The parser touches only the template itself;
 //! substituted help sections are opaque, so prose that happens to contain `{$red}` stays prose.
 
-use super::{Palette, PutStr as _, Style, head, slice, tail};
+use super::{Palette, PutStr as _, Style, find_char, find_str, head, slice, tail};
 
 const MARK: char = '\u{2}';
 const END: char = '\u{3}';
@@ -148,7 +148,7 @@ pub(super) fn check(template: &str) -> Result<(), &'static str> {
             Event::EscapeOpen => rest = tail(tag, 3),
             Event::EscapeClose => rest = tail(tag, 5),
             Event::Open => {
-                let Some(end) = tag.find('}') else {
+                let Some(end) = find_char(tag, '}') else {
                     return Err("a `{$` with no `}` after it");
                 };
                 let specification = slice(tag, 2, end);
@@ -193,7 +193,7 @@ pub(super) fn substitute(
     let mut marked = String::with_capacity(template.len());
     let mut rest = template;
     loop {
-        let placeholder = rest.find("{{").map(|at| (at, Event::Placeholder));
+        let placeholder = find_str(rest, "{{").map(|at| (at, Event::Placeholder));
         let tag = if styled { next_style_event(rest) } else { None };
         let Some((at, event)) = earliest(placeholder, tag) else {
             push_escaped(&mut marked, rest, styled);
@@ -204,7 +204,7 @@ pub(super) fn substitute(
         match event {
             Event::Placeholder => {
                 let after = tail(rest, 2);
-                let Some(end) = after.find("}}") else {
+                let Some(end) = find_str(after, "}}") else {
                     push_escaped(&mut marked, rest, styled);
                     break;
                 };
@@ -215,7 +215,7 @@ pub(super) fn substitute(
                 rest = tail(after, end + 2);
             }
             Event::Open => {
-                let Some(end) = rest.find('}') else {
+                let Some(end) = find_char(rest, '}') else {
                     push_escaped(&mut marked, rest, styled);
                     break;
                 };
@@ -276,7 +276,7 @@ fn next_style_event(text: &str) -> Option<(usize, Event)> {
         .iter()
         .enumerate()
         .filter_map(|(priority, (token, event))| {
-            text.find(token).map(|at| ((at, priority), *event))
+            find_str(text, token).map(|at| ((at, priority), *event))
         })
         .min_by_key(|(position, _)| *position)
         .map(|((at, _), event)| (at, event))
@@ -285,7 +285,7 @@ fn next_style_event(text: &str) -> Option<(usize, Event)> {
 /// `text` for the marked page: a `MARK` already in it doubled, so it reads as text rather than
 /// as the start of a tag. A page with no tags is not read for them, and takes the text as is.
 fn push_escaped(out: &mut String, text: &str, styled: bool) {
-    if !styled || !text.contains(MARK) {
+    if !styled || find_char(text, MARK).is_none() {
         out.put_str(text);
         return;
     }
@@ -330,14 +330,14 @@ fn collapse_blank_runs(page: &str, markers: bool) -> String {
 
 fn visible_is_blank(line: &str) -> bool {
     let mut rest = line;
-    while let Some(at) = rest.find(MARK) {
+    while let Some(at) = find_char(rest, MARK) {
         if !head(rest, at).trim().is_empty() {
             return false;
         }
         let after = tail(rest, at + MARK.len_utf8());
         if after.starts_with(MARK) {
             return false;
-        } else if let Some(end) = after.find(END) {
+        } else if let Some(end) = find_char(after, END) {
             rest = tail(after, end + END.len_utf8());
         } else {
             return false;
@@ -348,9 +348,9 @@ fn visible_is_blank(line: &str) -> bool {
 
 fn push_markers(out: &mut String, line: &str) {
     let mut rest = line;
-    while let Some(at) = rest.find(MARK) {
+    while let Some(at) = find_char(rest, MARK) {
         let marker = tail(rest, at);
-        let Some(end) = marker.find(END) else {
+        let Some(end) = find_char(marker, END) else {
             return;
         };
         out.put_str(head(marker, end + 1));
@@ -362,7 +362,7 @@ fn render_marked(marked: &str, style: Style) -> String {
     let mut out = String::with_capacity(marked.len());
     let mut stack = vec![AnsiStyle::default()];
     let mut rest = marked;
-    while let Some(at) = rest.find(MARK) {
+    while let Some(at) = find_char(rest, MARK) {
         push_content(
             &mut out,
             head(rest, at),
@@ -375,7 +375,7 @@ fn render_marked(marked: &str, style: Style) -> String {
             rest = tail(after, MARK.len_utf8());
             continue;
         }
-        let Some(end) = after.find(END) else {
+        let Some(end) = find_char(after, END) else {
             out.put_char(MARK);
             out.put_str(after);
             break;
@@ -432,10 +432,10 @@ fn push_content(out: &mut String, text: &str, coloured: bool, active: AnsiStyle)
         return;
     }
     let mut rest = text;
-    while let Some(at) = rest.find("\u{1b}[") {
+    while let Some(at) = find_str(rest, "\u{1b}[") {
         out.put_str(head(rest, at));
         let sequence = tail(rest, at);
-        let Some(end) = sequence.find('m') else {
+        let Some(end) = find_char(sequence, 'm') else {
             out.put_str(sequence);
             return;
         };
