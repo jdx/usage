@@ -663,7 +663,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         let span = (0..8).find_map(|kind| {
             let (delimiter, open, close, word_boundary, recurse) = span_kind(kind)?;
             rest.strip_prefix(delimiter)?;
-            let marker = delimiter.first_char().expect("a delimiter has a marker");
+            let marker = delimiter.first_char().unwrap_or_default();
             let previous = head(text, at).last_char();
             // Do not reinterpret part of a delimiter run when the longer form was rejected.
             // In particular, neither underscore in `word__word__` may become an italic opener.
@@ -697,14 +697,14 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
                 out.put_str(parent);
                 out.put_char('m');
             }
-            let marker = delimiter.first_char().expect("a delimiter has a marker");
+            let marker = delimiter.first_char().unwrap_or_default();
             allow_run_remainder =
                 tail(text, after).starts_with(marker) && head(text, after).ends_with(marker);
             at = after;
             continue;
         }
 
-        let ch = rest.first_char().expect("at is on a character boundary");
+        let ch = rest.first_char().unwrap_or_default();
         out.put_char(ch);
         at += ch.len_utf8();
         allow_run_remainder = false;
@@ -877,7 +877,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             }
         }
 
-        let ch = rest.first_char().expect("at is on a character boundary");
+        let ch = rest.first_char().unwrap_or_default();
         out.put_char(ch);
         at += ch.len_utf8();
     }
@@ -1052,6 +1052,11 @@ fn split_line(text: &str) -> (&str, Option<&str>) {
 #[inline(never)]
 fn lines_of(text: &str) -> Vec<&str> {
     text.lines().collect()
+}
+
+/// `path` without the binary at its front: what a command is called below the program.
+fn without_binary<'a>(path: &'a [&'a str]) -> &'a [&'a str] {
+    path.get(1..).unwrap_or_default()
 }
 
 /// `text` from byte `at` on. The slicing below is written through these three so a binary
@@ -1363,16 +1368,15 @@ fn usage_line_with_subcommands(
                     );
                 }
                 None => {
-                    let arg = positional_args
-                        .iter()
-                        .find(|arg| !arg.hide)
-                        .expect("an implicit clause has one visible positional");
-                    let separator = if arg.arg.double_dash == DoubleDash::Required {
-                        "-- "
-                    } else {
-                        ""
-                    };
-                    put(&mut out, &[" [", separator, arg.arg.name, "]…"]);
+                    // An implicit clause has one visible positional.
+                    if let Some(arg) = positional_args.iter().find(|arg| !arg.hide) {
+                        let separator = if arg.arg.double_dash == DoubleDash::Required {
+                            "-- "
+                        } else {
+                            ""
+                        };
+                        put(&mut out, &[" [", separator, arg.arg.name, "]…"]);
+                    }
                 }
             }
         } else if args <= INLINE_LIMIT {
@@ -1794,7 +1798,9 @@ fn page_sections(
     suppress_global: bool,
     style: Style,
 ) -> Sections {
-    let meta = *chain.last().expect("a page is always about some command");
+    let Some(&meta) = chain.last() else {
+        return Sections::default();
+    };
     let (mut own, mut inherited) = own_and_global(chain, inherit_version_actions);
     own.retain(|flag| !hidden_on(long, flag.hide_short_help, flag.hide_long_help));
     if suppress_global {
@@ -1857,7 +1863,7 @@ fn page_sections(
     if !flatten_help(meta) {
         commands_section(
             &mut sections.commands,
-            &path[1.min(path.len())..],
+            without_binary(path),
             meta,
             width,
             long,
@@ -1972,7 +1978,7 @@ fn page_sections(
     if flatten_help(meta) {
         flat_commands(
             &mut sections.flattened,
-            &path[1.min(path.len())..],
+            without_binary(path),
             meta,
             width,
             long,
