@@ -365,18 +365,20 @@ pub fn place_logo(
     // whole answer. It is still checked against what was actually rendered: a line nothing
     // can wrap — a synopsis, an example's command, a long URL — can overrun the margin it was
     // given, and art printed over it would be worse than the banner.
+    let page_lines = lines_of(page);
     let column = reserved.filter(|column| {
-        page.lines()
+        page_lines
+            .iter()
             .take(art.len())
             .all(|line| shown_width(line) + LOGO_GUTTER <= *column)
     });
     let mut out = match column {
         Some(column) => {
             let mut out = String::with_capacity(page.len() + art.len() * column);
-            let mut text = page.lines();
+            let mut text = page_lines.iter().copied();
             // Art taller than the page keeps going below it rather than being cut off: a logo
             // with its bottom sliced away looks like a rendering fault.
-            for index in 0..page.lines().count().max(art.len()) {
+            for index in 0..page_lines.len().max(art.len()) {
                 if index > 0 {
                     out.put_char('\n');
                 }
@@ -429,7 +431,10 @@ fn painted_logo(line: &str, style: Option<&str>, coloured: bool) -> String {
 /// An author writes a logo as an indented block in KDL or a raw string in Rust, and both
 /// commonly arrive with a leading newline and a trailing one. Neither is part of the picture.
 fn logo_lines(logo: &str) -> Vec<&str> {
-    let mut lines: Vec<&str> = logo.lines().map(str::trim_end).collect();
+    let mut lines = lines_of(logo);
+    for line in &mut lines {
+        *line = line.trimmed_end();
+    }
     while lines.first().is_some_and(|line| line.is_empty()) {
         lines.remove(0);
     }
@@ -1025,6 +1030,13 @@ fn split_line(text: &str) -> (&str, Option<&str>) {
         Some(at) => (head(text, at), Some(tail(text, at + 1))),
         None => (text, None),
     }
+}
+
+/// The lines of `text`, as `str::lines` gives them, collected: its iterator expands into a copy
+/// at each place a page is read by line, and these are short pages.
+#[inline(never)]
+fn lines_of(text: &str) -> Vec<&str> {
+    text.lines().collect()
 }
 
 /// `text` from byte `at` on. The slicing below is written through these three so a binary
@@ -2981,7 +2993,7 @@ fn long_help_with(
 /// An indented empty line would be trailing whitespace, which the reference does not emit and
 /// a diff would show as a line that is not empty.
 fn write_indented(out: &mut String, text: &str, indent: usize) {
-    for (i, line) in text.lines().enumerate() {
+    for (i, line) in lines_of(text).into_iter().enumerate() {
         // The first line is always indented, even when it is empty, and later blank lines are
         // left blank. That is not a choice: the reference writes the indent literally before the
         // text and indents the *rest* with a filter that skips blanks, so an opening empty line
