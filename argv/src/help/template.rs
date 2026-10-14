@@ -4,7 +4,7 @@
 //! come from KDL rather than a Rust string literal. The parser touches only the template itself;
 //! substituted help sections are opaque, so prose that happens to contain `{$red}` stays prose.
 
-use super::{Palette, PutStr as _, Style};
+use super::{Palette, PutStr as _, Style, head, slice, tail};
 
 const MARK: char = '\u{2}';
 const END: char = '\u{3}';
@@ -143,15 +143,15 @@ pub(super) fn check(template: &str) -> Result<(), &'static str> {
     let mut rest = template;
     let mut depth = 0usize;
     while let Some((at, event)) = next_style_event(rest) {
-        let tag = &rest[at..];
+        let tag = tail(rest, at);
         match event {
-            Event::EscapeOpen => rest = &tag[3..],
-            Event::EscapeClose => rest = &tag[5..],
+            Event::EscapeOpen => rest = tail(tag, 3),
+            Event::EscapeClose => rest = tail(tag, 5),
             Event::Open => {
                 let Some(end) = tag.find('}') else {
                     return Err("a `{$` with no `}` after it");
                 };
-                let specification = &tag[2..end];
+                let specification = slice(tag, 2, end);
                 if specification.is_empty() {
                     return Err("an empty style tag `{$}`");
                 }
@@ -162,16 +162,16 @@ pub(super) fn check(template: &str) -> Result<(), &'static str> {
                     return Err("an unknown help-template style");
                 }
                 depth += 1;
-                rest = &tag[end + 1..];
+                rest = tail(tag, end + 1);
             }
             Event::Close => {
                 if depth == 0 {
                     return Err("a `{/$}` with no open style tag");
                 }
                 depth -= 1;
-                rest = &tag[4..];
+                rest = tail(tag, 4);
             }
-            Event::Placeholder => rest = &tag[2..],
+            Event::Placeholder => rest = tail(tag, 2),
         }
     }
     if depth == 0 {
@@ -199,20 +199,20 @@ pub(super) fn substitute(
             push_escaped(&mut marked, rest, styled);
             break;
         };
-        push_escaped(&mut marked, &rest[..at], styled);
-        rest = &rest[at..];
+        push_escaped(&mut marked, head(rest, at), styled);
+        rest = tail(rest, at);
         match event {
             Event::Placeholder => {
-                let after = &rest[2..];
+                let after = tail(rest, 2);
                 let Some(end) = after.find("}}") else {
                     push_escaped(&mut marked, rest, styled);
                     break;
                 };
-                match section(after[..end].trim()) {
+                match section(head(after, end).trim()) {
                     Some(text) => push_escaped(&mut marked, &text, styled),
-                    None => push_escaped(&mut marked, &rest[..2 + end + 2], styled),
+                    None => push_escaped(&mut marked, head(rest, 2 + end + 2), styled),
                 }
-                rest = &after[end + 2..];
+                rest = tail(after, end + 2);
             }
             Event::Open => {
                 let Some(end) = rest.find('}') else {
@@ -221,23 +221,23 @@ pub(super) fn substitute(
                 };
                 marked.put_char(MARK);
                 marked.put_char('+');
-                marked.put_str(&rest[2..end]);
+                marked.put_str(slice(rest, 2, end));
                 marked.put_char(END);
-                rest = &rest[end + 1..];
+                rest = tail(rest, end + 1);
             }
             Event::Close => {
                 marked.put_char(MARK);
                 marked.put_char('-');
                 marked.put_char(END);
-                rest = &rest[4..];
+                rest = tail(rest, 4);
             }
             Event::EscapeOpen => {
                 push_escaped(&mut marked, "{$", styled);
-                rest = &rest[3..];
+                rest = tail(rest, 3);
             }
             Event::EscapeClose => {
                 push_escaped(&mut marked, "{/$}", styled);
-                rest = &rest[5..];
+                rest = tail(rest, 5);
             }
         }
     }
@@ -331,14 +331,14 @@ fn collapse_blank_runs(page: &str, markers: bool) -> String {
 fn visible_is_blank(line: &str) -> bool {
     let mut rest = line;
     while let Some(at) = rest.find(MARK) {
-        if !rest[..at].trim().is_empty() {
+        if !head(rest, at).trim().is_empty() {
             return false;
         }
-        let after = &rest[at + MARK.len_utf8()..];
+        let after = tail(rest, at + MARK.len_utf8());
         if after.starts_with(MARK) {
             return false;
         } else if let Some(end) = after.find(END) {
-            rest = &after[end + END.len_utf8()..];
+            rest = tail(after, end + END.len_utf8());
         } else {
             return false;
         }
@@ -349,12 +349,12 @@ fn visible_is_blank(line: &str) -> bool {
 fn push_markers(out: &mut String, line: &str) {
     let mut rest = line;
     while let Some(at) = rest.find(MARK) {
-        let marker = &rest[at..];
+        let marker = tail(rest, at);
         let Some(end) = marker.find(END) else {
             return;
         };
-        out.put_str(&marker[..=end]);
-        rest = &marker[end + END.len_utf8()..];
+        out.put_str(head(marker, end + 1));
+        rest = tail(marker, end + END.len_utf8());
     }
 }
 
@@ -365,14 +365,14 @@ fn render_marked(marked: &str, style: Style) -> String {
     while let Some(at) = rest.find(MARK) {
         push_content(
             &mut out,
-            &rest[..at],
+            head(rest, at),
             style.coloured,
             stack.last().copied().unwrap_or_default(),
         );
-        let after = &rest[at + MARK.len_utf8()..];
+        let after = tail(rest, at + MARK.len_utf8());
         if after.starts_with(MARK) {
             out.put_char(MARK);
-            rest = &after[MARK.len_utf8()..];
+            rest = tail(after, MARK.len_utf8());
             continue;
         }
         let Some(end) = after.find(END) else {
@@ -380,7 +380,7 @@ fn render_marked(marked: &str, style: Style) -> String {
             out.put_str(after);
             break;
         };
-        let marker = &after[..end];
+        let marker = head(after, end);
         if let Some(specification) = marker.strip_prefix('+') {
             let next = stack
                 .last()
@@ -409,7 +409,7 @@ fn render_marked(marked: &str, style: Style) -> String {
                 }
             }
         }
-        rest = &after[end + END.len_utf8()..];
+        rest = tail(after, end + END.len_utf8());
     }
     push_content(
         &mut out,
@@ -433,14 +433,14 @@ fn push_content(out: &mut String, text: &str, coloured: bool, active: AnsiStyle)
     }
     let mut rest = text;
     while let Some(at) = rest.find("\u{1b}[") {
-        out.put_str(&rest[..at]);
-        let sequence = &rest[at..];
+        out.put_str(head(rest, at));
+        let sequence = tail(rest, at);
         let Some(end) = sequence.find('m') else {
             out.put_str(sequence);
             return;
         };
-        out.put_str(&sequence[..=end]);
-        let parameters = &sequence[2..end];
+        out.put_str(head(sequence, end + 1));
+        let parameters = slice(sequence, 2, end);
         if parameters.split(';').any(|parameter| {
             matches!(
                 parameter,
@@ -449,7 +449,7 @@ fn push_content(out: &mut String, text: &str, coloured: bool, active: AnsiStyle)
         }) {
             active.write(out);
         }
-        rest = &sequence[end + 1..];
+        rest = tail(sequence, end + 1);
     }
     out.put_str(rest);
 }

@@ -143,15 +143,15 @@ pub fn unsupported_section(template: &str) -> Result<Option<&str>, &'static str>
     template::check(template)?;
     let mut rest = template;
     while let Some(at) = rest.find("{{") {
-        let after = &rest[at + 2..];
+        let after = tail(rest, at + 2);
         let Some(end) = after.find("}}") else {
             return Err("a `{{` with no `}}` after it");
         };
-        let name = after[..end].trim();
+        let name = head(after, end).trim();
         if !SECTIONS.contains(&name) {
             return Ok(Some(name));
         }
-        rest = &after[end + 2..];
+        rest = tail(after, end + 2);
     }
     Ok(None)
 }
@@ -513,11 +513,11 @@ fn strip_ansi_sequences(text: String) -> String {
             continue;
         }
 
-        plain.put_str(&text[copied..at]);
+        plain.put_str(slice(&text, copied, at));
         copied = end + 1;
         at = copied;
     }
-    plain.put_str(&text[copied..]);
+    plain.put_str(tail(&text, copied));
     plain
 }
 
@@ -637,7 +637,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
     let mut at = 0;
     let mut allow_run_remainder = false;
     while at < text.len() {
-        let rest = &text[at..];
+        let rest = tail(text, at);
 
         // Markdown escapes are useful in prose that genuinely means `*`, `_`, `~`, or `` ` ``.
         if let Some(escaped) = rest
@@ -656,11 +656,11 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             .find_map(|&(delimiter, open, close, word_boundary, recurse)| {
                 rest.strip_prefix(delimiter)?;
                 let marker = delimiter.chars().next().expect("a delimiter has a marker");
-                let previous = text[..at].chars().next_back();
+                let previous = head(text, at).chars().next_back();
                 // Do not reinterpret part of a delimiter run when the longer form was rejected.
                 // In particular, neither underscore in `word__word__` may become an italic opener.
                 if (previous == Some(marker) && !allow_run_remainder)
-                    || (delimiter.len() == 1 && rest[delimiter.len()..].starts_with(marker))
+                    || (delimiter.len() == 1 && tail(rest, delimiter.len()).starts_with(marker))
                 {
                     return None;
                 }
@@ -678,9 +678,9 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             out.put_str(open);
             out.put_char('m');
             if recurse {
-                out.put_str(&styled_inline(&text[content_start..end], Some(open)));
+                out.put_str(&styled_inline(slice(text, content_start, end), Some(open)));
             } else {
-                out.put_str(&text[content_start..end]);
+                out.put_str(slice(text, content_start, end));
             }
             out.put_str("\u{1b}[");
             out.put_str(close);
@@ -692,7 +692,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             }
             let marker = delimiter.chars().next().expect("a delimiter has a marker");
             allow_run_remainder =
-                text[after..].starts_with(marker) && text[..after].ends_with(marker);
+                tail(text, after).starts_with(marker) && head(text, after).ends_with(marker);
             at = after;
             continue;
         }
@@ -722,14 +722,14 @@ fn closing_delimiter(
     let width = delimiter.len();
     let mut search_at = content_start;
 
-    while let Some(found) = text[search_at..].find(marker) {
+    while let Some(found) = tail(text, search_at).find(marker) {
         let run_start = search_at + found;
-        let run_len = text[run_start..]
+        let run_len = tail(text, run_start)
             .chars()
             .take_while(|ch| *ch == marker)
             .count();
         let run_end = run_start + run_len;
-        let escaped = text[..run_start]
+        let escaped = head(text, run_start)
             .chars()
             .rev()
             .take_while(|ch| *ch == '\\')
@@ -748,7 +748,7 @@ fn closing_delimiter(
             _ => 0,
         };
         if nested_width != 0 {
-            let nested = &text[run_start..run_start + nested_width];
+            let nested = slice(text, run_start, run_start + nested_width);
             if let Some((_, after)) =
                 closing_delimiter(text, run_start + nested_width, nested, marker == '_', width)
             {
@@ -762,12 +762,12 @@ fn closing_delimiter(
             let left_in_run = run_end - after;
             let leaves_parent_close = left_in_run == 0 || left_in_run >= reserve;
             let boundary_ok = !word_boundary
-                || !text[after..]
+                || !tail(text, after)
                     .chars()
                     .next()
                     .is_some_and(char::is_alphanumeric);
             if run_start > content_start
-                && !text[content_start..run_start].trim().is_empty()
+                && !slice(text, content_start, run_start).trim().is_empty()
                 && leaves_parent_close
                 && boundary_ok
             {
@@ -783,8 +783,8 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
     let mut out = String::with_capacity(usage.len());
     let mut at = 0;
     while at < usage.len() {
-        let rest = &usage[at..];
-        let previous = usage[..at].chars().next_back();
+        let rest = tail(usage, at);
+        let previous = head(usage, at).chars().next_back();
 
         if rest.starts_with('-')
             && previous.is_none_or(|c| c.is_whitespace() || matches!(c, ',' | ':' | '[' | '<'))
@@ -797,7 +797,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
                         .then_some(i)
                 })
                 .unwrap_or(rest.len());
-            style.paint(&mut out, "option", &rest[..end]);
+            style.paint(&mut out, "option", head(rest, end));
             at += end;
             continue;
         }
@@ -814,7 +814,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             && let Some(end) = rest.find('>')
         {
             let end = end + 1;
-            style.paint(&mut out, "metavar", &rest[..end]);
+            style.paint(&mut out, "metavar", head(rest, end));
             at += end;
             continue;
         }
@@ -823,7 +823,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             && let Some(end) = value.find(']')
         {
             out.put_str("[=");
-            style.paint(&mut out, "metavar", &value[..end]);
+            style.paint(&mut out, "metavar", head(value, end));
             out.put_char(']');
             at += end + 3;
             continue;
@@ -837,7 +837,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
                     .find(|c: char| c.is_whitespace() || matches!(c, ',' | ']' | '>'))
                     .unwrap_or(value.len());
                 if end > 0 {
-                    style.paint(&mut out, "metavar", &value[..end]);
+                    style.paint(&mut out, "metavar", head(value, end));
                     at += end;
                 }
             }
@@ -847,7 +847,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         if previous == Some('[') && !rest.starts_with('-') {
             let end = rest.find(']').unwrap_or(rest.len());
             if end > 0 {
-                style.paint(&mut out, "metavar", &rest[..end]);
+                style.paint(&mut out, "metavar", head(rest, end));
                 at += end;
                 continue;
             }
@@ -861,11 +861,11 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
                     !(c.is_ascii_uppercase() || c.is_ascii_digit() || matches!(c, '_' | '-' | '@'))
                 })
                 .unwrap_or(rest.len());
-            let boundary = rest[end..].chars().next();
+            let boundary = tail(rest, end).chars().next();
             if boundary.is_none_or(|c| {
                 c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.')
             }) {
-                style.paint(&mut out, "metavar", &rest[..end]);
+                style.paint(&mut out, "metavar", head(rest, end));
                 at += end;
                 continue;
             }
@@ -934,6 +934,25 @@ fn cat(parts: &[&str]) -> String {
     let mut out = String::new();
     put(&mut out, parts);
     out
+}
+
+/// `text` from byte `at` on. The slicing below is written through these three so a binary
+/// carries one bounds-check failure per shape rather than one at each of dozens of sites.
+#[inline(never)]
+fn tail(text: &str, at: usize) -> &str {
+    &text[at..]
+}
+
+/// `text` up to byte `at`.
+#[inline(never)]
+fn head(text: &str, at: usize) -> &str {
+    &text[..at]
+}
+
+/// `text` from byte `from` up to byte `to`.
+#[inline(never)]
+fn slice(text: &str, from: usize, to: usize) -> &str {
+    &text[from..to]
 }
 
 #[inline(never)]
