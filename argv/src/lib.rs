@@ -3338,36 +3338,45 @@ fn is_negative_number(token: &[u8]) -> bool {
 /// Written out rather than deferred to `f64::from_str` because this runs on the hot
 /// path, and a parse would mean a UTF-8 check on a slice already decided by its
 /// bytes.
+#[inline(never)]
 fn is_number(rest: &[u8]) -> bool {
-    let (mantissa, exponent) = match rest.iter().position(|b| matches!(b, b'e' | b'E')) {
-        Some(at) => (slice::before(rest, at), Some(slice::after(rest, at + 1))),
-        None => (rest, None),
-    };
-
-    let mut seen_digit = false;
+    // One pass: the mantissa's digits and at most one dot, then an optional exponent.
+    let mut at = 0;
+    let mut digits = 0;
     let mut seen_dot = false;
-    for &b in mantissa {
-        match b {
-            b'0'..=b'9' => seen_digit = true,
-            b'.' if !seen_dot => seen_dot = true,
-            _ => return false,
+    while let Some(&b) = rest.get(at) {
+        if b.is_ascii_digit() {
+            digits += 1;
+        } else if b == b'.' && !seen_dot {
+            seen_dot = true;
+        } else {
+            break;
         }
+        at += 1;
     }
-    if !seen_digit {
+    if digits == 0 {
         return false;
     }
-
-    match exponent {
-        None => true,
-        // An exponent needs digits of its own, and may carry a sign.
-        Some(exp) => {
-            let digits = exp
-                .strip_prefix(b"+")
-                .or_else(|| exp.strip_prefix(b"-"))
-                .unwrap_or(exp);
-            !digits.is_empty() && digits.iter().all(|b| b.is_ascii_digit())
+    let Some(&marker) = rest.get(at) else {
+        return true;
+    };
+    if marker != b'e' && marker != b'E' {
+        return false;
+    }
+    // An exponent needs digits of its own, and may carry a sign.
+    let mut exponent = slice::after(rest, at + 1);
+    if let [b'+' | b'-', tail @ ..] = exponent {
+        exponent = tail;
+    }
+    if exponent.is_empty() {
+        return false;
+    }
+    for b in exponent {
+        if !b.is_ascii_digit() {
+            return false;
         }
     }
+    true
 }
 
 fn validate_bool_value<'t, 'v>(
