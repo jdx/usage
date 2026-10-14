@@ -234,7 +234,7 @@ Examples:
 {%- if example.header %}
   {{ example.header }}:
 {%- endif %}
-    $ {{ example.code }}
+    $ {{ example.code | indent_continuation(indent=4) }}
 {%- endfor %}
 {%- elif root and spec.examples %}
 
@@ -245,7 +245,7 @@ Examples:
 {%- if example.header %}
   {{ example.header }}:
 {%- endif %}
-    $ {{ example.code }}
+    $ {{ example.code | indent_continuation(indent=4) }}
 {%- endfor %}
 {%- endif %}
 
