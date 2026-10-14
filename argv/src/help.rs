@@ -142,16 +142,16 @@ pub const SECTIONS: [&str; 10] = [
 pub fn unsupported_section(template: &str) -> Result<Option<&str>, &'static str> {
     template::check(template)?;
     let mut rest = template;
-    while let Some(at) = rest.find("{{") {
-        let after = &rest[at + 2..];
-        let Some(end) = after.find("}}") else {
+    while let Some(at) = find_str(rest, "{{") {
+        let after = tail(rest, at + 2);
+        let Some(end) = find_str(after, "}}") else {
             return Err("a `{{` with no `}}` after it");
         };
-        let name = after[..end].trim();
+        let name = head(after, end).trimmed();
         if !SECTIONS.contains(&name) {
             return Ok(Some(name));
         }
-        rest = &after[end + 2..];
+        rest = tail(after, end + 2);
     }
     Ok(None)
 }
@@ -206,8 +206,8 @@ impl Sections {
             // list with the subcommands' own bodies, so a template that places `{{commands}}`
             // places whichever one the command has.
             "commands" => {
-                let mut out = self.commands.trim().to_string();
-                let flattened = self.flattened.trim();
+                let mut out = self.commands.trimmed().to_string();
+                let flattened = self.flattened.trimmed();
                 if !flattened.is_empty() {
                     if !out.is_empty() {
                         out.put_str("\n\n");
@@ -225,7 +225,7 @@ impl Sections {
             "after_help" => &self.after_help,
             _ => return None,
         };
-        Some(part.trim().to_string())
+        Some(part.trimmed().to_string())
     }
 
     /// A page laid out by an author's template.
@@ -255,10 +255,7 @@ fn assemble(
     sections: &Sections,
     style: Style,
 ) -> String {
-    let page = match spec
-        .help_template
-        .filter(|template| !template.trim().is_empty())
-    {
+    let page = match spec.help_template.filter(|template| !template.is_blank()) {
         Some(template) => sections.substituted(template, style),
         None => sections.concatenated(),
     };
@@ -368,18 +365,20 @@ pub fn place_logo(
     // whole answer. It is still checked against what was actually rendered: a line nothing
     // can wrap — a synopsis, an example's command, a long URL — can overrun the margin it was
     // given, and art printed over it would be worse than the banner.
+    let page_lines = lines_of(page);
     let column = reserved.filter(|column| {
-        page.lines()
+        page_lines
+            .iter()
             .take(art.len())
             .all(|line| shown_width(line) + LOGO_GUTTER <= *column)
     });
     let mut out = match column {
         Some(column) => {
             let mut out = String::with_capacity(page.len() + art.len() * column);
-            let mut text = page.lines();
+            let mut text = page_lines.iter().copied();
             // Art taller than the page keeps going below it rather than being cut off: a logo
             // with its bottom sliced away looks like a rendering fault.
-            for index in 0..page.lines().count().max(art.len()) {
+            for index in 0..page_lines.len().max(art.len()) {
                 if index > 0 {
                     out.put_char('\n');
                 }
@@ -406,7 +405,7 @@ pub fn place_logo(
         }
         None => return page.to_string(),
     };
-    out.truncate(out.trim_end().len());
+    out.truncate(out.trimmed_end().len());
     out.put_char('\n');
     out
 }
@@ -422,7 +421,7 @@ fn painted_logo(line: &str, style: Option<&str>, coloured: bool) -> String {
         return strip_ansi_sequences(line.to_string());
     }
     match style {
-        Some(style) if !line.trim().is_empty() => template::semantic(style, line, Style::COLOURED),
+        Some(style) if !line.is_blank() => template::semantic(style, line, Style::COLOURED),
         _ => line.to_string(),
     }
 }
@@ -432,7 +431,10 @@ fn painted_logo(line: &str, style: Option<&str>, coloured: bool) -> String {
 /// An author writes a logo as an indented block in KDL or a raw string in Rust, and both
 /// commonly arrive with a leading newline and a trailing one. Neither is part of the picture.
 fn logo_lines(logo: &str) -> Vec<&str> {
-    let mut lines: Vec<&str> = logo.lines().map(str::trim_end).collect();
+    let mut lines = lines_of(logo);
+    for line in &mut lines {
+        *line = line.trimmed_end();
+    }
     while lines.first().is_some_and(|line| line.is_empty()) {
         lines.remove(0);
     }
@@ -452,16 +454,16 @@ fn shown_width(line: &str) -> usize {
     let mut at = 0;
     let mut columns = 0;
     while at < bytes.len() {
-        if bytes[at] == b'\x1b' && bytes.get(at + 1) == Some(&b'[') {
+        if byte_at(bytes, at) == b'\x1b' && byte_at(bytes, at + 1) == b'[' {
             let mut end = at + 2;
-            while end < bytes.len() && !(0x40..=0x7e).contains(&bytes[end]) {
+            while end < bytes.len() && !(0x40..=0x7e).contains(&byte_at(bytes, end)) {
                 end += 1;
             }
             at = (end + 1).min(bytes.len());
             continue;
         }
         // A continuation byte is the rest of a character already counted.
-        if bytes[at] & 0xc0 != 0x80 {
+        if byte_at(bytes, at) & 0xc0 != 0x80 {
             columns += 1;
         }
         at += 1;
@@ -475,7 +477,7 @@ fn finish_page(page: String, style: Style) -> String {
     } else {
         strip_ansi_sequences(page)
     };
-    let trimmed = page.trim();
+    let trimmed = page.trimmed();
     let mut done = String::with_capacity(trimmed.len() + 1);
     done.put_str(trimmed);
     done.put_char('\n');
@@ -496,28 +498,28 @@ fn strip_ansi_sequences(text: String) -> String {
     let mut plain = String::with_capacity(text.len());
     let mut copied = 0;
     while at + 1 < bytes.len() {
-        if bytes[at] != b'\x1b' || bytes[at + 1] != b'[' {
+        if byte_at(bytes, at) != b'\x1b' || byte_at(bytes, at + 1) != b'[' {
             at += 1;
             continue;
         }
 
         let mut end = at + 2;
-        while end < bytes.len() && (0x30..=0x3f).contains(&bytes[end]) {
+        while end < bytes.len() && (0x30..=0x3f).contains(&byte_at(bytes, end)) {
             end += 1;
         }
-        while end < bytes.len() && (0x20..=0x2f).contains(&bytes[end]) {
+        while end < bytes.len() && (0x20..=0x2f).contains(&byte_at(bytes, end)) {
             end += 1;
         }
-        if end == bytes.len() || !(0x40..=0x7e).contains(&bytes[end]) {
+        if end == bytes.len() || !(0x40..=0x7e).contains(&byte_at(bytes, end)) {
             at += 2;
             continue;
         }
 
-        plain.put_str(&text[copied..at]);
+        plain.put_str(slice(&text, copied, at));
         copied = end + 1;
         at = copied;
     }
-    plain.put_str(&text[copied..]);
+    plain.put_str(tail(&text, copied));
     plain
 }
 
@@ -615,6 +617,26 @@ impl Style {
     }
 }
 
+/// The inline spans help prose accepts, longest delimiter first: the delimiter, the SGR codes
+/// that open and close it, whether it must start a word, and whether spans nest inside it.
+///
+/// A function rather than a static table: a table of strings is a load-time relocation per
+/// pointer in a position-independent binary, and this is a handful of immediate addresses.
+#[inline(never)]
+fn span_kind(kind: usize) -> Option<(&'static str, &'static str, &'static str, bool, bool)> {
+    Some(match kind {
+        0 => ("***", "1;3", "22;23", false, true),
+        1 => ("___", "1;3", "22;23", true, true),
+        2 => ("**", "1", "22", false, true),
+        3 => ("__", "1", "22", true, true),
+        4 => ("~~", "9", "29", false, true),
+        5 => ("*", "3", "23", false, true),
+        6 => ("_", "3", "23", true, true),
+        7 => ("`", "36", "39", false, false),
+        _ => return None,
+    })
+}
+
 /// Markdown-like emphasis in author-written help.
 ///
 /// Kept deliberately small and dependency-free: help is cold-path code, but the renderer is a
@@ -622,27 +644,14 @@ impl Style {
 /// would be disproportionate. Delimiters must close on the same line; an unmatched delimiter
 /// is ordinary text.
 fn styled_inline(text: &str, parent: Option<&str>) -> String {
-    // A table in the binary, not eight tuples built again for every character.
-    static SPANS: [(&str, &str, &str, bool, bool); 8] = [
-        ("***", "1;3", "22;23", false, true),
-        ("___", "1;3", "22;23", true, true),
-        ("**", "1", "22", false, true),
-        ("__", "1", "22", true, true),
-        ("~~", "9", "29", false, true),
-        ("*", "3", "23", false, true),
-        ("_", "3", "23", true, true),
-        ("`", "36", "39", false, false),
-    ];
     let mut out = String::with_capacity(text.len());
     let mut at = 0;
     let mut allow_run_remainder = false;
     while at < text.len() {
-        let rest = &text[at..];
+        let rest = tail(text, at);
 
         // Markdown escapes are useful in prose that genuinely means `*`, `_`, `~`, or `` ` ``.
-        if let Some(escaped) = rest
-            .strip_prefix('\\')
-            .and_then(|after| after.chars().next())
+        if let Some(escaped) = rest.strip_prefix('\\').and_then(|after| after.first_char())
             && matches!(escaped, '*' | '_' | '~' | '`' | '\\')
         {
             out.put_char(escaped);
@@ -651,36 +660,34 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             continue;
         }
 
-        let span = SPANS
-            .iter()
-            .find_map(|&(delimiter, open, close, word_boundary, recurse)| {
-                rest.strip_prefix(delimiter)?;
-                let marker = delimiter.chars().next().expect("a delimiter has a marker");
-                let previous = text[..at].chars().next_back();
-                // Do not reinterpret part of a delimiter run when the longer form was rejected.
-                // In particular, neither underscore in `word__word__` may become an italic opener.
-                if (previous == Some(marker) && !allow_run_remainder)
-                    || (delimiter.len() == 1 && rest[delimiter.len()..].starts_with(marker))
-                {
-                    return None;
-                }
-                if word_boundary && previous.is_some_and(char::is_alphanumeric) {
-                    return None;
-                }
-                let content_start = at + delimiter.len();
-                let (end, after) =
-                    closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
-                Some((delimiter, open, close, recurse, content_start, end, after))
-            });
+        let span = (0..8).find_map(|kind| {
+            let (delimiter, open, close, word_boundary, recurse) = span_kind(kind)?;
+            rest.strip_prefix(delimiter)?;
+            let marker = delimiter.first_char().unwrap_or_default();
+            let previous = head(text, at).last_char();
+            // Do not reinterpret part of a delimiter run when the longer form was rejected.
+            // In particular, neither underscore in `word__word__` may become an italic opener.
+            if (previous == Some(marker) && !allow_run_remainder)
+                || (delimiter.len() == 1 && tail(rest, delimiter.len()).starts_with(marker))
+            {
+                return None;
+            }
+            if word_boundary && previous.is_some_and(char::is_alphanumeric) {
+                return None;
+            }
+            let content_start = at + delimiter.len();
+            let (end, after) = closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
+            Some((delimiter, open, close, recurse, content_start, end, after))
+        });
 
         if let Some((delimiter, open, close, recurse, content_start, end, after)) = span {
             out.put_str("\u{1b}[");
             out.put_str(open);
             out.put_char('m');
             if recurse {
-                out.put_str(&styled_inline(&text[content_start..end], Some(open)));
+                out.put_str(&styled_inline(slice(text, content_start, end), Some(open)));
             } else {
-                out.put_str(&text[content_start..end]);
+                out.put_str(slice(text, content_start, end));
             }
             out.put_str("\u{1b}[");
             out.put_str(close);
@@ -690,14 +697,14 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
                 out.put_str(parent);
                 out.put_char('m');
             }
-            let marker = delimiter.chars().next().expect("a delimiter has a marker");
+            let marker = delimiter.first_char().unwrap_or_default();
             allow_run_remainder =
-                text[after..].starts_with(marker) && text[..after].ends_with(marker);
+                tail(text, after).starts_with(marker) && head(text, after).ends_with(marker);
             at = after;
             continue;
         }
 
-        let ch = rest.chars().next().expect("at is on a character boundary");
+        let ch = rest.first_char().unwrap_or_default();
         out.put_char(ch);
         at += ch.len_utf8();
         allow_run_remainder = false;
@@ -718,24 +725,25 @@ fn closing_delimiter(
     word_boundary: bool,
     reserve: usize,
 ) -> Option<(usize, usize)> {
-    let marker = delimiter.chars().next()?;
+    let marker = delimiter.first_char()?;
+    let marker_byte = byte_at(delimiter.as_bytes(), 0);
+    let bytes = text.as_bytes();
     let width = delimiter.len();
     let mut search_at = content_start;
 
-    while let Some(found) = text[search_at..].find(marker) {
+    while let Some(found) = find_char(tail(text, search_at), marker) {
         let run_start = search_at + found;
-        let run_len = text[run_start..]
-            .chars()
-            .take_while(|ch| *ch == marker)
-            .count();
+        // Counted in bytes: a marker and a backslash are each one.
+        let mut run_len = 0;
+        while byte_at(bytes, run_start + run_len) == marker_byte {
+            run_len += 1;
+        }
         let run_end = run_start + run_len;
-        let escaped = text[..run_start]
-            .chars()
-            .rev()
-            .take_while(|ch| *ch == '\\')
-            .count()
-            % 2
-            == 1;
+        let mut backslashes = 0;
+        while backslashes < run_start && byte_at(bytes, run_start - 1 - backslashes) == b'\\' {
+            backslashes += 1;
+        }
+        let escaped = backslashes % 2 == 1;
         if escaped {
             // A backslash escapes one marker, not its whole run. The rest may still close the
             // span: `*italic \**` is an escaped literal star followed by the italic close.
@@ -748,7 +756,7 @@ fn closing_delimiter(
             _ => 0,
         };
         if nested_width != 0 {
-            let nested = &text[run_start..run_start + nested_width];
+            let nested = slice(text, run_start, run_start + nested_width);
             if let Some((_, after)) =
                 closing_delimiter(text, run_start + nested_width, nested, marker == '_', width)
             {
@@ -762,12 +770,12 @@ fn closing_delimiter(
             let left_in_run = run_end - after;
             let leaves_parent_close = left_in_run == 0 || left_in_run >= reserve;
             let boundary_ok = !word_boundary
-                || !text[after..]
+                || !tail(text, after)
                     .chars()
                     .next()
                     .is_some_and(char::is_alphanumeric);
             if run_start > content_start
-                && !text[content_start..run_start].trim().is_empty()
+                && !slice(text, content_start, run_start).is_blank()
                 && leaves_parent_close
                 && boundary_ok
             {
@@ -783,21 +791,20 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
     let mut out = String::with_capacity(usage.len());
     let mut at = 0;
     while at < usage.len() {
-        let rest = &usage[at..];
-        let previous = usage[..at].chars().next_back();
+        let rest = tail(usage, at);
+        let previous = head(usage, at).last_char();
 
         if rest.starts_with('-')
-            && previous.is_none_or(|c| c.is_whitespace() || matches!(c, ',' | ':' | '[' | '<'))
+            && previous.is_none_or(|c| is_space(c) || matches!(c, ',' | ':' | '[' | '<'))
         {
             let end = rest
                 .char_indices()
                 .skip(1)
                 .find_map(|(i, c)| {
-                    (c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>'))
-                        .then_some(i)
+                    (is_space(c) || matches!(c, ',' | '=' | '[' | ']' | '<' | '>')).then_some(i)
                 })
                 .unwrap_or(rest.len());
-            style.paint(&mut out, "option", &rest[..end]);
+            style.paint(&mut out, "option", head(rest, end));
             at += end;
             continue;
         }
@@ -811,19 +818,19 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         }
 
         if rest.starts_with('<')
-            && let Some(end) = rest.find('>')
+            && let Some(end) = find_char(rest, '>')
         {
             let end = end + 1;
-            style.paint(&mut out, "metavar", &rest[..end]);
+            style.paint(&mut out, "metavar", head(rest, end));
             at += end;
             continue;
         }
 
         if let Some(value) = rest.strip_prefix("[=")
-            && let Some(end) = value.find(']')
+            && let Some(end) = find_char(value, ']')
         {
             out.put_str("[=");
-            style.paint(&mut out, "metavar", &value[..end]);
+            style.paint(&mut out, "metavar", head(value, end));
             out.put_char(']');
             at += end + 3;
             continue;
@@ -834,10 +841,10 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
             at += 1;
             if !value.starts_with('<') {
                 let end = value
-                    .find(|c: char| c.is_whitespace() || matches!(c, ',' | ']' | '>'))
+                    .find(|c: char| is_space(c) || matches!(c, ',' | ']' | '>'))
                     .unwrap_or(value.len());
                 if end > 0 {
-                    style.paint(&mut out, "metavar", &value[..end]);
+                    style.paint(&mut out, "metavar", head(value, end));
                     at += end;
                 }
             }
@@ -845,33 +852,33 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         }
 
         if previous == Some('[') && !rest.starts_with('-') {
-            let end = rest.find(']').unwrap_or(rest.len());
+            let end = find_char(rest, ']').unwrap_or(rest.len());
             if end > 0 {
-                style.paint(&mut out, "metavar", &rest[..end]);
+                style.paint(&mut out, "metavar", head(rest, end));
                 at += end;
                 continue;
             }
         }
 
         if rest.starts_with(|c: char| c.is_ascii_uppercase())
-            && previous.is_none_or(|c| c.is_whitespace() || matches!(c, '=' | '[' | '<'))
+            && previous.is_none_or(|c| is_space(c) || matches!(c, '=' | '[' | '<'))
         {
             let end = rest
                 .find(|c: char| {
                     !(c.is_ascii_uppercase() || c.is_ascii_digit() || matches!(c, '_' | '-' | '@'))
                 })
                 .unwrap_or(rest.len());
-            let boundary = rest[end..].chars().next();
-            if boundary.is_none_or(|c| {
-                c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.')
-            }) {
-                style.paint(&mut out, "metavar", &rest[..end]);
+            let boundary = tail(rest, end).first_char();
+            if boundary
+                .is_none_or(|c| is_space(c) || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.'))
+            {
+                style.paint(&mut out, "metavar", head(rest, end));
                 at += end;
                 continue;
             }
         }
 
-        let ch = rest.chars().next().expect("at is on a character boundary");
+        let ch = rest.first_char().unwrap_or_default();
         out.put_char(ch);
         at += ch.len_utf8();
     }
@@ -919,6 +926,56 @@ impl PutStr for String {
     }
 }
 
+/// The `str` queries a page makes from a dozen places, each out of line: `trim` and
+/// `chars().next()` expand into their own copy of the UTF-8 and white-space tables at every
+/// call site.
+trait Text {
+    fn trimmed(&self) -> &str;
+    fn trimmed_start(&self) -> &str;
+    fn trimmed_end(&self) -> &str;
+    fn is_blank(&self) -> bool;
+    fn first_char(&self) -> Option<char>;
+    fn last_char(&self) -> Option<char>;
+}
+
+impl Text for str {
+    #[inline(never)]
+    fn trimmed(&self) -> &str {
+        self.trim()
+    }
+
+    #[inline(never)]
+    fn trimmed_start(&self) -> &str {
+        self.trim_start()
+    }
+
+    #[inline(never)]
+    fn trimmed_end(&self) -> &str {
+        self.trim_end()
+    }
+
+    #[inline(never)]
+    fn is_blank(&self) -> bool {
+        self.trim().is_empty()
+    }
+
+    #[inline(never)]
+    fn first_char(&self) -> Option<char> {
+        self.chars().next()
+    }
+
+    #[inline(never)]
+    fn last_char(&self) -> Option<char> {
+        self.chars().next_back()
+    }
+}
+
+/// Whether `c` is white space, in one place rather than a table lookup at each test.
+#[inline(never)]
+fn is_space(c: char) -> bool {
+    c.is_whitespace()
+}
+
 /// Append `parts` in order. `write!` with format arguments pulls `core::fmt` into every call
 /// site; this is the same bytes with a push per part.
 #[inline(never)]
@@ -928,12 +985,137 @@ fn put(out: &mut String, parts: &[&str]) {
     }
 }
 
+/// `parts` with `separator` between them: `[&str]::join` without a copy of its machinery at
+/// every call.
+#[inline(never)]
+fn joined(parts: &[&str], separator: &str) -> String {
+    let mut out = String::new();
+    for (index, part) in parts.iter().enumerate() {
+        if index > 0 {
+            out.put_str(separator);
+        }
+        out.put_str(part);
+    }
+    out
+}
+
 /// `parts`, joined into a new string: `format!` without the formatting machinery.
 #[inline(never)]
 fn cat(parts: &[&str]) -> String {
     let mut out = String::new();
     put(&mut out, parts);
     out
+}
+
+/// The byte offset of the first `c` in `text`. A character search expands to its own copy of
+/// the byte scan wherever it is written, and a page does it from a dozen places.
+#[inline(never)]
+fn find_char(text: &str, c: char) -> Option<usize> {
+    let mut buf = [0u8; 4];
+    find_str(text, c.encode_utf8(&mut buf))
+}
+
+/// The byte offset of the first `needle` in `text`, for the same reason as [`find_char`].
+///
+/// A plain scan: the needles are a few bytes and the texts a page of help, so the substring
+/// searcher in `core` buys nothing and costs a kilobyte.
+#[inline(never)]
+fn find_str(text: &str, needle: &str) -> Option<usize> {
+    let needle = needle.as_bytes();
+    let Some(&first) = needle.first() else {
+        return Some(0);
+    };
+    let bytes = text.as_bytes();
+    let mut from = 0;
+    loop {
+        // The next place the needle could start, then whether it does.
+        let at = from + find_byte(bytes.get(from..)?, first)?;
+        if bytes.get(at..).is_some_and(|rest| rest.starts_with(needle)) {
+            return Some(at);
+        }
+        from = at + 1;
+    }
+}
+
+/// The position of the first `wanted` in `bytes`, eight bytes to the test.
+///
+/// What `memchr` does, without the kilobyte of it: a word has a `wanted` in it exactly when
+/// the word xor-ed with `wanted` repeated has a zero byte, which the usual subtract-and-mask
+/// finds without looking at the bytes one at a time.
+fn find_byte(bytes: &[u8], wanted: u8) -> Option<usize> {
+    const LOW: u64 = 0x0101_0101_0101_0101;
+    const HIGH: u64 = 0x8080_8080_8080_8080;
+    let pattern = LOW * u64::from(wanted);
+    let (words, rest) = bytes.as_chunks::<8>();
+    let mut base = 0;
+    for chunk in words {
+        let word = u64::from_le_bytes(*chunk) ^ pattern;
+        if word.wrapping_sub(LOW) & !word & HIGH != 0 {
+            return chunk
+                .iter()
+                .position(|&byte| byte == wanted)
+                .map(|at| base + at);
+        }
+        base += 8;
+    }
+    rest.iter()
+        .position(|&byte| byte == wanted)
+        .map(|at| base + at)
+}
+
+/// `text` up to the first `separator`, and what follows it: `None` when there is no separator.
+/// Pieces are walked through this one scan rather than a `split` at each walk.
+#[inline(never)]
+fn split_first(text: &str, separator: char) -> (&str, Option<&str>) {
+    let mut buf = [0u8; 4];
+    let separator = separator.encode_utf8(&mut buf);
+    match find_str(text, separator) {
+        Some(at) => (head(text, at), Some(tail(text, at + separator.len()))),
+        None => (text, None),
+    }
+}
+
+/// The first line of `text`, and what follows its newline.
+#[inline(always)]
+fn split_line(text: &str) -> (&str, Option<&str>) {
+    split_first(text, '\n')
+}
+
+/// The lines of `text`, as `str::lines` gives them, collected: its iterator expands into a copy
+/// at each place a page is read by line, and these are short pages.
+#[inline(never)]
+fn lines_of(text: &str) -> Vec<&str> {
+    text.lines().collect()
+}
+
+/// `path` without the binary at its front: what a command is called below the program.
+fn without_binary<'a>(path: &'a [&'a str]) -> &'a [&'a str] {
+    path.get(1..).unwrap_or_default()
+}
+
+/// The byte at `at`, and zero past the end: reading a page's bytes without a bounds check that
+/// panics, at the places that have already tested the length.
+fn byte_at(bytes: &[u8], at: usize) -> u8 {
+    bytes.get(at).copied().unwrap_or(0)
+}
+
+/// `text` from byte `at` on. The slicing below is written through these three so a binary
+/// carries one bounds-check failure per shape rather than one at each of dozens of sites.
+#[inline(never)]
+fn tail(text: &str, at: usize) -> &str {
+    &text[at..]
+}
+
+/// `text` up to byte `at`.
+#[inline(never)]
+fn head(text: &str, at: usize) -> &str {
+    &text[..at]
+}
+
+/// `text` from byte `from` up to byte `to`.
+#[inline(never)]
+fn slice(text: &str, from: usize, to: usize) -> &str {
+    &text[from..to]
 }
 
 #[inline(never)]
@@ -973,6 +1155,7 @@ fn short_form(short: u8) -> String {
 
 /// A heading, as every section writes one: after a blank line, and coloured on a coloured
 /// page.
+#[inline(never)]
 fn write_heading(out: &mut String, title: &str, style: Style) {
     out.put_char('\n');
     if style.coloured {
@@ -989,6 +1172,7 @@ fn write_heading(out: &mut String, title: &str, style: Style) {
 
 /// A row's usage as it is printed: coloured on a coloured page. The column is still measured
 /// on the plain spelling, which is what the reader sees.
+#[inline(never)]
 fn painted_usage(usage: &str, style: Style) -> Cow<'_, str> {
     if style.coloured {
         Cow::Owned(styled_flag_usage(usage, style))
@@ -1003,10 +1187,11 @@ fn paint_synopsis(usage: &mut String, style: Style) {
         return;
     }
     let mut out = String::with_capacity(usage.len() * 2);
-    for line in usage.split_inclusive('\n') {
-        let (body, newline) = line
-            .strip_suffix('\n')
-            .map_or((line, ""), |body| (body, "\n"));
+    let mut rest = usage.as_str();
+    while !rest.is_empty() {
+        let (body, next) = split_line(rest);
+        let newline = if next.is_some() { "\n" } else { "" };
+        rest = next.unwrap_or("");
         out.put_char(STRUCTURE);
         match body.strip_prefix("Usage:") {
             Some(rest) => {
@@ -1030,13 +1215,14 @@ fn painted_prose(page: String, style: Style) -> String {
         return page;
     }
     let mut out = String::with_capacity(page.len());
-    for line in page.split_inclusive('\n') {
-        let (body, newline) = line
-            .strip_suffix('\n')
-            .map_or((line, ""), |body| (body, "\n"));
+    let mut rest = page.as_str();
+    while !rest.is_empty() {
+        let (body, next) = split_line(rest);
+        let newline = if next.is_some() { "\n" } else { "" };
+        rest = next.unwrap_or("");
         if let Some(structure) = body.strip_prefix(STRUCTURE) {
             out.put_str(structure);
-        } else if body.trim_start().starts_with("$ ") {
+        } else if body.trimmed_start().starts_with("$ ") {
             // Examples are shell source, where paired backticks are command substitution rather
             // than prose markup. Every other line may contain author emphasis; option and
             // argument spellings are harmless because intraword underscores do not open spans
@@ -1068,10 +1254,7 @@ fn rendered_page(
         suppress_global,
         style,
     );
-    let page = match spec
-        .help_template
-        .filter(|template| !template.trim().is_empty())
-    {
+    let page = match spec.help_template.filter(|template| !template.is_blank()) {
         Some(template) => template::substitute(template, style, |name| {
             sections.named(name).map(|part| painted_prose(part, style))
         }),
@@ -1227,16 +1410,15 @@ fn usage_line_with_subcommands(
                     );
                 }
                 None => {
-                    let arg = positional_args
-                        .iter()
-                        .find(|arg| !arg.hide)
-                        .expect("an implicit clause has one visible positional");
-                    let separator = if arg.arg.double_dash == DoubleDash::Required {
-                        "-- "
-                    } else {
-                        ""
-                    };
-                    put(&mut out, &[" [", separator, arg.arg.name, "]…"]);
+                    // An implicit clause has one visible positional.
+                    if let Some(arg) = positional_args.iter().find(|arg| !arg.hide) {
+                        let separator = if arg.arg.double_dash == DoubleDash::Required {
+                            "-- "
+                        } else {
+                            ""
+                        };
+                        put(&mut out, &[" [", separator, arg.arg.name, "]…"]);
+                    }
                 }
             }
         } else if args <= INLINE_LIMIT {
@@ -1268,9 +1450,9 @@ fn usage_line_with_subcommands(
 /// pages still derive their own invocation from the route and command metadata.
 fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) {
     if path.len() <= 1
-        && let Some(usage) = spec.usage.filter(|usage| !usage.trim().is_empty())
+        && let Some(usage) = spec.usage.filter(|usage| !usage.is_blank())
     {
-        put(out, &[usage.trim(), "\n"]);
+        put(out, &[usage.trimmed(), "\n"]);
         return;
     }
     // Only flattened help needs a synopsis for every visible child.
@@ -1317,15 +1499,45 @@ pub(crate) enum Form<'a> {
     Short(u8),
 }
 
-impl<'a> Form<'a> {
-    /// Every long and short `f` answers to.
-    pub(crate) fn of(f: &'a FlagMeta<'a>) -> impl Iterator<Item = Form<'a>> {
-        f.flag
-            .longs
-            .iter()
-            .map(|l| Form::Long(l))
-            .chain(f.flag.shorts.iter().map(|s| Form::Short(*s)))
+/// Append every spelling `f` answers to. Out of line, so the chains that gather them are
+/// compiled once rather than at each of the places a page does.
+#[inline(never)]
+pub(crate) fn push_forms<'a>(out: &mut Vec<Form<'a>>, f: &'a FlagMeta<'a>) {
+    for long in f.flag.longs {
+        out.push(Form::Long(long));
     }
+    for short in f.flag.shorts {
+        out.push(Form::Short(*short));
+    }
+}
+
+/// Whether `form` is among `forms`, one comparison loop for every list a page asks.
+#[inline(never)]
+fn has_form(forms: &[Form<'_>], form: Form<'_>) -> bool {
+    forms.contains(&form)
+}
+
+/// Whether `name` is one of `names`.
+#[inline(never)]
+fn has_name(names: &[&str], name: &str) -> bool {
+    for candidate in names {
+        if *candidate == name {
+            return true;
+        }
+    }
+    false
+}
+
+/// The first long of `longs` that `keep` accepts.
+#[inline(never)]
+fn first_long<'a>(longs: &[&'a str], keep: &dyn Fn(&str) -> bool) -> Option<&'a str> {
+    longs.iter().copied().find(|long| keep(long))
+}
+
+/// The first short of `shorts` that `keep` accepts.
+#[inline(never)]
+fn first_short(shorts: &[u8], keep: &dyn Fn(u8) -> bool) -> Option<u8> {
+    shorts.iter().copied().find(|short| keep(*short))
 }
 
 struct Shown<'a> {
@@ -1340,18 +1552,12 @@ impl<'a> Shown<'a> {
     /// Everything the flag has, for a command's own flags — nothing above them to claim any.
     fn all(meta: &'a FlagMeta<'a>) -> Self {
         Shown {
-            long: meta
-                .flag
-                .longs
-                .iter()
-                .copied()
-                .find(|long| !meta.extra.hidden_longs.contains(long)),
-            short: meta
-                .flag
-                .shorts
-                .iter()
-                .copied()
-                .find(|short| !meta.extra.hidden_shorts.contains(short)),
+            long: first_long(meta.flag.longs, &|long| {
+                !has_name(meta.extra.hidden_longs, long)
+            }),
+            short: first_short(meta.flag.shorts, &|short| {
+                !meta.extra.hidden_shorts.contains(&short)
+            }),
             negate: meta.flag.negate.is_some(),
         }
     }
@@ -1368,20 +1574,17 @@ impl<'a> Shown<'a> {
         every_form: &[Form<'_>],
     ) -> Self {
         Shown {
-            long: meta
-                .flag
-                .longs
-                .iter()
-                .copied()
-                .find(|l| !meta.extra.hidden_longs.contains(l) && !taken.contains(&Form::Long(l))),
-            short: meta.flag.shorts.iter().copied().find(|s| {
-                !meta.extra.hidden_shorts.contains(s) && !taken.contains(&Form::Short(*s))
+            long: first_long(meta.flag.longs, &|l| {
+                !has_name(meta.extra.hidden_longs, l) && !has_form(taken, Form::Long(l))
+            }),
+            short: first_short(meta.flag.shorts, &|s| {
+                !meta.extra.hidden_shorts.contains(&s) && !has_form(taken, Form::Short(s))
             }),
             negate: meta.flag.negate.is_some_and(|n| {
                 let spelling = Form::Long(n);
                 // A long anywhere in scope wins over this, this flag's own excepted.
-                !taken_negations.contains(&spelling)
-                    && (!every_form.contains(&spelling) || meta.flag.longs.contains(&n))
+                !has_form(taken_negations, spelling)
+                    && (!has_form(every_form, spelling) || has_name(meta.flag.longs, n))
             }),
         }
     }
@@ -1627,7 +1830,9 @@ fn page_sections(
     suppress_global: bool,
     style: Style,
 ) -> Sections {
-    let meta = *chain.last().expect("a page is always about some command");
+    let Some(&meta) = chain.last() else {
+        return Sections::default();
+    };
     let (mut own, mut inherited) = own_and_global(chain, inherit_version_actions);
     own.retain(|flag| !hidden_on(long, flag.hide_short_help, flag.hide_long_help));
     if suppress_global {
@@ -1678,7 +1883,7 @@ fn page_sections(
     if let Some(about) = about {
         // Trimmed for the same reason the entries below are: the blank line after the
         // description is written here, so one already in the text doubles it.
-        write_wrapped_indented(out, about.trim_end(), width, 0);
+        write_wrapped_indented(out, about.trimmed_end(), width, 0);
         out.put_char('\n');
     }
     command_deprecation(out, meta, 0, width);
@@ -1690,7 +1895,7 @@ fn page_sections(
     if !flatten_help(meta) {
         commands_section(
             &mut sections.commands,
-            &path[1.min(path.len())..],
+            without_binary(path),
             meta,
             width,
             long,
@@ -1805,7 +2010,7 @@ fn page_sections(
     if flatten_help(meta) {
         flat_commands(
             &mut sections.flattened,
-            &path[1.min(path.len())..],
+            without_binary(path),
             meta,
             width,
             long,
@@ -1983,7 +2188,7 @@ fn write_row(out: &mut String, row: &Row<'_>, layout: RowLayout) {
         if aligned { indent } else { BLOCK_INDENT }
     } else if next_line {
         line_at(out, 2, &painted);
-        if let Some(help) = row.help.filter(|h| !h.trim().is_empty()) {
+        if let Some(help) = row.help.filter(|h| !h.is_blank()) {
             write_wrapped_block(out, help, width);
         }
         BLOCK_INDENT
@@ -2098,11 +2303,11 @@ fn with_default_command_help(
         inherit_version_actions,
         true,
     );
-    let mut out = parent.trim_end().to_string();
+    let mut out = parent.trimmed_end().to_string();
     out.put_str("\n\nDefault command: ");
     out.put_str(&style.command(child.cmd.name));
     out.put_str("\n  Unmatched words select this command.\n\n");
-    out.put_str(child_page.trim_end());
+    out.put_str(child_page.trimmed_end());
     out.put_char('\n');
     out
 }
@@ -2145,7 +2350,9 @@ fn commands_section(
     let last = sub_path.len() - 1;
     let mut lines: Vec<(String, &&CommandMeta<'_>)> = Vec::new();
     for sub in visible {
-        sub_path[last] = sub.cmd.name;
+        if let Some(name) = sub_path.get_mut(last) {
+            *name = sub.cmd.name;
+        }
         lines.push((usage_line(&sub_path, sub), sub));
     }
     sort_rows(&mut lines, &mut |a, b| {
@@ -2295,14 +2502,14 @@ fn flat_commands(
     for sub in visible {
         let mut sub_path = path.to_vec();
         sub_path.push(sub.cmd.name);
-        write_heading(out, &sub_path.join(" "), style);
+        write_heading(out, &joined(&sub_path, " "), style);
         let about = if long {
             sub.long_about.or(sub.about)
         } else {
             sub.about
         };
-        if let Some(about) = about.filter(|about| !about.trim().is_empty()) {
-            write_wrapped_indented(out, about.trim_end(), width, 0);
+        if let Some(about) = about.filter(|about| !about.is_blank()) {
+            write_wrapped_indented(out, about.trimmed_end(), width, 0);
         }
         command_deprecation(out, sub, 0, width);
 
@@ -2437,9 +2644,13 @@ fn split_groups_section<'m, T>(
         default_title,
         width,
         items.len(),
-        &|index| heading_of(&items[index]),
+        &|index| items.get(index).and_then(&heading_of),
         &prose_of,
-        &mut |out, index| write_item(out, &items[index]),
+        &mut |out, index| {
+            if let Some(item) = items.get(index) {
+                write_item(out, item);
+            }
+        },
     );
 }
 
@@ -2463,8 +2674,10 @@ fn grouped_sections<'m>(
         }
     }
     if let Some(index) = headings.iter().position(Option::is_none) {
-        let unheaded = headings.remove(index);
-        headings.insert(0, unheaded);
+        // The unheaded group moves to the front, the rest keeping their order.
+        if let Some(upto) = headings.get_mut(..=index) {
+            upto.rotate_right(1);
+        }
     }
 
     for heading in headings {
@@ -2579,7 +2792,7 @@ fn inline_annotations(
         out.put_str(part);
     };
     if !choices.is_empty() {
-        push(&cat(&["[", &choices.join(", "), "]"]));
+        push(&cat(&["[", &joined(choices, ", "), "]"]));
     }
     if let Some(env) = env {
         push(&cat(&["[env: ", env, "]"]));
@@ -2588,7 +2801,7 @@ fn inline_annotations(
         push(environment);
     }
     if !default.is_empty() {
-        push(&cat(&["(default: ", &default.join(", "), ")"]));
+        push(&cat(&["(default: ", &joined(default, ", "), ")"]));
     }
     if let Some(suffix) = suffix {
         push(suffix);
@@ -2686,11 +2899,11 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     };
     // Only when the text actually begins with the long form. The `name:` prefix case does not,
     // and splitting it would put `verbose:` in a column meant for `-v, `.
-    let Some(at) = rest.find(&*long_form(long)) else {
+    let Some(at) = find_str(&rest, &long_form(long)) else {
         return rest;
     };
     let (before, after) = rest.split_at(at);
-    let short = before.trim();
+    let short = before.trimmed();
     // Only a bare short form belongs in the short column. A flag may carry a declared name the
     // forms do not imply — `jobs: -j --parallel` — and that prefix is not something to line up
     // with a comma after: it rendered `jobs: -j,--parallel`, losing the space entirely, because
@@ -2783,6 +2996,7 @@ fn probed_width() -> Option<usize> {
 /// After the two-space indent and gap, usage gets at most two fifths of what remains. Entries
 /// beyond the cap use block layout on their own; an explicitly unbounded page keeps its natural
 /// column.
+#[inline(never)]
 fn usage_column_width(longest: usize, terminal_width: usize) -> usize {
     if terminal_width == usize::MAX {
         return longest;
@@ -2841,7 +3055,7 @@ fn long_help_with(
 /// An indented empty line would be trailing whitespace, which the reference does not emit and
 /// a diff would show as a line that is not empty.
 fn write_indented(out: &mut String, text: &str, indent: usize) {
-    for (i, line) in text.lines().enumerate() {
+    for (i, line) in lines_of(text).into_iter().enumerate() {
         // The first line is always indented, even when it is empty, and later blank lines are
         // left blank. That is not a choice: the reference writes the indent literally before the
         // text and indents the *rest* with a filter that skips blanks, so an opening empty line
@@ -2897,7 +3111,7 @@ fn entry(
     } else {
         BLOCK_INDENT
     };
-    let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
+    let Some(help) = help.filter(|h| !h.is_blank()) else {
         line_at(out, 2, painted);
         // An entry with nothing in the column still has annotations to place, and the column is
         // where they go: it is this entry's row that is empty, not the table's.
@@ -2978,12 +3192,17 @@ fn wrap_lead(
         }
     };
     if per_line {
-        for (index, line) in text.split('\n').enumerate() {
+        let mut index = 0;
+        let mut rest = Some(text);
+        while let Some(remaining) = rest {
+            let (line, next) = split_line(remaining);
+            rest = next;
             wrap_lines(
                 line,
                 if index == 0 { first_width } else { width },
                 &mut emit,
             );
+            index += 1;
         }
     } else {
         wrap_lines(text, width, &mut emit);
@@ -2995,6 +3214,7 @@ fn write_wrapped_block(out: &mut String, help: &str, width: usize) {
     write_wrapped_indented(out, help, width, BLOCK_INDENT);
 }
 
+#[inline(never)]
 fn write_wrapped_indented(out: &mut String, help: &str, width: usize, indent: usize) {
     let room = width.saturating_sub(indent);
     wrap_lines(help, room, &mut |line| {
@@ -3042,10 +3262,14 @@ fn fits(text: &str, room: usize) -> bool {
 /// The width of the line under construction is carried along rather than recounted for each
 /// word. Recounting made this quadratic in the length of a line, which went unnoticed while
 /// only the long page wrapped and was 3% of `usage --help` once the command list did too.
+#[inline(never)]
 fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
     let mut emitted = false;
     let mut line = String::new();
-    for paragraph in text.split('\n') {
+    let mut rest = Some(text);
+    while let Some(remaining) = rest {
+        let (paragraph, next) = split_line(remaining);
+        rest = next;
         if paragraph.is_empty() {
             emit("");
             emitted = true;
@@ -3056,7 +3280,7 @@ fn wrap_lines(text: &str, width: usize, emit: &mut dyn FnMut(&str)) {
             emitted = true;
             continue;
         }
-        let trimmed = paragraph.trim();
+        let trimmed = paragraph.trimmed();
         let leading_trimmed = paragraph.trim_start_matches(' ');
         let (prefix, body) = match list_prefix(leading_trimmed) {
             Some((marker, body)) => (
@@ -3150,7 +3374,7 @@ fn long_annotations(out: &mut String, row: &Row<'_>, layout: AnnotationLayout) {
         write_wrapped_indented(out, &cat(&[prefix, body, suffix]), width, indent);
     };
     if !choices.is_empty() {
-        note("[possible values: ", &choices.join(", "), "]");
+        note("[possible values: ", &joined(choices, ", "), "]");
     }
     if let Some(env) = env {
         note("[env: ", env, "]");
@@ -3162,7 +3386,7 @@ fn long_annotations(out: &mut String, row: &Row<'_>, layout: AnnotationLayout) {
         note("[deprecated env: ", env, "]");
     }
     if !default.is_empty() {
-        note("(default: ", &default.join(", "), ")");
+        note("(default: ", &joined(default, ", "), ")");
     }
 }
 
@@ -3193,9 +3417,11 @@ fn write_labelled(out: &mut String, label: &str, text: &str, width: usize, inden
 
 /// A description reduced to what a list can show, or nothing if it says nothing.
 fn summarize(text: Option<&str>) -> Option<&str> {
-    text.map(str::trim_end).filter(|text| !text.is_empty())
+    text.map(|text| text.trimmed_end())
+        .filter(|text| !text.is_empty())
 }
 
+#[inline(never)]
 fn deprecation_label(
     message: Option<&str>,
     warn_at: Option<&str>,
@@ -3223,6 +3449,7 @@ fn deprecation_label(
     Some(out)
 }
 
+#[inline(never)]
 fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, width: usize) {
     if let Some(label) = deprecation_label(
         meta.extra.deprecated,
@@ -3236,18 +3463,19 @@ fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, 
 /// A row's other environment names, for the short page. A hidden environment arrives here
 /// already empty: see [`Row`].
 fn inline_environment_notes(fallbacks: &[&str], deprecated: &[&str]) -> Option<String> {
-    let mut notes = Vec::new();
-    notes.extend(
-        fallbacks
-            .iter()
-            .map(|env| cat(&["[env fallback: ", env, "]"])),
-    );
-    notes.extend(
-        deprecated
-            .iter()
-            .map(|env| cat(&["[deprecated env: ", env, "]"])),
-    );
-    (!notes.is_empty()).then(|| notes.join(" "))
+    let mut out = String::new();
+    for (label, names) in [
+        ("[env fallback: ", fallbacks),
+        ("[deprecated env: ", deprecated),
+    ] {
+        for name in names {
+            if !out.is_empty() {
+                out.put_char(' ');
+            }
+            put(&mut out, &[label, name, "]"]);
+        }
+    }
+    (!out.is_empty()).then_some(out)
 }
 
 /// The path and metadata for a command, found by identity within a spec.
@@ -3467,8 +3695,14 @@ fn own_and_global<'a>(
         f.flag.negate.map(Form::Long)
     }
 
-    let mut taken: Vec<Form<'_>> = here.flags.iter().flat_map(Form::of).collect();
-    let mut taken_negations: Vec<Form<'_>> = here.flags.iter().filter_map(negation).collect();
+    let mut taken: Vec<Form<'_>> = Vec::new();
+    let mut taken_negations: Vec<Form<'_>> = Vec::new();
+    for f in here.flags {
+        push_forms(&mut taken, f);
+        if let Some(form) = negation(f) {
+            taken_negations.push(form);
+        }
+    }
     // A root page has nothing to inherit. Do not allocate another copy of every
     // spelling just to resolve shadowing against an empty ancestor list.
     let mut inherited = if ancestors.is_empty() {
@@ -3482,7 +3716,7 @@ fn own_and_global<'a>(
         let mut every_form: Vec<Form<'_>> = taken.clone();
         for meta in ancestors {
             for f in meta.flags.iter().filter(|f| visits(f)) {
-                every_form.extend(Form::of(f));
+                push_forms(&mut every_form, f);
             }
         }
 
@@ -3492,8 +3726,10 @@ fn own_and_global<'a>(
                 let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
                 // Reserved whether or not it is shown: a hidden one still binds, and so does one
                 // whose every spelling something nearer already took.
-                taken.extend(Form::of(f));
-                taken_negations.extend(negation(f));
+                push_forms(&mut taken, f);
+                if let Some(form) = negation(f) {
+                    taken_negations.push(form);
+                }
                 if f.hide || show.nothing() {
                     continue;
                 }
@@ -4024,18 +4260,23 @@ pub fn page(
     page: Page,
     style: Style,
 ) -> Option<String> {
-    match route_to(root, argv, cmd) {
-        Some(route) => match page {
-            Page::Short => render_at_styled(spec, &route, false, style),
-            Page::Long => render_at_styled(spec, &route, true, style),
-            Page::All => render_all_at_styled(spec, &route, style),
-        },
-        None => match page {
-            Page::Short => render_styled(spec, cmd, false, style),
-            Page::Long => render_styled(spec, cmd, true, style),
-            Page::All => render_all_styled(spec, cmd, style),
-        },
-    }
+    // The same page either way; only how the command is located differs.
+    let (path, chain) = match route_to(root, argv, cmd) {
+        Some(route) => route_context(spec, &route)?,
+        None => find(spec, cmd)?,
+    };
+    Some(match page {
+        Page::Short | Page::Long => assembled_help(
+            spec,
+            &path,
+            &chain,
+            matches!(page, Page::Long),
+            style,
+            false,
+            true,
+        ),
+        Page::All => recursive_help(spec, path, chain, style, false),
+    })
 }
 
 /// The page a help request becomes when a declared executable view is what the user invoked.
