@@ -1,5 +1,21 @@
 # Changelog
 
+## [7.0.1](https://github.com/jdx/usage/compare/v7.0.0..v7.0.1) - 2026-10-14
+
+### 📚 Documentation
+
+- replace V7.md with V8.md for pending breaking changes by [@jdx](https://github.com/jdx) in [#1550](https://github.com/jdx/usage/pull/1550)
+
+### ⚡ Performance
+
+- **(complete)** shrink completion splitting and error suggestions by [@jdx](https://github.com/jdx) in [#1554](https://github.com/jdx/usage/pull/1554)
+- **(lib)** shrink the help, completion and error rendering code in usage-argv by [@jdx](https://github.com/jdx) in [#1551](https://github.com/jdx/usage/pull/1551)
+- **(lib)** shrink the help renderer further by outlining wrapping, slicing and searching by [@jdx](https://github.com/jdx) in [#1553](https://github.com/jdx/usage/pull/1553)
+
+### 📦️ Dependency Updates
+
+- bump jactionlint to 2.2.0 and mbx to 1.24.0 by [@jdx](https://github.com/jdx) in [#1549](https://github.com/jdx/usage/pull/1549)
+
 ## [7.0.0](https://github.com/jdx/usage/compare/v6.12.1..v7.0.0) - 2026-10-08
 
 ### 🚀 Features
