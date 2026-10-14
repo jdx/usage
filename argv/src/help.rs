@@ -1336,15 +1336,55 @@ pub(crate) enum Form<'a> {
     Short(u8),
 }
 
-impl<'a> Form<'a> {
-    /// Every long and short `f` answers to.
-    pub(crate) fn of(f: &'a FlagMeta<'a>) -> impl Iterator<Item = Form<'a>> {
-        f.flag
-            .longs
-            .iter()
-            .map(|l| Form::Long(l))
-            .chain(f.flag.shorts.iter().map(|s| Form::Short(*s)))
+/// Append every spelling `f` answers to. Out of line, so the chains that gather them are
+/// compiled once rather than at each of the places a page does.
+#[inline(never)]
+pub(crate) fn push_forms<'a>(out: &mut Vec<Form<'a>>, f: &'a FlagMeta<'a>) {
+    for long in f.flag.longs {
+        out.push(Form::Long(long));
     }
+    for short in f.flag.shorts {
+        out.push(Form::Short(*short));
+    }
+}
+
+/// Whether `form` is among `forms`, one comparison loop for every list a page asks.
+#[inline(never)]
+fn has_form(forms: &[Form<'_>], form: Form<'_>) -> bool {
+    forms.contains(&form)
+}
+
+/// Whether `name` is one of `names`.
+#[inline(never)]
+fn has_name(names: &[&str], name: &str) -> bool {
+    for candidate in names {
+        if *candidate == name {
+            return true;
+        }
+    }
+    false
+}
+
+/// The first long of `longs` that `keep` accepts.
+#[inline(never)]
+fn first_long<'a>(longs: &[&'a str], keep: &dyn Fn(&str) -> bool) -> Option<&'a str> {
+    for long in longs {
+        if keep(long) {
+            return Some(long);
+        }
+    }
+    None
+}
+
+/// The first short of `shorts` that `keep` accepts.
+#[inline(never)]
+fn first_short(shorts: &[u8], keep: &dyn Fn(u8) -> bool) -> Option<u8> {
+    for short in shorts {
+        if keep(*short) {
+            return Some(*short);
+        }
+    }
+    None
 }
 
 struct Shown<'a> {
@@ -1359,18 +1399,12 @@ impl<'a> Shown<'a> {
     /// Everything the flag has, for a command's own flags — nothing above them to claim any.
     fn all(meta: &'a FlagMeta<'a>) -> Self {
         Shown {
-            long: meta
-                .flag
-                .longs
-                .iter()
-                .copied()
-                .find(|long| !meta.extra.hidden_longs.contains(long)),
-            short: meta
-                .flag
-                .shorts
-                .iter()
-                .copied()
-                .find(|short| !meta.extra.hidden_shorts.contains(short)),
+            long: first_long(meta.flag.longs, &|long| {
+                !has_name(meta.extra.hidden_longs, long)
+            }),
+            short: first_short(meta.flag.shorts, &|short| {
+                !meta.extra.hidden_shorts.contains(&short)
+            }),
             negate: meta.flag.negate.is_some(),
         }
     }
@@ -1387,20 +1421,17 @@ impl<'a> Shown<'a> {
         every_form: &[Form<'_>],
     ) -> Self {
         Shown {
-            long: meta
-                .flag
-                .longs
-                .iter()
-                .copied()
-                .find(|l| !meta.extra.hidden_longs.contains(l) && !taken.contains(&Form::Long(l))),
-            short: meta.flag.shorts.iter().copied().find(|s| {
-                !meta.extra.hidden_shorts.contains(s) && !taken.contains(&Form::Short(*s))
+            long: first_long(meta.flag.longs, &|l| {
+                !has_name(meta.extra.hidden_longs, l) && !has_form(taken, Form::Long(l))
+            }),
+            short: first_short(meta.flag.shorts, &|s| {
+                !meta.extra.hidden_shorts.contains(&s) && !has_form(taken, Form::Short(s))
             }),
             negate: meta.flag.negate.is_some_and(|n| {
                 let spelling = Form::Long(n);
                 // A long anywhere in scope wins over this, this flag's own excepted.
-                !taken_negations.contains(&spelling)
-                    && (!every_form.contains(&spelling) || meta.flag.longs.contains(&n))
+                !has_form(taken_negations, spelling)
+                    && (!has_form(every_form, spelling) || has_name(meta.flag.longs, n))
             }),
         }
     }
@@ -3488,8 +3519,14 @@ fn own_and_global<'a>(
         f.flag.negate.map(Form::Long)
     }
 
-    let mut taken: Vec<Form<'_>> = here.flags.iter().flat_map(Form::of).collect();
-    let mut taken_negations: Vec<Form<'_>> = here.flags.iter().filter_map(negation).collect();
+    let mut taken: Vec<Form<'_>> = Vec::new();
+    let mut taken_negations: Vec<Form<'_>> = Vec::new();
+    for f in here.flags {
+        push_forms(&mut taken, f);
+        if let Some(form) = negation(f) {
+            taken_negations.push(form);
+        }
+    }
     // A root page has nothing to inherit. Do not allocate another copy of every
     // spelling just to resolve shadowing against an empty ancestor list.
     let mut inherited = if ancestors.is_empty() {
@@ -3503,7 +3540,7 @@ fn own_and_global<'a>(
         let mut every_form: Vec<Form<'_>> = taken.clone();
         for meta in ancestors {
             for f in meta.flags.iter().filter(|f| visits(f)) {
-                every_form.extend(Form::of(f));
+                push_forms(&mut every_form, f);
             }
         }
 
@@ -3513,8 +3550,10 @@ fn own_and_global<'a>(
                 let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
                 // Reserved whether or not it is shown: a hidden one still binds, and so does one
                 // whose every spelling something nearer already took.
-                taken.extend(Form::of(f));
-                taken_negations.extend(negation(f));
+                push_forms(&mut taken, f);
+                if let Some(form) = negation(f) {
+                    taken_negations.push(form);
+                }
                 if f.hide || show.nothing() {
                     continue;
                 }
