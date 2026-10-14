@@ -454,16 +454,16 @@ fn shown_width(line: &str) -> usize {
     let mut at = 0;
     let mut columns = 0;
     while at < bytes.len() {
-        if bytes[at] == b'\x1b' && bytes.get(at + 1) == Some(&b'[') {
+        if byte_at(bytes, at) == b'\x1b' && byte_at(bytes, at + 1) == b'[' {
             let mut end = at + 2;
-            while end < bytes.len() && !(0x40..=0x7e).contains(&bytes[end]) {
+            while end < bytes.len() && !(0x40..=0x7e).contains(&byte_at(bytes, end)) {
                 end += 1;
             }
             at = (end + 1).min(bytes.len());
             continue;
         }
         // A continuation byte is the rest of a character already counted.
-        if bytes[at] & 0xc0 != 0x80 {
+        if byte_at(bytes, at) & 0xc0 != 0x80 {
             columns += 1;
         }
         at += 1;
@@ -498,19 +498,19 @@ fn strip_ansi_sequences(text: String) -> String {
     let mut plain = String::with_capacity(text.len());
     let mut copied = 0;
     while at + 1 < bytes.len() {
-        if bytes[at] != b'\x1b' || bytes[at + 1] != b'[' {
+        if byte_at(bytes, at) != b'\x1b' || byte_at(bytes, at + 1) != b'[' {
             at += 1;
             continue;
         }
 
         let mut end = at + 2;
-        while end < bytes.len() && (0x30..=0x3f).contains(&bytes[end]) {
+        while end < bytes.len() && (0x30..=0x3f).contains(&byte_at(bytes, end)) {
             end += 1;
         }
-        while end < bytes.len() && (0x20..=0x2f).contains(&bytes[end]) {
+        while end < bytes.len() && (0x20..=0x2f).contains(&byte_at(bytes, end)) {
             end += 1;
         }
-        if end == bytes.len() || !(0x40..=0x7e).contains(&bytes[end]) {
+        if end == bytes.len() || !(0x40..=0x7e).contains(&byte_at(bytes, end)) {
             at += 2;
             continue;
         }
@@ -1057,6 +1057,12 @@ fn lines_of(text: &str) -> Vec<&str> {
 /// `path` without the binary at its front: what a command is called below the program.
 fn without_binary<'a>(path: &'a [&'a str]) -> &'a [&'a str] {
     path.get(1..).unwrap_or_default()
+}
+
+/// The byte at `at`, and zero past the end: reading a page's bytes without a bounds check that
+/// panics, at the places that have already tested the length.
+fn byte_at(bytes: &[u8], at: usize) -> u8 {
+    bytes.get(at).copied().unwrap_or(0)
 }
 
 /// `text` from byte `at` on. The slicing below is written through these three so a binary
@@ -2318,7 +2324,9 @@ fn commands_section(
     let last = sub_path.len() - 1;
     let mut lines: Vec<(String, &&CommandMeta<'_>)> = Vec::new();
     for sub in visible {
-        sub_path[last] = sub.cmd.name;
+        if let Some(name) = sub_path.get_mut(last) {
+            *name = sub.cmd.name;
+        }
         lines.push((usage_line(&sub_path, sub), sub));
     }
     sort_rows(&mut lines, &mut |a, b| {
@@ -2610,9 +2618,13 @@ fn split_groups_section<'m, T>(
         default_title,
         width,
         items.len(),
-        &|index| heading_of(&items[index]),
+        &|index| items.get(index).and_then(|item| heading_of(item)),
         &prose_of,
-        &mut |out, index| write_item(out, &items[index]),
+        &mut |out, index| {
+            if let Some(item) = items.get(index) {
+                write_item(out, item);
+            }
+        },
     );
 }
 
@@ -2636,8 +2648,10 @@ fn grouped_sections<'m>(
         }
     }
     if let Some(index) = headings.iter().position(Option::is_none) {
-        let unheaded = headings.remove(index);
-        headings.insert(0, unheaded);
+        // The unheaded group moves to the front, the rest keeping their order.
+        if let Some(upto) = headings.get_mut(..=index) {
+            upto.rotate_right(1);
+        }
     }
 
     for heading in headings {
