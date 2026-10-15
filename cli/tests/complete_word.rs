@@ -1245,3 +1245,53 @@ fn assert_cmd(example: &str, args: &[&str]) -> Assert {
 fn assert_spec(spec: &str, args: &[&str]) -> Assert {
     cmd_spec(spec, Some("fish")).args(args).assert().success()
 }
+
+/// A `.<script>.usage.kdl` file beside the script wins over its comments, as it does for `usage exec`.
+#[test]
+fn script_sidecar_spec_is_used() {
+    let dir = env::temp_dir().join(format!("usage-sidecar-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let script = dir.join("tool");
+    fs::write(
+        &script,
+        "#!/usr/bin/env -S usage exec bash\n#USAGE flag \"--from-comment\"\n",
+    )
+    .unwrap();
+    fs::write(dir.join(".tool.usage.kdl"), "flag \"--from-sidecar\"\n").unwrap();
+    Command::new(cargo::cargo_bin!("usage"))
+        .args(["complete-word", "--shell", "bash", "-f"])
+        .arg(&script)
+        .args(["--", "tool", "--from"])
+        .assert()
+        .success()
+        .stdout(contains("--from-sidecar").and(contains("--from-comment").not()));
+    fs::remove_dir_all(&dir).ok();
+}
+
+/// `generate completion -f` snapshots the spec, so it has to see the sidecar too.
+#[test]
+fn generated_completion_embeds_script_sidecar_spec() {
+    let dir = env::temp_dir().join(format!("usage-sidecar-gen-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let script = dir.join("tool");
+    fs::write(
+        &script,
+        "#!/usr/bin/env -S usage exec bash\n#USAGE flag \"--from-comment\"\n",
+    )
+    .unwrap();
+    fs::write(dir.join(".tool.usage.kdl"), "flag \"--from-sidecar\"\n").unwrap();
+    Command::new(cargo::cargo_bin!("usage"))
+        .args(["generate", "completion", "bash", "tool", "-f"])
+        .arg(&script)
+        .assert()
+        .success()
+        .stdout(contains("--from-sidecar").and(contains("--from-comment").not()));
+    // A sidecar with no `bin` still documents the script, not the hidden file.
+    Command::new(cargo::cargo_bin!("usage"))
+        .args(["generate", "markdown", "-f"])
+        .arg(&script)
+        .assert()
+        .success()
+        .stdout(contains("tool").and(contains(".tool.usage.kdl").not()));
+    fs::remove_dir_all(&dir).ok();
+}

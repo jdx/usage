@@ -44,18 +44,41 @@ pub fn file_or_spec(file: &Option<PathBuf>, spec: &Option<String>) -> Result<Spe
         if file.as_os_str() == "-" {
             read_spec_from_stdin()
         } else {
-            Spec::parse_file(file)
+            parse_script_file(file)
         }
     } else {
         spec.as_ref().unwrap().parse()
     }
 }
 
+/// Parse a spec file or a script, preferring a `.<name>.usage.kdl` file beside it.
+///
+/// The same lookup `usage exec` does, so completion sees the spec the script runs with.
+pub fn parse_script_file(file: &Path) -> Result<Spec, UsageErr> {
+    if let (Some(parent), Some(name)) = (file.parent(), file.file_name().and_then(|n| n.to_str())) {
+        let sidecar = parent.join(format!(".{name}.usage.kdl"));
+        if sidecar.exists() {
+            let mut spec = Spec::parse_file(&sidecar)?;
+            // The default `bin` is the file's own name, which here is the hidden sidecar's;
+            // the script is the command, unless the sidecar names one itself.
+            let sidecar_name = format!(".{name}.usage.kdl");
+            if spec.name == sidecar_name {
+                spec.name = name.to_string();
+            }
+            if spec.bin == sidecar_name {
+                spec.bin = name.to_string();
+            }
+            return Ok(spec);
+        }
+    }
+    Spec::parse_file(file)
+}
+
 pub fn parse_file_or_stdin(file: &Path) -> Result<Spec, UsageErr> {
     if file.as_os_str() == "-" {
         read_spec_from_stdin()
     } else {
-        Spec::parse_file(file)
+        parse_script_file(file)
     }
 }
 

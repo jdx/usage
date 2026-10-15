@@ -154,22 +154,7 @@ impl usage_rs::Run for Exec {
     type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
-        let parent = self
-            .bin
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_default();
-        let bin_name = self
-            .bin
-            .file_name()
-            .and_then(|n| n.to_str())
-            .ok_or_else(|| usage::miette::miette!("Invalid file path: {}", self.bin.display()))?;
-        let dotted_spec_path = parent.join(format!(".{bin_name}.usage.kdl"));
-        let spec = if dotted_spec_path.exists() {
-            Spec::parse_file(&dotted_spec_path)?
-        } else {
-            Spec::parse_file(&self.bin)?
-        };
+        let spec = super::generate::parse_script_file(&self.bin)?;
         // Help never runs the interpreter, so a command that cannot be split still gets a page.
         let words = self.interpreter();
         let name = words
