@@ -68,7 +68,7 @@ pub fn parse_file_or_stdin(file: &Path) -> Result<Spec, UsageErr> {
     if file.as_os_str() == "-" {
         read_spec_from_stdin()
     } else {
-        Spec::parse_file(file)
+        parse_script_file(file)
     }
 }
 

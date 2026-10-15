@@ -1267,3 +1267,24 @@ fn script_sidecar_spec_is_used() {
         .stdout(contains("--from-sidecar").and(contains("--from-comment").not()));
     fs::remove_dir_all(&dir).ok();
 }
+
+/// `generate completion -f` snapshots the spec, so it has to see the sidecar too.
+#[test]
+fn generated_completion_embeds_script_sidecar_spec() {
+    let dir = env::temp_dir().join(format!("usage-sidecar-gen-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let script = dir.join("tool");
+    fs::write(
+        &script,
+        "#!/usr/bin/env -S usage exec bash\n#USAGE flag \"--from-comment\"\n",
+    )
+    .unwrap();
+    fs::write(dir.join(".tool.usage.kdl"), "flag \"--from-sidecar\"\n").unwrap();
+    Command::new(cargo::cargo_bin!("usage"))
+        .args(["generate", "completion", "bash", "tool", "-f"])
+        .arg(&script)
+        .assert()
+        .success()
+        .stdout(contains("--from-sidecar").and(contains("--from-comment").not()));
+    fs::remove_dir_all(&dir).ok();
+}
