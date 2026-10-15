@@ -58,7 +58,17 @@ pub fn parse_script_file(file: &Path) -> Result<Spec, UsageErr> {
     if let (Some(parent), Some(name)) = (file.parent(), file.file_name().and_then(|n| n.to_str())) {
         let sidecar = parent.join(format!(".{name}.usage.kdl"));
         if sidecar.exists() {
-            return Spec::parse_file(&sidecar);
+            let mut spec = Spec::parse_file(&sidecar)?;
+            // The default `bin` is the file's own name, which here is the hidden sidecar's;
+            // the script is the command, unless the sidecar names one itself.
+            let sidecar_name = format!(".{name}.usage.kdl");
+            if spec.name == sidecar_name {
+                spec.name = name.to_string();
+            }
+            if spec.bin == sidecar_name {
+                spec.bin = name.to_string();
+            }
+            return Ok(spec);
         }
     }
     Spec::parse_file(file)

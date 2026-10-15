@@ -1286,5 +1286,12 @@ fn generated_completion_embeds_script_sidecar_spec() {
         .assert()
         .success()
         .stdout(contains("--from-sidecar").and(contains("--from-comment").not()));
+    // A sidecar with no `bin` still documents the script, not the hidden file.
+    Command::new(cargo::cargo_bin!("usage"))
+        .args(["generate", "markdown", "-f"])
+        .arg(&script)
+        .assert()
+        .success()
+        .stdout(contains("tool").and(contains(".tool.usage.kdl").not()));
     fs::remove_dir_all(&dir).ok();
 }
