@@ -32,13 +32,13 @@ jobs:
     with:
       # test-impl.yml runs render, gen-shadow and gen-go and fails the branch if
       # any of them produces a diff. Two are driven by mise-managed tools —
-      # prettier formats render's output, gofumpt formats gen-shadow's — so a
+      # oxfmt formats render's output, gofumpt formats gen-shadow's — so a
       # tool bump has to regenerate them in the same commit, otherwise the
       # lockfile fix just trades one red check for another.
       post_update_task: renovate:post-update
       # The whole tree, rather than the generators' own output directories:
-      # render's last step is `hk fix --all --step prettier`, which formats every
-      # prettier-covered file in the repo, so a prettier bump can touch any
+      # render's last step is `hk fix --all --step oxfmt`, which formats every
+      # oxfmt-covered file in the repo, so an oxfmt bump can touch any
       # tracked .md, .json, .yml or .ts file. This also picks up the
       # .mise/locks/** sidecars that `mise lock` rewrites for npm: backends.
       post_update_paths: |
