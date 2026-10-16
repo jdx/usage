@@ -111,7 +111,7 @@ For more information, try `--help`.
 - `CodeHelp` and `CodeVersion` render as the empty string — print the page or version instead.
 - Every error code renders something specific. `missing_flag_value` names the likeliest cause
   and the escape hatch in the flag's actual spelling: ``missing value for `--jobs` (a value
-beginning with `-` has to be attached: `--jobs=-x`)``. `invalid_choice` appends
+  beginning with `-` has to be attached: `--jobs=-x`)``. `invalid_choice` appends
   `(expected one of: bash, zsh)`; the variadic codes pluralize correctly; `conflicting_flags`
   names both sides.
 - Anything quoted back to the user — tokens, unexpected arguments, rejected values — has control

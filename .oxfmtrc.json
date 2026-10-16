@@ -1,0 +1,17 @@
+{
+  "trailingComma": "es5",
+  "printWidth": 80,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "CHANGELOG.md",
+    "docs/.vitepress",
+    "docs/cli/reference.md",
+    "docs/public/site.webmanifest",
+    "lib/bash-completion",
+    "examples/docs",
+    "pnpm-lock.yaml",
+    "**/aube-lock.yaml",
+    ".claude/",
+    "**/*.toml"
+  ]
+}
