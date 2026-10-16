@@ -493,11 +493,11 @@ impl CompleteWord {
                 f.short
                     .iter()
                     .filter(|short| !f.hidden_short_aliases.contains(short))
+                    .map(|short| (*short, f.help.clone().unwrap_or_default()))
             })
-            .unique()
-            .filter(|c| cur.is_none() || cur == Some(**c))
-            // TODO: get flag description
-            .map(|c| (format!("-{c}"), String::new()))
+            .unique_by(|(short, _)| *short)
+            .filter(|(short, _)| cur.is_none() || cur == Some(*short))
+            .map(|(short, help)| (format!("-{short}"), help))
             .sorted()
             .collect()
     }
