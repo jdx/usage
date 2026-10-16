@@ -39,11 +39,11 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "usage-argv"
-version = "7.0.1"
+version = "7.0.2"
 
 [[package]]
 name = "usage-derive"
-version = "7.0.1"
+version = "7.0.2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -52,7 +52,7 @@ dependencies = [
 
 [[package]]
 name = "usage-rs"
-version = "7.0.1"
+version = "7.0.2"
 dependencies = [
  "usage-argv",
  "usage-derive",
