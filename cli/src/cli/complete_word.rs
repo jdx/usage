@@ -488,15 +488,16 @@ impl CompleteWord {
         let cur = ctoken.chars().nth(1);
         flags
             .values()
-            .filter(|f| !f.hide)
-            .flat_map(|f| {
-                f.short
-                    .iter()
-                    .filter(|short| !f.hidden_short_aliases.contains(short))
-                    .map(|short| (*short, f.help.clone().unwrap_or_default()))
+            .flat_map(|f| f.short.iter().copied())
+            .unique()
+            .filter(|short| cur.is_none() || cur == Some(*short))
+            .filter_map(|short| {
+                let owner = flags.get(&format!("-{short}"))?;
+                if owner.hide || owner.hidden_short_aliases.contains(&short) {
+                    return None;
+                }
+                Some((short, owner.help.clone().unwrap_or_default()))
             })
-            .unique_by(|(short, _)| *short)
-            .filter(|(short, _)| cur.is_none() || cur == Some(*short))
             .map(|(short, help)| (format!("-{short}"), help))
             .sorted()
             .collect()
