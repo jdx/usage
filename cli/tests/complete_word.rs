@@ -253,6 +253,60 @@ fn complete_word_short_flag() {
 }
 
 #[test]
+fn complete_word_flag_help_matches_short_and_long_aliases() {
+    let spec = r#"
+name "ex"
+bin "ex"
+flag "-a --alpha" help="Alpha flag"
+flag "-n --no-help"
+flag "-v --verbose" help="Verbose output" {
+    alias "-q" "--loud" hide=#true
+}
+flag "-h --hidden" hide=#true help="Hidden flag"
+"#;
+    let run = |args: &[&str]| {
+        Command::new(cargo::cargo_bin!("usage"))
+            .args(["cw", "--shell", "fish", "--spec", spec, "--", "mycli"])
+            .args(args)
+            .assert()
+            .success()
+    };
+
+    run(&["-"]).stdout(
+        "-a\tAlpha flag\n-n\t\n-v\tVerbose output\n--alpha\tAlpha flag\n--no-help\t\n--verbose\tVerbose output\n",
+    );
+    run(&["-v"]).stdout("-v\tVerbose output\n");
+    run(&["--"]).stdout("--alpha\tAlpha flag\n--no-help\t\n--verbose\tVerbose output\n");
+}
+
+#[test]
+fn complete_word_short_flag_help_uses_the_parsed_owner() {
+    let spec = r#"
+name "ex"
+bin "ex"
+flag "-q --zeta <value>" global=#true help="Global value" {
+    choices "global-value"
+}
+cmd "run" {
+    flag "-q --alpha" help="Local switch"
+}
+"#;
+    let run = |args: &[&str]| {
+        Command::new(cargo::cargo_bin!("usage"))
+            .args([
+                "cw", "--shell", "fish", "--spec", spec, "--", "mycli", "run",
+            ])
+            .args(args)
+            .assert()
+            .success()
+    };
+
+    run(&["-"]).stdout("-q\tGlobal value\n--alpha\tLocal switch\n--zeta\tGlobal value\n");
+    run(&["--"]).stdout("--alpha\tLocal switch\n--zeta\tGlobal value\n");
+    run(&["-q", ""]).stdout("global-value\n");
+}
+
+#[test]
 fn complete_word_kitchen_sink() {
     assert_cmd("kitchen-sink.usage.kdl", &["--", "install", "--"])
         .stdout("--dir\n--force\n--global\n--no-force\n");
