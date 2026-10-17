@@ -59,6 +59,17 @@ test("derives requiredness from Effect's parser", () => {
   assert.match(kdl, /arg "<some>…" var=#true var_min=1\n/);
 });
 
+test("keeps a local flag that shares a name with a shared flag", () => {
+  const cmd = Command.make("x", {
+    config: Flag.String("config").pipe(Flag.withAlias("c"), Flag.optional),
+  }).pipe(
+    Command.withSharedFlags({
+      config: Flag.String("config").pipe(Flag.optional),
+    })
+  );
+  assert.match(generate(cmd), /flag "-c --config"/);
+});
+
 test("emits shared flags once, as global", () => {
   const sub = Command.make("sub");
   const cmd = Command.make("x").pipe(
@@ -82,7 +93,7 @@ test("keeps multiline flag and argument descriptions", () => {
     kdl,
     /flag "-f" help="short" required=#true \{\n {4}long_help "short\\nlonger detail"/
   );
-  assert.match(kdl, /arg "<a>" help="one\\ntwo"/);
+  assert.match(kdl, /arg "<a>" help="one" long_help="one\\ntwo"/);
 });
 
 test("reports constructs it cannot represent exactly", () => {
@@ -101,7 +112,10 @@ test("output parses with the usage CLI", (t) => {
     ["generate", "md", "--file", "-"],
     { input: kdl, encoding: "utf8" }
   );
-  if (r.error) return t.skip("usage CLI not installed");
+  // CI sets USAGE_BIN, so a binary that cannot start must fail rather than skip.
+  if (r.error && !process.env.USAGE_BIN)
+    return t.skip("usage CLI not installed");
+  assert.ifError(r.error);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /--mode/);
 });

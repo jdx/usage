@@ -100,11 +100,9 @@ function body(
   const cfg = readConfig(cmd);
 
   // Shared flags appear in both lists; emit them once, as global.
-  const sharedNames = new Set(
-    cfg.contextFlags.flatMap((p) => singles(p).map((s) => s.name))
-  );
+  const shared = new Set<Param>(cfg.contextFlags);
   for (const p of cfg.flags) {
-    if (singles(p).some((s) => sharedNames.has(s.name))) continue;
+    if (shared.has(p)) continue;
     out.push(...renderFlag(p, false, pad, report, path));
   }
   for (const p of cfg.arguments) out.push(...renderArg(p, pad, report, path));
@@ -221,8 +219,8 @@ function renderArg(
   const label = `${shape.required ? "<" + s.name + ">" : "[" + s.name + "]"}${shape.variadic ? "…" : ""}`;
   const props: string[] = [];
   const help = Option(s.description);
-  // Args have no long_help, so keep the whole description in help.
-  if (help) props.push(`help=${q(help)}`);
+  if (help) props.push(`help=${q(firstLine(help))}`);
+  if (help && help.includes("\n")) props.push(`long_help=${q(help)}`);
   if (!shape.required) props.push("required=#false");
   if (shape.variadic) {
     props.push("var=#true");
