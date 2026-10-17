@@ -99,8 +99,14 @@ function body(
   const pad = "    ".repeat(depth);
   const cfg = readConfig(cmd);
 
-  for (const p of cfg.flags)
+  // Shared flags appear in both lists; emit them once, as global.
+  const sharedNames = new Set(
+    cfg.contextFlags.flatMap((p) => singles(p).map((s) => s.name))
+  );
+  for (const p of cfg.flags) {
+    if (singles(p).some((s) => sharedNames.has(s.name))) continue;
     out.push(...renderFlag(p, false, pad, report, path));
+  }
   for (const p of cfg.arguments) out.push(...renderArg(p, pad, report, path));
   for (const p of cfg.contextFlags)
     out.push(...renderFlag(p, true, pad, report, path));
@@ -162,7 +168,7 @@ function renderFlag(
   const help = Option(s.description);
   if (help) props.push(`help=${q(firstLine(help))}`);
   const isBool = s.primitiveType._tag === "Boolean";
-  if (shape.required && !isBool) props.push("required=#true");
+  if (shape.required) props.push("required=#true");
   if (shape.variadic) {
     props.push("var=#true");
     if (shape.min) props.push(`var_min=${shape.min}`);
@@ -180,21 +186,26 @@ function renderFlag(
       "optional flag value is exported as a required value"
     );
   }
-  if (isBool) return lines;
-  const arg = `<${s.typeName ?? typeLabel(s)}>`;
-  const choices = choicesOf(s);
-  if (choices.length) {
-    lines[0] += " {";
-    lines.push(
-      `${pad}    arg ${q(arg)} {`,
-      `${pad}        choices ${choices.map(q).join(" ")}`,
-      `${pad}    }`,
-      `${pad}}`
-    );
-  } else {
-    lines[0] += " {";
-    lines.push(`${pad}    arg ${q(arg)}`, `${pad}}`);
+  const children: string[] = [];
+  if (help && help.includes("\n")) {
+    children.push(`${pad}    long_help ${q(help)}`);
   }
+  if (!isBool) {
+    const arg = `<${s.typeName ?? typeLabel(s)}>`;
+    const choices = choicesOf(s);
+    if (choices.length) {
+      children.push(
+        `${pad}    arg ${q(arg)} {`,
+        `${pad}        choices ${choices.map(q).join(" ")}`,
+        `${pad}    }`
+      );
+    } else {
+      children.push(`${pad}    arg ${q(arg)}`);
+    }
+  }
+  if (!children.length) return lines;
+  lines[0] += " {";
+  lines.push(...children, `${pad}}`);
   return lines;
 }
 
@@ -210,7 +221,8 @@ function renderArg(
   const label = `${shape.required ? "<" + s.name + ">" : "[" + s.name + "]"}${shape.variadic ? "…" : ""}`;
   const props: string[] = [];
   const help = Option(s.description);
-  if (help) props.push(`help=${q(firstLine(help))}`);
+  // Args have no long_help, so keep the whole description in help.
+  if (help) props.push(`help=${q(help)}`);
   if (!shape.required) props.push("required=#false");
   if (shape.variadic) {
     props.push("var=#true");
@@ -280,6 +292,8 @@ function shapeOf(
   if (["FileParse", "FileSchema", "Redacted", "KeyValuePair"].includes(tag)) {
     report.note(where, `${tag} values are exported as plain strings`);
   }
+  // A variadic without a positive minimum accepts zero values.
+  if (variadic && !(min !== undefined && min > 0)) required = false;
   return {
     required: required && dflt === undefined,
     variadic,

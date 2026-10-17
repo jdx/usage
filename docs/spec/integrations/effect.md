@@ -2,7 +2,11 @@
 
 [`usage-spec-effect`](https://github.com/jdx/usage/tree/main/integrations/effect) converts an [Effect](https://effect.website) v4 `effect/cli` command tree into a usage spec. Effect keeps parsing and running the CLI; the spec drives completions, reference docs, and man pages.
 
-It supports `effect` 4.x. The package is not published to npm yet; use it from a checkout of this repository.
+It supports `effect` 4.x. The package is not published to npm yet, so add it to your project from a checkout of this repository. It ships TypeScript source, so run it with Bun:
+
+```bash
+bun add ./path/to/usage/integrations/effect
+```
 
 ## Quickstart
 

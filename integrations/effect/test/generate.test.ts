@@ -32,7 +32,7 @@ test("exports commands, flags, args, aliases, choices and defaults", () => {
     kdl,
     /^name "app"\nbin "app"\nversion "1.0.0"\nabout "My app"\n/
   );
-  assert.match(kdl, /flag "-v --verbose"\n/);
+  assert.match(kdl, /flag "-v --verbose" required=#true\n/);
   assert.match(kdl, /flag "--name" \{\n {4}arg "<value>"\n\}/);
   assert.match(kdl, /arg "\[target\]" required=#false/);
   assert.match(kdl, /cmd "serve" help="Serve files" \{\n {4}alias "s"/);
@@ -43,6 +43,46 @@ test("exports commands, flags, args, aliases, choices and defaults", () => {
   );
   assert.match(kdl, /arg "<file>…" var=#true var_min=1/);
   assert.match(kdl, /cmd "secret" hide=#true/);
+});
+
+test("derives requiredness from Effect's parser", () => {
+  const cmd = Command.make("x", {
+    bare: Flag.Boolean("bare"),
+    defaulted: Flag.Boolean("defaulted").pipe(Flag.withDefault(false)),
+    any: Argument.String("any").pipe(Argument.variadic()),
+    some: Argument.String("some").pipe(Argument.variadic({ min: 1 })),
+  });
+  const kdl = generate(cmd);
+  assert.match(kdl, /flag "--bare" required=#true\n/);
+  assert.match(kdl, /flag "--defaulted" default="false"\n/);
+  assert.match(kdl, /arg "\[any\]…" required=#false var=#true\n/);
+  assert.match(kdl, /arg "<some>…" var=#true var_min=1\n/);
+});
+
+test("emits shared flags once, as global", () => {
+  const sub = Command.make("sub");
+  const cmd = Command.make("x").pipe(
+    Command.withSharedFlags({
+      level: Flag.String("level").pipe(Flag.optional),
+    }),
+    Command.withSubcommands([sub])
+  );
+  const kdl = generate(cmd);
+  assert.equal(kdl.match(/--level/g)?.length, 1);
+  assert.match(kdl, /flag "--level" global=#true/);
+});
+
+test("keeps multiline flag and argument descriptions", () => {
+  const cmd = Command.make("x", {
+    f: Flag.Boolean("f").pipe(Flag.withDescription("short\nlonger detail")),
+    a: Argument.String("a").pipe(Argument.withDescription("one\ntwo")),
+  });
+  const kdl = generate(cmd);
+  assert.match(
+    kdl,
+    /flag "-f" help="short" required=#true \{\n {4}long_help "short\\nlonger detail"/
+  );
+  assert.match(kdl, /arg "<a>" help="one\\ntwo"/);
 });
 
 test("reports constructs it cannot represent exactly", () => {
