@@ -101,9 +101,20 @@ function body(
 
   // Shared flags appear in both lists; emit them once, as global.
   const shared = new Set<Param>(cfg.contextFlags);
+  const sharedSpellings = new Set(cfg.contextFlags.flatMap(flagSpellings));
   for (const p of cfg.flags) {
     if (shared.has(p)) continue;
-    out.push(...renderFlag(p, false, pad, report, path));
+    // A local spelling that a shared flag also uses would be a duplicate flag.
+    const spellings = flagSpellings(p);
+    const overlap = spellings.filter((n) => sharedSpellings.has(n));
+    if (overlap.length && overlap.length === spellings.length) {
+      report.note(
+        `${path} ${overlap.join(" ")}`,
+        "local flag only uses spellings of a shared flag and is omitted"
+      );
+      continue;
+    }
+    out.push(...renderFlag(p, false, pad, report, path, new Set(overlap)));
   }
   for (const p of cfg.arguments) out.push(...renderArg(p, pad, report, path));
   for (const p of cfg.contextFlags)
@@ -151,16 +162,17 @@ function renderFlag(
   shared: boolean,
   pad: string,
   report: Report,
-  path: string
+  path: string,
+  omitted: ReadonlySet<string> = new Set()
 ): string[] {
   const shape = shapeOf(param, "flag", report, path);
   if (!shape) return [];
   const s = shape.single;
   const shorts = [s.name, ...s.aliases]
-    .filter((n) => n.length === 1)
+    .filter((n) => n.length === 1 && !omitted.has(n))
     .map((n) => `-${n}`);
   const longs = [s.name, ...s.aliases]
-    .filter((n) => n.length > 1)
+    .filter((n) => n.length > 1 && !omitted.has(n))
     .map((n) => `--${n}`);
   const props: string[] = [];
   const help = Option(s.description);
@@ -355,8 +367,15 @@ function choicesOf(s: Single): string[] {
     : [];
 }
 
+function flagSpellings(param: Param): string[] {
+  const s = singles(param)[0];
+  return s ? [s.name, ...s.aliases] : [];
+}
+
 function typeLabel(s: Single): string {
   switch (s.primitiveType._tag) {
+    case "String":
+      return "string";
     case "Int":
       return "int";
     case "Finite":

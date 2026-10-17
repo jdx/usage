@@ -33,7 +33,7 @@ test("exports commands, flags, args, aliases, choices and defaults", () => {
     /^name "app"\nbin "app"\nversion "1.0.0"\nabout "My app"\n/
   );
   assert.match(kdl, /flag "-v --verbose" required=#true\n/);
-  assert.match(kdl, /flag "--name" \{\n {4}arg "<value>"\n\}/);
+  assert.match(kdl, /flag "--name" \{\n {4}arg "<string>"\n\}/);
   assert.match(kdl, /arg "\[target\]" required=#false/);
   assert.match(kdl, /cmd "serve" help="Serve files" \{\n {4}alias "s"/);
   assert.match(kdl, /flag "-p --port" help="Port to bind" default="8080"/);
@@ -67,7 +67,9 @@ test("keeps a local flag that shares a name with a shared flag", () => {
       config: Flag.String("config").pipe(Flag.optional),
     })
   );
-  assert.match(generate(cmd), /flag "-c --config"/);
+  const kdl = generate(cmd);
+  assert.match(kdl, /flag "-c"/);
+  assert.equal(kdl.match(/--config/g)?.length, 1);
 });
 
 test("emits shared flags once, as global", () => {
