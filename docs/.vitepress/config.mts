@@ -126,6 +126,7 @@ export default defineConfig({
           items: [
             { text: "Rust framework", link: "/rust/" },
             { text: "Cobra integration", link: "/spec/integrations/cobra" },
+            { text: "Effect integration", link: "/spec/integrations/effect" },
             { text: "Spec reference", link: "/spec/reference/" },
             { text: "Contributing", link: "/contributing" },
           ],
@@ -190,6 +191,7 @@ export default defineConfig({
             { text: "Go development preview", link: "/go/" },
             { text: "clap integration", link: "/spec/integrations/clap" },
             { text: "Cobra integration", link: "/spec/integrations/cobra" },
+            { text: "Effect integration", link: "/spec/integrations/effect" },
             { text: "Contributing", link: "/contributing" },
           ],
         },

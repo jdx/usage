@@ -17,10 +17,11 @@ See [`clap_usage`](../clap_usage/) for a reference implementation.
 
 ## Available in this repository
 
-| Framework   | Package                        | Guide                                                              |
-| ----------- | ------------------------------ | ------------------------------------------------------------------ |
-| clap (Rust) | [`clap_usage`](../clap_usage/) | [clap integration](https://usage.jdx.dev/spec/integrations/clap)   |
-| Cobra (Go)  | [`integrations/cobra`](cobra/) | [Cobra integration](https://usage.jdx.dev/spec/integrations/cobra) |
+| Framework              | Package                          | Guide                                                                |
+| ---------------------- | -------------------------------- | -------------------------------------------------------------------- |
+| clap (Rust)            | [`clap_usage`](../clap_usage/)   | [clap integration](https://usage.jdx.dev/spec/integrations/clap)     |
+| Cobra (Go)             | [`integrations/cobra`](cobra/)   | [Cobra integration](https://usage.jdx.dev/spec/integrations/cobra)   |
+| Effect v4 (TypeScript) | [`integrations/effect`](effect/) | [Effect integration](https://usage.jdx.dev/spec/integrations/effect) |
 
 Exporting a spec does not replace the source framework's parser. Check the
 integration's supported feature mapping before relying on generated artifacts,

@@ -1,0 +1,40 @@
+{
+  "name": "usage-spec-effect",
+  "version": "1.0.0",
+  "description": "Generate usage specs from Effect v4 CLI commands",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jdx/usage.git",
+    "directory": "integrations/effect"
+  },
+  "homepage": "https://usage.jdx.dev/spec/integrations/effect",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "effect": ">=4.0.0 <5"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.0",
+    "effect": "4.0.5",
+    "typescript": "5.9.3"
+  }
+}

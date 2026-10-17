@@ -96,6 +96,7 @@ jobs:
       # Run here rather than in a job of its own: the corpus vectors carry KDL
       # specs, and lowering them needs the `usage` CLI this job has already built.
       - run: mise r test:go
+      - run: mise r test:effect
       # Everything else in this pipeline builds with `--all-features`, and resolver-v2 unification
       # means a workspace build turns a feature on for every member as soon as one member wants it.
       # So the shapes an adopter actually gets — usage-lib without `docs`, usage-rs without its

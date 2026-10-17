@@ -19,3 +19,4 @@ megalinter-reports/
 # committed.
 *.pending-snap
 *.snap.new
+/integrations/effect/node_modules/
