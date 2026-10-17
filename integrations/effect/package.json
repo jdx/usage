@@ -1,0 +1,17 @@
+{
+  "name": "usage-spec-effect",
+  "version": "0.0.0",
+  "description": "Generate usage specs from Effect v4 CLI commands",
+  "type": "module",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "effect": ">=4.0.0 <5"
+  },
+  "devDependencies": {
+    "effect": "4.0.5"
+  }
+}
