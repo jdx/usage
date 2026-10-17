@@ -48,16 +48,35 @@ publish_npm_if_needed() {
   fi
   echo "Releasing $name $version"
   if [ "${usage_dry_run:-}" != 1 ]; then
+    # Chained with && because this runs where `set -e` is suspended (see
+    # publish_npm_or_flag): a failed build must not fall through to publishing.
+    # A token in the environment would take precedence over trusted publishing.
     (
-      cd "$dir"
-      aube install --frozen-lockfile --ignore-scripts
-      npm run build
-      # A token in the environment would take precedence over trusted publishing.
-      unset NODE_AUTH_TOKEN NPM_TOKEN
-      npm publish
+      cd "$dir" &&
+        aube install --frozen-lockfile --ignore-scripts &&
+        npm run build &&
+        unset NODE_AUTH_TOKEN NPM_TOKEN &&
+        npm publish
     )
   fi
 }
+
+# A failed npm publish must not stop the crate release, the tag or the release PR, but it
+# must still fail the job, so it is reported at exit instead of aborting here.
+npm_publish_failed=0
+publish_npm_or_flag() {
+  if ! (publish_npm_if_needed); then
+    echo "::error::publishing usage-spec-effect to npm failed"
+    npm_publish_failed=1
+  fi
+}
+fail_if_npm_publish_failed() {
+  local status=$?
+  if [ "$status" = 0 ] && [ "$npm_publish_failed" = 1 ]; then
+    exit 1
+  fi
+}
+trap fail_if_npm_publish_failed EXIT
 
 released_versions="$(git tag --list | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$')"
 cur_version="$(cargo pkgid usage-lib | cut -d# -f2 | cut -d@ -f2)"
@@ -77,9 +96,9 @@ if ! echo "$released_versions" | grep -q "^v$cur_version$"; then
     publish_crate_if_needed usage-dynamic
     publish_crate_if_needed clap_usage
     publish_crate_if_needed usage-cli
-    publish_npm_if_needed
     git tag "v$cur_version"
     git push --tags
+    publish_npm_or_flag
   fi
   exit 0
 fi
@@ -100,7 +119,7 @@ publish_crate_if_needed usage-derive
 publish_crate_if_needed usage-config
 publish_crate_if_needed usage-validation
 publish_crate_if_needed clap_usage
-publish_npm_if_needed
+publish_npm_or_flag
 
 # Anchor the range at the current release and include commits regardless of changed paths.
 # Empty conventional commits (for example, `fix(cli): trigger release pr`) must also
