@@ -83,7 +83,7 @@ run = [
 dir = '{{config_root}}/integrations/effect'
 depends = ['build']
 env = { USAGE_BIN = '{{config_root}}/target/debug/usage' }
-run = ['aube install --frozen-lockfile', 'node --test']
+run = ['aube install --frozen-lockfile', 'npm run typecheck', 'npm run build', 'node --test']
 
 # Linters are defined in `hk.pkl`.
 [tasks.lint]

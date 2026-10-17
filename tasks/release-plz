@@ -33,6 +33,32 @@ publish_crate_if_needed() {
   fi
 }
 
+# usage-spec-effect is versioned by hand in integrations/effect/package.json, like
+# clap_usage, and published to npm only when that version is not on the registry yet.
+# Publishing authenticates with npm trusted publishing: the workflow's OIDC token
+# (id-token: write) is exchanged for a short-lived npm credential, so no npm token is
+# stored. The trusted publisher on npmjs.com must name this repository and the
+# release-plz.yml workflow. Provenance is attached automatically.
+publish_npm_if_needed() {
+  local dir=integrations/effect name version
+  name="$(node -p "require('./$dir/package.json').name")"
+  version="$(node -p "require('./$dir/package.json').version")"
+  if [ "$(npm view "$name@$version" version 2>/dev/null)" = "$version" ]; then
+    return
+  fi
+  echo "Releasing $name $version"
+  if [ "${usage_dry_run:-}" != 1 ]; then
+    (
+      cd "$dir"
+      aube install --frozen-lockfile --ignore-scripts
+      npm run build
+      # A token in the environment would take precedence over trusted publishing.
+      unset NODE_AUTH_TOKEN NPM_TOKEN
+      npm publish
+    )
+  fi
+}
+
 released_versions="$(git tag --list | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$')"
 cur_version="$(cargo pkgid usage-lib | cut -d# -f2 | cut -d@ -f2)"
 if ! echo "$released_versions" | grep -q "^v$cur_version$"; then
@@ -51,6 +77,7 @@ if ! echo "$released_versions" | grep -q "^v$cur_version$"; then
     publish_crate_if_needed usage-dynamic
     publish_crate_if_needed clap_usage
     publish_crate_if_needed usage-cli
+    publish_npm_if_needed
     git tag "v$cur_version"
     git push --tags
   fi
@@ -73,6 +100,7 @@ publish_crate_if_needed usage-derive
 publish_crate_if_needed usage-config
 publish_crate_if_needed usage-validation
 publish_crate_if_needed clap_usage
+publish_npm_if_needed
 
 # Anchor the range at the current release and include commits regardless of changed paths.
 # Empty conventional commits (for example, `fix(cli): trigger release pr`) must also

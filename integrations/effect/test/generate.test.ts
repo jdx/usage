@@ -100,7 +100,7 @@ test("keeps multiline flag and argument descriptions", () => {
 
 test("reports constructs it cannot represent exactly", () => {
   const cmd = Command.make("x", {
-    a: Flag.String("a").pipe(Flag.orElse(Flag.String("b"))),
+    a: Flag.String("a").pipe(Flag.orElse(() => Flag.String("b"))),
   });
   const { unsupported } = generateWithReport(cmd);
   assert.equal(unsupported.length, 1);
