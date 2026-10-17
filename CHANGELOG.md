@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.1.0](https://github.com/jdx/usage/compare/v7.0.2..v7.1.0) - 2026-10-17
+
+### 🚀 Features
+
+- **(spec)** add Effect v4 CLI exporter by [@jdx](https://github.com/jdx) in [#1564](https://github.com/jdx/usage/pull/1564)
+
 ## [7.0.2](https://github.com/jdx/usage/compare/v7.0.1..v7.0.2) - 2026-10-16
 
 ### 🐛 Bug Fixes
