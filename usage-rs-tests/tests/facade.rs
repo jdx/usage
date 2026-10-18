@@ -497,7 +497,8 @@ fn view_completers_receive_the_users_original_line() {
         "probe".into(),
     ])
     .expect("the hidden completion request should be recognized");
-    assert_eq!(answer, "nested-run|--probe|@2\n");
+    // One candidate, written for bash to insert: `|` would end the command.
+    assert_eq!(answer, "nested-run\\|--probe\\|@2\n");
 }
 
 #[derive(Cli)]

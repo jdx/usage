@@ -7,7 +7,7 @@
 
 use std::ffi::{OsStr, OsString};
 use usage_dynamic::{Catalog, Outcome, ParseOutput, Spec};
-use usage_rs::complete::{CompletionRequest, render};
+use usage_rs::complete::{CompletionRequest, render_request};
 use usage_rs::{Cli, Error, Subcommands};
 
 #[derive(Cli)]
@@ -49,7 +49,7 @@ fn main() {
     if let Some(request) = CompletionRequest::parse(&argv) {
         let catalog = plugin_catalog();
         let answer = futures::executor::block_on(catalog.app().unwrap().complete_request(&request));
-        print!("{}", render(&answer, request.shell));
+        print!("{}", render_request(&answer, &request));
         return;
     }
 
