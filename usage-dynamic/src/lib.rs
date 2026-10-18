@@ -252,7 +252,7 @@ impl<'a> App<'a> {
     pub async fn completion_request(self, argv: &[OsString]) -> Option<String> {
         let request = CompletionRequest::parse(argv)?;
         let answer = self.complete_request(&request).await;
-        Some(complete::render(&answer, request.shell))
+        Some(complete::render_request(&answer, &request))
     }
 
     /// The answer to a parsed request, before it is written the way a shell reads it.

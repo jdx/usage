@@ -865,7 +865,7 @@ pub struct CompletionRequest {
     bash_marked_prefix: Option<String>,
     /// The quote left open in the word bash is completing, and the part of that word before it,
     /// unquoted. Readline replaces only the text after such a quote.
-    bash_open_quote: Option<(char, String)>,
+    bash_open_quote: Option<(BashQuote, String)>,
 }
 
 impl CompletionRequest {
@@ -1001,26 +1001,62 @@ impl CompletionRequest {
     }
 }
 
-/// Where the quote still open at the end of `line` opened, and which quote it is.
+/// The kinds of quote bash can leave open in a word, each read differently.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BashQuote {
+    /// `'…'`: nothing inside is special but the closing quote.
+    Single,
+    /// `"…"`: `"`, `\`, `$` and `` ` `` are special, and `!` still expands history.
+    Double,
+    /// `$'…'`: backslash escapes are read, so a literal `\` has to be doubled.
+    AnsiC,
+}
+
+impl BashQuote {
+    /// The character that closes it.
+    const fn close(self) -> char {
+        match self {
+            Self::Double => '"',
+            Self::Single | Self::AnsiC => '\'',
+        }
+    }
+}
+
+/// Where the quote still open at the end of `line` opened, and which kind it is. An ANSI-C or
+/// locale quote opens at its `$`, which is not part of the value either.
 ///
-/// The same reading of quotes and escapes as [`mark_bash_nonbreaking_colons`]: a backslash
-/// escapes outside quotes and inside double ones, and nothing inside single ones.
-fn open_quote(line: &str) -> Option<(usize, char)> {
-    let mut open = None;
+/// The same reading of quotes and escapes as [`mark_bash_nonbreaking_colons`], with `$'…'`
+/// added: a backslash escapes outside quotes and inside double and ANSI-C ones, and nothing
+/// inside single ones.
+fn open_quote(line: &str) -> Option<(usize, BashQuote)> {
+    let mut open: Option<(usize, BashQuote)> = None;
     let mut escaped = false;
+    // An unquoted `$` just before, which makes the quote after it an ANSI-C or locale one.
+    let mut dollar = None;
     for (at, c) in line.bytes().enumerate() {
+        let after_dollar = dollar.take();
         if escaped {
             escaped = false;
             continue;
         }
-        match open {
-            Some((_, q)) if c == q => open = None,
-            Some((_, b'"')) | None if c == b'\\' => escaped = true,
-            None if c == b'\'' || c == b'"' => open = Some((at, c)),
+        match (open.map(|(_, quote)| quote), c) {
+            (Some(BashQuote::Single | BashQuote::AnsiC), b'\'')
+            | (Some(BashQuote::Double), b'"') => {
+                open = None;
+            }
+            (Some(BashQuote::Double | BashQuote::AnsiC) | None, b'\\') => escaped = true,
+            (None, b'$') => dollar = Some(at),
+            (None, b'\'') => {
+                open = Some(match after_dollar {
+                    Some(dollar) => (dollar, BashQuote::AnsiC),
+                    None => (at, BashQuote::Single),
+                });
+            }
+            (None, b'"') => open = Some((after_dollar.unwrap_or(at), BashQuote::Double)),
             _ => {}
         }
     }
-    open.map(|(at, quote)| (at, char::from(quote)))
+    open
 }
 
 const BASH_NONBREAKING_COLON: char = '\u{1}';
@@ -1266,9 +1302,8 @@ enum BashInsert<'a> {
     /// Into a word with no quote open: every character the shell would act on is escaped.
     Unquoted,
     /// After the quote left open in the word, where Readline's word starts. The part of the word
-    /// before the quote, `before`, unquoted, stays on the line, so it is dropped from the value;
-    /// Readline closes the quote after a lone match itself.
-    Quoted { quote: char, before: &'a str },
+    /// before the quote, `before`, unquoted, stays on the line, so it is dropped from the value.
+    Quoted { quote: BashQuote, before: &'a str },
 }
 
 impl BashInsert<'_> {
@@ -1284,33 +1319,64 @@ impl BashInsert<'_> {
 
     /// `value` as this insertion has to write it.
     fn write(&self, value: &str) -> String {
-        let (value, escape): (&str, &[char]) = match self {
+        let (quote, value) = match self {
             Self::Raw => return value.to_string(),
-            Self::Unquoted => (
-                value,
-                &[
-                    ' ', '\t', '\\', '\'', '"', '$', '`', '!', '&', ';', '|', '<', '>', '(', ')',
-                    '[', ']', '{', '}', '*', '?', '#', '~',
-                ],
-            ),
-            Self::Quoted {
-                quote: '\'',
-                before,
-            } => {
-                let value = value.strip_prefix(*before).unwrap_or(value);
-                return replace_char(value, '\'', "'\\''");
+            Self::Unquoted => {
+                let mut out = String::with_capacity(value.len());
+                for c in value.chars() {
+                    if matches!(
+                        c,
+                        ' ' | '\t'
+                            | '\\'
+                            | '\''
+                            | '"'
+                            | '$'
+                            | '`'
+                            | '!'
+                            | '&'
+                            | ';'
+                            | '|'
+                            | '<'
+                            | '>'
+                            | '('
+                            | ')'
+                            | '['
+                            | ']'
+                            | '{'
+                            | '}'
+                            | '*'
+                            | '?'
+                            | '#'
+                            | '~'
+                    ) {
+                        push_char(&mut out, '\\');
+                    }
+                    push_char(&mut out, c);
+                }
+                return out;
             }
-            Self::Quoted { before, .. } => (
-                value.strip_prefix(*before).unwrap_or(value),
-                &['"', '\\', '$', '`'],
-            ),
+            Self::Quoted { quote, before } => {
+                (*quote, value.strip_prefix(*before).unwrap_or(value))
+            }
         };
-        let mut out = String::with_capacity(value.len());
+        let mut out = String::with_capacity(value.len() + 2);
         for c in value.chars() {
-            if escape.contains(&c) {
-                push_char(&mut out, '\\');
+            match (quote, c) {
+                (BashQuote::Single, '\'') => push_all(&mut out, &["'\\''"]),
+                // History expansion reaches inside double quotes, and a backslash there is kept,
+                // so `!` steps outside them to be escaped.
+                (BashQuote::Double, '!') => push_all(&mut out, &["\"\\!\""]),
+                (BashQuote::Double, '"' | '\\' | '$' | '`') | (BashQuote::AnsiC, '\\' | '\'') => {
+                    push_char(&mut out, '\\');
+                    push_char(&mut out, c);
+                }
+                _ => push_char(&mut out, c),
             }
-            push_char(&mut out, c);
+        }
+        // Readline closes the quote after a lone match, unless the text already ends in that
+        // quote character, as one ending in an escaped or reopened quote does.
+        if out.ends_with(quote.close()) {
+            push_char(&mut out, quote.close());
         }
         out
     }
@@ -4962,6 +5028,60 @@ mod tests {
                 .next(),
             Some("tasks.\\\"hello.sh\\\".run")
         );
+    }
+
+    #[test]
+    fn a_bash_candidate_closes_the_quote_readline_would_leave_open() {
+        let request = |line: &str| {
+            let argv = ["__complete_word__", "--shell", "bash", "--line", line].map(OsString::from);
+            CompletionRequest::parse(&argv).expect("a completion request")
+        };
+        let answer = |value: &str| Completions {
+            candidates: vec![Candidate::new(value.to_string())],
+            files: None,
+        };
+        // Readline closes a quote only when the text does not already end in that character.
+        assert_eq!(
+            render_request(&answer("ends'"), &request("ex 'e")),
+            "ends'\\'''\n"
+        );
+        assert_eq!(
+            render_request(&answer("quote\""), &request("ex \"q")),
+            "quote\\\"\"\n"
+        );
+        // `!` expands history inside double quotes, so it is escaped outside them.
+        assert_eq!(
+            render_request(&answer("hi!there"), &request("ex \"h")),
+            "hi\"\\!\"there\n"
+        );
+        assert_eq!(
+            render_request(&answer("hi!"), &request("ex \"h")),
+            "hi\"\\!\"\"\n"
+        );
+        assert_eq!(
+            render_request(&answer("hi!there"), &request("ex 'h")),
+            "hi!there\n"
+        );
+        assert_eq!(
+            render_request(&answer("hi!there"), &request("ex h")),
+            "hi\\!there\n"
+        );
+    }
+
+    #[test]
+    fn an_ansi_c_quote_doubles_backslashes() {
+        assert_eq!(open_quote("ex $'a"), Some((3, BashQuote::AnsiC)));
+        assert_eq!(open_quote("ex $\"a"), Some((3, BashQuote::Double)));
+        assert_eq!(open_quote("ex \\$'a"), Some((5, BashQuote::Single)));
+        // An escaped quote does not close an ANSI-C one.
+        assert_eq!(open_quote(r"ex $'a\'b"), Some((3, BashQuote::AnsiC)));
+        let insert = BashInsert::Quoted {
+            quote: BashQuote::AnsiC,
+            before: "",
+        };
+        assert_eq!(insert.write(r"tab\bend"), r"tab\\bend");
+        assert_eq!(insert.write("it's"), r"it\'s");
+        assert_eq!(insert.write("end'"), r"end\''");
     }
 
     #[test]
