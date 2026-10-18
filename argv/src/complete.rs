@@ -863,6 +863,9 @@ pub struct CompletionRequest {
     bash_wordbreaks: Option<String>,
     /// Bash's current prefix with escaped and quoted colons distinguished from word breaks.
     bash_marked_prefix: Option<String>,
+    /// The quote left open in the word bash is completing, and the part of that word before it,
+    /// unquoted. Readline replaces only the text after such a quote.
+    bash_open_quote: Option<(char, String)>,
 }
 
 impl CompletionRequest {
@@ -878,6 +881,7 @@ impl CompletionRequest {
             bash_word: None,
             bash_wordbreaks: None,
             bash_marked_prefix: None,
+            bash_open_quote: None,
         }
     }
 
@@ -959,6 +963,14 @@ impl CompletionRequest {
             let cursor = cursor.unwrap_or(line.len());
             split(&mark_bash_nonbreaking_colons(&line), cursor, shell).prefix
         });
+        let bash_open_quote = (shell == Shell::Bash && words.is_none())
+            .then(|| {
+                let before_cursor =
+                    &line[..floor_char_boundary(&line, cursor.unwrap_or(line.len()))];
+                let (at, quote) = open_quote(before_cursor)?;
+                Some((quote, split(&before_cursor[..at], at, shell).prefix))
+            })
+            .flatten();
         let split = match words {
             Some(mut words) => {
                 if words.is_empty() {
@@ -984,8 +996,31 @@ impl CompletionRequest {
             bash_word,
             bash_wordbreaks,
             bash_marked_prefix,
+            bash_open_quote,
         })
     }
+}
+
+/// Where the quote still open at the end of `line` opened, and which quote it is.
+///
+/// The same reading of quotes and escapes as [`mark_bash_nonbreaking_colons`]: a backslash
+/// escapes outside quotes and inside double ones, and nothing inside single ones.
+fn open_quote(line: &str) -> Option<(usize, char)> {
+    let mut open = None;
+    let mut escaped = false;
+    for (at, c) in line.bytes().enumerate() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match open {
+            Some((_, q)) if c == q => open = None,
+            Some((_, b'"')) | None if c == b'\\' => escaped = true,
+            None if c == b'\'' || c == b'"' => open = Some((at, c)),
+            _ => {}
+        }
+    }
+    open.map(|(at, quote)| (at, char::from(quote)))
 }
 
 const BASH_NONBREAKING_COLON: char = '\u{1}';
@@ -1044,8 +1079,17 @@ pub const COMMANDS_MARKER: &str = "\u{1}commands";
 /// deliberately parses the full shell word. Tell the generated wrapper which already-typed prefix
 /// Readline will preserve so it can trim that prefix from full candidates before insertion.
 pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> String {
-    let mut out = render(answer, request.shell);
+    let insert = match (BashInsert::for_answer(answer), &request.bash_open_quote) {
+        (BashInsert::Unquoted, Some((quote, before))) => BashInsert::Quoted {
+            quote: *quote,
+            before,
+        },
+        (insert, _) => insert,
+    };
+    let mut out = render_inserting(answer, request.shell, &insert);
+    // Inside a quote, Readline's word starts after it, so no colon before it is a break.
     if request.shell == Shell::Bash
+        && !matches!(insert, BashInsert::Quoted { .. })
         && request
             .bash_wordbreaks
             .as_deref()
@@ -1080,7 +1124,8 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
                 })
             });
         if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
-            push_all(&mut out, &["\u{1}prefix\t", &prefix, "\n"]);
+            // Written as the candidates are, so the wrapper finds it at the start of each.
+            push_all(&mut out, &["\u{1}prefix\t", &insert.write(&prefix), "\n"]);
         }
     }
     out
@@ -1089,13 +1134,21 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
 /// Write an answer the way `shell` reads it.
 ///
 /// One line per candidate, in the shape the shell's own completion machinery expects — which is
-/// where the five differ. bash reads values only; fish and nu take a description after a tab;
-/// PowerShell takes value, description and display text; zsh takes display text, description and
-/// the quoted text to insert.
+/// where the five differ. bash reads values only, escaped the way Readline has to insert them;
+/// fish and nu take a description after a tab; PowerShell takes value, description and display
+/// text; zsh takes display text, description and the quoted text to insert.
 ///
 /// A trailing [`FILES_MARKER`] says the generated script should hand the position to the
 /// shell's own path completion afterwards.
+///
+/// bash candidates are escaped for a word with no quote open; [`render_request`] knows the
+/// line, and so whether one is.
 pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
+    render_inserting(answer, shell, &BashInsert::for_answer(answer))
+}
+
+/// [`render`], with bash candidates written for `insert`.
+fn render_inserting(answer: &Completions<'_>, shell: Shell, insert: &BashInsert<'_>) -> String {
     let mut out = String::new();
     // Descriptions are all-or-nothing per answer: a column that appears on some rows and not
     // others reads as missing data rather than as an absent description, which is the reason
@@ -1119,6 +1172,8 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
                     &zsh_quote(&candidate.value),
                 ],
             );
+        } else if shell == Shell::Bash {
+            push_all(&mut out, &[&insert.write(&candidate.value)]);
         } else {
             push_all(&mut out, &[&candidate.value]);
         }
@@ -1196,6 +1251,69 @@ fn one_line(text: &str) -> String {
         out.pop();
     }
     out
+}
+
+/// How bash's Readline inserts a candidate the wrapper hands it, and so how one is written.
+///
+/// Readline puts `COMPREPLY` on the line as it is, so a value with a quote or a space in it would
+/// be read back by the shell as something else: `tasks."build.sh"` arrives as `tasks.build.sh`.
+/// The exception is the wrapper's `compopt -o filenames`, under which Readline quotes each
+/// insertion itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BashInsert<'a> {
+    /// As given: the wrapper turns on `-o filenames` for this answer, and Readline quotes it.
+    Raw,
+    /// Into a word with no quote open: every character the shell would act on is escaped.
+    Unquoted,
+    /// After the quote left open in the word, where Readline's word starts. The part of the word
+    /// before the quote, `before`, unquoted, stays on the line, so it is dropped from the value;
+    /// Readline closes the quote after a lone match itself.
+    Quoted { quote: char, before: &'a str },
+}
+
+impl BashInsert<'_> {
+    /// What an answer gets with nothing known about the line: escaped, unless the wrapper hands
+    /// quoting to Readline by turning on `-o filenames`, which it does for every path request
+    /// but command names.
+    fn for_answer(answer: &Completions<'_>) -> Self {
+        match answer.files {
+            Some(Files::Commands) | None => Self::Unquoted,
+            Some(_) => Self::Raw,
+        }
+    }
+
+    /// `value` as this insertion has to write it.
+    fn write(&self, value: &str) -> String {
+        let (value, escape): (&str, &[char]) = match self {
+            Self::Raw => return value.to_string(),
+            Self::Unquoted => (
+                value,
+                &[
+                    ' ', '\t', '\\', '\'', '"', '$', '`', '!', '&', ';', '|', '<', '>', '(', ')',
+                    '[', ']', '{', '}', '*', '?', '#', '~',
+                ],
+            ),
+            Self::Quoted {
+                quote: '\'',
+                before,
+            } => {
+                let value = value.strip_prefix(*before).unwrap_or(value);
+                return replace_char(value, '\'', "'\\''");
+            }
+            Self::Quoted { before, .. } => (
+                value.strip_prefix(*before).unwrap_or(value),
+                &['"', '\\', '$', '`'],
+            ),
+        };
+        let mut out = String::with_capacity(value.len());
+        for c in value.chars() {
+            if escape.contains(&c) {
+                push_char(&mut out, '\\');
+            }
+            push_char(&mut out, c);
+        }
+        out
+    }
 }
 
 /// A candidate as zsh would have to see it typed.
@@ -4775,6 +4893,99 @@ mod tests {
         assert_eq!(
             render_request(&answer, &request),
             "update:deps:no-cooldown\n"
+        );
+    }
+
+    #[test]
+    fn bash_candidates_are_escaped_the_way_readline_has_to_insert_them() {
+        let answer = |files| Completions {
+            candidates: vec![
+                Candidate::new(r#"tasks."hello.sh""#),
+                Candidate::new("it's here"),
+                Candidate::new("a$b`c"),
+                Candidate::new("plain:value"),
+            ],
+            files,
+        };
+        // Readline puts COMPREPLY on the line as it is, so the shell has to read back the value.
+        assert_eq!(
+            render(&answer(None), Shell::Bash),
+            "tasks.\\\"hello.sh\\\"\nit\\'s\\ here\na\\$b\\`c\nplain:value\n"
+        );
+        // Command names are not paths, so the wrapper leaves quoting to the values.
+        assert!(render(&answer(Some(Files::Commands)), Shell::Bash).starts_with("tasks.\\\""));
+        // Under `-o filenames`, Readline quotes what it inserts, so the values stay as they are.
+        assert_eq!(
+            render(&answer(Some(Files::Any)), Shell::Bash),
+            format!("tasks.\"hello.sh\"\nit's here\na$b`c\nplain:value\n{FILES_MARKER}\n")
+        );
+        // Only bash: zsh's own insert column is unchanged.
+        assert!(render(&answer(None), Shell::Zsh).contains("'tasks.\"hello.sh\"'"));
+    }
+
+    #[test]
+    fn a_bash_candidate_after_an_open_quote_is_written_for_that_quote() {
+        let request = |line: &str| {
+            let argv = ["__complete_word__", "--shell", "bash", "--line", line].map(OsString::from);
+            CompletionRequest::parse(&argv).expect("a completion request")
+        };
+        let answer = Completions {
+            candidates: vec![
+                Candidate::new(r#"tasks."hello.sh".run"#),
+                Candidate::new("tasks.it's $HOME"),
+            ],
+            files: None,
+        };
+        // Readline replaces what follows the quote and closes it after a lone match.
+        assert_eq!(
+            render_request(&answer, &request("ex 'tas")),
+            "tasks.\"hello.sh\".run\ntasks.it'\\''s $HOME\n"
+        );
+        assert_eq!(
+            render_request(&answer, &request("ex \"tas")),
+            "tasks.\\\"hello.sh\\\".run\ntasks.it's \\$HOME\n"
+        );
+        // A quote opened inside the word: the part before it stays on the line.
+        assert_eq!(
+            render_request(&answer, &request("ex tasks.'")),
+            "\"hello.sh\".run\nit'\\''s $HOME\n"
+        );
+        // A closed quote leaves the word unquoted again.
+        assert_eq!(
+            render_request(&answer, &request("ex 'tasks'.")),
+            "tasks.\\\"hello.sh\\\".run\ntasks.it\\'s\\ \\$HOME\n"
+        );
+        // An escaped quote opens nothing.
+        assert_eq!(
+            render_request(&answer, &request("ex tasks.\\'"))
+                .lines()
+                .next(),
+            Some("tasks.\\\"hello.sh\\\".run")
+        );
+    }
+
+    #[test]
+    fn the_bash_colon_prefix_is_escaped_like_the_candidates() {
+        let argv = [
+            "__complete_word__",
+            "--shell",
+            "bash",
+            "--line",
+            "ex a\\ b:c",
+            "--bash-word",
+            "c",
+            "--bash-wordbreaks",
+            " :",
+        ]
+        .map(OsString::from);
+        let request = CompletionRequest::parse(&argv).expect("a completion request");
+        let answer = Completions {
+            candidates: vec![Candidate::new("a b:cd")],
+            files: None,
+        };
+        assert_eq!(
+            render_request(&answer, &request),
+            "a\\ b:cd\n\u{1}prefix\ta\\ b:\n"
         );
     }
 
