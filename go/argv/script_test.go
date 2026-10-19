@@ -137,7 +137,7 @@ func TestTheNushellScriptChainsTheCompleterItFound(t *testing.T) {
 		"let __usage_previous_mise = ($env.config.completions.external.completer? | default null)",
 		"$env.config.completions.external.completer = {|place|",
 		`if ($spans | get 0) == "mise"`,
-		"do $__usage_previous_mise $place",
+		"do $__usage_previous_mise (if $previous_is_legacy",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("want %q:\n%s", want, out)
