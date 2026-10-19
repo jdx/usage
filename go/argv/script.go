@@ -351,11 +351,16 @@ def --env __usage_complete_{ident} [spans: list<string>] {
 # Slot this into the external completer nushell already has, if any, rather than replacing it:
 # a config that completes several tools should keep completing all of them.
 let __usage_previous_{ident} = ($env.config.completions.external.completer? | default null)
-$env.config.completions.external.completer = {|spans|
+$env.config.completions.external.completer = {|place|
+    # nushell 0.116 hands a completer one record whose command field is the token list; older
+    # releases hand the list itself. Accept both, and pass the input on untouched.
+    let spans = if ($place | describe | str starts-with "record") { $place.command } else { $place }
     if ($spans | get 0) == "{bin}" {
         __usage_complete_{ident} $spans
     } else if $__usage_previous_{ident} != null {
-        do $__usage_previous_{ident} $spans
+        # A completer saved from an older script still declares spans and wants the list.
+        let previous_is_legacy = (view source $__usage_previous_{ident}) =~ '^\{\s*\|\s*spans\s*[:|]'
+        do $__usage_previous_{ident} (if $previous_is_legacy { $spans } else { $place })
     } else {
         null
     }
