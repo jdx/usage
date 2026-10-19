@@ -1,5 +1,20 @@
 # Changelog
 
+## [7.1.0](https://github.com/jdx/usage/compare/v7.0.2..v7.1.0) - 2026-10-19
+
+### 🚀 Features
+
+- **(spec)** add Effect v4 CLI exporter by [@jdx](https://github.com/jdx) in [#1564](https://github.com/jdx/usage/pull/1564)
+
+### 🐛 Bug Fixes
+
+- **(bash)** escape completion candidates so the command receives them as offered by [@jdx](https://github.com/jdx) in [#1566](https://github.com/jdx/usage/pull/1566)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1567](https://github.com/jdx/usage/pull/1567)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1568](https://github.com/jdx/usage/pull/1568)
+
 ## [7.0.2](https://github.com/jdx/usage/compare/v7.0.1..v7.0.2) - 2026-10-16
 
 ### 🐛 Bug Fixes
