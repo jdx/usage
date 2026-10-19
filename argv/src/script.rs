@@ -529,7 +529,7 @@ $env.config.completions.external.completer = {{|place|
         __usage_complete_{ident} $spans
     }} else if $__usage_previous_{ident} != null {{
         # A completer saved from an older script still declares `spans` and wants the list.
-        let previous_is_legacy = (view source $__usage_previous_{ident}) =~ '^\{{\s*\|\s*spans\s*\|'
+        let previous_is_legacy = (view source $__usage_previous_{ident}) =~ '^\{{\s*\|\s*spans\s*[:|]'
         do $__usage_previous_{ident} (if $previous_is_legacy {{ $spans }} else {{ $place }})
     }} else {{
         null
