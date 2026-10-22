@@ -1,5 +1,23 @@
 # Changelog
 
+## [7.1.1](https://github.com/jdx/usage/compare/v7.1.0..v7.1.1) - 2026-10-22
+
+### 🐛 Bug Fixes
+
+- **(complete)** stop nushell 0.116 deprecation warning in generated completer by [@jdx](https://github.com/jdx) in [#1570](https://github.com/jdx/usage/pull/1570)
+
+### 🛡️ Security
+
+- **(deps)** update communique, hk, mr-boxington in mise.lock by [@jdx](https://github.com/jdx) in [#1572](https://github.com/jdx/usage/pull/1572)
+
+### 📦️ Dependency Updates
+
+- update dependency @types/node to v24.19.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1575](https://github.com/jdx/usage/pull/1575)
+- update dependency go to v1.27.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1573](https://github.com/jdx/usage/pull/1573)
+- update dependency typescript to v7 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1576](https://github.com/jdx/usage/pull/1576)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1577](https://github.com/jdx/usage/pull/1577)
+- update github actions by [@renovate[bot]](https://github.com/renovate[bot]) in [#1574](https://github.com/jdx/usage/pull/1574)
+
 ## [7.1.0](https://github.com/jdx/usage/compare/v7.0.2..v7.1.0) - 2026-10-19
 
 ### 🚀 Features
