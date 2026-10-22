@@ -33,7 +33,7 @@
     "effect": ">=4.0.0 <5"
   },
   "devDependencies": {
-    "@types/node": "24.0.0",
+    "@types/node": "24.19.2",
     "effect": "4.0.5",
     "typescript": "5.9.3"
   }
