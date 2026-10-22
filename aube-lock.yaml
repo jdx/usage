@@ -10,7 +10,7 @@ importers:
     dependencies:
       vitepress:
         specifier: 1.6.4
-        version: 1.6.4
+        version: 1.6.4(postcss@8.5.31)
     devDependencies:
       '@resvg/resvg-js':
         specifier: ^2.6.2
@@ -1029,23 +1029,24 @@ snapshots:
 
   '@docsearch/css@3.8.2': {}
 
-  '@docsearch/js@3.8.2':
+  '@docsearch/js@3.8.2(search-insights@2.17.3)':
     dependencies:
-      '@docsearch/react': 3.8.2
+      '@docsearch/react': 3.8.2(search-insights@2.17.3)
       preact: 10.29.8
     transitivePeerDependencies:
       - '@types/react'
       - preact-render-to-string
       - react
       - react-dom
-      - search-insights
 
-  '@docsearch/react@3.8.2':
+  '@docsearch/react@3.8.2(search-insights@2.17.3)':
     dependencies:
       '@algolia/autocomplete-core': 1.17.7(@algolia/client-search@5.60.0)(algoliasearch@5.60.0)(search-insights@2.17.3)
       '@algolia/autocomplete-preset-algolia': 1.17.7(@algolia/client-search@5.60.0)(algoliasearch@5.60.0)
       '@docsearch/css': 3.8.2
       algoliasearch: 5.60.0
+    optionalDependencies:
+      search-insights: 2.17.3
 
   '@esbuild/aix-ppc64@0.21.5':
     optional: true
@@ -1408,8 +1409,9 @@ snapshots:
     dependencies:
       '@vueuse/core': 12.8.2
       '@vueuse/shared': 12.8.2
-      focus-trap: 7.8.0
       vue: 3.5.44
+    optionalDependencies:
+      focus-trap: 7.8.0
     transitivePeerDependencies:
       - typescript
 
@@ -1699,10 +1701,10 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
-  vitepress@1.6.4:
+  vitepress@1.6.4(postcss@8.5.31):
     dependencies:
       '@docsearch/css': 3.8.2
-      '@docsearch/js': 3.8.2
+      '@docsearch/js': 3.8.2(search-insights@2.17.3)
       '@iconify-json/simple-icons': 1.2.100
       '@shikijs/core': 2.5.0
       '@shikijs/transformers': 2.5.0
@@ -1719,6 +1721,8 @@ snapshots:
       shiki: 2.5.0
       vite: 5.4.21
       vue: 3.5.44
+    optionalDependencies:
+      postcss: 8.5.31
     transitivePeerDependencies:
       - '@types/node'
       - '@types/react'
@@ -1738,7 +1742,6 @@ snapshots:
       - react-dom
       - sass
       - sass-embedded
-      - search-insights
       - sortablejs
       - stylus
       - sugarss
