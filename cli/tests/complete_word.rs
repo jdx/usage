@@ -561,22 +561,21 @@ cmd "own" {
 "#,
     )
     .unwrap();
+    // The mount reads the file by a relative name, from the directory completion runs in: an
+    // absolute path would carry Windows backslashes into a KDL string, where they are escapes.
     let host = dir.join("host.usage.kdl");
     fs::write(
         &host,
-        format!(
-            r#"name "ex"
+        r#"name "ex"
 bin "ex"
 complete "tool" run="printf '%s\n' host-tool"
-cmd "install" {{
+cmd "install" {
     arg "<tool>"
-}}
-cmd "run" {{
-    mount run="cat '{}'"
-}}
+}
+cmd "run" {
+    mount run="cat mounted.usage.kdl"
+}
 "#,
-            mounted.display()
-        ),
     )
     .unwrap();
     let complete = |words: &[&str]| {
