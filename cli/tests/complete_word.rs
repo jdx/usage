@@ -553,6 +553,7 @@ fn complete_word_mounted_args_do_not_inherit_top_level_completers() {
         &mounted,
         r#"cmd "plain" {
     arg "<tool>"
+    flag "--pick <name>"
 }
 cmd "own" {
     arg "<tool>"
@@ -568,7 +569,7 @@ cmd "own" {
         &host,
         r#"name "ex"
 bin "ex"
-flag "--pick <tool>" global=#true
+flag "-p --pick <tool>" global=#true
 complete "tool" run="printf '%s\n' host-tool"
 cmd "install" {
     arg "<tool>"
@@ -597,10 +598,12 @@ cmd "run" {
     assert!(!plain.contains("host-tool"), "{plain}");
     assert_eq!(complete(&["ex", "run", "own", ""]), "task-tool\n");
     // A host flag typed inside the mounted command is still the host's, and so is its value.
-    assert_eq!(
-        complete(&["ex", "run", "plain", "--pick", ""]),
-        "host-tool\n"
-    );
+    assert_eq!(complete(&["ex", "run", "own", "--pick", ""]), "host-tool\n");
+    // `plain` re-declares `--pick`, so that spelling is its own and gets nothing of the host's,
+    // while the host's `-p` still binds the host's flag and completes as the host's.
+    let shadowed = complete(&["ex", "run", "plain", "--pick", ""]);
+    assert!(!shadowed.contains("host-tool"), "{shadowed}");
+    assert_eq!(complete(&["ex", "run", "plain", "-p", ""]), "host-tool\n");
 
     let _ = fs::remove_dir_all(&dir);
 }

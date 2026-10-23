@@ -1137,14 +1137,28 @@ fn resolve_path_dirs(base: &Path, path: &Path) -> Vec<PathBuf> {
 /// of the mounting CLI typed there, and a mounted command does not read the mounting spec's
 /// top-level completers (see `Spec::completer`). Such a flag is the host's, so its value is
 /// completed from the nearest command above the mount, as it would be before the mount.
-/// `offered` is what completion offers at this position, which holds the mounted program's
-/// flags and none of the host's.
+/// `offered` is what completion offers at this position, keyed by spelling, which holds the
+/// mounted program's flags and none of the host's.
+///
+/// Decided by spelling, not by name: a mounted command can re-declare `--pick` while the host's
+/// `-p` for its own `--pick` stays bound. The spellings that still reach `flag` are the keys
+/// of `available_flags` holding this very declaration, and it is the mounted program's when
+/// completion offers one of them.
 fn flag_value_owner<'a>(
     parsed: &'a ParseOutput,
     offered: &BTreeMap<String, Arc<SpecFlag>>,
-    flag: &SpecFlag,
+    flag: &Arc<SpecFlag>,
 ) -> &'a SpecCommand {
-    if !parsed.cmd.mounted || offered.values().any(|f| f.name == flag.name) {
+    let mut spellings = parsed
+        .available_flags
+        .iter()
+        .filter(|(_, available)| Arc::ptr_eq(available, flag))
+        .map(|(spelling, _)| spelling)
+        .peekable();
+    if !parsed.cmd.mounted
+        || spellings.peek().is_none()
+        || spellings.any(|spelling| offered.contains_key(spelling))
+    {
         return &parsed.cmd;
     }
     parsed
