@@ -559,6 +559,12 @@ cmd "own" {
     arg "<tool>"
     complete "tool" run="printf '%s\n' task-tool"
 }
+cmd "outer" {
+    cmd "inner" {
+        arg "<tool>"
+        flag "-p --other <name>"
+    }
+}
 "#,
     )
     .unwrap();
@@ -604,6 +610,18 @@ cmd "run" {
     let shadowed = complete(&["ex", "run", "plain", "--pick", ""]);
     assert!(!shadowed.contains("host-tool"), "{shadowed}");
     assert_eq!(complete(&["ex", "run", "plain", "-p", ""]), "host-tool\n");
+    // Deeper in the mounted program, `inner` declares a `-p` of its own, yet the parser binds
+    // the host's `-p --pick` there. Completion follows the flag the parser bound.
+    assert_eq!(
+        complete(&["ex", "run", "outer", "inner", "-p", ""]),
+        "host-tool\n"
+    );
+    assert_eq!(
+        complete(&["ex", "run", "outer", "inner", "--pick", ""]),
+        "host-tool\n"
+    );
+    let inner = complete(&["ex", "run", "outer", "inner", ""]);
+    assert!(!inner.contains("host-tool"), "{inner}");
 
     let _ = fs::remove_dir_all(&dir);
 }
