@@ -1563,6 +1563,135 @@ POINT=21 run_case init-quoted _usage_default_complete 'ex "hi there" --out=aX' 4
     let _ = fs::remove_dir_all(&temp_dir);
 }
 
+/// What a completer prints reaches `COMPREPLY` as text, in both bash scripts.
+///
+/// The per-binary script handed the candidates to `compgen -W`, which expands each word as shell
+/// input: a candidate `$(touch …)` ran the command at <Tab>, and `*` became the files in the
+/// working directory. The init handler split an unquoted `$(…)`, which globbed the same way.
+#[test]
+fn test_bash_completion_keeps_candidates_literal() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+    let Some(bash_completion) = bash_completion_or_skip() else {
+        return;
+    };
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_bash_literal_{}", std::process::id()));
+    let bin_dir = temp_dir.join("bin");
+    let work_dir = temp_dir.join("work");
+    fs::create_dir_all(&bin_dir).unwrap();
+    fs::create_dir_all(&work_dir).unwrap();
+    fs::write(work_dir.join("only-file"), "").unwrap();
+
+    let completer = r##"complete "thing" run=#"printf '%s\n' plain '$(touch ran-bin)' '`touch ran-tick`' '*'"#"##;
+    let spec = format!("bin \"mycli\"\narg \"<thing>\"\n{completer}\n");
+    let spec_file = temp_dir.join("mycli.kdl");
+    fs::write(&spec_file, spec).unwrap();
+    let output = Command::new(&usage_bin)
+        .args(["generate", "completion", "bash", "mycli", "-f"])
+        .arg(&spec_file)
+        .output()
+        .expect("Failed to generate bash completion");
+    assert!(output.status.success());
+    let comp_file = temp_dir.join("mycli.bash");
+    fs::write(&comp_file, &output.stdout).unwrap();
+
+    let script_path = bin_dir.join("ex");
+    fs::write(
+        &script_path,
+        format!(
+            "#!/usr/bin/env -S usage bash\n#USAGE bin \"ex\"\n#USAGE arg \"<thing>\"\n#USAGE {}\n",
+            completer.replace("ran-bin", "ran-init")
+        ),
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let output = Command::new(&usage_bin)
+        .args(["generate", "completion-init", "bash"])
+        .output()
+        .expect("Failed to generate completion-init");
+    assert!(output.status.success());
+    let init_file = temp_dir.join("init.bash");
+    fs::write(&init_file, &output.stdout).unwrap();
+
+    let test_script = format!(
+        r#"#!/usr/bin/env bash
+export PATH="{bin_dir}:{usage_dir}:$PATH"
+export XDG_CACHE_HOME="{cache_dir}"
+source "{bash_completion}"
+source "{comp_file}"
+source "{init_file}"
+cd "{work_dir}" || exit 1
+
+run_case() {{
+    local label="$1" fn="$2" line="$3" cword="$4"; shift 4
+    COMP_WORDS=("$@")
+    COMP_CWORD="$cword"
+    COMP_LINE="$line"
+    COMP_POINT=${{#line}}
+    COMPREPLY=()
+    "$fn" "${{COMP_WORDS[0]}}" "${{COMP_WORDS[$cword]}}" "${{COMP_WORDS[$((cword-1))]}}"
+    local item
+    for item in "${{COMPREPLY[@]}}"; do printf '[%s] %s\n' "$label" "$item"; done
+}}
+
+run_case bin _mycli "mycli " 1 mycli ""
+run_case init _usage_default_complete "ex " 1 ex ""
+ls
+"#,
+        bin_dir = path_var_entry("bash", &bin_dir),
+        usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
+        cache_dir = sh_path(&temp_dir.join("cache")),
+        bash_completion = sh_path(&bash_completion),
+        comp_file = sh_path(&comp_file),
+        init_file = sh_path(&init_file),
+        work_dir = sh_path(&work_dir),
+    );
+    let script_file = temp_dir.join("test.sh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = script_command("bash", &script_file)
+        .output()
+        .expect("Failed to run bash test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    println!("stdout:\n{stdout}\nstderr:\n{stderr}");
+    assert!(
+        result.status.success(),
+        "bash test script exited non-zero. stderr: {stderr}"
+    );
+
+    for marker in ["ran-bin", "ran-init", "ran-tick"] {
+        assert!(
+            !work_dir.join(marker).exists(),
+            "a candidate ran as a command ({marker}):\n{stdout}"
+        );
+    }
+    for label in ["bin", "init"] {
+        let offered: Vec<&str> = stdout
+            .lines()
+            .filter_map(|line| line.strip_prefix(&format!("[{label}] ")))
+            .collect();
+        assert!(offered.contains(&"plain"), "{label}: {offered:?}");
+        assert!(offered.contains(&"*"), "{label}: {offered:?}");
+        assert!(
+            offered.contains(&"`touch ran-tick`"),
+            "{label}: {offered:?}"
+        );
+        assert!(!offered.contains(&"only-file"), "{label}: {offered:?}");
+    }
+    assert!(stdout.contains("[bin] $(touch ran-bin)"), "{stdout}");
+    assert!(stdout.contains("[init] $(touch ran-init)"), "{stdout}");
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
 #[test]
 fn test_zsh_completion_init_integration() {
     if skip_if_shell_missing("zsh") {

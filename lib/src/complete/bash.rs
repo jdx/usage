@@ -113,8 +113,14 @@ fi"#
     # Complete the text before the cursor, as `$cur` holds it: with the cursor in `--out=a|X`
     # the value typed so far is `a`, not `aX`.
     words[cword]="$cur"
-    # shellcheck disable=SC2207
-	COMPREPLY=($(compgen -W "$(command {usage_bin} complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${{words[@]}}" 2>/dev/null)" -- "$cur"))
+    # One candidate per line, kept as text. `compgen -W` expands every word it is handed
+    # (`$(…)`, globs, quote removal), so a candidate printed by a `run=` completer would have
+    # run as a command here, and `*` would have become the files in the working directory.
+    COMPREPLY=()
+    local __usage_line
+    while IFS= read -r __usage_line; do
+        [[ -n "$__usage_line" && "$__usage_line" == "$cur"* ]] && COMPREPLY+=("$__usage_line")
+    done < <(command {usage_bin} complete-word --shell bash -f "$spec_file" --cword="$cword" -- "${{words[@]}}" 2>/dev/null)
 	# Readline only replaces the text after the last word break, so strip the part of
 	# `$cur` up to its last `:` or `=` from each candidate (what __ltrim_colon_completions
 	# does for `:` alone).
@@ -219,10 +225,14 @@ _usage_default_complete() {{
                     words[cword]="${{words[cword]:0:${{#words[cword]}} - after}}"
                 fi
                 local cur="${{words[cword]}}"
-                local IFS=$'\n'
-                # stderr is discarded so a parse error isn't printed over the prompt.
-                # shellcheck disable=SC2207
-                COMPREPLY=( $(command {usage_bin} complete-word --shell bash -f "$cmdpath" --cword="$cword" -- "${{words[@]}}" 2>/dev/null) )
+                # stderr is discarded so a parse error isn't printed over the prompt. One
+                # candidate per line, kept as text: an unquoted `$(…)` would also glob each line,
+                # so a candidate `*` became the files in the working directory.
+                COMPREPLY=()
+                local __usage_line
+                while IFS= read -r __usage_line; do
+                    [[ -n "$__usage_line" ]] && COMPREPLY+=("$__usage_line")
+                done < <(command {usage_bin} complete-word --shell bash -f "$cmdpath" --cword="$cword" -- "${{words[@]}}" 2>/dev/null)
                 # Readline only replaces the text after the last `=`, so drop what precedes it.
                 # Guarded on a non-empty COMPREPLY: before bash 4.4, rewriting an empty array
                 # this way leaves one empty candidate, which would erase the typed value.
