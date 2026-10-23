@@ -535,6 +535,71 @@ fn complete_word_mounted() {
     assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("task-a\ntask-b\n");
 }
 
+/// A mounted command's argument does not pick up the host's top-level completer of the same name.
+///
+/// The host completes `<tool>` its own way. A task mounted beneath `run` that also happens to
+/// call an argument `<tool>` means something else by it, and before this the host's completer
+/// answered for it — even ahead of a completer the task declared for itself, because the top
+/// level was consulted first.
+#[test]
+fn complete_word_mounted_args_do_not_inherit_top_level_completers() {
+    if skip_if_posix_shell_missing() {
+        return;
+    }
+    let dir = env::temp_dir().join(format!("usage-mount-completers-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let mounted = dir.join("mounted.usage.kdl");
+    fs::write(
+        &mounted,
+        r#"cmd "plain" {
+    arg "<tool>"
+}
+cmd "own" {
+    arg "<tool>"
+    complete "tool" run="printf '%s\n' task-tool"
+}
+"#,
+    )
+    .unwrap();
+    let host = dir.join("host.usage.kdl");
+    fs::write(
+        &host,
+        format!(
+            r#"name "ex"
+bin "ex"
+complete "tool" run="printf '%s\n' host-tool"
+cmd "install" {{
+    arg "<tool>"
+}}
+cmd "run" {{
+    mount run="cat '{}'"
+}}
+"#,
+            mounted.display()
+        ),
+    )
+    .unwrap();
+    let complete = |words: &[&str]| {
+        let out = Command::new(cargo::cargo_bin!("usage"))
+            .args(["cw", "--shell", "fish", "-f"])
+            .arg(&host)
+            .arg("--")
+            .args(words)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{out:?}");
+        String::from_utf8(out.stdout).unwrap()
+    };
+
+    assert_eq!(complete(&["ex", "install", ""]), "host-tool\n");
+    let plain = complete(&["ex", "run", "plain", ""]);
+    assert!(!plain.contains("host-tool"), "{plain}");
+    assert_eq!(complete(&["ex", "run", "own", ""]), "task-tool\n");
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn complete_word_mounted_with_global_flags() {
     if skip_if_posix_shell_missing() {

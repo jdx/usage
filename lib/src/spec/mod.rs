@@ -384,6 +384,11 @@ impl Spec {
     /// A `complete` written inside the `arg` node wins, since it is attached to the argument
     /// itself. Otherwise a `complete` naming the argument is looked up by its lowercased name,
     /// at the top level of the spec first and then on `cmd`.
+    ///
+    /// A command brought in by a `mount` skips the top level. Its arguments were named by the
+    /// program that printed the mounted spec, so a `<tool>` there means whatever that program
+    /// means by it, not what this spec's `complete "tool"` completes. Only completers written
+    /// in the mounted command itself, or in its `arg` nodes, apply.
     pub fn completer<'a>(
         &'a self,
         cmd: &'a SpecCommand,
@@ -391,6 +396,9 @@ impl Spec {
     ) -> Option<&'a SpecComplete> {
         arg.complete.as_ref().or_else(|| {
             let name = arg.name.to_lowercase();
+            if cmd.mounted {
+                return cmd.complete.get(&name);
+            }
             self.complete.get(&name).or_else(|| cmd.complete.get(&name))
         })
     }
@@ -2614,6 +2622,58 @@ echo "hello"
         assert_eq!(spec.cmd.subcommands["build"].usage, "build");
         let json = serde_json::to_value(&spec).unwrap();
         assert_eq!(json["cmd"]["usage"], "[SUBCOMMAND]");
+    }
+
+    #[test]
+    fn mounted_commands_do_not_inherit_top_level_completers_by_name() {
+        let mut spec: Spec = r#"
+bin ex
+complete "tool" run="host-tools"
+cmd install {
+    arg "<tool>"
+}
+cmd run {
+    mount run=tasks
+}
+"#
+        .parse()
+        .unwrap();
+        let mounted = r#"
+cmd plain {
+    arg "<tool>"
+    cmd nested {
+        arg "<tool>"
+    }
+}
+cmd own {
+    arg "<tool>"
+    complete "tool" run="task-tools"
+}
+cmd inline {
+    arg "<tool>" {
+        complete run="inline-tools"
+    }
+}
+"#;
+        spec.resolve_mount_outputs(&HashMap::from([("tasks".to_string(), mounted.to_string())]))
+            .unwrap();
+        let run_of = |path: &[&str]| {
+            let mut cmd = &spec.cmd;
+            for name in path {
+                cmd = &cmd.subcommands[*name];
+            }
+            spec.completer(cmd, &cmd.args[0])
+                .and_then(|complete| complete.run.as_deref())
+        };
+
+        // The host's own commands keep the host's completer.
+        assert_eq!(run_of(&["install"]), Some("host-tools"));
+        // A mounted command's `<tool>` is somebody else's, at any depth.
+        assert_eq!(run_of(&["run", "plain"]), None);
+        assert_eq!(run_of(&["run", "plain", "nested"]), None);
+        // What the mounted command declares for itself still applies.
+        assert_eq!(run_of(&["run", "own"]), Some("task-tools"));
+        assert_eq!(run_of(&["run", "inline"]), Some("inline-tools"));
     }
 
     #[test]
