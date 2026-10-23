@@ -535,6 +535,116 @@ fn complete_word_mounted() {
     assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("task-a\ntask-b\n");
 }
 
+/// A mounted command's argument does not pick up the host's top-level completer of the same name.
+///
+/// The host completes `<tool>` its own way. A task mounted beneath `run` that also happens to
+/// call an argument `<tool>` means something else by it, and before this the host's completer
+/// answered for it — even ahead of a completer the task declared for itself, because the top
+/// level was consulted first.
+#[test]
+fn complete_word_mounted_args_do_not_inherit_top_level_completers() {
+    if skip_if_posix_shell_missing() {
+        return;
+    }
+    let dir = env::temp_dir().join(format!("usage-mount-completers-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let mounted = dir.join("mounted.usage.kdl");
+    fs::write(
+        &mounted,
+        r#"cmd "plain" {
+    arg "<tool>"
+    flag "--pick <name>"
+}
+cmd "own" {
+    arg "<tool>"
+    complete "tool" run="printf '%s\n' task-tool"
+}
+cmd "outer" {
+    cmd "inner" {
+        arg "<tool>"
+        flag "-p --other <name>"
+    }
+}
+cmd "deep" {
+    flag "--pick <tool>" global=#true
+    cmd "leaf" {
+        arg "<tool>"
+        flag "-p --pick <tool>"
+        complete "tool" run="printf '%s\n' leaf-tool"
+    }
+}
+"#,
+    )
+    .unwrap();
+    // The mount reads the file by a relative name, from the directory completion runs in: an
+    // absolute path would carry Windows backslashes into a KDL string, where they are escapes.
+    let host = dir.join("host.usage.kdl");
+    fs::write(
+        &host,
+        r#"name "ex"
+bin "ex"
+flag "-p --pick <tool>" global=#true
+complete "tool" run="printf '%s\n' host-tool"
+cmd "install" {
+    arg "<tool>"
+}
+cmd "run" {
+    mount run="cat mounted.usage.kdl"
+}
+"#,
+    )
+    .unwrap();
+    let complete = |words: &[&str]| {
+        let out = Command::new(cargo::cargo_bin!("usage"))
+            .args(["cw", "--shell", "fish", "-f"])
+            .arg(&host)
+            .arg("--")
+            .args(words)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{out:?}");
+        String::from_utf8(out.stdout).unwrap()
+    };
+
+    assert_eq!(complete(&["ex", "install", ""]), "host-tool\n");
+    let plain = complete(&["ex", "run", "plain", ""]);
+    assert!(!plain.contains("host-tool"), "{plain}");
+    assert_eq!(complete(&["ex", "run", "own", ""]), "task-tool\n");
+    // A host flag typed inside the mounted command is still the host's, and so is its value.
+    assert_eq!(complete(&["ex", "run", "own", "--pick", ""]), "host-tool\n");
+    // `plain` re-declares `--pick`, so that spelling is its own and gets nothing of the host's,
+    // while the host's `-p` still binds the host's flag and completes as the host's.
+    let shadowed = complete(&["ex", "run", "plain", "--pick", ""]);
+    assert!(!shadowed.contains("host-tool"), "{shadowed}");
+    assert_eq!(complete(&["ex", "run", "plain", "-p", ""]), "host-tool\n");
+    // Deeper in the mounted program, `inner` declares a `-p` of its own, yet the parser binds
+    // the host's `-p --pick` there. Completion follows the flag the parser bound.
+    assert_eq!(
+        complete(&["ex", "run", "outer", "inner", "-p", ""]),
+        "host-tool\n"
+    );
+    assert_eq!(
+        complete(&["ex", "run", "outer", "inner", "--pick", ""]),
+        "host-tool\n"
+    );
+    let inner = complete(&["ex", "run", "outer", "inner", ""]);
+    assert!(!inner.contains("host-tool"), "{inner}");
+    // `leaf` re-declares `deep`'s global `--pick`, which the parser merges into one flag that
+    // matches neither declaration. It is the mounted program's flag, so `leaf` completes it.
+    assert_eq!(
+        complete(&["ex", "run", "deep", "leaf", "--pick", ""]),
+        "leaf-tool\n"
+    );
+    // The host's global `-p` keeps that spelling, so it is still the host's.
+    assert_eq!(
+        complete(&["ex", "run", "deep", "leaf", "-p", ""]),
+        "host-tool\n"
+    );
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn complete_word_mounted_with_global_flags() {
     if skip_if_posix_shell_missing() {

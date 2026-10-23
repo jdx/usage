@@ -555,6 +555,25 @@ fn fish_adds_paths_and_never_the_marker() {
     );
 }
 
+/// An extension is compared as text, so a wildcard in one does not widen the filter.
+#[test]
+fn fish_matches_extensions_literally() {
+    if !available("fish") {
+        println!("fish is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new("fish-extensions", Shell::Fish, "\u{1}extensions\t*\ttoml\n");
+    let out = fixture.run("fish", "source ./script; __usage_complete_ex");
+    let offered: Vec<&str> = out.lines().map(|l| l.split('\t').next().unwrap()).collect();
+    assert!(offered.contains(&"manifest.toml"), "{offered:?}");
+    assert!(
+        offered.iter().any(|path| path.starts_with("gamma")),
+        "directories remain traversable: {offered:?}"
+    );
+    assert!(!offered.contains(&"alpha.txt"), "{offered:?}");
+    assert!(!offered.contains(&"settings.yaml"), "{offered:?}");
+}
+
 /// zsh's completion builtins, stubbed so the script can be driven outside a completion context.
 ///
 /// What is under test is the part of the script this crate wrote: the parsing of the three
@@ -661,6 +680,68 @@ fn zsh_passes_extension_filters_to_its_native_file_completer() {
         &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n"),
     );
     assert!(out.contains("_files:-g *.(toml|yaml)"), "{out}");
+}
+
+/// A `_files` that expands its `-g` pattern the way zsh's own does, qualifiers included.
+///
+/// The plain stub only prints its arguments, which is enough to see what was asked for but not
+/// what asking for it would do. `_path_files` hands the pattern to the glob engine, where a
+/// trailing `(e:…:)` qualifier is code that runs once per matching file.
+const ZSH_GLOBBING_FILES: &str = r#"_files() {
+    if [[ $1 == -g ]]; then
+        setopt localoptions nullglob
+        local -a __matched=( ${~2} )
+        print -r -- "_files:-g $2 => ${__matched[*]}"
+    else
+        print -r -- "_files:$*"
+    fi
+    return 0
+}
+"#;
+
+/// The extensions line is data: a name that would change the glob's shape is dropped.
+///
+/// The binary only ever sends extension names, but the script cannot tell a line it sent from a
+/// candidate that happened to look like one, so it must not let the line's text become pattern
+/// syntax. Here the second "extension" closes the alternation and adds an `e` qualifier that
+/// creates a file.
+#[test]
+fn zsh_never_turns_an_extension_into_glob_syntax() {
+    if !available("zsh") {
+        println!("zsh is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "zsh-extensions-forged",
+        Shell::Zsh,
+        "\u{1}extensions\ttoml\tx)(e:>pwned:\n",
+    );
+    let out = fixture.run(
+        "zsh",
+        &format!(
+            "{ZSH_STUBS}\n{ZSH_GLOBBING_FILES}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n"
+        ),
+    );
+    assert!(
+        !fixture.dir.join("pwned").exists(),
+        "the extensions line ran code: {out}"
+    );
+    // The safe name still filters, and still finds its file.
+    assert!(out.contains("_files:-g *.toml => manifest.toml"), "{out}");
+
+    // With nothing usable left, the position still takes paths, just unfiltered.
+    let fixture = Fixture::new(
+        "zsh-extensions-unusable",
+        Shell::Zsh,
+        "\u{1}extensions\t*\t[a-z]\n",
+    );
+    let out = fixture.run(
+        "zsh",
+        &format!(
+            "{ZSH_STUBS}\n{ZSH_GLOBBING_FILES}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n"
+        ),
+    );
+    assert!(out.lines().any(|line| line == "_files:"), "{out}");
 }
 
 #[test]

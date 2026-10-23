@@ -130,6 +130,11 @@ Now when using completion with usage, if the user types `mycli run <tab><tab>`, 
 call `mycli mount-usage-tasks` and merge the emitted usage into the `run` command and display the
 task commands as if they were statically defined in the usage spec.
 
+One difference from a static command: the mounting spec's top-level `complete` nodes do not
+reach a mounted command's arguments. If `task1`'s `<arg1>` needs completions, the emitted `cmd`
+declares them itself, with a `complete "arg1"` inside it or a `complete` inside the `arg`. See
+[`complete`](./complete.md#inside-an-arg).
+
 `mount run` is executed the same way as [`complete`'s `run`](./complete.md#which-shell-runs-run):
 `sh -c`, falling back to `cmd /c` on Windows when there is no `sh` on `PATH`. A mount pointing at
 a shebang script therefore needs a POSIX shell to be available; one that invokes a program

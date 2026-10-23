@@ -384,6 +384,11 @@ impl Spec {
     /// A `complete` written inside the `arg` node wins, since it is attached to the argument
     /// itself. Otherwise a `complete` naming the argument is looked up by its lowercased name,
     /// at the top level of the spec first and then on `cmd`.
+    ///
+    /// A command brought in by a `mount` skips the top level. Its arguments were named by the
+    /// program that printed the mounted spec, so a `<tool>` there means whatever that program
+    /// means by it, not what this spec's `complete "tool"` completes. Only completers written
+    /// in the mounted command itself, or in its `arg` nodes, apply.
     pub fn completer<'a>(
         &'a self,
         cmd: &'a SpecCommand,
@@ -391,6 +396,9 @@ impl Spec {
     ) -> Option<&'a SpecComplete> {
         arg.complete.as_ref().or_else(|| {
             let name = arg.name.to_lowercase();
+            if cmd.mounted {
+                return cmd.complete.get(&name);
+            }
             self.complete.get(&name).or_else(|| cmd.complete.get(&name))
         })
     }
@@ -471,16 +479,28 @@ impl Spec {
         // ones for selected globals, then let the promoted command's own completers win on a
         // shared name. A promoted command is the new root, so its command-scoped entries become
         // the materialized spec's root entries rather than remaining in both places.
+        //
+        // A mounted command reads only its own completers (see `Spec::completer`), so a promoted
+        // one keeps its entries on itself rather than at the top level, where its lookup would
+        // never reach them. A carried global's completer goes on that flag's own argument
+        // instead: put in the command's map, it would also answer any of the mounted command's
+        // arguments that shares the name.
         let mut complete = IndexMap::new();
-        for flag in &globals {
-            if let Some(arg) = &flag.arg {
+        for flag in &mut globals {
+            if let Some(arg) = &mut flag.arg {
                 let name = arg.name.to_lowercase();
                 if let Some(completer) = self.complete.get(&name) {
-                    complete.insert(name, completer.clone());
+                    if !promoted.mounted {
+                        complete.insert(name, completer.clone());
+                    } else if arg.complete.is_none() && !promoted.complete.contains_key(&name) {
+                        arg.complete = Some(completer.clone());
+                    }
                 }
             }
         }
-        complete.extend(std::mem::take(&mut promoted.complete));
+        if !promoted.mounted {
+            complete.extend(std::mem::take(&mut promoted.complete));
+        }
         // Root groups are relationships between the root fields, so project them along with
         // the carried globals. A group reduced to one required member is ordinary requiredness;
         // keeping it as a one-member group would emit KDL the spec reader deliberately refuses.
@@ -2614,6 +2634,129 @@ echo "hello"
         assert_eq!(spec.cmd.subcommands["build"].usage, "build");
         let json = serde_json::to_value(&spec).unwrap();
         assert_eq!(json["cmd"]["usage"], "[SUBCOMMAND]");
+    }
+
+    #[test]
+    fn a_view_of_a_mounted_command_keeps_its_completers() {
+        let mut spec: Spec = r#"
+bin ex
+flag "--carried <CARRIED>" global=#true
+flag "--pick <tool>" global=#true
+complete "carried" run="carried candidates"
+complete "tool" run="host-tools"
+view "owner" root="run own" {
+    global "--carried"
+}
+view "bare" root="run bare" {
+    global "--carried"
+    global "--pick"
+}
+cmd run {
+    mount run=tasks
+}
+"#
+        .parse()
+        .unwrap();
+        let mounted = r#"
+cmd own {
+    arg "<tool>"
+    complete "tool" run="task-tools"
+}
+cmd bare {
+    arg "<tool>"
+}
+"#;
+        spec.resolve_mount_outputs(&HashMap::from([("tasks".to_string(), mounted.to_string())]))
+            .unwrap();
+        fn run_of(view: &Spec, arg: &SpecArg) -> Option<String> {
+            view.completer(&view.cmd, arg)
+                .and_then(|complete| complete.run.clone())
+        }
+        fn flag_arg<'a>(view: &'a Spec, long: &str) -> &'a SpecArg {
+            let flag = view.cmd.flags.iter().find(|flag| flag.long == [long]);
+            flag.and_then(|flag| flag.arg.as_ref()).unwrap()
+        }
+
+        // The promoted command's own completer, and the carried flag's, both still answer.
+        let view = spec.for_view("owner").unwrap();
+        assert_eq!(
+            run_of(&view, &view.cmd.args[0]).as_deref(),
+            Some("task-tools")
+        );
+        let carried = flag_arg(&view, "carried");
+        assert_eq!(
+            run_of(&view, carried).as_deref(),
+            Some("carried candidates")
+        );
+        let emitted = view.to_string();
+        assert_eq!(emitted.matches("complete tool").count(), 1, "{emitted}");
+        emitted.parse::<Spec>().unwrap();
+
+        // A carried `--pick <tool>` keeps the host's completer for itself, without lending it to
+        // the mounted command's own `<tool>`, which declares none.
+        let view = spec.for_view("bare").unwrap();
+        assert_eq!(run_of(&view, &view.cmd.args[0]), None);
+        assert_eq!(
+            run_of(&view, flag_arg(&view, "pick")).as_deref(),
+            Some("host-tools")
+        );
+        assert_eq!(
+            run_of(&view, flag_arg(&view, "carried")).as_deref(),
+            Some("carried candidates")
+        );
+        view.to_string().parse::<Spec>().unwrap();
+    }
+
+    #[test]
+    fn mounted_commands_do_not_inherit_top_level_completers_by_name() {
+        let mut spec: Spec = r#"
+bin ex
+complete "tool" run="host-tools"
+cmd install {
+    arg "<tool>"
+}
+cmd run {
+    mount run=tasks
+}
+"#
+        .parse()
+        .unwrap();
+        let mounted = r#"
+cmd plain {
+    arg "<tool>"
+    cmd nested {
+        arg "<tool>"
+    }
+}
+cmd own {
+    arg "<tool>"
+    complete "tool" run="task-tools"
+}
+cmd inline {
+    arg "<tool>" {
+        complete run="inline-tools"
+    }
+}
+"#;
+        spec.resolve_mount_outputs(&HashMap::from([("tasks".to_string(), mounted.to_string())]))
+            .unwrap();
+        let run_of = |path: &[&str]| {
+            let mut cmd = &spec.cmd;
+            for name in path {
+                cmd = &cmd.subcommands[*name];
+            }
+            spec.completer(cmd, &cmd.args[0])
+                .and_then(|complete| complete.run.as_deref())
+        };
+
+        // The host's own commands keep the host's completer.
+        assert_eq!(run_of(&["install"]), Some("host-tools"));
+        // A mounted command's `<tool>` is somebody else's, at any depth.
+        assert_eq!(run_of(&["run", "plain"]), None);
+        assert_eq!(run_of(&["run", "plain", "nested"]), None);
+        // What the mounted command declares for itself still applies.
+        assert_eq!(run_of(&["run", "own"]), Some("task-tools"));
+        assert_eq!(run_of(&["run", "inline"]), Some("inline-tools"));
     }
 
     #[test]

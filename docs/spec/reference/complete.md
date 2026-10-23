@@ -36,6 +36,12 @@ A named `complete` covers every argument with that name. One inside an arg cover
 and it wins when both are present. Otherwise usage looks for a named one: first at the top level
 of the spec, then in the command being completed.
 
+A command brought in by a [`mount`](./cmd.md#mounting-dynamic-commands) skips the top level.
+Its arguments were named by the program that printed the mounted spec, so only the `complete`
+nodes inside that command, or inside its `arg` nodes, apply to them. A flag of the mounting CLI
+typed inside a mounted command is still that CLI's, and its value completes as it would outside
+the mount.
+
 ## `type` — completions usage supplies itself
 
 Instead of a `run`, a completer can name something usage already knows how to complete. `run`,

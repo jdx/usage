@@ -31,11 +31,16 @@ use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 /// re-parses them), but the mounted command's own flags take precedence over them, so its
 /// choices/completions are not replaced by a global's. Which flags a completion may offer
 /// there is a separate question, answered by [`ParseOutput::completion_flags`].
+///
+/// Returns each flag it built by merging a re-declaration into an inherited global, with the
+/// address of the global it stands for, so a caller tracking where flags came from can carry
+/// that over. See [`ParseOutput::is_mounted_flag`].
 fn merge_subcommand_flags(
     available: &mut BTreeMap<String, Arc<SpecFlag>>,
     new_flags: BTreeMap<String, Arc<SpecFlag>>,
     crossing_mount: bool,
-) {
+) -> Vec<(Arc<SpecFlag>, usize)> {
+    let mut merges = Vec::new();
     // Keep only inherited global flags from the parent.
     available.retain(|_, f| f.global);
 
@@ -47,7 +52,7 @@ fn merge_subcommand_flags(
         for (key, flag) in new_flags {
             available.insert(key, flag);
         }
-        return;
+        return merges;
     }
 
     // Cache the merged (global ∪ orphan-alias) flag per re-declared child so every alias key of
@@ -147,6 +152,7 @@ fn merge_subcommand_flags(
                     let merged = Arc::new(merged);
                     merged_cache.insert(Arc::as_ptr(&flag) as usize, Arc::clone(&merged));
                     merged_origin.insert(Arc::as_ptr(&merged) as usize, global_origin);
+                    merges.push((Arc::clone(&merged), global_origin));
                     // Rebind the global's *other* aliases onto the merged flag. The loop only
                     // visits keys the child declared, so an alias the child left out (the `-y` of
                     // a `-y --yes` global re-declared as just `--yes`) would otherwise keep
@@ -172,6 +178,7 @@ fn merge_subcommand_flags(
         }
         available.insert(key, flag);
     }
+    merges
 }
 
 /// Build the lookup keys a flag is registered under in `available_flags`:
@@ -419,6 +426,11 @@ pub struct ParseOutput {
     /// mounted command — see [`ParseOutput::completion_flags`] for the set a completion
     /// should offer.
     pub available_flags: BTreeMap<String, Arc<SpecFlag>>,
+    /// Every flag object the parse brought in from a mounted program, by identity. Kept
+    /// rather than derived, because the descent merges, re-declares and shadows flags and no
+    /// later reading of the command chain can tell whose a merged flag is. See
+    /// [`ParseOutput::is_mounted_flag`].
+    mounted_flags: Vec<Arc<SpecFlag>>,
     pub flag_awaiting_value: Vec<Arc<SpecFlag>>,
     pub errors: Vec<UsageErr>,
     /// Deprecated declarations this command line used, for the caller to render when its
@@ -446,6 +458,40 @@ pub struct ParseOutput {
 }
 
 impl ParseOutput {
+    /// Whether `flag`, a flag this parse recognized, belongs to a mounted program rather than
+    /// to the CLI that mounted it.
+    ///
+    /// Answered from the descent itself: a flag a mounted command declared (or the root flags a
+    /// mount merged into the command it sits on) is the mounted program's, and a flag the
+    /// parser built by merging a re-declaration into an inherited global is whoever's that
+    /// global was. Compared by identity, so pass a flag this parse handed out, such as one in
+    /// [`ParseOutput::flag_awaiting_value`] or [`ParseOutput::available_flags`].
+    pub fn is_mounted_flag(&self, flag: &Arc<SpecFlag>) -> bool {
+        self.mounted_flags
+            .iter()
+            .any(|known| Arc::ptr_eq(known, flag))
+    }
+
+    /// Bring `cmd`'s flags into [`ParseOutput::available_flags`] the way a descent does,
+    /// remembering which of them came from a mounted program.
+    fn merge_command_flags(&mut self, cmd: &SpecCommand, crossing_mount: bool) {
+        let flags = gather_flags(cmd);
+        if cmd.mounted || cmd.flags_from_mount {
+            self.mounted_flags.extend(flags.values().cloned());
+        }
+        for (merged, origin) in
+            merge_subcommand_flags(&mut self.available_flags, flags, crossing_mount)
+        {
+            if self
+                .mounted_flags
+                .iter()
+                .any(|known| Arc::as_ptr(known) as usize == origin)
+            {
+                self.mounted_flags.push(merged);
+            }
+        }
+    }
+
     /// The flags a completion should offer for the parsed command.
     ///
     /// Usually every recognized flag, i.e. [`ParseOutput::available_flags`]. Once a mounted
@@ -1548,6 +1594,7 @@ fn parse_partial_traced(
         arg_origins: IndexMap::new(),
         overridden_flags: BTreeMap::new(),
         available_flags: gather_flags(&spec.cmd),
+        mounted_flags: vec![],
         flag_awaiting_value: vec![],
         errors: vec![],
         warnings: vec![],
@@ -1555,6 +1602,10 @@ fn parse_partial_traced(
         double_dash_seen: false,
         external: None,
     };
+    // A spec whose mounts were resolved ahead of time can start inside a mounted program.
+    if spec.cmd.mounted || spec.cmd.flags_from_mount {
+        out.mounted_flags = out.available_flags.values().cloned().collect();
+    }
     // Keep this internal so adding relationship support remains semver-compatible. The full
     // parser uses it to prevent defaults and environment values from restoring overridden flags.
     let mut overridden_flags = HashSet::new();
@@ -1606,7 +1657,7 @@ fn parse_partial_traced(
         mounts_resolved = true;
         let mut mounted = out.cmd.clone();
         mounted.mount(&[], mount_outputs)?;
-        merge_subcommand_flags(&mut out.available_flags, gather_flags(&mounted), false);
+        out.merge_command_flags(&mounted, false);
         if let Some(last) = out.cmds.last_mut() {
             *last = mounted.clone();
         }
@@ -1642,7 +1693,7 @@ fn parse_partial_traced(
             mounts_resolved = true;
             let mut mounted = out.cmd.clone();
             mounted.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
-            merge_subcommand_flags(&mut out.available_flags, gather_flags(&mounted), false);
+            out.merge_command_flags(&mounted, false);
             if let Some(last) = out.cmds.last_mut() {
                 *last = mounted.clone();
             }
@@ -1701,11 +1752,7 @@ fn parse_partial_traced(
             // Only the *boundary* is a mount crossing: below it, the mounted program's own
             // commands are ordinary commands relative to each other.
             let crossing_mount = subcommand.mounted && !out.cmd.mounted;
-            merge_subcommand_flags(
-                &mut out.available_flags,
-                gather_flags(&subcommand),
-                crossing_mount,
-            );
+            out.merge_command_flags(&subcommand, crossing_mount);
             if let Some(parent) = boundary_parent {
                 let parent_keys = parent.keys().cloned().collect();
                 let mut flags = out.available_flags.clone();
@@ -1827,11 +1874,7 @@ fn parse_partial_traced(
                 // Pass prefix words (global flags before this) to mount
                 subcommand.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
                 let crossing_mount = subcommand.mounted && !out.cmd.mounted;
-                merge_subcommand_flags(
-                    &mut out.available_flags,
-                    gather_flags(&subcommand),
-                    crossing_mount,
-                );
+                out.merge_command_flags(&subcommand, crossing_mount);
                 out.cmds.push(subcommand.clone());
                 out.cmd = subcommand.clone();
                 command_has_argv = true;
@@ -2856,11 +2899,7 @@ fn parse_partial_traced(
             let mut subcommand = subcommand.clone();
             subcommand.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
             let crossing_mount = subcommand.mounted && !out.cmd.mounted;
-            merge_subcommand_flags(
-                &mut out.available_flags,
-                gather_flags(&subcommand),
-                crossing_mount,
-            );
+            out.merge_command_flags(&subcommand, crossing_mount);
             out.cmds.push(subcommand.clone());
             out.cmd = subcommand;
             command_has_argv = false;
@@ -11606,6 +11645,58 @@ cmd "run"
             err.to_string().contains("cannot be used with arguments"),
             "{err}"
         );
+    }
+
+    #[test]
+    fn the_parse_records_which_flags_a_mounted_program_declared() {
+        let mut spec: Spec = r#"
+bin ex
+flag "-p --pick <tool>" global=#true
+cmd run {
+    mount run=tasks
+}
+"#
+        .parse()
+        .unwrap();
+        let mounted = r#"
+cmd outer {
+    cmd inner {
+        flag "-p --other <name>"
+    }
+}
+cmd deep {
+    flag "--pick <tool>" global=#true
+    cmd leaf {
+        flag "-p --pick <tool>"
+    }
+}
+"#;
+        spec.resolve_mount_outputs(&HashMap::from([("tasks".to_string(), mounted.to_string())]))
+            .unwrap();
+        let pending_is_mounted = |words: &[&str]| {
+            let words: Vec<String> = words.iter().map(|word| word.to_string()).collect();
+            let out = parse_partial(&spec, &words).unwrap();
+            let flag = out
+                .flag_awaiting_value
+                .first()
+                .expect("a flag awaiting its value");
+            out.is_mounted_flag(flag)
+        };
+
+        assert!(!pending_is_mounted(&["ex", "--pick"]));
+        // `inner`'s own `-p` collides with the host's global `-p`, which the parser keeps.
+        assert!(!pending_is_mounted(&["ex", "run", "outer", "inner", "-p"]));
+        assert!(!pending_is_mounted(&[
+            "ex", "run", "outer", "inner", "--pick"
+        ]));
+        assert!(pending_is_mounted(&[
+            "ex", "run", "outer", "inner", "--other"
+        ]));
+        // `leaf` re-declares `deep`'s global `--pick`, and the parser merges the two into one
+        // flag that matches neither declaration. It is still the mounted program's.
+        assert!(pending_is_mounted(&["ex", "run", "deep", "--pick"]));
+        assert!(pending_is_mounted(&["ex", "run", "deep", "leaf", "--pick"]));
+        assert!(!pending_is_mounted(&["ex", "run", "deep", "leaf", "-p"]));
     }
 
     #[test]
