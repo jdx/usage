@@ -1138,38 +1138,17 @@ fn resolve_path_dirs(base: &Path, path: &Path) -> Vec<PathBuf> {
 /// top-level completers (see `Spec::completer`). Such a flag is the host's, so its value is
 /// completed from the nearest command above the mount, as it would be before the mount.
 ///
-/// Decided by the declaration the parser bound, not by its name or by a spelling: a mounted
-/// command can re-declare `--pick` or `-p` while the parser still binds the host's flag through
-/// another spelling, or keeps the host's for a spelling the mounted command also declares. The
-/// flag is the mounted program's when one of its commands, from the mount boundary down as
-/// [`ParseOutput::completion_flags`] draws it, declares exactly this flag.
-fn flag_value_owner<'a>(parsed: &'a ParseOutput, flag: &SpecFlag) -> &'a SpecCommand {
+/// Whose flag it is comes from the parser, which recorded it while merging each command's
+/// flags (see [`ParseOutput::is_mounted_flag`]), so aliases, merged re-declarations and
+/// shadowed spellings are settled the way the parse settled them.
+fn flag_value_owner<'a>(parsed: &'a ParseOutput, flag: &Arc<SpecFlag>) -> &'a SpecCommand {
     let Some(boundary) = parsed.cmds.iter().position(|cmd| cmd.mounted) else {
         return &parsed.cmd;
     };
-    // A mount's root flags are merged into the command it sits on and describe the mounted
-    // program too (`SpecCommand::flags_from_mount`).
-    let start = match boundary.checked_sub(1) {
-        Some(prev) if parsed.cmds[prev].flags_from_mount => prev,
-        _ => boundary,
-    };
-    // `SpecFlag` has no equality of its own, and the parser's copy is a clone of the
-    // declaration, so the two are compared as what they serialize to.
-    let bound = serde_json::to_value(flag).ok();
-    let declared_below = parsed.cmds[start..].iter().any(|cmd| {
-        cmd.flags
-            .iter()
-            .chain(cmd.clause.iter().flat_map(|clause| &clause.flags))
-            .any(|declared| bound.is_some() && serde_json::to_value(declared).ok() == bound)
-    });
-    if declared_below {
+    if parsed.is_mounted_flag(flag) {
         return &parsed.cmd;
     }
-    parsed.cmds[..boundary]
-        .iter()
-        .rev()
-        .find(|cmd| !cmd.mounted)
-        .unwrap_or(&parsed.cmd)
+    parsed.cmds[..boundary].last().unwrap_or(&parsed.cmd)
 }
 
 fn complete_usernames(prefix: &str) -> Vec<(String, String)> {

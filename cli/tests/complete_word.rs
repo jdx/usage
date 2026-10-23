@@ -565,6 +565,14 @@ cmd "outer" {
         flag "-p --other <name>"
     }
 }
+cmd "deep" {
+    flag "--pick <tool>" global=#true
+    cmd "leaf" {
+        arg "<tool>"
+        flag "-p --pick <tool>"
+        complete "tool" run="printf '%s\n' leaf-tool"
+    }
+}
 "#,
     )
     .unwrap();
@@ -622,6 +630,17 @@ cmd "run" {
     );
     let inner = complete(&["ex", "run", "outer", "inner", ""]);
     assert!(!inner.contains("host-tool"), "{inner}");
+    // `leaf` re-declares `deep`'s global `--pick`, which the parser merges into one flag that
+    // matches neither declaration. It is the mounted program's flag, so `leaf` completes it.
+    assert_eq!(
+        complete(&["ex", "run", "deep", "leaf", "--pick", ""]),
+        "leaf-tool\n"
+    );
+    // The host's global `-p` keeps that spelling, so it is still the host's.
+    assert_eq!(
+        complete(&["ex", "run", "deep", "leaf", "-p", ""]),
+        "host-tool\n"
+    );
 
     let _ = fs::remove_dir_all(&dir);
 }
