@@ -328,7 +328,8 @@ impl CompleteWord {
             choices
         } else if let Some(flag) = parsed.flag_awaiting_value.first() {
             let arg = flag.arg.as_ref().unwrap();
-            let (found, closed) = self.complete_arg(&cx, &parsed.cmd, arg, &ctoken)?;
+            let owner = flag_value_owner(&parsed, &flags, flag);
+            let (found, closed) = self.complete_arg(&cx, owner, arg, &ctoken)?;
             has_explicit_choices = closed || arg.choices.is_some();
             found
         } else if let Some((owner, arg, sigil, prefix)) = sigil_arg {
@@ -1128,6 +1129,30 @@ fn resolve_path_dirs(base: &Path, path: &Path) -> Vec<PathBuf> {
         })
         .map(|entry| entry.path())
         .collect()
+}
+
+/// The command whose completers answer for the value of `flag`, the flag awaiting one.
+///
+/// Usually the parsed command. Inside a mounted command, though, the parser still binds a flag
+/// of the mounting CLI typed there, and a mounted command does not read the mounting spec's
+/// top-level completers (see `Spec::completer`). Such a flag is the host's, so its value is
+/// completed from the nearest command above the mount, as it would be before the mount.
+/// `offered` is what completion offers at this position, which holds the mounted program's
+/// flags and none of the host's.
+fn flag_value_owner<'a>(
+    parsed: &'a ParseOutput,
+    offered: &BTreeMap<String, Arc<SpecFlag>>,
+    flag: &SpecFlag,
+) -> &'a SpecCommand {
+    if !parsed.cmd.mounted || offered.values().any(|f| f.name == flag.name) {
+        return &parsed.cmd;
+    }
+    parsed
+        .cmds
+        .iter()
+        .rev()
+        .find(|cmd| !cmd.mounted)
+        .unwrap_or(&parsed.cmd)
 }
 
 fn complete_usernames(prefix: &str) -> Vec<(String, String)> {

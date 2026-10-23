@@ -568,6 +568,7 @@ cmd "own" {
         &host,
         r#"name "ex"
 bin "ex"
+flag "--pick <tool>" global=#true
 complete "tool" run="printf '%s\n' host-tool"
 cmd "install" {
     arg "<tool>"
@@ -595,6 +596,11 @@ cmd "run" {
     let plain = complete(&["ex", "run", "plain", ""]);
     assert!(!plain.contains("host-tool"), "{plain}");
     assert_eq!(complete(&["ex", "run", "own", ""]), "task-tool\n");
+    // A host flag typed inside the mounted command is still the host's, and so is its value.
+    assert_eq!(
+        complete(&["ex", "run", "plain", "--pick", ""]),
+        "host-tool\n"
+    );
 
     let _ = fs::remove_dir_all(&dir);
 }
