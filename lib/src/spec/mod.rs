@@ -489,6 +489,16 @@ impl Spec {
             }
         }
         complete.extend(std::mem::take(&mut promoted.complete));
+        // A mounted command reads only its own completers (see `Spec::completer`), so a promoted
+        // one keeps the materialized root's entries on itself rather than at the top level, where
+        // its lookup would never reach them. Written out, both places are the same top-level
+        // `complete` nodes.
+        let complete = if promoted.mounted {
+            promoted.complete = complete;
+            IndexMap::new()
+        } else {
+            complete
+        };
         // Root groups are relationships between the root fields, so project them along with
         // the carried globals. A group reduced to one required member is ordinary requiredness;
         // keeping it as a one-member group would emit KDL the spec reader deliberately refuses.
@@ -2622,6 +2632,45 @@ echo "hello"
         assert_eq!(spec.cmd.subcommands["build"].usage, "build");
         let json = serde_json::to_value(&spec).unwrap();
         assert_eq!(json["cmd"]["usage"], "[SUBCOMMAND]");
+    }
+
+    #[test]
+    fn a_view_of_a_mounted_command_keeps_its_completers() {
+        let mut spec: Spec = r#"
+bin ex
+flag "--carried <CARRIED>" global=#true
+complete "carried" run="carried candidates"
+complete "tool" run="host-tools"
+view "owner" root="run own" {
+    global "--carried"
+}
+cmd run {
+    mount run=tasks
+}
+"#
+        .parse()
+        .unwrap();
+        let mounted = r#"
+cmd own {
+    arg "<tool>"
+    complete "tool" run="task-tools"
+}
+"#;
+        spec.resolve_mount_outputs(&HashMap::from([("tasks".to_string(), mounted.to_string())]))
+            .unwrap();
+
+        let view = spec.for_view("owner").unwrap();
+        let run_of = |arg| {
+            view.completer(&view.cmd, arg)
+                .and_then(|complete| complete.run.clone())
+        };
+        assert_eq!(run_of(&view.cmd.args[0]).as_deref(), Some("task-tools"));
+        let carried = view.cmd.flags[0].arg.as_ref().unwrap();
+        assert_eq!(run_of(carried).as_deref(), Some("carried candidates"));
+        // Written out, each is one top-level `complete` node, wherever it was kept.
+        let emitted = view.to_string();
+        assert_eq!(emitted.matches("complete tool").count(), 1, "{emitted}");
+        assert_eq!(emitted.matches("complete carried").count(), 1, "{emitted}");
     }
 
     #[test]
