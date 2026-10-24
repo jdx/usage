@@ -1,5 +1,16 @@
 # Changelog
 
+## [7.1.2](https://github.com/jdx/usage/compare/v7.1.1..v7.1.2) - 2026-10-23
+
+### 🐛 Bug Fixes
+
+- **(complete)** treat completion candidates as text and keep top-level completers out of mounts by [@jdx](https://github.com/jdx) in [#1581](https://github.com/jdx/usage/pull/1581)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1578](https://github.com/jdx/usage/pull/1578)
+- update jdx/packslip action to v1.8.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1580](https://github.com/jdx/usage/pull/1580)
+
 ## [7.1.1](https://github.com/jdx/usage/compare/v7.1.0..v7.1.1) - 2026-10-22
 
 ### 🐛 Bug Fixes
