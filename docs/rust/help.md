@@ -149,8 +149,9 @@ full rule, including what a default does not count as, is in
   those renders nowhere. This is bpaf's `group_help`; clap has no equivalent.
 - `display_order = n` on a field or subcommand controls its position within a help section
   without changing positional parsing order. On a subcommand it also places the section: sections
-  are ordered by their lowest `display_order`, and one nothing orders (the default `Commands`
-  section, with the built-in `help`) comes after the ordered ones.
+  are ordered by their lowest `display_order`. A command without one counts as `999`, so a
+  section nothing orders (typically the default `Commands` section, with the built-in `help`)
+  comes after sections ordered below that, and sections that tie keep their existing order.
 - `next_line_help` on a command puts every argument, flag, and subcommand description beneath
   its usage instead of in an aligned column beside it.
 - `flatten_help` replaces the command list with a synopsis and argument summary for every
