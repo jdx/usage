@@ -816,11 +816,12 @@ impl From<&crate::SpecCommand> for SpecCommand {
             .collect();
         let mut subcommand_groups =
             group_by_heading(&help_subcommands, |command| command.help_heading.as_deref());
-        subcommand_groups.sort_by_key(|group| group.heading.is_some());
+        // The unheaded group holds the built-in `help` row, so it exists even when no command
+        // falls in it.
         if !help_subcommands.is_empty()
-            && subcommand_groups
-                .first()
-                .is_none_or(|group| group.heading.is_some())
+            && !subcommand_groups
+                .iter()
+                .any(|group| group.heading.is_none())
         {
             subcommand_groups.insert(
                 0,
@@ -832,6 +833,19 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 },
             );
         }
+        // A section sits where its first-ordered command does, so `display_order` on one
+        // command can move a whole section. Sections nothing orders keep their first-seen
+        // order, the unheaded one leading; the stable sort leaves them where they are.
+        let section_order = |heading: Option<&str>| {
+            help_subcommands
+                .iter()
+                .zip(&help_order)
+                .filter(|(command, _)| command.help_heading.as_deref() == heading)
+                .map(|(_, (order, _, _))| *order)
+                .min()
+                .unwrap_or(999)
+        };
+        subcommand_groups.sort_by_key(|group| section_order(group.heading.as_deref()));
         let mut flattened_subcommands = Vec::new();
         if *flatten_help {
             for (_, _, key) in help_order {

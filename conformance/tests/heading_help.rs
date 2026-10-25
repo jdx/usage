@@ -266,3 +266,45 @@ fn a_subcommand_heading_takes_prose_like_any_other() {
     let short = help::render(Subs::spec(), Subs::spec().root.cmd, false).expect("short help");
     assert!(!short.contains("These write to"), "{short}");
 }
+
+/// `display_order` on a command moves the whole section it sits in.
+#[derive(Cli)]
+#[usage(bin = "ordered")]
+#[allow(dead_code)]
+struct Ordered {
+    #[usage(subcommand)]
+    command: OrderedCmds,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum OrderedCmds {
+    /// Generate shell completion scripts.
+    #[usage(display_order = 99)]
+    Completion(NoArgs),
+    /// Format source files in place.
+    #[usage(help_heading = "Source", display_order = 1)]
+    Fmt(NoArgs),
+    /// Fetch the dependencies.
+    #[usage(help_heading = "Dependencies", display_order = 2)]
+    Fetch(NoArgs),
+}
+
+#[test]
+fn a_command_display_order_places_its_section() {
+    let spec = Ordered::spec();
+    let page = help::render(spec, spec.root.cmd, false).expect("help");
+    let at = |needle: &str| {
+        page.find(needle)
+            .unwrap_or_else(|| panic!("{needle}: {page}"))
+    };
+    assert!(at("Source:") < at("Dependencies:"), "{page}");
+    assert!(at("Dependencies:") < at("Commands:"), "{page}");
+    assert!(at("completion") < at("help"), "{page}");
+
+    let reference: usage::Spec = Ordered::to_kdl().parse().expect("generated spec");
+    assert_eq!(
+        usage::docs::cli::render_help(&reference, &reference.cmd, false),
+        page
+    );
+}
