@@ -2388,6 +2388,17 @@ fn commands_section(
             headings.push(heading);
         }
     }
+    // A section sits where its first-ordered command does, so `display_order` on one command
+    // can move a whole section. Sections nothing orders keep their first-seen order, the
+    // unheaded one leading, and the built-in `help` row never orders its section.
+    headings.sort_by_key(|heading| {
+        lines
+            .iter()
+            .filter(|(_, sub)| command_help_section(sub, default_title) == *heading)
+            .map(|(_, sub)| sub.extra.display_order.unwrap_or(999))
+            .min()
+            .unwrap_or(999)
+    });
     for heading in headings {
         write_heading(out, heading.unwrap_or(default_title), style);
         // A `help_heading` on a subcommand builds a section like a flag's does, so it takes
