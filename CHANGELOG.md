@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.1.3](https://github.com/jdx/usage/compare/v7.1.2..v7.1.3) - 2026-10-25
+
+### 🐛 Bug Fixes
+
+- **(cli)** order command help sections by display_order by [@jdx](https://github.com/jdx) in [#1583](https://github.com/jdx/usage/pull/1583)
+
 ## [7.1.2](https://github.com/jdx/usage/compare/v7.1.1..v7.1.2) - 2026-10-23
 
 ### 🐛 Bug Fixes
