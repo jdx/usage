@@ -24,8 +24,8 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: test
           save-if: ${{ inputs.trusted && github.ref == 'refs/heads/main' }}
@@ -154,8 +154,8 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: test-windows
           save-if: ${{ inputs.trusted && github.ref == 'refs/heads/main' }}
@@ -257,11 +257,11 @@ jobs:
         run: rustup toolchain install ${{ matrix.version }} --profile minimal
       # Only mbx, which the `cargo` wrapper in mise.toml runs; nothing else here needs
       # the project's tools, and installing all of them cost ~40s a run.
-      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           cache: false
           install_args: mr-boxington
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: msrv-${{ matrix.version }}
           save-if: ${{ inputs.trusted && github.ref == 'refs/heads/main' }}
