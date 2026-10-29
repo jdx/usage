@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -123,6 +124,105 @@ pub fn note_supplied_words(words: &[&std::ffi::OsStr]) {
     SUPPLIED_WORDS.set(words.iter().map(|word| (*word).to_owned()).collect());
 }
 
+/// Parse the words a script was run with, as the runners do before the script starts.
+///
+/// A script that `usage` itself started — a `mount run=` fetching its spec, or a `complete run=`
+/// or `choices run=` asking for candidates — has `__USAGE` set. Such a run only wants the
+/// script's output, and the script body that prints it cannot start until this parse succeeds,
+/// so an environment variable bound to a flag (`env="X_MODE"`) holding a value the flag rejects
+/// would stop `usage` from reading the spec at all, though the output never uses that flag.
+///
+/// So when that parse fails, the spec's environment bindings are taken out of the environment
+/// and put back one at a time, each staying only if the parse still goes through and has no
+/// complaints it did not have before. A binding that is fine, such as the environment value a
+/// required argument depends on, is kept; one the flag rejects is not. The first error stands
+/// unless every complaint is gone, so a command line that is wrong by itself, with no
+/// environment value behind it, is reported as before, without a second parse. Anything else
+/// that runs the script keeps the strict parse, where a bad environment value is the user's
+/// to hear about.
+pub fn parse_script_args(
+    spec: &Spec,
+    args: &[String],
+) -> usage::miette::Result<usage::parse::ParseOutput> {
+    let first = match usage::parse::parse(spec, args) {
+        Ok(parsed) => return Ok(parsed),
+        Err(err) => err,
+    };
+    if env::var_os("__USAGE").is_none() {
+        return Err(first);
+    }
+    parse_with_accepted_env(spec, args).ok_or(first)
+}
+
+/// Every environment variable the command or any command under it can read a value from.
+fn bound_env_names<'a>(cmd: &'a usage::SpecCommand, names: &mut Vec<&'a str>) {
+    for flag in &cmd.flags {
+        names.extend(flag.env_names());
+    }
+    for arg in &cmd.args {
+        names.extend(arg.env_names());
+    }
+    for sub in cmd.subcommands.values() {
+        bound_env_names(sub, names);
+    }
+}
+
+/// Whether `next` is `before` with some complaints gone: nothing in it is new, so a binding that
+/// merely swaps one error for another of the same count is not taken for an improvement.
+fn complains_no_more(next: &[usage::error::UsageErr], before: &[usage::error::UsageErr]) -> bool {
+    next.len() <= before.len()
+        && next.iter().all(|error| {
+            let error = error.to_string();
+            before.iter().any(|known| known.to_string() == error)
+        })
+}
+
+/// The parse of `args` against the environment bindings the spec accepts, if that leaves
+/// nothing to complain about. See [`parse_script_args`].
+fn parse_with_accepted_env(spec: &Spec, args: &[String]) -> Option<usage::parse::ParseOutput> {
+    use usage::parse::Parser;
+
+    let mut env: HashMap<String, String> = env::vars_os()
+        .filter_map(|(key, value)| Some((key.into_string().ok()?, value.into_string().ok()?)))
+        .collect();
+    let mut bound = vec![];
+    bound_env_names(&spec.cmd, &mut bound);
+    let held_back = bound
+        .into_iter()
+        .unique()
+        .filter_map(|name| Some((name.to_string(), env.remove(name)?)))
+        .collect_vec();
+
+    let parse =
+        |env: &HashMap<String, String>| Parser::new(spec).with_env(env.clone()).explain(args);
+    let mut out = parse(&env).ok()?;
+    // One binding can need another that comes later: restoring a required `--format` swaps its
+    // own missing-value error for the `--out` it requires, which is no improvement until `--out`
+    // is back. So what was turned down is offered again after each pass that took something in,
+    // and stops once a pass takes nothing.
+    let mut pending = held_back;
+    loop {
+        let before = pending.len();
+        pending.retain(|(name, value)| {
+            env.insert(name.clone(), value.clone());
+            match parse(&env) {
+                Ok(next) if complains_no_more(&next.errors, &out.errors) => {
+                    out = next;
+                    false
+                }
+                _ => {
+                    env.remove(name);
+                    true
+                }
+            }
+        });
+        if pending.len() == before || pending.is_empty() {
+            break;
+        }
+    }
+    out.errors.is_empty().then_some(out)
+}
+
 impl Shell {
     pub fn run(&mut self, shell: &str) -> usage::miette::Result<()> {
         // Whether the command line already spent a `--` before naming the script: that one
@@ -184,7 +284,7 @@ impl Shell {
             return self.help(&spec, &args, true);
         }
 
-        let parsed = usage::parse::parse(&spec, &args)?;
+        let parsed = parse_script_args(&spec, &args)?;
         debug!("{parsed:?}");
 
         let overridden = env::shell_program_override_entry(shell, |key| env::var(key).ok());
