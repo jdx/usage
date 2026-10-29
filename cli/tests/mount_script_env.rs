@@ -187,3 +187,29 @@ fn a_rejected_command_line_value_is_still_an_error_for_a_script_started_by_usage
         .failure()
         .stderr(contains("Invalid choice for option mode: zzz"));
 }
+
+/// Restoring `FORMAT` alone swaps its own missing-value error for the missing `--out` it
+/// requires, which looks no better until `OUT` is back; both are valid and both must be kept.
+#[test]
+fn a_binding_that_needs_a_later_one_is_kept_once_it_is_restored() {
+    let scratch = Scratch::new("requires");
+    let child = scratch.write(
+        "child",
+        &CHILD_BODY.replace(
+            "#USAGE flag \"--mode",
+            "#USAGE flag \"--format <f>\" env=\"X_FORMAT\" required=#true {\n#USAGE   requires \"--out\"\n#USAGE }\n#USAGE flag \"--out <o>\" env=\"X_OUT\"\n#USAGE flag \"--mode",
+        ),
+    );
+    let parent = parent(&scratch, "bash", &child);
+
+    usage()
+        .arg("bash")
+        .arg(&parent)
+        .arg("sub")
+        .env("X_MODE", "zzz")
+        .env("X_FORMAT", "json")
+        .env("X_OUT", "file")
+        .assert()
+        .success()
+        .stdout(contains("parent ok"));
+}

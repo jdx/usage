@@ -196,13 +196,28 @@ fn parse_with_accepted_env(spec: &Spec, args: &[String]) -> Option<usage::parse:
     let parse =
         |env: &HashMap<String, String>| Parser::new(spec).with_env(env.clone()).explain(args);
     let mut out = parse(&env).ok()?;
-    for (name, value) in held_back {
-        env.insert(name.clone(), value);
-        match parse(&env) {
-            Ok(next) if complains_no_more(&next.errors, &out.errors) => out = next,
-            _ => {
-                env.remove(&name);
+    // One binding can need another that comes later: restoring a required `--format` swaps its
+    // own missing-value error for the `--out` it requires, which is no improvement until `--out`
+    // is back. So what was turned down is offered again after each pass that took something in,
+    // and stops once a pass takes nothing.
+    let mut pending = held_back;
+    loop {
+        let before = pending.len();
+        pending.retain(|(name, value)| {
+            env.insert(name.clone(), value.clone());
+            match parse(&env) {
+                Ok(next) if complains_no_more(&next.errors, &out.errors) => {
+                    out = next;
+                    false
+                }
+                _ => {
+                    env.remove(name);
+                    true
+                }
             }
+        });
+        if pending.len() == before || pending.is_empty() {
+            break;
         }
     }
     out.errors.is_empty().then_some(out)
