@@ -353,9 +353,19 @@ func needsQuoting(s string) bool {
 	if s[0] >= '0' && s[0] <= '9' {
 		return true
 	}
+	// A sign followed by a digit (or a dot, which is quoted below) reads as a
+	// number, so "-1" and "+1" cannot be bare identifiers either.
+	if (s[0] == '-' || s[0] == '+') && len(s) > 1 && (s[1] >= '0' && s[1] <= '9' || s[1] == '.') {
+		return true
+	}
+	// Keyword-looking values would be parsed as a boolean, null or number.
+	switch s {
+	case "true", "false", "null", "inf", "-inf", "nan":
+		return true
+	}
 	for _, c := range s {
 		switch c {
-		case ' ', '\t', '\n', '\r', '"', '\\', '/', '(', ')', '{', '}', ';', '=', '#', '.', ',', ':':
+		case ' ', '\t', '\n', '\r', '"', '\\', '/', '(', ')', '[', ']', '{', '}', ';', '=', '#', '.', ',', ':':
 			return true
 		}
 	}
