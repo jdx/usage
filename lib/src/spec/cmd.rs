@@ -1179,7 +1179,17 @@ impl SpecCommand {
                     .get(&mount.run)
                     .cloned()
                     .ok_or_else(|| UsageErr::MissingMountOutput(mount.run.clone()))?,
-                None => sh(&cmd)?,
+                // The words that failed are the mount's own program, which names an internal
+                // call rather than the command being resolved.
+                None => sh(&cmd).map_err(|err| match err {
+                    UsageErr::ShellError(message) if !self.name.is_empty() => {
+                        UsageErr::ShellError(format!(
+                            "could not read the commands mounted under `{}`: {message}",
+                            self.name
+                        ))
+                    }
+                    err => err,
+                })?,
             };
             let mut spec: Spec = output.parse()?;
             if let Some(outputs) = injected {

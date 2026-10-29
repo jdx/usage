@@ -213,3 +213,35 @@ fn a_binding_that_needs_a_later_one_is_kept_once_it_is_restored() {
         .success()
         .stdout(contains("parent ok"));
 }
+
+/// The failure names the command whose mounted commands could not be read, not only the internal
+/// `sh -c` call, and `usage` exits 181 for it while a direct run of the same script exits 1.
+#[test]
+fn a_failing_mount_names_the_command_it_was_resolving() {
+    let scratch = Scratch::new("failing");
+    let child = scratch.write("child", "#!/bin/sh\n#USAGE arg \"<project>\"\necho hi\n");
+    let parent = scratch.write(
+        "parent",
+        &format!(
+            "#!/bin/sh\n#USAGE cmd \"sub\" {{\n#USAGE   mount run=\"{} bash {}\"\n#USAGE }}\n",
+            usage_bin().display(),
+            child.display()
+        ),
+    );
+
+    usage()
+        .arg("bash")
+        .arg(&parent)
+        .arg("sub")
+        .assert()
+        .code(181)
+        .stderr(contains("could not read the commands mounted under `sub`"))
+        .stderr(contains("Missing required arg: <project>"));
+
+    usage()
+        .arg("bash")
+        .arg(&child)
+        .assert()
+        .code(1)
+        .stderr(contains("Missing required arg: <project>"));
+}

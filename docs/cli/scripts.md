@@ -166,6 +166,31 @@ A flag or argument that the spec itself names `cmd`, declared on the chosen subc
 command above it (clauses included), keeps `usage_cmd` for its own value, and the path is not
 exported. This holds even when that flag or argument is left out.
 
+## Exit codes
+
+When the script runs, its own exit code is what `usage` exits with. Two codes are `usage`'s own,
+for a script that never got to run:
+
+- `1`: the command line does not satisfy the spec. A required argument is missing, or a flag
+  rejects a value, whether it was typed or came from an environment variable.
+- `181`: `usage` could not read or run something the spec depends on, such as an invalid spec or
+  a `mount run=` that fails.
+
+A script that exits with `1` or `181` itself cannot be told apart by the code alone; the message
+on stderr says which it was. A failing mount names the command whose mounted commands could not
+be read:
+
+```console
+$ ./parent sub
+Error: Missing required arg: <project>
+  usage::shell
+
+could not read the commands mounted under `sub`: exited with code 1
+sh -c ./child2
+$ echo $?
+181
+```
+
 ## Shell escaping
 
 ### `var=#true`
