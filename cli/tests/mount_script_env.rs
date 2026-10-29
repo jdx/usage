@@ -55,13 +55,29 @@ if [ "${usage_mount:-}" = true ]; then echo 'flag "--mode <m>"'; exit 0; fi
 echo "mode=${usage_mode:-}"
 "#;
 
+/// A `mount run=` line that runs `usage <runner> <child> <extra>`.
+///
+/// Each word is shell-quoted, since `run` goes to `sh -c`, and the result is escaped as a KDL
+/// string, so a checkout or temp directory with a space in its path does not split the command.
+fn mount_line(runner: &str, child: &Path, extra: &[&str]) -> String {
+    let words = std::iter::once(usage_bin().to_string_lossy().into_owned())
+        .chain(runner.split(' ').map(str::to_string))
+        .chain(std::iter::once(child.to_string_lossy().into_owned()))
+        .chain(extra.iter().map(|word| word.to_string()))
+        .collect::<Vec<_>>();
+    let run = shell_words::join(words);
+    format!(
+        "#USAGE   mount run=\"{}\"\n",
+        run.replace('\\', "\\\\").replace('"', "\\\"")
+    )
+}
+
 fn parent(scratch: &Scratch, runner: &str, child: &Path) -> PathBuf {
     scratch.write(
         "parent",
         &format!(
-            "#!/bin/sh\n#USAGE cmd \"sub\" {{\n#USAGE   mount run=\"{} {runner} {} --mount\"\n#USAGE }}\necho \"parent ok\"\n",
-            usage_bin().display(),
-            child.display()
+            "#!/bin/sh\n#USAGE cmd \"sub\" {{\n{}#USAGE }}\necho \"parent ok\"\n",
+            mount_line(runner, child, &["--mount"])
         ),
     )
 }
@@ -223,9 +239,8 @@ fn a_failing_mount_names_the_command_it_was_resolving() {
     let parent = scratch.write(
         "parent",
         &format!(
-            "#!/bin/sh\n#USAGE cmd \"sub\" {{\n#USAGE   mount run=\"{} bash {}\"\n#USAGE }}\n",
-            usage_bin().display(),
-            child.display()
+            "#!/bin/sh\n#USAGE cmd \"sub\" {{\n{}#USAGE }}\n",
+            mount_line("bash", &child, &[])
         ),
     );
 
