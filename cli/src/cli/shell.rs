@@ -134,7 +134,7 @@ pub fn note_supplied_words(words: &[&std::ffi::OsStr]) {
 ///
 /// So when that parse fails, the spec's environment bindings are taken out of the environment
 /// and put back one at a time, each staying only if the parse still goes through and has no
-/// more complaints than before. A binding that is fine, such as the environment value a
+/// complaints it did not have before. A binding that is fine, such as the environment value a
 /// required argument depends on, is kept; one the flag rejects is not. The first error stands
 /// unless every complaint is gone, so a command line that is wrong by itself, with no
 /// environment value behind it, is reported as before, without a second parse. Anything else
@@ -167,6 +167,16 @@ fn bound_env_names<'a>(cmd: &'a usage::SpecCommand, names: &mut Vec<&'a str>) {
     }
 }
 
+/// Whether `next` is `before` with some complaints gone: nothing in it is new, so a binding that
+/// merely swaps one error for another of the same count is not taken for an improvement.
+fn complains_no_more(next: &[usage::error::UsageErr], before: &[usage::error::UsageErr]) -> bool {
+    next.len() <= before.len()
+        && next.iter().all(|error| {
+            let error = error.to_string();
+            before.iter().any(|known| known.to_string() == error)
+        })
+}
+
 /// The parse of `args` against the environment bindings the spec accepts, if that leaves
 /// nothing to complain about. See [`parse_script_args`].
 fn parse_with_accepted_env(spec: &Spec, args: &[String]) -> Option<usage::parse::ParseOutput> {
@@ -189,7 +199,7 @@ fn parse_with_accepted_env(spec: &Spec, args: &[String]) -> Option<usage::parse:
     for (name, value) in held_back {
         env.insert(name.clone(), value);
         match parse(&env) {
-            Ok(next) if next.errors.len() <= out.errors.len() => out = next,
+            Ok(next) if complains_no_more(&next.errors, &out.errors) => out = next,
             _ => {
                 env.remove(&name);
             }
