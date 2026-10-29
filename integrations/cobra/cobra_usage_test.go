@@ -350,6 +350,29 @@ func TestStringDefaultZero(t *testing.T) {
 	assertContains(t, got, `default="0"`)
 }
 
+// TestDefaultsQuotedWhenNotIdentifiers checks that defaults KDL would read as a
+// boolean, null, or number are quoted so they stay strings.
+func TestDefaultsQuotedWhenNotIdentifiers(t *testing.T) {
+	cmd := &cobra.Command{Use: "app"}
+	cmd.Flags().Bool("enabled", true, "Enable the feature")
+	cmd.Flags().Int("parallel", -1, "Maximum parallelism")
+	cmd.Flags().Float64("ratio", -0.5, "Ratio")
+	cmd.Flags().String("sign", "+1", "Signed")
+	cmd.Flags().String("nothing", "null", "Null word")
+	cmd.Flags().String("infinite", "inf", "Inf word")
+	cmd.Flags().String("list", "[a]", "Brackets")
+
+	got := Generate(cmd)
+
+	assertContains(t, got, `default="true"`)
+	assertContains(t, got, `default="-1"`)
+	assertContains(t, got, `default="-0.5"`)
+	assertContains(t, got, `default="+1"`)
+	assertContains(t, got, `default="null"`)
+	assertContains(t, got, `default="inf"`)
+	assertContains(t, got, `default="[a]"`)
+}
+
 // TestSpecialCharacterEscaping checks that kdlQuoteAlways escapes newlines, tabs,
 // carriage returns, backslashes, and double quotes.
 func TestSpecialCharacterEscaping(t *testing.T) {
