@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -131,10 +132,14 @@ pub fn note_supplied_words(words: &[&std::ffi::OsStr]) {
 /// so an environment variable bound to a flag (`env="X_MODE"`) holding a value the flag rejects
 /// would stop `usage` from reading the spec at all, though the output never uses that flag.
 ///
-/// So when that parse fails, it is tried again with the flags' environment bindings ignored.
-/// The first error stands unless the retry succeeds: a command line that is wrong by itself is
-/// still reported, and a parse that already worked is never changed. Anything else that runs the
-/// script keeps the strict parse, where a bad environment value is the user's to hear about.
+/// So when that parse fails, the spec's environment bindings are taken out of the environment
+/// and put back one at a time, each staying only if the parse still goes through and has no
+/// more complaints than before. A binding that is fine, such as the environment value a
+/// required argument depends on, is kept; one the flag rejects is not. The first error stands
+/// unless every complaint is gone, so a command line that is wrong by itself, with no
+/// environment value behind it, is reported as before, without a second parse. Anything else
+/// that runs the script keeps the strict parse, where a bad environment value is the user's
+/// to hear about.
 pub fn parse_script_args(
     spec: &Spec,
     args: &[String],
@@ -146,10 +151,51 @@ pub fn parse_script_args(
     if env::var_os("__USAGE").is_none() {
         return Err(first);
     }
-    usage::parse::Parser::new(spec)
-        .with_env(Default::default())
-        .parse(args)
-        .map_err(|_| first)
+    parse_with_accepted_env(spec, args).ok_or(first)
+}
+
+/// Every environment variable the command or any command under it can read a value from.
+fn bound_env_names<'a>(cmd: &'a usage::SpecCommand, names: &mut Vec<&'a str>) {
+    for flag in &cmd.flags {
+        names.extend(flag.env_names());
+    }
+    for arg in &cmd.args {
+        names.extend(arg.env_names());
+    }
+    for sub in cmd.subcommands.values() {
+        bound_env_names(sub, names);
+    }
+}
+
+/// The parse of `args` against the environment bindings the spec accepts, if that leaves
+/// nothing to complain about. See [`parse_script_args`].
+fn parse_with_accepted_env(spec: &Spec, args: &[String]) -> Option<usage::parse::ParseOutput> {
+    use usage::parse::Parser;
+
+    let mut env: HashMap<String, String> = env::vars_os()
+        .filter_map(|(key, value)| Some((key.into_string().ok()?, value.into_string().ok()?)))
+        .collect();
+    let mut bound = vec![];
+    bound_env_names(&spec.cmd, &mut bound);
+    let held_back = bound
+        .into_iter()
+        .unique()
+        .filter_map(|name| Some((name.to_string(), env.remove(name)?)))
+        .collect_vec();
+
+    let parse =
+        |env: &HashMap<String, String>| Parser::new(spec).with_env(env.clone()).explain(args);
+    let mut out = parse(&env).ok()?;
+    for (name, value) in held_back {
+        env.insert(name.clone(), value);
+        match parse(&env) {
+            Ok(next) if next.errors.len() <= out.errors.len() => out = next,
+            _ => {
+                env.remove(&name);
+            }
+        }
+    }
+    out.errors.is_empty().then_some(out)
 }
 
 impl Shell {

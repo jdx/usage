@@ -135,3 +135,55 @@ fn a_valid_env_value_still_reaches_a_script_started_by_usage() {
         .success()
         .stdout(contains("mode=a"));
 }
+
+/// What is left of the environment must still do its job: `PROJECT` is the only thing that
+/// satisfies the required argument, so setting every binding aside would lose the spec again.
+#[test]
+fn a_valid_env_binding_beside_a_rejected_one_is_kept() {
+    let scratch = Scratch::new("required");
+    let child = scratch.write(
+        "child",
+        &CHILD_BODY.replace(
+            "#USAGE flag \"--mode",
+            "#USAGE arg \"<project>\" env=\"X_PROJECT\"\n#USAGE flag \"--mode",
+        ),
+    );
+    let parent = parent(&scratch, "bash", &child);
+
+    usage()
+        .arg("bash")
+        .arg(&parent)
+        .arg("sub")
+        .env("X_MODE", "zzz")
+        .env("X_PROJECT", "demo")
+        .assert()
+        .success()
+        .stdout(contains("parent ok"));
+
+    // Without the value the argument needs there is nothing to keep, and the error says so.
+    usage()
+        .arg("bash")
+        .arg(&parent)
+        .arg("sub")
+        .env("X_MODE", "zzz")
+        .env_remove("X_PROJECT")
+        .assert()
+        .failure();
+}
+
+/// A bad value typed on the command line has no environment binding behind it to set aside.
+#[test]
+fn a_rejected_command_line_value_is_still_an_error_for_a_script_started_by_usage() {
+    let scratch = Scratch::new("typed");
+    let child = scratch.write("child", CHILD_BODY);
+
+    usage()
+        .arg("bash")
+        .arg(&child)
+        .args(["--mode", "zzz"])
+        .env("X_MODE", "a")
+        .env("__USAGE", "test")
+        .assert()
+        .failure()
+        .stderr(contains("Invalid choice for option mode: zzz"));
+}
