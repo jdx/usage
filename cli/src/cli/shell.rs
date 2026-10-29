@@ -123,6 +123,35 @@ pub fn note_supplied_words(words: &[&std::ffi::OsStr]) {
     SUPPLIED_WORDS.set(words.iter().map(|word| (*word).to_owned()).collect());
 }
 
+/// Parse the words a script was run with, as the runners do before the script starts.
+///
+/// A script that `usage` itself started — a `mount run=` fetching its spec, or a `complete run=`
+/// or `choices run=` asking for candidates — has `__USAGE` set. Such a run only wants the
+/// script's output, and the script body that prints it cannot start until this parse succeeds,
+/// so an environment variable bound to a flag (`env="X_MODE"`) holding a value the flag rejects
+/// would stop `usage` from reading the spec at all, though the output never uses that flag.
+///
+/// So when that parse fails, it is tried again with the flags' environment bindings ignored.
+/// The first error stands unless the retry succeeds: a command line that is wrong by itself is
+/// still reported, and a parse that already worked is never changed. Anything else that runs the
+/// script keeps the strict parse, where a bad environment value is the user's to hear about.
+pub fn parse_script_args(
+    spec: &Spec,
+    args: &[String],
+) -> usage::miette::Result<usage::parse::ParseOutput> {
+    let first = match usage::parse::parse(spec, args) {
+        Ok(parsed) => return Ok(parsed),
+        Err(err) => err,
+    };
+    if env::var_os("__USAGE").is_none() {
+        return Err(first);
+    }
+    usage::parse::Parser::new(spec)
+        .with_env(Default::default())
+        .parse(args)
+        .map_err(|_| first)
+}
+
 impl Shell {
     pub fn run(&mut self, shell: &str) -> usage::miette::Result<()> {
         // Whether the command line already spent a `--` before naming the script: that one
@@ -184,7 +213,7 @@ impl Shell {
             return self.help(&spec, &args, true);
         }
 
-        let parsed = usage::parse::parse(&spec, &args)?;
+        let parsed = parse_script_args(&spec, &args)?;
         debug!("{parsed:?}");
 
         let overridden = env::shell_program_override_entry(shell, |key| env::var(key).ok());

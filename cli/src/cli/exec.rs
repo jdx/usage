@@ -176,7 +176,7 @@ impl usage_rs::Run for Exec {
         let program = interpreter.next().unwrap();
         let interpreter_args = interpreter.collect_vec();
 
-        let parsed = usage::parse::parse(&spec, &args)?;
+        let parsed = super::shell::parse_script_args(&spec, &args)?;
 
         let mut cmd = std::process::Command::new(&program);
         cmd.args(&interpreter_args);
