@@ -9,7 +9,7 @@ use crate::error::UsageErr;
 use crate::spec::builder::SpecArgBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::effect::{EFFECT_VALUES, SpecCommandEffect};
-use crate::spec::helpers::{NodeHelper, string_entry};
+use crate::spec::helpers::{NodeHelper, fits_selector_property, string_entry};
 use crate::spec::is_false;
 use crate::{SpecAdmonition, SpecAdmonitionKind, SpecChoices, SpecComplete, string};
 #[cfg(feature = "clap")]
@@ -660,7 +660,7 @@ impl From<&SpecArg> for KdlNode {
                 node.push(KdlEntry::new_prop(name, true));
             }
         }
-        if arg.conflicts.len() == 1 {
+        if arg.conflicts.len() == 1 && fits_selector_property(&arg.conflicts[0]) {
             node.push(string_entry(Some("conflicts"), &arg.conflicts[0]));
         } else if !arg.conflicts.is_empty() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -767,7 +767,7 @@ fn required_if_eq_pairs(node: &NodeHelper<'_>) -> Result<Vec<SpecRequiredIfEq>, 
 }
 
 fn serialize_selector_list(node: &mut KdlNode, name: &str, selectors: &[String]) {
-    if selectors.len() == 1 {
+    if selectors.len() == 1 && fits_selector_property(&selectors[0]) {
         node.push(string_entry(Some(name), &selectors[0]));
     } else if !selectors.is_empty() {
         let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1791,6 +1791,21 @@ arg "<input>" {
             .unwrap();
         assert_eq!(spec.cmd.flags[0].conflicts, ["input file"]);
         assert_eq!(spec.cmd.args[0].name, "input file");
+    }
+
+    #[test]
+    fn a_selector_a_property_cannot_hold_round_trips_as_a_child_node() {
+        let spec: Spec = "arg \"[VALUE]\" { conflicts \"input - file\" }\n"
+            .parse()
+            .unwrap();
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.args[0].conflicts, ["input - file"]);
+
+        let spec: Spec = "flag \"--a\" { requires \"input - file\" }\n"
+            .parse()
+            .unwrap();
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.flags[0].requires, ["input - file"]);
     }
 
     #[test]

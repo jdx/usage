@@ -105,6 +105,17 @@ pub(crate) fn string_entry(key: Option<&str>, value: &str) -> KdlEntry {
     entry
 }
 
+/// Whether a selector can be written as `conflicts="…"` and read back as the same one.
+///
+/// A value with a dashed word among several is taken for a list of flags, so a selector
+/// shaped like that has to be written as a child node instead.
+pub(crate) fn fits_selector_property(selector: &str) -> bool {
+    selector.split_whitespace().nth(1).is_none()
+        || !selector
+            .split_whitespace()
+            .any(|word| word.starts_with('-'))
+}
+
 #[derive(Debug)]
 pub struct NodeHelper<'a> {
     pub(crate) node: &'a KdlNode,
@@ -250,11 +261,7 @@ impl ParseEntry<'_> {
     /// kept as the one name it may be.
     pub fn set_selector(&self, key: &str, list: &mut Vec<String>) -> Result<(), UsageErr> {
         let selector = self.ensure_string()?;
-        if selector.split_whitespace().nth(1).is_some()
-            && selector
-                .split_whitespace()
-                .any(|word| word.starts_with('-'))
-        {
+        if !fits_selector_property(&selector) {
             bail_parse!(
                 self.ctx,
                 self.span(),

@@ -12,7 +12,7 @@ use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::builder::SpecFlagBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::effect::{EFFECT_VALUES, SpecCommandEffect};
-use crate::spec::helpers::{NodeHelper, string_entry};
+use crate::spec::helpers::{NodeHelper, fits_selector_property, string_entry};
 use crate::spec::is_false;
 use crate::{
     SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecComplete, SpecRequiredIfEq,
@@ -1120,7 +1120,7 @@ impl From<&SpecFlag> for KdlNode {
         if let Some(negate) = &flag.negate {
             node.push(string_entry(Some("negate"), negate));
         }
-        if flag.overrides.len() == 1 {
+        if flag.overrides.len() == 1 && fits_selector_property(&flag.overrides[0]) {
             node.push(string_entry(Some("overrides"), &flag.overrides[0]));
         } else if !flag.overrides.is_empty() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1130,7 +1130,7 @@ impl From<&SpecFlag> for KdlNode {
             }
             children.nodes_mut().push(overrides);
         }
-        if flag.conflicts.len() == 1 {
+        if flag.conflicts.len() == 1 && fits_selector_property(&flag.conflicts[0]) {
             node.push(string_entry(Some("conflicts"), &flag.conflicts[0]));
         } else if !flag.conflicts.is_empty() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1140,7 +1140,7 @@ impl From<&SpecFlag> for KdlNode {
             }
             children.nodes_mut().push(conflicts);
         }
-        if flag.requires.len() == 1 {
+        if flag.requires.len() == 1 && fits_selector_property(&flag.requires[0]) {
             node.push(string_entry(Some("requires"), &flag.requires[0]));
         } else if !flag.requires.is_empty() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1244,7 +1244,7 @@ impl From<&SpecFlag> for KdlNode {
 }
 
 fn serialize_flag_list(node: &mut KdlNode, name: &str, flags: &[String]) {
-    if flags.len() == 1 {
+    if flags.len() == 1 && fits_selector_property(&flags[0]) {
         node.push(string_entry(Some(name), &flags[0]));
     } else if !flags.is_empty() {
         let children = node.children_mut().get_or_insert_with(KdlDocument::new);
