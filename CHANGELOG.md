@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.1.5](https://github.com/jdx/usage/compare/v7.1.4..v7.1.5) - 2026-10-30
+
+### 🐛 Bug Fixes
+
+- **(spec)** reject several targets in a relationship property by [@jdx](https://github.com/jdx) in [#1599](https://github.com/jdx/usage/pull/1599)
+
 ## [7.1.4](https://github.com/jdx/usage/compare/v7.1.3..v7.1.4) - 2026-10-30
 
 ### 🐛 Bug Fixes
