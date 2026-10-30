@@ -244,9 +244,17 @@ impl ParseEntry<'_> {
     /// The property names exactly one flag or argument. A value like `"--b --c"` is a
     /// single selector that matches nothing, so it is refused rather than left to enforce
     /// nothing. Several targets are written as a child node: `conflicts "--b" "--c"`.
+    ///
+    /// Only a value with a dashed word is refused. A bare selector names a positional, and
+    /// a positional's name may hold a space (`arg "[input file]"`), so `"input file"` is
+    /// kept as the one name it may be.
     pub fn set_selector(&self, key: &str, list: &mut Vec<String>) -> Result<(), UsageErr> {
         let selector = self.ensure_string()?;
-        if selector.split_whitespace().nth(1).is_some() {
+        if selector.split_whitespace().nth(1).is_some()
+            && selector
+                .split_whitespace()
+                .any(|word| word.starts_with('-'))
+        {
             bail_parse!(
                 self.ctx,
                 self.span(),

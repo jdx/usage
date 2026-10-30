@@ -177,9 +177,9 @@ flag "--a" {
 }
 ```
 
-`conflicts="--b --c"` and a repeated `conflicts="--b" conflicts="--c"` are errors when the
-spec loads, since the first is one selector that matches nothing and the second would keep
-only the last. The same goes for `overrides`, `requires`, `required_if`,
+A value naming several flags, like `conflicts="--b --c"`, is an error when the spec loads,
+since it is one selector that matches nothing. So is repeating the property, which would
+keep only the last. The same goes for `overrides`, `requires`, `required_if`,
 `required_unless` and `required_unless_all`.
 
 Losing an override unsets a flag; it does not unsay the word it was given. `--log-level=v

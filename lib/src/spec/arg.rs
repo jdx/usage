@@ -1785,6 +1785,15 @@ arg "<input>" {
     }
 
     #[test]
+    fn a_selector_may_name_a_positional_with_a_space() {
+        let spec: Spec = "flag \"--a\" conflicts=\"input file\"\narg \"[input file]\"\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.flags[0].conflicts, ["input file"]);
+        assert_eq!(spec.cmd.args[0].name, "input file");
+    }
+
+    #[test]
     fn a_complete_inside_an_arg_is_attached_to_it() {
         let spec: Spec = r#"
 complete "file" run="echo named"
