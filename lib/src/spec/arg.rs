@@ -9,7 +9,7 @@ use crate::error::UsageErr;
 use crate::spec::builder::SpecArgBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::effect::{EFFECT_VALUES, SpecCommandEffect};
-use crate::spec::helpers::{NodeHelper, string_entry};
+use crate::spec::helpers::{NodeHelper, fits_selector_property, string_entry};
 use crate::spec::is_false;
 use crate::{SpecAdmonition, SpecAdmonitionKind, SpecChoices, SpecComplete, string};
 #[cfg(feature = "clap")]
@@ -226,6 +226,13 @@ impl SpecArg {
 
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         let mut arg: SpecArg = node.arg(0)?.ensure_string()?.parse()?;
+        node.ensure_props_unrepeated(&[
+            "conflicts",
+            "requires",
+            "required_if",
+            "required_unless",
+            "required_unless_all",
+        ])?;
         for (k, v) in node.props() {
             match k {
                 "help" => arg.help = Some(v.ensure_string()?),
@@ -268,11 +275,13 @@ impl SpecArg {
                 "hide_possible_values" => arg.hide_possible_values = v.ensure_bool()?,
                 "hide_short_help" => arg.hide_short_help = v.ensure_bool()?,
                 "hide_long_help" => arg.hide_long_help = v.ensure_bool()?,
-                "conflicts" => arg.conflicts = vec![v.ensure_string()?],
-                "requires" => arg.requires = vec![v.ensure_string()?],
-                "required_if" => arg.required_if = vec![v.ensure_string()?],
-                "required_unless" => arg.required_unless = vec![v.ensure_string()?],
-                "required_unless_all" => arg.required_unless_all = vec![v.ensure_string()?],
+                "conflicts" => v.set_selector("conflicts", &mut arg.conflicts)?,
+                "requires" => v.set_selector("requires", &mut arg.requires)?,
+                "required_if" => v.set_selector("required_if", &mut arg.required_if)?,
+                "required_unless" => v.set_selector("required_unless", &mut arg.required_unless)?,
+                "required_unless_all" => {
+                    v.set_selector("required_unless_all", &mut arg.required_unless_all)?
+                }
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
                 "default" => arg.default = vec![v.ensure_string()?],
@@ -651,7 +660,7 @@ impl From<&SpecArg> for KdlNode {
                 node.push(KdlEntry::new_prop(name, true));
             }
         }
-        if arg.conflicts.len() == 1 {
+        if arg.conflicts.len() == 1 && fits_selector_property(&arg.conflicts[0]) {
             node.push(string_entry(Some("conflicts"), &arg.conflicts[0]));
         } else if !arg.conflicts.is_empty() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -758,7 +767,7 @@ fn required_if_eq_pairs(node: &NodeHelper<'_>) -> Result<Vec<SpecRequiredIfEq>, 
 }
 
 fn serialize_selector_list(node: &mut KdlNode, name: &str, selectors: &[String]) {
-    if selectors.len() == 1 {
+    if selectors.len() == 1 && fits_selector_property(&selectors[0]) {
         node.push(string_entry(Some(name), &selectors[0]));
     } else if !selectors.is_empty() {
         let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1752,6 +1761,51 @@ arg "<input>" {
         let rendered = spec.to_string();
         let reparsed: Spec = rendered.parse().unwrap();
         assert_eq!(reparsed.cmd.args[0].conflicts, spec.cmd.args[0].conflicts);
+    }
+
+    #[test]
+    fn a_positional_relationship_property_names_one_target() {
+        for key in [
+            "conflicts",
+            "requires",
+            "required_if",
+            "required_unless",
+            "required_unless_all",
+        ] {
+            let several = format!("arg \"[VALUE]\" {key}=\"--a --b\"\n");
+            let err = several.parse::<Spec>().unwrap_err();
+            let crate::error::UsageErr::InvalidInput(err, ..) = err else {
+                panic!("unexpected error: {err:?}");
+            };
+            assert!(
+                err.contains(&format!("{key} takes one flag or argument per property")),
+                "{key}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_selector_may_name_a_positional_with_a_space() {
+        let spec: Spec = "flag \"--a\" conflicts=\"input file\"\narg \"[input file]\"\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.flags[0].conflicts, ["input file"]);
+        assert_eq!(spec.cmd.args[0].name, "input file");
+    }
+
+    #[test]
+    fn a_selector_a_property_cannot_hold_round_trips_as_a_child_node() {
+        let spec: Spec = "arg \"[VALUE]\" { conflicts \"input - file\" }\n"
+            .parse()
+            .unwrap();
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.args[0].conflicts, ["input - file"]);
+
+        let spec: Spec = "flag \"--a\" { requires \"input - file\" }\n"
+            .parse()
+            .unwrap();
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.flags[0].requires, ["input - file"]);
     }
 
     #[test]

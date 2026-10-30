@@ -12,7 +12,7 @@ use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::builder::SpecFlagBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::effect::{EFFECT_VALUES, SpecCommandEffect};
-use crate::spec::helpers::{NodeHelper, string_entry};
+use crate::spec::helpers::{NodeHelper, fits_selector_property, string_entry};
 use crate::spec::is_false;
 use crate::{
     SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecComplete, SpecRequiredIfEq,
@@ -351,6 +351,14 @@ impl SpecFlag {
         let mut allow_negative_numbers = false;
         let mut value_terminator: Option<String> = None;
         let mut delimiter: Option<String> = None;
+        node.ensure_props_unrepeated(&[
+            "conflicts",
+            "requires",
+            "overrides",
+            "required_if",
+            "required_unless",
+            "required_unless_all",
+        ])?;
         for (k, v) in node.props() {
             match k {
                 "help" => flag.help = Some(v.ensure_string()?),
@@ -358,9 +366,13 @@ impl SpecFlag {
                 "help_long" => flag.help_long = Some(v.ensure_string()?),
                 "help_md" => flag.help_md = Some(v.ensure_string()?),
                 "required" => flag.required = v.ensure_bool()?,
-                "required_if" => flag.required_if = vec![v.ensure_string()?],
-                "required_unless" => flag.required_unless = vec![v.ensure_string()?],
-                "required_unless_all" => flag.required_unless_all = vec![v.ensure_string()?],
+                "required_if" => v.set_selector("required_if", &mut flag.required_if)?,
+                "required_unless" => {
+                    v.set_selector("required_unless", &mut flag.required_unless)?
+                }
+                "required_unless_all" => {
+                    v.set_selector("required_unless_all", &mut flag.required_unless_all)?
+                }
                 "var" => flag.var = v.ensure_bool()?,
                 "var_min" => flag.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => flag.var_max = v.ensure_usize().map(Some)?,
@@ -402,9 +414,9 @@ impl SpecFlag {
                     flag.default = vec![default_value];
                 }
                 "negate" => flag.negate = v.ensure_string().map(Some)?,
-                "overrides" => flag.overrides = vec![v.ensure_string()?],
-                "conflicts" => flag.conflicts = vec![v.ensure_string()?],
-                "requires" => flag.requires = vec![v.ensure_string()?],
+                "overrides" => v.set_selector("overrides", &mut flag.overrides)?,
+                "conflicts" => v.set_selector("conflicts", &mut flag.conflicts)?,
+                "requires" => v.set_selector("requires", &mut flag.requires)?,
                 "exclusive" => flag.exclusive = v.ensure_bool()?,
                 "require_equals" => flag.require_equals = v.ensure_bool()?,
                 "value_optional" => flag.value_optional = v.ensure_bool()?,
@@ -1108,7 +1120,7 @@ impl From<&SpecFlag> for KdlNode {
         if let Some(negate) = &flag.negate {
             node.push(string_entry(Some("negate"), negate));
         }
-        if flag.overrides.len() == 1 {
+        if flag.overrides.len() == 1 && fits_selector_property(&flag.overrides[0]) {
             node.push(string_entry(Some("overrides"), &flag.overrides[0]));
         } else if !flag.overrides.is_empty() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1118,7 +1130,7 @@ impl From<&SpecFlag> for KdlNode {
             }
             children.nodes_mut().push(overrides);
         }
-        if flag.conflicts.len() == 1 {
+        if flag.conflicts.len() == 1 && fits_selector_property(&flag.conflicts[0]) {
             node.push(string_entry(Some("conflicts"), &flag.conflicts[0]));
         } else if !flag.conflicts.is_empty() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1128,7 +1140,7 @@ impl From<&SpecFlag> for KdlNode {
             }
             children.nodes_mut().push(conflicts);
         }
-        if flag.requires.len() == 1 {
+        if flag.requires.len() == 1 && fits_selector_property(&flag.requires[0]) {
             node.push(string_entry(Some("requires"), &flag.requires[0]));
         } else if !flag.requires.is_empty() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1232,7 +1244,7 @@ impl From<&SpecFlag> for KdlNode {
 }
 
 fn serialize_flag_list(node: &mut KdlNode, name: &str, flags: &[String]) {
-    if flags.len() == 1 {
+    if flags.len() == 1 && fits_selector_property(&flags[0]) {
         node.push(string_entry(Some(name), &flags[0]));
     } else if !flags.is_empty() {
         let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1676,6 +1688,47 @@ mod tests {
         assert_snapshot!(range, @"--range <start> <end>");
         assert_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
         assert_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
+    }
+
+    #[test]
+    fn a_relationship_property_names_one_flag() {
+        for key in [
+            "conflicts",
+            "requires",
+            "overrides",
+            "required_if",
+            "required_unless",
+            "required_unless_all",
+        ] {
+            let several = format!("flag \"--a\" {key}=\"--b --c\"\nflag \"--b\"\nflag \"--c\"\n");
+            let err = several.parse::<Spec>().unwrap_err();
+            let crate::error::UsageErr::InvalidInput(err, ..) = err else {
+                panic!("unexpected error: {err:?}");
+            };
+            assert!(
+                err.contains(&format!("{key} takes one flag or argument per property")),
+                "{key}: {err}"
+            );
+
+            let repeated = format!("flag \"--a\" {key}=\"--b\" {key}=\"--c\"\n");
+            let err = repeated.parse::<Spec>().unwrap_err();
+            let crate::error::UsageErr::InvalidInput(err, ..) = err else {
+                panic!("unexpected error: {err:?}");
+            };
+            assert!(
+                err.contains(&format!("{key} is given more than once")),
+                "{key}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn several_relationship_targets_are_a_child_node() {
+        let spec: Spec =
+            "flag \"--a\" {\n  conflicts \"--b\" \"--c\"\n}\nflag \"--b\"\nflag \"--c\"\n"
+                .parse()
+                .unwrap();
+        assert_eq!(spec.cmd.flags[0].conflicts, ["--b", "--c"]);
     }
 
     #[test]
