@@ -226,6 +226,13 @@ impl SpecArg {
 
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         let mut arg: SpecArg = node.arg(0)?.ensure_string()?.parse()?;
+        node.ensure_props_unrepeated(&[
+            "conflicts",
+            "requires",
+            "required_if",
+            "required_unless",
+            "required_unless_all",
+        ])?;
         for (k, v) in node.props() {
             match k {
                 "help" => arg.help = Some(v.ensure_string()?),
@@ -268,11 +275,13 @@ impl SpecArg {
                 "hide_possible_values" => arg.hide_possible_values = v.ensure_bool()?,
                 "hide_short_help" => arg.hide_short_help = v.ensure_bool()?,
                 "hide_long_help" => arg.hide_long_help = v.ensure_bool()?,
-                "conflicts" => arg.conflicts = vec![v.ensure_string()?],
-                "requires" => arg.requires = vec![v.ensure_string()?],
-                "required_if" => arg.required_if = vec![v.ensure_string()?],
-                "required_unless" => arg.required_unless = vec![v.ensure_string()?],
-                "required_unless_all" => arg.required_unless_all = vec![v.ensure_string()?],
+                "conflicts" => v.set_selector("conflicts", &mut arg.conflicts)?,
+                "requires" => v.set_selector("requires", &mut arg.requires)?,
+                "required_if" => v.set_selector("required_if", &mut arg.required_if)?,
+                "required_unless" => v.set_selector("required_unless", &mut arg.required_unless)?,
+                "required_unless_all" => {
+                    v.set_selector("required_unless_all", &mut arg.required_unless_all)?
+                }
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
                 "default" => arg.default = vec![v.ensure_string()?],
@@ -1752,6 +1761,27 @@ arg "<input>" {
         let rendered = spec.to_string();
         let reparsed: Spec = rendered.parse().unwrap();
         assert_eq!(reparsed.cmd.args[0].conflicts, spec.cmd.args[0].conflicts);
+    }
+
+    #[test]
+    fn a_positional_relationship_property_names_one_target() {
+        for key in [
+            "conflicts",
+            "requires",
+            "required_if",
+            "required_unless",
+            "required_unless_all",
+        ] {
+            let several = format!("arg \"[VALUE]\" {key}=\"--a --b\"\n");
+            let err = several.parse::<Spec>().unwrap_err();
+            let crate::error::UsageErr::InvalidInput(err, ..) = err else {
+                panic!("unexpected error: {err:?}");
+            };
+            assert!(
+                err.contains(&format!("{key} takes one flag or argument per property")),
+                "{key}: {err}"
+            );
+        }
     }
 
     #[test]

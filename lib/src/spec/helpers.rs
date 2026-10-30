@@ -134,6 +134,24 @@ impl<'a> NodeHelper<'a> {
         }
         Ok(self)
     }
+    /// Refuse a property written twice, which would otherwise keep only the last.
+    pub(crate) fn ensure_props_unrepeated(&self, keys: &[&str]) -> Result<(), UsageErr> {
+        for key in keys {
+            let mut written = self
+                .node
+                .entries()
+                .iter()
+                .filter(|e| e.name().is_some_and(|name| name.value() == *key));
+            if let (Some(_), Some(second)) = (written.next(), written.next()) {
+                bail_parse!(
+                    self.ctx,
+                    second.span(),
+                    "{key} is given more than once; the second would replace the first, so write several as a child node instead: {key} \"--a\" \"--b\""
+                );
+            }
+        }
+        Ok(())
+    }
     pub(crate) fn get(&self, key: &str) -> Option<ParseEntry<'_>> {
         self.node.entry(key).map(|e| ParseEntry::new(self.ctx, e))
     }
@@ -219,6 +237,24 @@ impl ParseEntry<'_> {
             Some(s) => Ok(s.to_string()),
             None => bail_parse!(self.ctx, self.span(), "expected string"),
         }
+    }
+
+    /// Set a relationship list (`conflicts`, `requires`, …) from its property form.
+    ///
+    /// The property names exactly one flag or argument. A value like `"--b --c"` is a
+    /// single selector that matches nothing, so it is refused rather than left to enforce
+    /// nothing. Several targets are written as a child node: `conflicts "--b" "--c"`.
+    pub fn set_selector(&self, key: &str, list: &mut Vec<String>) -> Result<(), UsageErr> {
+        let selector = self.ensure_string()?;
+        if selector.split_whitespace().nth(1).is_some() {
+            bail_parse!(
+                self.ctx,
+                self.span(),
+                "{key} takes one flag or argument per property, but {selector:?} has several; write them as a child node instead: {key} \"--a\" \"--b\""
+            );
+        }
+        list.push(selector);
+        Ok(())
     }
 }
 

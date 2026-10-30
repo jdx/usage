@@ -168,6 +168,20 @@ mistake, and silently honouring one of them hides it.
 A conflict holds in either direction, so declaring it once is enough; it applies to flags
 that were actually given, not to defaults.
 
+The property form names one flag. To conflict with several, write `conflicts` as a child
+node with one argument per flag:
+
+```kdl
+flag "--a" {
+  conflicts "--b" "--c" // --a cannot be given with --b or with --c
+}
+```
+
+`conflicts="--b --c"` and a repeated `conflicts="--b" conflicts="--c"` are errors when the
+spec loads, since the first is one selector that matches nothing and the second would keep
+only the last. The same goes for `overrides`, `requires`, `required_if`,
+`required_unless` and `required_unless_all`.
+
 Losing an override unsets a flag; it does not unsay the word it was given. `--log-level=v
 --trace` is still refused when `v` is outside `--log-level`'s
 [`choices`](/spec/reference/arg) — which
