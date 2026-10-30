@@ -2093,11 +2093,11 @@ checksum = "ca718471876992059f251e33aafc334346ada08042b7661dd1fe313a9bced557"
 
 [[package]]
 name = "usage-argv"
-version = "7.1.3"
+version = "7.1.4"
 
 [[package]]
 name = "usage-cli"
-version = "7.1.3"
+version = "7.1.4"
 dependencies = [
  "assert_cmd",
  "ctor",
@@ -2125,7 +2125,7 @@ dependencies = [
 
 [[package]]
 name = "usage-config"
-version = "7.1.3"
+version = "7.1.4"
 dependencies = [
  "serde_json",
  "toml",
@@ -2152,7 +2152,7 @@ dependencies = [
 
 [[package]]
 name = "usage-derive"
-version = "7.1.3"
+version = "7.1.4"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2162,7 +2162,7 @@ dependencies = [
 
 [[package]]
 name = "usage-dynamic"
-version = "7.1.3"
+version = "7.1.4"
 dependencies = [
  "futures",
  "usage-argv",
@@ -2172,7 +2172,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "7.1.3"
+version = "7.1.4"
 dependencies = [
  "clap",
  "criterion",
@@ -2201,7 +2201,7 @@ dependencies = [
 
 [[package]]
 name = "usage-rs"
-version = "7.1.3"
+version = "7.1.4"
 dependencies = [
  "serde",
  "shell-words",
@@ -2225,14 +2225,14 @@ dependencies = [
 
 [[package]]
 name = "usage-test"
-version = "7.1.3"
+version = "7.1.4"
 dependencies = [
  "usage-argv",
 ]
 
 [[package]]
 name = "usage-validation"
-version = "7.1.3"
+version = "7.1.4"
 dependencies = [
  "expr-lang",
 ]
