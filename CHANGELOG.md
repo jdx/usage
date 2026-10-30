@@ -1,5 +1,26 @@
 # Changelog
 
+## [7.1.4](https://github.com/jdx/usage/compare/v7.1.3..v7.1.4) - 2026-10-30
+
+### 🐛 Bug Fixes
+
+- **(cli)** quote cobra defaults that KDL reads as booleans or numbers by [@jdx](https://github.com/jdx) in [#1595](https://github.com/jdx/usage/pull/1595)
+- **(lib)** read a mounted script's spec despite a rejected env value, and name the failing mount by [@jdx](https://github.com/jdx) in [#1591](https://github.com/jdx/usage/pull/1591)
+
+### 🛡️ Security
+
+- **(deps)** update jdx/packslip action to v1.11.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1597](https://github.com/jdx/usage/pull/1597)
+
+### 📦️ Dependency Updates
+
+- update github actions by [@renovate[bot]](https://github.com/renovate[bot]) in [#1585](https://github.com/jdx/usage/pull/1585)
+- update mise tools by [@renovate[bot]](https://github.com/renovate[bot]) in [#1586](https://github.com/jdx/usage/pull/1586)
+- update dependency @types/node to v26 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1587](https://github.com/jdx/usage/pull/1587)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1588](https://github.com/jdx/usage/pull/1588)
+- update mise tools to latest by [@renovate[bot]](https://github.com/renovate[bot]) in [#1592](https://github.com/jdx/usage/pull/1592)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1593](https://github.com/jdx/usage/pull/1593)
+- update dependency effect to v4.0.6 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1596](https://github.com/jdx/usage/pull/1596)
+
 ## [7.1.3](https://github.com/jdx/usage/compare/v7.1.2..v7.1.3) - 2026-10-25
 
 ### 🐛 Bug Fixes

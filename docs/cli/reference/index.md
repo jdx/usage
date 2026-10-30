@@ -2,7 +2,7 @@
 
 # `usage`
 
-**Version:** 7.1.3
+**Version:** 7.1.4
 
 **Repository:** https://github.com/jdx/usage
 
