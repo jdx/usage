@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.1.5](https://github.com/jdx/usage/compare/v7.1.4..v7.1.5) - 2026-10-31
+
+### 🐛 Bug Fixes
+
+- **(spec)** reject several targets in a relationship property by [@jdx](https://github.com/jdx) in [#1599](https://github.com/jdx/usage/pull/1599)
+
+### 🔍 Other Changes
+
+- add Entire's StopFailure hook for Claude Code by [@jdx](https://github.com/jdx) in [#1601](https://github.com/jdx/usage/pull/1601)
+
 ## [7.1.4](https://github.com/jdx/usage/compare/v7.1.3..v7.1.4) - 2026-10-30
 
 ### 🐛 Bug Fixes
