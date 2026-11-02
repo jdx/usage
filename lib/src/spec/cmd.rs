@@ -1085,11 +1085,9 @@ impl SpecCommand {
         }
         self.external_subcommand = external_subcommand;
         self.arg_required_else_help = arg_required_else_help;
-        // Switches a command turned off stay off: a mounted root that leaves them at their
-        // default is not asking for `--help` back on the command that disabled it.
-        self.disable_help_flag |= disable_help_flag;
-        self.disable_help_subcommand |= disable_help_subcommand;
-        self.disable_version_flag |= disable_version_flag;
+        self.disable_help_flag = disable_help_flag;
+        self.disable_help_subcommand = disable_help_subcommand;
+        self.disable_version_flag = disable_version_flag;
         self.dont_delimit_trailing_values = dont_delimit_trailing_values;
         self.args_override_self = args_override_self;
         self.subcommand_negates_reqs = subcommand_negates_reqs;
@@ -1207,7 +1205,17 @@ impl SpecCommand {
             // `merge` folds the mounted spec's root flags into this command; remember that they
             // came from the mount. See `SpecCommand::flags_from_mount`.
             self.flags_from_mount |= !spec.cmd.flags.is_empty();
+            // Switches this command turned off stay off: a mounted root that leaves them at
+            // their default is not asking for `--help` back on the command that disabled it.
+            let (help_flag, help_subcommand, version_flag) = (
+                self.disable_help_flag,
+                self.disable_help_subcommand,
+                self.disable_version_flag,
+            );
             self.merge(spec.cmd);
+            self.disable_help_flag |= help_flag;
+            self.disable_help_subcommand |= help_subcommand;
+            self.disable_version_flag |= version_flag;
         }
         self.validate_clause_flag_spellings()
             .map_err(UsageErr::InvalidSpec)

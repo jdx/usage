@@ -197,6 +197,9 @@ impl CompleteWord {
         // Not `available_flags`: inside a mounted command, the mounting CLI's flags stay
         // recognized for parsing but are not accepted there, so they must not be offered.
         let mut flags = parsed.completion_flags();
+        // Before the default command's flags: the parser answers a supplied `--help` ahead of
+        // choosing the default command, so a hidden `--help` of its own does not take it.
+        Self::add_supplied_flags(spec, &parsed, &mut flags);
         if spec.default_subcommand_flags
             && parsed.cmds.len() == 1
             && let Some(default) = spec
@@ -217,7 +220,6 @@ impl CompleteWord {
                 }
             }
         }
-        Self::add_supplied_flags(spec, &parsed, &mut flags);
         // An explicit `--` stops the parser reading flags, so past one there is no such thing
         // as a flag to complete — a dash-prefixed word is a positional value.
         let restart_seen = parsed.tokens.iter().any(|token| {
