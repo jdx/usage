@@ -2339,10 +2339,18 @@ fn flag_forms<'a>(
     flags.extend(
         crate::help::supplied_entries(position.cmd, &claimed)
             .into_iter()
+            // In a view the parser reads `--version` off the root alone, wherever the words
+            // have got to, so the command in scope has no say in it.
+            .filter(|meta| {
+                !in_view
+                    || !matches!(
+                        meta.flag.key,
+                        crate::VERSION_LONG_KEY | crate::VERSION_SHORT_KEY
+                    )
+            })
             .map(|meta| (meta.flag, Some(meta))),
     );
-    // In a view the parser reads `--version` off the root, wherever the words have got to.
-    if in_view && !core::ptr::eq(position.cmd, spec.root.cmd) {
+    if in_view {
         flags.extend(
             crate::help::supplied_entries(spec.root.cmd, &claimed)
                 .into_iter()
@@ -2413,6 +2421,10 @@ fn flag_forms<'a>(
             }
         }
     }
+    // A visible `--help` on the default command would be offered twice, declared and supplied.
+    // Sorted by value first so the declared one, which comes earlier, is the one kept.
+    out.sort_by(|a, b| a.value.cmp(&b.value));
+    out.dedup_by(|a, b| a.value == b.value);
     out
 }
 

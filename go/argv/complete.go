@@ -253,8 +253,15 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 		// The flags the parser answers to without a declaration, under whichever
 		// spellings no declared flag took — hidden ones included, as the parser
 		// resolves them.
+		// Not again when the default command declared the spelling too.
 		for _, s := range suppliedCompletions(pos.Chain) {
-			add(CandidateFlag, s.form, s.help)
+			dup := false
+			for _, c := range out {
+				dup = dup || c.Value == s.form
+			}
+			if !dup {
+				add(CandidateFlag, s.form, s.help)
+			}
 		}
 	}
 
