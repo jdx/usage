@@ -1,7 +1,7 @@
 [checks]
-full = "mise run test"
+full = "mise run ci"
 lint = "mise run lint"
-before_push = ["mise run render", "mise run gen-shadow", "mise run lint"]
+before_push = ["mise run render", "mise run gen-shadow", "mise run gen-go", "mise run lint"]
 
 [checks.focused]
 unit = "jouet test --affected"
