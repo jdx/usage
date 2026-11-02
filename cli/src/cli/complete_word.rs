@@ -217,6 +217,7 @@ impl CompleteWord {
                 }
             }
         }
+        Self::add_supplied_flags(spec, &parsed, &mut flags);
         // An explicit `--` stops the parser reading flags, so past one there is no such thing
         // as a flag to complete — a dash-prefixed word is a positional value.
         let restart_seen = parsed.tokens.iter().any(|token| {
@@ -449,6 +450,47 @@ impl CompleteWord {
             .filter(|(c, _)| c.starts_with(ctoken))
             .sorted()
             .collect()
+    }
+
+    /// The flags the parser answers to without a declaration: `--help`, and `--version` on
+    /// the root of a spec that has a version.
+    ///
+    /// Under the rules `parse` follows (`is_help_arg`, `is_version_arg`), and only for a
+    /// spelling no declared flag took — a spec that spends `-V` on something else keeps it,
+    /// and still offers `--version` beside it.
+    fn add_supplied_flags(
+        spec: &Spec,
+        parsed: &usage::parse::ParseOutput,
+        flags: &mut BTreeMap<String, Arc<SpecFlag>>,
+    ) {
+        let mut supply = |name: &str, help: &str, long: Option<&str>, short: Option<char>| {
+            let key = match (long, short) {
+                (Some(long), _) => format!("--{long}"),
+                (_, Some(short)) => format!("-{short}"),
+                _ => return,
+            };
+            if flags.contains_key(&key) {
+                return;
+            }
+            let mut flag = SpecFlag::default();
+            flag.name = name.to_string();
+            flag.help = Some(help.to_string());
+            flag.long = long.map(str::to_string).into_iter().collect();
+            flag.short = short.into_iter().collect();
+            flag.usage = flag.usage();
+            flags.insert(key, Arc::new(flag));
+        };
+        if spec.disable_help != Some(true) && !parsed.cmd.disable_help_flag {
+            supply("help", "Print help", Some("help"), None);
+            supply("help", "Print help", None, Some('h'));
+        }
+        if (spec.version.is_some() || spec.long_version.is_some())
+            && parsed.cmds.len() == 1
+            && !spec.cmd.disable_version_flag
+        {
+            supply("version", "Print version", Some("version"), None);
+            supply("version", "Print version", None, Some('V'));
+        }
     }
 
     fn complete_long_flag_names(

@@ -2302,8 +2302,30 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
     let shorts = !token.starts_with("--");
     let wanted = token.as_bytes().get(1).copied();
     let mut out = Vec::new();
+    // The flags the parser answers to without a declaration — `--help`, and `--version` where
+    // a version is declared — are offered by the same rule that lists them on a help page, so
+    // what completes is what the page shows. Anything the tables declare takes its spelling
+    // first, hidden or not, exactly as the parser resolves it.
+    let mut claimed = Vec::new();
     for flag in &position.flags {
-        let meta = flag_meta(spec.root, flag);
+        for long in flag.longs.iter().copied().chain(flag.negate) {
+            claimed.push(crate::help::Form::Long(long));
+        }
+        for short in flag.shorts {
+            claimed.push(crate::help::Form::Short(*short));
+        }
+    }
+    let mut flags: Vec<(&Flag<'_>, Option<&'a FlagMeta<'a>>)> = position
+        .flags
+        .iter()
+        .map(|flag| (*flag, flag_meta(spec.root, flag)))
+        .collect();
+    flags.extend(
+        crate::help::supplied_entries(position.cmd, &claimed)
+            .into_iter()
+            .map(|meta| (meta.flag, Some(meta))),
+    );
+    for (flag, meta) in flags {
         if meta.is_some_and(|m| m.hide) {
             continue;
         }
@@ -4064,14 +4086,19 @@ mod tests {
     #[test]
     fn a_dash_offers_the_flags_that_would_be_accepted_there() {
         // Both forms for a lone dash, since it says nothing about which was meant.
-        assert_eq!(offered("mise -"), ["--quiet", "--verbose", "-v"]);
-        assert_eq!(offered("mise --"), ["--quiet", "--verbose"]);
+        // `--help` is the parser's own rather than a declared flag, and is offered all the same.
+        assert_eq!(
+            offered("mise -"),
+            ["--help", "--quiet", "--verbose", "-h", "-v"]
+        );
+        assert_eq!(offered("mise --"), ["--help", "--quiet", "--verbose"]);
+        assert_eq!(offered("mise -h"), ["-h"]);
 
         // Inside a subcommand: its own flags and the globals it inherits, which is exactly
         // what the parser would accept there.
         assert_eq!(
             offered("mise use --"),
-            ["--jobs", "--quiet", "--tools", "--verbose"]
+            ["--help", "--jobs", "--quiet", "--tools", "--verbose"]
         );
         // A short token asks about one letter, because bundling means any other letter would
         // be a candidate for a different position in the token.

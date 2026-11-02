@@ -1085,9 +1085,11 @@ impl SpecCommand {
         }
         self.external_subcommand = external_subcommand;
         self.arg_required_else_help = arg_required_else_help;
-        self.disable_help_flag = disable_help_flag;
-        self.disable_help_subcommand = disable_help_subcommand;
-        self.disable_version_flag = disable_version_flag;
+        // Switches a command turned off stay off: a mounted root that leaves them at their
+        // default is not asking for `--help` back on the command that disabled it.
+        self.disable_help_flag |= disable_help_flag;
+        self.disable_help_subcommand |= disable_help_subcommand;
+        self.disable_version_flag |= disable_version_flag;
         self.dont_delimit_trailing_values = dont_delimit_trailing_values;
         self.args_override_self = args_override_self;
         self.subcommand_negates_reqs = subcommand_negates_reqs;
