@@ -99,7 +99,7 @@ jobs:
       - name: mise r test with jouet
         if: ${{ inputs.trusted && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
-          jouet test --cmd -- mise r test
+          JOUET_TEST_BASELINE=off jouet test --display human --cmd -- mise r test
           git bundle create "$RUNNER_TEMP/jouet-cost.bundle" refs/notes/jouet-cost
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ inputs.trusted && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
