@@ -471,7 +471,9 @@ impl CompleteWord {
                 (_, Some(short)) => format!("-{short}"),
                 _ => return,
             };
-            if flags.contains_key(&key) {
+            // `available_flags` as well: a host global stays bound inside a mount even where it
+            // is not offered, and so keeps its spelling.
+            if flags.contains_key(&key) || parsed.available_flags.contains_key(&key) {
                 return;
             }
             let mut flag = SpecFlag::default();

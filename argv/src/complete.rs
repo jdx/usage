@@ -2319,11 +2319,10 @@ fn flag_forms<'a>(
         _ => &[],
     };
     let mut claimed = Vec::new();
-    for flag in position
-        .flags
-        .iter()
-        .filter(|flag| !default_flags.iter().any(|d| core::ptr::eq(*d, **flag)))
-    {
+    // They are the tail of the list, appended after the parser's own, so a flag the root and
+    // the default command share still counts once, at its place among the parser's.
+    let parser_owned = position.flags.len().saturating_sub(default_flags.len());
+    for flag in &position.flags[..parser_owned] {
         for long in flag.longs.iter().copied().chain(flag.negate) {
             claimed.push(crate::help::Form::Long(long));
         }
