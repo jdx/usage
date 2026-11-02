@@ -1581,7 +1581,7 @@ fn complete_inner<'a>(
         .and_then(|chain| sigil_arg_on_chain(chain, &position, split));
     // From the same walk: a second one would reach the same position, and in a binary this
     // function is inlined into, every walk is its own copy of the code around it.
-    let candidates = candidates_at(spec, split, &position, meta, sigil_cursor);
+    let candidates = candidates_at(spec, split, &position, meta, sigil_cursor, view.is_some());
 
     // Which argument the cursor is at — the same question `candidates` answers, asked once so
     // that the two halves cannot disagree. Past a restart token it is the first clause argument,
@@ -2078,7 +2078,7 @@ pub fn candidates<'a>(spec: &Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
     let sigil_arg = chain
         .as_deref()
         .and_then(|chain| sigil_arg_on_chain(chain, &position, split));
-    candidates_at(spec, split, &position, meta, sigil_arg)
+    candidates_at(spec, split, &position, meta, sigil_arg, false)
 }
 
 /// The candidates at a position already walked, with the command metadata it reached and the
@@ -2089,6 +2089,7 @@ fn candidates_at<'a>(
     position: &Position<'_>,
     meta: Option<&'a CommandMeta<'a>>,
     sigil_arg: Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>, &'a str, &str)>,
+    in_view: bool,
 ) -> Vec<Candidate<'a>> {
     let token = split.prefix.as_str();
 
@@ -2109,7 +2110,7 @@ fn candidates_at<'a>(
                     found
                 })
                 .unwrap_or_default(),
-            None => flag_forms(spec, position, token),
+            None => flag_forms(spec, position, token, in_view),
         }
     } else if restarted(meta, split) {
         // Past a restart token — mise's `:::`, which starts a fresh invocation of the same
@@ -2297,7 +2298,12 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
 /// candidate for a different position in the word. A lone `-` says nothing about which was
 /// meant, so it gets both. One loop for the two, since each form needs the same metadata; the
 /// order they are found in does not matter, because the caller sorts.
-fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
+fn flag_forms<'a>(
+    spec: &Spec<'a>,
+    position: &Position<'_>,
+    token: &str,
+    in_view: bool,
+) -> Vec<Candidate<'a>> {
     let longs = token == "-" || token.starts_with("--");
     let shorts = !token.starts_with("--");
     let wanted = token.as_bytes().get(1).copied();
@@ -2325,6 +2331,20 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
             .into_iter()
             .map(|meta| (meta.flag, Some(meta))),
     );
+    // In a view the parser reads `--version` off the root, wherever the words have got to.
+    if in_view && !core::ptr::eq(position.cmd, spec.root.cmd) {
+        flags.extend(
+            crate::help::supplied_entries(spec.root.cmd, &claimed)
+                .into_iter()
+                .filter(|meta| {
+                    matches!(
+                        meta.flag.key,
+                        crate::VERSION_LONG_KEY | crate::VERSION_SHORT_KEY
+                    )
+                })
+                .map(|meta| (meta.flag, Some(meta))),
+        );
+    }
     for (flag, meta) in flags {
         if meta.is_some_and(|m| m.hide) {
             continue;

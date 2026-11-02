@@ -250,6 +250,12 @@ func Candidates(pos Position, partial string, help HelpTable, meta Metadata) []C
 				add(CandidateFlag, form, describe(s.flag.Key, help))
 			}
 		}
+		// The flags the parser answers to without a declaration, under whichever
+		// spellings no declared flag took — hidden ones included, as the parser
+		// resolves them.
+		for _, s := range suppliedCompletions(pos.Chain) {
+			add(CandidateFlag, s.form, s.help)
+		}
 	}
 
 	// And the values a positional will only accept — unless it is one that reads
@@ -368,4 +374,56 @@ func describe(key uint64, help HelpTable) string {
 		return helpText(h)
 	}
 	return ""
+}
+
+// suppliedCompletion is a spelling the parser accepts that no declaration made.
+type suppliedCompletion struct{ form, help string }
+
+// suppliedCompletions are `--help`, and `--version` where the parser accepts it,
+// offered under the spellings nothing in scope has claimed: the same rule the
+// help page follows through suppliedEntries, so what completes is what the page
+// lists.
+func suppliedCompletions(chain []*Command) []suppliedCompletion {
+	if len(chain) == 0 {
+		return nil
+	}
+	here := chain[len(chain)-1]
+	var claimed []string
+	claim := func(f *Flag) {
+		claimed = append(claimed, formsOf(f)...)
+		if n := negationOf(f); n != "" {
+			claimed = append(claimed, n)
+		}
+	}
+	for _, f := range here.Flags {
+		claim(f)
+	}
+	if len(chain) == 1 && here.DefaultSubcommandFlags && here.DefaultSubcommand != nil {
+		for _, f := range here.DefaultSubcommand.Flags {
+			claim(f)
+		}
+	}
+	for _, c := range chain[:len(chain)-1] {
+		for _, f := range c.Flags {
+			if f.Global {
+				claim(f)
+			}
+		}
+	}
+
+	var out []suppliedCompletion
+	offer := func(long string, short byte, help string) {
+		for _, form := range []string{"--" + long, "-" + string(short)} {
+			if !has(claimed, form) {
+				out = append(out, suppliedCompletion{form, help})
+			}
+		}
+	}
+	if !here.DisableHelpFlag {
+		offer("help", 'h', "Print help")
+	}
+	if here.Version && !here.DisableVersionFlag {
+		offer("version", 'V', "Print version")
+	}
+	return out
 }
