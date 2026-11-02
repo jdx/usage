@@ -398,11 +398,8 @@ func suppliedCompletions(chain []*Command) []suppliedCompletion {
 	for _, f := range here.Flags {
 		claim(f)
 	}
-	if len(chain) == 1 && here.DefaultSubcommandFlags && here.DefaultSubcommand != nil {
-		for _, f := range here.DefaultSubcommand.Flags {
-			claim(f)
-		}
-	}
+	// Not the default command's flags: the parser answers a supplied flag before it
+	// chooses the default command, so a hidden `--help` there takes nothing.
 	for _, c := range chain[:len(chain)-1] {
 		for _, f := range c.Flags {
 			if f.Global {

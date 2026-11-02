@@ -2312,8 +2312,18 @@ fn flag_forms<'a>(
     // a version is declared — are offered by the same rule that lists them on a help page, so
     // what completes is what the page shows. Anything the tables declare takes its spelling
     // first, hidden or not, exactly as the parser resolves it.
+    // Not the default command's flags: the parser answers a supplied flag before it chooses
+    // the default command, so a hidden `--help` there takes nothing.
+    let default_flags: &[&Flag<'_>] = match position.cmd.default_subcommand {
+        Some(default) if position.cmd.default_subcommand_flags => default.flags,
+        _ => &[],
+    };
     let mut claimed = Vec::new();
-    for flag in &position.flags {
+    for flag in position
+        .flags
+        .iter()
+        .filter(|flag| !default_flags.iter().any(|d| core::ptr::eq(*d, **flag)))
+    {
         for long in flag.longs.iter().copied().chain(flag.negate) {
             claimed.push(crate::help::Form::Long(long));
         }
