@@ -17,13 +17,17 @@ env:
 jobs:
   test:
     runs-on: ${{ !inputs.trusted && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64;overrides.cache-tag=cache' }}
+    # `jouet cost push` writes refs/notes/jouet-cost on pushes to main.
+    permissions:
+      contents: write
     # Without this, a hung step sits until GitHub's 6-hour job limit.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-          persist-credentials: false
+          # Only main keeps the token, for `jouet cost push` below.
+          persist-credentials: ${{ inputs.trusted && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
@@ -93,6 +97,14 @@ jobs:
           done
       - run: mise r build
       - run: mise r test
+        if: ${{ !(inputs.trusted && github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+      # On main the same run goes through jouet so its timing is recorded, and
+      # `jouet cost push` shares the timings with agents.
+      - name: mise r test with jouet and share timings
+        if: ${{ inputs.trusted && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          jouet test --cmd -- mise r test
+          jouet cost push
       # Run here rather than in a job of its own: the corpus vectors carry KDL
       # specs, and lowering them needs the `usage` CLI this job has already built.
       - run: mise r test:go
