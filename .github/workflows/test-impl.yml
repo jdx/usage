@@ -95,17 +95,18 @@ jobs:
       - run: mise r test
         if: ${{ !(inputs.trusted && github.event_name == 'push' && github.ref == 'refs/heads/main') }}
       # On main the same run goes through jouet so its timing is recorded. The
-      # `cost` job in test.yml pushes the timings, so this job needs no write token.
+      # `jouet-cost` job in test.yml pushes the timings, so this job needs no write token.
       - name: mise r test with jouet
         if: ${{ inputs.trusted && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           JOUET_TEST_BASELINE=off jouet test --display human --cmd -- mise r test
-          git bundle create "$RUNNER_TEMP/jouet-cost.bundle" refs/notes/jouet-cost
+          git bundle create "$RUNNER_TEMP/cost-${{ github.job }}-${{ strategy.job-index }}.bundle" refs/notes/jouet-cost || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ inputs.trusted && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
-          name: jouet-cost
-          path: ${{ runner.temp }}/jouet-cost.bundle
+          name: jouet-cost-${{ github.job }}-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/cost-${{ github.job }}-${{ strategy.job-index }}.bundle
+          if-no-files-found: ignore
       # Run here rather than in a job of its own: the corpus vectors carry KDL
       # specs, and lowering them needs the `usage` CLI this job has already built.
       - run: mise r test:go
