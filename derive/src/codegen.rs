@@ -351,6 +351,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 __usage_kdl.push_str(&#config::spec_kdl_with(#props, #spec));
             }
         }
+        // With no `config` type, the settings the flags declare are still settings, and the
+        // docs, schema and config-key completers only see what the spec says.
+        None if resolves => quote! {
+            if !SETTINGS_PROPS.is_empty() {
+                __usage_kdl.push_str(&#config::spec_kdl(SETTINGS_PROPS));
+            }
+        },
         None => TokenStream::new(),
     };
     // The argv collection every process entry shares: the full refs for parsing, the

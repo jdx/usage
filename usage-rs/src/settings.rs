@@ -30,14 +30,19 @@ pub const fn prop_count(decls: &[SettingDecl], explicit: &[PropMeta]) -> usize {
 
 /// How many distinct flags set the settings [`prop_count`] counts.
 pub const fn flag_count(
-    _decls: &[SettingDecl],
+    decls: &[SettingDecl],
     bindings: &[(&'static str, &'static str)],
     explicit: &[PropMeta],
 ) -> usize {
     let mut count = 0;
     let mut b = 0;
     while b < bindings.len() {
-        if first_binding(bindings, b) && !declares(explicit, bindings[b].1) {
+        // Only a binding a declaration backs: a hand-written command may bind a key it leaves
+        // to a registry of its own, and `flags` writes nothing for it.
+        if first_binding(bindings, b)
+            && !declares(explicit, bindings[b].1)
+            && decl_for(decls, bindings[b].1)
+        {
             count += 1;
         }
         b += 1;
@@ -164,6 +169,21 @@ const fn merged(decls: &[SettingDecl], i: usize) -> SettingDecl {
                 "two flags set the same setting and read it as different types: give them the \
                  same field type, or declare the setting on a `usage::Config` field"
             );
+            // A `const fn` cannot build a new list from two, and keeping one would leave the
+            // other command's variables unread. So two lists have to be the same list.
+            assert!(
+                decl.envs.is_empty() || other.envs.is_empty() || strs_eq(decl.envs, other.envs),
+                "two flags set the same setting and name different environment variables: give \
+                 them the same `env`, or declare the setting on a `usage::Config` field"
+            );
+            assert!(
+                decl.deprecated_envs.is_empty()
+                    || other.deprecated_envs.is_empty()
+                    || strs_eq(decl.deprecated_envs, other.deprecated_envs),
+                "two flags set the same setting and name different deprecated environment \
+                 variables: give them the same `deprecated_env`, or declare the setting on a \
+                 `usage::Config` field"
+            );
             if decl.envs.is_empty() {
                 decl.envs = other.envs;
             }
@@ -224,6 +244,31 @@ const fn declares(explicit: &[PropMeta], key: &str) -> bool {
     false
 }
 
+const fn decl_for(decls: &[SettingDecl], key: &str) -> bool {
+    let mut i = 0;
+    while i < decls.len() {
+        if str_eq(decls[i].key, key) {
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
+
+const fn strs_eq(a: &[&str], b: &[&str]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if !str_eq(a[i], b[i]) {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
 const fn same_ty(a: SettingTy, b: SettingTy) -> bool {
     a as u8 == b as u8
 }
@@ -241,4 +286,44 @@ const fn str_eq(a: &str, b: &str) -> bool {
         i += 1;
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const JOBS: SettingDecl = SettingDecl {
+        envs: &["EX_JOBS"],
+        ..SettingDecl::new("jobs", SettingTy::Uint)
+    };
+
+    #[test]
+    fn a_binding_no_declaration_backs_is_left_to_its_own_registry() {
+        // A hand-written command can bind a key and inherit the empty `SETTING_DECLS`; counting
+        // its flag would make `flags` come up short and the root fail to compile.
+        let bindings = [("--jobs", "jobs"), ("--theme", "theme")];
+        assert_eq!(flag_count(&[JOBS], &bindings, &[]), 1);
+        assert_eq!(flags::<1>(&[JOBS], &bindings, &[]), ["--jobs"]);
+    }
+
+    #[test]
+    fn the_same_environment_names_fold_into_one_setting() {
+        let other = SettingDecl {
+            help: Some("jobs"),
+            ..JOBS
+        };
+        let decl = merged(&[JOBS, other], 0);
+        assert_eq!(decl.envs, ["EX_JOBS"]);
+        assert_eq!(decl.help, Some("jobs"));
+    }
+
+    #[test]
+    #[should_panic(expected = "name different environment variables")]
+    fn different_environment_names_for_one_setting_are_refused() {
+        let other = SettingDecl {
+            envs: &["EX_CHECK_JOBS"],
+            ..JOBS
+        };
+        merged(&[JOBS, other], 0);
+    }
 }

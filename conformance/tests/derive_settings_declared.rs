@@ -176,3 +176,19 @@ fn the_spec_documents_the_settings_the_flags_declare() {
     assert!(kdl.contains(r#"prop "name""#), "{kdl}");
     let _: usage::Spec = kdl.parse().expect("usage-lib reads the whole spec");
 }
+
+/// A tool whose only settings are the ones its flags declare
+#[derive(Cli, Debug)]
+#[usage(bin = "bare")]
+struct Bare {
+    /// How many jobs to run at once
+    #[usage(long, env = "BARE_JOBS", setting = "jobs")]
+    jobs: Option<u16>,
+}
+
+#[test]
+fn a_cli_with_no_config_type_still_documents_its_settings() {
+    let kdl = Bare::to_kdl();
+    assert!(kdl.contains(r#"prop "jobs""#), "{kdl}");
+    let _: usage::Spec = kdl.parse().expect("usage-lib reads the whole spec");
+}
