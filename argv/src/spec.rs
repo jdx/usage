@@ -4895,6 +4895,96 @@ pub const fn concat_bindings<const N: usize>(
     joined
 }
 
+/// What a flag says about the setting it sets, so the flag can be the setting's declaration.
+///
+/// The type and the environment names a registry needs are already on the field that parses the
+/// flag, and writing them a second time on a `usage::Config` field is a second description to
+/// drift. So every command describes its bound settings in these terms, and the root — the one
+/// place that knows what a registry is — turns the joined table into `usage_config::PropMeta`.
+/// Like [`SettingGiven`], it names nothing from the config crate, so a group of flags declared in a
+/// library still never depends on it.
+///
+/// No flags here: the root reads those from the binding table, which already lists every spelling
+/// that sets each key, so the registry's `cli` and `SETTINGS_BINDINGS` cannot disagree.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SettingDecl {
+    /// The dotted key, from `setting = "..."`.
+    pub key: &'static str,
+    /// What one value is.
+    pub ty: SettingTy,
+    /// Whether the field collects several values, making the setting a list of `ty`.
+    pub list: bool,
+    /// Environment variables that set it, highest precedence first.
+    pub envs: &'static [&'static str],
+    /// Deprecated environment aliases, consulted after every current name.
+    pub deprecated_envs: &'static [&'static str],
+    /// How one string becomes a list, from the field's `delimiter`.
+    pub split: Option<SettingSplit>,
+    pub help: Option<&'static str>,
+    pub long_help: Option<&'static str>,
+}
+
+impl SettingDecl {
+    /// A declaration with nothing but a key and a type.
+    pub const fn new(key: &'static str, ty: SettingTy) -> Self {
+        Self {
+            key,
+            ty,
+            list: false,
+            envs: &[],
+            deprecated_envs: &[],
+            split: None,
+            help: None,
+            long_help: None,
+        }
+    }
+}
+
+/// The type of one value of a flag-declared setting, read from the field.
+///
+/// A field whose type is not one of these — an enum, or anything else parsed with `FromStr` — is
+/// a `String` to the registry, which is what the flag hands it anyway.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingTy {
+    Bool,
+    Int,
+    Uint,
+    Float,
+    String,
+    Path,
+}
+
+/// How a flag-declared list setting splits one string, from the field's `delimiter`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingSplit {
+    /// `delimiter = ','`.
+    Comma,
+    /// `delimiter = ':'`.
+    Colon,
+}
+
+/// The setting declarations of several commands, joined into one array.
+///
+/// The [`concat_bindings`] counterpart. A key may appear more than once — two subcommands can each
+/// have a `--jobs` that sets `jobs` — and the root folds those into one setting.
+pub const fn concat_setting_decls<const N: usize>(
+    parts: &[&'static [SettingDecl]],
+) -> [SettingDecl; N] {
+    let mut joined = [SettingDecl::new("", SettingTy::String); N];
+    let mut at = 0;
+    let mut part = 0;
+    while part < parts.len() {
+        let mut i = 0;
+        while i < parts[part].len() {
+            joined[at] = parts[part][i];
+            at += 1;
+            i += 1;
+        }
+        part += 1;
+    }
+    joined
+}
+
 /// Presence information exposed across a flattened [`CommandArgs`] boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ArgumentState {
@@ -5022,6 +5112,11 @@ pub trait CommandArgs: Sized {
     /// any command without knowing which kind it got. What a parent joins into its own table, and
     /// what `usage_config::Registry::drift` is held against.
     const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = &[];
+
+    /// What this command's bound flags say about the settings they set.
+    ///
+    /// Empty by default, for the same reason as [`CommandArgs::SETTINGS_BINDINGS`].
+    const SETTING_DECLS: &'static [SettingDecl] = &[];
 
     /// The settings this command line gave values for.
     ///
@@ -5466,6 +5561,9 @@ pub trait Subcommands: Sized {
     /// Every variant's, not the selected one's: a binding table says what the CLI *can* do, and
     /// is compared against a spec that documents all of them.
     const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = &[];
+
+    /// What every one of these commands' bound flags says about the settings they set.
+    const SETTING_DECLS: &'static [SettingDecl] = &[];
 
     /// The settings the selected command was given values for, and no other command's.
     ///

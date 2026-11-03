@@ -248,6 +248,34 @@ documented one. The adopter's whole drift test is one line:
 assert_eq!(Settings::SETTINGS_REGISTRY.drift(Ex::SETTINGS_BINDINGS), Vec::<String>::new());
 ```
 
+### Settings a flag declares
+
+A setting that a flag sets doesn't need a `Config` field at all. The flag's field already
+says everything a registry entry would: the key (`setting`), the type (the field's, with
+`Vec<T>` as a list), the environment names (`env`, `env_fallback`, `deprecated_env`), how
+one string splits into a list (`delimiter = ','` or `':'`), the help (the doc comment), and
+the flags. So the root's `Ex::SETTINGS_REGISTRY` joins those with the `config` type's
+settings, and the spec's `config` block documents both:
+
+```rust
+#[derive(usage_rs::Args)]
+struct ListenTls {
+    /// Load the given certificate from disk.
+    #[usage(long = "listen-tls-cert", env = "EX_LISTEN_TLS_CERT", delimiter = ',',
+            setting = "listen.tls.cert")]
+    cert: Vec<std::path::PathBuf>,
+}
+```
+
+Each flag-declared setting lists exactly the flags bound to it, including a negation and
+the same key bound on several subcommands, so
+`Ex::SETTINGS_REGISTRY.drift(Ex::SETTINGS_BINDINGS)` is empty by construction. A
+flag-declared setting is always optional and has no registry default. A setting that needs
+a default, a `merge`, a `scope`, or `choices` stays a `Config` field. When both declare a
+key, the `Config` field wins, so a CLI that already declares every setting there keeps the
+same registry. Groups still describe their settings in `usage-argv`'s own terms, so a
+library of flags never depends on `usage-config`; only the root names it.
+
 There is no second, KDL-first backend to choose between: a `build.rs` that generated the
 registry from the spec was a third description of every setting, which is the drift this
 derive exists to remove.
