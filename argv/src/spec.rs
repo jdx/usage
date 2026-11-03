@@ -4895,6 +4895,34 @@ pub const fn concat_bindings<const N: usize>(
     joined
 }
 
+/// What one more clause item gave, added to what the items before it gave.
+///
+/// A clause item is its own group, so `node --exclude a python --exclude b` gives `exclude` twice,
+/// once per item. Together they say what one command repeating the flag would: a list setting
+/// gets every item's entries in order, and any other setting gets the last value. A list one item
+/// could not render as text costs the whole list, as it does within one item.
+pub fn fold_settings_given(
+    into: &mut Vec<(&'static str, SettingGiven)>,
+    item: Vec<(&'static str, SettingGiven)>,
+) {
+    for (key, given) in item {
+        let Some(at) = into.iter().position(|(k, _)| *k == key) else {
+            into.push((key, given));
+            continue;
+        };
+        let folded = match (&mut into[at].1, given) {
+            (SettingGiven::List(before), SettingGiven::List(more)) => {
+                before.extend(more);
+                continue;
+            }
+            (SettingGiven::NotText, SettingGiven::List(_))
+            | (SettingGiven::List(_), SettingGiven::NotText) => SettingGiven::NotText,
+            (_, given) => given,
+        };
+        into[at].1 = folded;
+    }
+}
+
 /// What a flag says about the setting it sets, so the flag can be the setting's declaration.
 ///
 /// The type and the environment names a registry needs are already on the field that parses the
@@ -5762,6 +5790,48 @@ mod tests {
         assert_eq!(flag_selector_count(&COMMAND, "-f"), 1);
         assert_eq!(flag_selector_count(&COMMAND, "first"), 0);
         assert_eq!(flag_selector_count(&COMMAND, "--missing"), 0);
+    }
+
+    #[test]
+    fn clause_items_fold_into_one_entry_per_setting() {
+        let list =
+            |items: &[&str]| SettingGiven::List(items.iter().map(|s| s.to_string()).collect());
+        let mut given = Vec::new();
+        fold_settings_given(
+            &mut given,
+            vec![("exclude", list(&["a"])), ("jobs", SettingGiven::Int(1))],
+        );
+        fold_settings_given(
+            &mut given,
+            vec![
+                ("jobs", SettingGiven::Int(2)),
+                ("exclude", list(&["b", "c"])),
+            ],
+        );
+        assert_eq!(
+            given,
+            [
+                ("exclude", list(&["a", "b", "c"])),
+                ("jobs", SettingGiven::Int(2))
+            ]
+        );
+
+        // An item a list could not render costs the whole list, in either order.
+        for (first, second) in [
+            (list(&["a"]), SettingGiven::NotText),
+            (SettingGiven::NotText, list(&["a"])),
+        ] {
+            let mut given = Vec::new();
+            fold_settings_given(&mut given, vec![("exclude", first)]);
+            fold_settings_given(&mut given, vec![("exclude", second)]);
+            assert_eq!(given, [("exclude", SettingGiven::NotText)]);
+        }
+
+        // Any other setting takes the last value, rendered or not.
+        let mut given = Vec::new();
+        fold_settings_given(&mut given, vec![("out", SettingGiven::NotText)]);
+        fold_settings_given(&mut given, vec![("out", SettingGiven::Text("x".into()))]);
+        assert_eq!(given, [("out", SettingGiven::Text("x".into()))]);
     }
 
     #[test]
