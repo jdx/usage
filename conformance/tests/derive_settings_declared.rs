@@ -192,3 +192,16 @@ fn a_cli_with_no_config_type_still_documents_its_settings() {
     assert!(kdl.contains(r#"prop "jobs""#), "{kdl}");
     let _: usage::Spec = kdl.parse().expect("usage-lib reads the whole spec");
 }
+
+#[test]
+fn the_config_type_reads_its_own_settings_from_the_joined_registry() {
+    // The joined registry keeps the `Config` type's props first and in order, so its reader still
+    // finds them where it expects.
+    let env = EnvLayer::new([("EX_NAME".to_string(), "relay".to_string())]);
+    let (_, layer) = parse(&["--no-colour", "serve"]);
+    let resolved =
+        resolve(Ex::SETTINGS_REGISTRY, Layers::new().then(&layer).then(&env)).expect("resolves");
+    let settings = Settings::read(&resolved).expect("reads");
+    assert_eq!(settings.name.as_deref(), Some("relay"));
+    assert!(!settings.colour, "the flag outranks the default");
+}

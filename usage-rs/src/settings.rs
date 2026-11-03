@@ -39,9 +39,9 @@ pub const fn flag_count(
     while b < bindings.len() {
         // Only a binding a declaration backs: a hand-written command may bind a key it leaves
         // to a registry of its own, and `flags` writes nothing for it.
-        if first_binding(bindings, b)
-            && !declares(explicit, bindings[b].1)
+        if !declares(explicit, bindings[b].1)
             && decl_for(decls, bindings[b].1)
+            && first_binding(bindings, b)
         {
             count += 1;
         }
@@ -192,12 +192,11 @@ const fn merged(decls: &[SettingDecl], i: usize) -> SettingDecl {
                  variables: give them the same `deprecated_env`, or declare the setting on a \
                  `usage::Config` field"
             );
-            // One registry parser splits every source's text, so two flags that split
-            // differently would have one of them read wrongly from the environment.
+            // One registry parser splits every source's text, so two list flags that split
+            // differently — including one that does not split at all — would have one of them
+            // read differently from the environment than from its own flag.
             assert!(
-                decl.split.is_none()
-                    || other.split.is_none()
-                    || same_split(decl.split, other.split),
+                !decl.list || same_split(decl.split, other.split),
                 "two flags set the same setting and split it differently: give them the same \
                  `delimiter`, or declare the setting on a `usage::Config` field"
             );
@@ -289,6 +288,7 @@ const fn strs_eq(a: &[&str], b: &[&str]) -> bool {
 const fn same_split(a: Option<SettingSplit>, b: Option<SettingSplit>) -> bool {
     match (a, b) {
         (Some(a), Some(b)) => a as u8 == b as u8,
+        (None, None) => true,
         _ => false,
     }
 }
@@ -339,6 +339,21 @@ mod tests {
         let decl = merged(&[JOBS, other], 0);
         assert_eq!(decl.envs, ["EX_JOBS"]);
         assert_eq!(decl.help, Some("jobs"));
+    }
+
+    #[test]
+    #[should_panic(expected = "split it differently")]
+    fn a_list_that_splits_beside_one_that_does_not_is_refused() {
+        let comma = SettingDecl {
+            list: true,
+            split: Some(SettingSplit::Comma),
+            ..JOBS
+        };
+        let whole = SettingDecl {
+            split: None,
+            ..comma
+        };
+        merged(&[comma, whole], 0);
     }
 
     #[test]
