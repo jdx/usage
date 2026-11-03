@@ -127,6 +127,12 @@ fn both_implementations_know_the_same_names() {
     let want = ["EXU_PROT", "EXU_TSL"];
     assert_eq!(argv_unknown(&typos), want);
     assert_eq!(lib_unknown(&typos), want);
+    if cfg!(windows) {
+        // Windows folds the prefix too, so `exu_` is under `EXU_`.
+        let lower = ["exu_prot"];
+        assert_eq!(argv_unknown(&lower), ["exu_prot"]);
+        assert_eq!(lib_unknown(&lower), ["exu_prot"]);
+    }
 }
 
 #[test]
