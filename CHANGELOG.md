@@ -1,5 +1,26 @@
 # Changelog
 
+## [7.2.0](https://github.com/jdx/usage/compare/v7.1.5..v7.2.0) - 2026-11-03
+
+### 🚀 Features
+
+- **(go)** refuse undeclared environment variables in generated parsers by [@jdx](https://github.com/jdx) in [#1612](https://github.com/jdx/usage/pull/1612)
+- **(spec)** let a flag with setting declare its setting by [@jdx](https://github.com/jdx) in [#1610](https://github.com/jdx/usage/pull/1610)
+- **(spec)** refuse unknown environment variables under an application prefix by [@jdx](https://github.com/jdx) in [#1609](https://github.com/jdx/usage/pull/1609)
+
+### 🐛 Bug Fixes
+
+- **(complete)** offer --help and --version when completing flags by [@jdx](https://github.com/jdx) in [#1605](https://github.com/jdx/usage/pull/1605)
+- **(spec)** let a flag inside a clause set its setting by [@jdx](https://github.com/jdx) in [#1611](https://github.com/jdx/usage/pull/1611)
+
+### 📚 Documentation
+
+- **(contributing)** remove the AI reply restriction by [@jdx](https://github.com/jdx) in [#1602](https://github.com/jdx/usage/pull/1602)
+
+### 🔍 Other Changes
+
+- set up jouet for agents by [@jdx](https://github.com/jdx) in [#1603](https://github.com/jdx/usage/pull/1603)
+
 ## [7.1.5](https://github.com/jdx/usage/compare/v7.1.4..v7.1.5) - 2026-10-31
 
 ### 🐛 Bug Fixes
