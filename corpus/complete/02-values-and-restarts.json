@@ -72,7 +72,7 @@
       "spec": "name \"ex\"\nbin \"ex\"\ncmd \"run\" restart_token=\":::\" {\n  flag \"--dry-run\"\n  arg \"<TASK>\" {\n    choices \"build\"\n  }\n  arg \"[ARGS]...\"\n}\n",
       "line": "ex run build ::: -",
       "expect": {
-        "candidates": ["--dry-run"]
+        "candidates": ["-h", "--dry-run", "--help"]
       }
     }
   ]

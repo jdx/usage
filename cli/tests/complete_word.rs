@@ -223,7 +223,8 @@ fn complete_word_cword() {
 
 #[test]
 fn complete_word_long_flag() {
-    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--"]).stdout("--dir\n--global\n");
+    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--"])
+        .stdout("--dir\t\n--global\t\n--help\tPrint help\n");
     assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--g"]).stdout("--global\n");
     assert_cmd(
         "basic.usage.kdl",
@@ -246,7 +247,7 @@ fn complete_word_long_flag_val() {
 #[test]
 fn complete_word_short_flag() {
     assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-"])
-        .stdout("-d\n-g\n--dir\n--global\n");
+        .stdout("-d\t\n-g\t\n-h\tPrint help\n--dir\t\n--global\t\n--help\tPrint help\n");
     assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-g"]).stdout("-g\n");
     assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "-g", "pl"])
         .stdout(contains("plugin-2"));
@@ -273,10 +274,12 @@ flag "-h --hidden" hide=#true help="Hidden flag"
     };
 
     run(&["-"]).stdout(
-        "-a\tAlpha flag\n-n\t\n-v\tVerbose output\n--alpha\tAlpha flag\n--no-help\t\n--verbose\tVerbose output\n",
+        "-a\tAlpha flag\n-n\t\n-v\tVerbose output\n--alpha\tAlpha flag\n--help\tPrint help\n--no-help\t\n--verbose\tVerbose output\n",
     );
     run(&["-v"]).stdout("-v\tVerbose output\n");
-    run(&["--"]).stdout("--alpha\tAlpha flag\n--no-help\t\n--verbose\tVerbose output\n");
+    run(&["--"]).stdout(
+        "--alpha\tAlpha flag\n--help\tPrint help\n--no-help\t\n--verbose\tVerbose output\n",
+    );
 }
 
 #[test]
@@ -301,15 +304,15 @@ cmd "run" {
             .success()
     };
 
-    run(&["-"]).stdout("-q\tGlobal value\n--alpha\tLocal switch\n--zeta\tGlobal value\n");
-    run(&["--"]).stdout("--alpha\tLocal switch\n--zeta\tGlobal value\n");
+    run(&["-"]).stdout("-h\tPrint help\n-q\tGlobal value\n--alpha\tLocal switch\n--help\tPrint help\n--zeta\tGlobal value\n");
+    run(&["--"]).stdout("--alpha\tLocal switch\n--help\tPrint help\n--zeta\tGlobal value\n");
     run(&["-q", ""]).stdout("global-value\n");
 }
 
 #[test]
 fn complete_word_kitchen_sink() {
     assert_cmd("kitchen-sink.usage.kdl", &["--", "install", "--"])
-        .stdout("--dir\n--force\n--global\n--no-force\n");
+        .stdout("--dir\t\n--force\t\n--global\t\n--help\tPrint help\n--no-force\t\n");
     assert_cmd("kitchen-sink.usage.kdl", &["--", "--shell", ""]).stdout("bash\nzsh\nfish\n");
 }
 
@@ -505,7 +508,7 @@ fn complete_word_default_subcommand_choices_do_not_block_root_file_fallback() {
 #[test]
 fn complete_word_shebang() {
     assert_cmd("example.sh", &["--", "-"])
-        .stdout("--bar\tOption value\n--defaulted\tDefaulted value\n--foo\tFlag value\n");
+        .stdout("-h\tPrint help\n--bar\tOption value\n--defaulted\tDefaulted value\n--foo\tFlag value\n--help\tPrint help\n");
 }
 
 #[test]
@@ -530,7 +533,9 @@ fn complete_word_mounted() {
     path.insert(0, env::current_dir().unwrap().join("..").join("examples"));
     // FIXME: Audit that the environment access only happens in single-threaded code.
     unsafe { env::set_var("PATH", env::join_paths(path).unwrap()) };
-    assert_cmd("mounted.sh", &["--", "-"]).stdout("--mount\tDisplay kdl spec for mounted tasks\n");
+    assert_cmd("mounted.sh", &["--", "-"]).stdout(
+        "-h\tPrint help\n--help\tPrint help\n--mount\tDisplay kdl spec for mounted tasks\n",
+    );
     assert_cmd("mounted.sh", &["--", ""]).stdout("exec-task\n");
     assert_cmd("mounted.sh", &["--", "exec-task", ""]).stdout("task-a\ntask-b\n");
 }
@@ -815,11 +820,11 @@ fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
     // Only the mounted task's own flags are offered. Previously this also listed the root's
     // `--env`/`--silent`, which the mounted program rejects.
     assert_cmd("mounted-global-flag-leak.sh", &["--", "run", "mytask", "--"])
-        .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--output-dir\tWhere to write output\n");
+        .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--help\tPrint help\n--output-dir\tWhere to write output\n");
 
     // Shorts of the mounting CLI's globals (`-E`) are not offered either, only the task's.
     assert_cmd("mounted-global-flag-leak.sh", &["--", "run", "mytask", "-"])
-        .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--output-dir\tWhere to write output\n");
+        .stdout("-h\tPrint help\n--bump\tVersion bump\n--env\tEnvironment to deploy to\n--help\tPrint help\n--output-dir\tWhere to write output\n");
 
     // The task's `--env` wins over the root global of the same name, so its choices complete
     // instead of the global's (previously: file completion from the global's `<ENV>` arg).
@@ -838,7 +843,7 @@ fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
 
     // The mounting CLI's flags still complete *before* the mounted command.
     assert_cmd("mounted-global-flag-leak.sh", &["--", "run", "--"]).stdout(
-        "--env\tSet the environment\n--force\tForce the tasks to run\n--silent\tSilent output\n",
+        "--env\tSet the environment\n--force\tForce the tasks to run\n--help\tPrint help\n--silent\tSilent output\n",
     );
 
     // And a global before the task still parses: the task's arg choices complete after it,
@@ -871,7 +876,7 @@ fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
         "mounted-global-flag-leak.sh",
         &["--", "run", "grouped", "leaf", "--"],
     )
-    .stdout("--group-wide\tApplies to the whole group\n--leaf-only\tOnly on the leaf\n");
+    .stdout("--group-wide\tApplies to the whole group\n--help\tPrint help\n--leaf-only\tOnly on the leaf\n");
 
     // A NON-global flag of `run` before the task name must not hide the mounted command either
     // (`mise run --force build <TAB>` used to fail with `unexpected word: build`).
@@ -879,7 +884,7 @@ fn complete_word_mounted_does_not_offer_mounting_cli_flags() {
         "mounted-global-flag-leak.sh",
         &["--", "run", "--force", "mytask", "--"],
     )
-    .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--output-dir\tWhere to write output\n");
+    .stdout("--bump\tVersion bump\n--env\tEnvironment to deploy to\n--help\tPrint help\n--output-dir\tWhere to write output\n");
     assert_cmd(
         "mounted-global-flag-leak.sh",
         &["--", "run", "-f", "mytask", ""],

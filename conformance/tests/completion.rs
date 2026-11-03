@@ -163,7 +163,7 @@ fn a_request_is_answered_from_the_same_tables_the_parse_uses() {
     assert_eq!(ask("bash", "ex "), "install\nrm\nrun\nuninstall\n");
     assert_eq!(ask("bash", "ex ins"), "install\n");
     assert_eq!(ask("bash", "ex install "), "node\npython\n");
-    assert_eq!(ask("bash", "ex --"), "--verbose\n");
+    assert_eq!(ask("bash", "ex --"), "--help\n--verbose\n");
 }
 
 #[test]

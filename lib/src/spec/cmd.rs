@@ -1205,7 +1205,17 @@ impl SpecCommand {
             // `merge` folds the mounted spec's root flags into this command; remember that they
             // came from the mount. See `SpecCommand::flags_from_mount`.
             self.flags_from_mount |= !spec.cmd.flags.is_empty();
+            // Switches this command turned off stay off: a mounted root that leaves them at
+            // their default is not asking for `--help` back on the command that disabled it.
+            let (help_flag, help_subcommand, version_flag) = (
+                self.disable_help_flag,
+                self.disable_help_subcommand,
+                self.disable_version_flag,
+            );
             self.merge(spec.cmd);
+            self.disable_help_flag |= help_flag;
+            self.disable_help_subcommand |= help_subcommand;
+            self.disable_version_flag |= version_flag;
         }
         self.validate_clause_flag_spellings()
             .map_err(UsageErr::InvalidSpec)

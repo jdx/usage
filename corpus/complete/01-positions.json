@@ -18,10 +18,10 @@
     },
     {
       "id": "a-dash-offers-flags-only",
-      "doc": "A word beginning with `-` is a flag or nothing: no path and no subcommand starts with one, so offering them would put a word there that cannot be completed.",
+      "doc": "A word beginning with `-` is a flag or nothing: no path and no subcommand starts with one, so offering them would put a word there that cannot be completed. `-h` and `--help` are flags too, supplied by the parser rather than declared, so they are offered with the rest.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\nflag \"--quiet\"\ncmd \"go\" {}\n",
       "line": "ex -",
-      "expect": { "candidates": ["--force", "--quiet"] }
+      "expect": { "candidates": ["-h", "--force", "--help", "--quiet"] }
     },
     {
       "id": "hidden-is-never-offered",
@@ -35,7 +35,7 @@
       "doc": "The same for flags, asked at the position where flags are the answer.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--force\"\nflag \"--secret\" hide=#true\n",
       "line": "ex -",
-      "expect": { "candidates": ["--force"] }
+      "expect": { "candidates": ["-h", "--force", "--help"] }
     },
     {
       "id": "an-alias-completes-like-a-name",
@@ -63,14 +63,14 @@
       "doc": "A global is in scope for every descendant, so it is offerable there. The parser accepts it; a completion that hid it would be describing a different CLI.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--verbose\" global=#true\ncmd \"go\" {\n  flag \"--fast\"\n}\n",
       "line": "ex go -",
-      "expect": { "candidates": ["--fast", "--verbose"] }
+      "expect": { "candidates": ["-h", "--fast", "--help", "--verbose"] }
     },
     {
       "id": "a-non-global-does-not-leak-downward",
       "doc": "The other half: a flag declared on the root without `global` is out of scope inside a subcommand, and offering it would complete a word the parser then refuses.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--local\"\ncmd \"go\" {\n  flag \"--fast\"\n}\n",
       "line": "ex go -",
-      "expect": { "candidates": ["--fast"] }
+      "expect": { "candidates": ["-h", "--fast", "--help"] }
     }
   ]
 }
