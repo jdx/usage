@@ -29,8 +29,24 @@ func TestUnknownEnv(t *testing.T) {
 	// reported once, and the Kelvin sign is not K, so EX_K is its own name
 	// and stays apart from EX_K even with EX_Z sorted between them.
 	got = unknownEnv("EX_", nil, []string{"EX_K", "EX_Z", "EX_K", "ex_k", "EX_ä", "EX_Ä"}, true)
-	if want := []string{"EX_K", "EX_Z", "EX_ä", "EX_K"}; !reflect.DeepEqual(got, want) {
+	if want := []string{"EX_K", "EX_Z", "EX_Ä", "EX_K"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("windows: got %q, want %q", got, want)
+	}
+	// ß has no one-letter uppercase, so usage-lib keeps it as it is; so must this.
+	if got := envKey("EX_ß"); got != "EX_ß" {
+		t.Fatalf("ß folded to %q", got)
+	}
+	// Names that are not UTF-8: the prefix is matched on the valid head, so a
+	// prefix ending in U+FFFD does not claim an invalid byte; such a name is never
+	// a declared one; and two of them are one only when their bytes are.
+	for _, fold := range []bool{false, true} {
+		if got := unknownEnv("EX_�", nil, []string{"EX_\xff"}, fold); got != nil {
+			t.Fatalf("fold=%v: U+FFFD prefix claimed an invalid byte: %q", fold, got)
+		}
+		got := unknownEnv("EX_", []string{"EX_�"}, []string{"EX_\xfe", "EX_\xff", "EX_\xff"}, fold)
+		if want := []string{"EX_\xfe", "EX_\xff"}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("fold=%v: non-UTF-8 names: got %q, want %q", fold, got, want)
+		}
 	}
 	if got := UnknownEnv("", known, []string{"PATH"}); got != nil {
 		t.Fatalf("an empty prefix owns nothing, got %q", got)

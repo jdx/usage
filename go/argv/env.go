@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"unicode/utf8"
 )
 
 // UnknownEnv is the variables in names that start with prefix and are not in
@@ -42,19 +43,48 @@ func unknownEnv(prefix string, known, names []string, fold bool) []string {
 	}
 	var unknown []string
 	for _, name := range names {
-		if !strings.HasPrefix(key(name), key(prefix)) {
+		// The prefix is matched against the valid UTF-8 head of the name, as
+		// usage-lib does: a prefix ending in U+FFFD must not claim a name whose
+		// invalid byte only reads as one.
+		if !strings.HasPrefix(key(validHead(name)), key(prefix)) {
 			continue
 		}
-		if slices.ContainsFunc(known, func(k string) bool { return key(k) == key(name) }) {
+		// A name that is not UTF-8 is never a declared one.
+		if utf8.ValidString(name) && slices.ContainsFunc(known, func(k string) bool { return key(k) == key(name) }) {
 			continue
 		}
 		unknown = append(unknown, name)
 	}
 	// On Windows EX_TYPO and ex_typo are one variable, and listing it twice would
-	// read as two mistakes. Sorted and compacted by the same key, so the names it
+	// read as two mistakes. Names that are not UTF-8 are the same only byte for
+	// byte, since folding would turn every invalid byte into U+FFFD.
+	same := func(a, b string) bool {
+		if utf8.ValidString(a) && utf8.ValidString(b) {
+			return key(a) == key(b)
+		}
+		return a == b
+	}
+	// Sorted by the folded spelling and then the raw bytes, so the names same
 	// calls equal are always adjacent.
-	slices.SortStableFunc(unknown, func(a, b string) int { return strings.Compare(key(a), key(b)) })
-	return slices.CompactFunc(unknown, func(a, b string) bool { return key(a) == key(b) })
+	slices.SortFunc(unknown, func(a, b string) int {
+		if c := strings.Compare(key(strings.ToValidUTF8(a, "�")), key(strings.ToValidUTF8(b, "�"))); c != 0 {
+			return c
+		}
+		return strings.Compare(a, b)
+	})
+	return slices.CompactFunc(unknown, same)
+}
+
+// validHead is name up to its first byte that is not valid UTF-8.
+func validHead(name string) string {
+	for i, r := range name {
+		if r == utf8.RuneError {
+			if _, size := utf8.DecodeRuneInString(name[i:]); size == 1 {
+				return name[:i]
+			}
+		}
+	}
+	return name
 }
 
 // RefuseUnknownEnv is [UnknownEnv] as the error a parse returns, with every
