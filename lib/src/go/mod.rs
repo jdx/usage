@@ -59,6 +59,11 @@ pub struct GoOptions {
 }
 
 /// Turn a spec into a Go source file declaring its parse tables.
+///
+/// This does not check the spec: it cannot fail, so a spec with both `unknown_env` and a
+/// `mount` is emitted with a parser that refuses the mounted commands' variables.
+/// [`generate_with_types`] refuses that combination and is what `usage generate go` calls.
+/// Returning a `Result` here waits for v8; see `V8.md`.
 pub fn generate(spec: &Spec, opts: &GoOptions) -> String {
     Emitter::new(spec, opts).run()
 }
