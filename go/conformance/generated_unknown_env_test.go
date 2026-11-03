@@ -32,7 +32,8 @@ import (
 )
 func clearEx(t *testing.T) {
   for _, entry := range os.Environ() {
-    if name, _, _ := strings.Cut(entry, "="); strings.HasPrefix(name, "EX_") {
+    // Upper-cased, since on Windows an inherited ex_typo is under EX_ too.
+    if name, _, _ := strings.Cut(entry, "="); strings.HasPrefix(strings.ToUpper(name), "EX_") {
       t.Setenv(name, "")
       os.Unsetenv(name)
     }
@@ -58,9 +59,9 @@ func TestUnknownEnv(t *testing.T) {
   if !errors.As(err, &req) || req.Code != argv.CodeUnknownEnv { t.Fatalf("before requirements: %v", err) }
 
   // Help and version still answer.
-  for _, args := range [][]string{{"--help"}, {"help", "serve"}, {"--version"}} {
-    _, err = Parse(args)
-    if !errors.As(err, &req) || (req.Code != argv.CodeHelp && req.Code != argv.CodeVersion) { t.Fatalf("%v: %v", args, err) }
+  for _, tc := range []struct{ args []string; code argv.Code }{{[]string{"--help"}, argv.CodeHelp}, {[]string{"help", "serve"}, argv.CodeHelp}, {[]string{"--version"}, argv.CodeVersion}} {
+    _, err = Parse(tc.args)
+    if !errors.As(err, &req) || req.Code != tc.code { t.Fatalf("%v: %v", tc.args, err) }
   }
 }
 `, "unknown-env")
