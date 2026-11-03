@@ -5205,7 +5205,8 @@ fn own_bindings(bound: &[&Field]) -> Vec<TokenStream> {
         .collect()
 }
 
-/// The commands whose settings this one carries: each flattened group, and the subcommands.
+/// The commands whose settings this one carries: each flattened group, each clause, and the
+/// subcommands.
 ///
 /// As `(bindings, given, decls)`, because the questions differ for a subcommand: its bindings and
 /// declarations are every variant's, since a table says what the CLI *can* do, and its values are
@@ -5235,6 +5236,33 @@ fn children(cli: &Cli) -> Vec<(TokenStream, TokenStream, TokenStream)> {
                     },
                     quote!(<#ty as usage_argv::spec::Subcommands>::SETTING_DECLS),
                 )),
+                // Every item the parser saw, finished or not: the one still open is as much the
+                // user's as the ones before it, and one that was given nothing contributes nothing.
+                Kind::Clause { ty, .. } => {
+                    let current = format_ident!("__usage_current_{}", ident);
+                    Some((
+                        quote!(<#ty as usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS),
+                        quote! {
+                            {
+                                let mut __usage_items = ::std::vec::Vec::new();
+                                for __usage_item in partial
+                                    .#ident
+                                    .iter()
+                                    .chain(::std::iter::once(&partial.#current))
+                                {
+                                    usage_argv::spec::fold_settings_given(
+                                        &mut __usage_items,
+                                        <#ty as usage_argv::spec::CommandArgs>::settings_given(
+                                            __usage_item,
+                                        ),
+                                    );
+                                }
+                                __usage_items
+                            }
+                        },
+                        quote!(<#ty as usage_argv::spec::CommandArgs>::SETTING_DECLS),
+                    ))
+                }
                 _ => None,
             }
         })
@@ -5435,7 +5463,7 @@ fn settings_guard(cli: &Cli) -> Option<TokenStream> {
         quote! {
             const _: () = assert!(
                 #bindings.len() == 0,
-                "this command flattens or nests a group that binds a setting, and does not \
+                "this command flattens, nests or repeats a group that binds a setting, and does not \
                  collect it: add `#[usage(settings)]` to the struct deriving `Cli`",
             );
         }
