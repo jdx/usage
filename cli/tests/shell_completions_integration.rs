@@ -3074,7 +3074,7 @@ fn assert_delegated(fixture: &DelegateFixture, shell: &str) {
     let dash = fixture.complete(shell, &["wrap", "layer1", "plan", "-"]);
     assert_eq!(
         delegated_values(&dash),
-        ["--verbose", "-other", "-out", "-v"],
+        ["--help", "--verbose", "-h", "-other", "-out", "-v"],
         "{shell}: {dash}"
     );
 

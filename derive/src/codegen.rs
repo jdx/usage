@@ -356,10 +356,17 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let unknown_env_check = cli.unknown_env.as_ref().map(|decl| {
         let prefix = &decl.prefix;
         let allow = &decl.allow;
-        let settings = cli.config.as_ref().map(|ty| {
+        // The joined registry when the root resolves settings, so a setting a flag declares is
+        // known too.
+        let props = match &cli.config {
+            _ if resolves => Some(quote!(SETTINGS_PROPS)),
+            Some(ty) => Some(quote!(<#ty>::SETTINGS_PROPS)),
+            None => None,
+        };
+        let settings = props.map(|props| {
             quote! {
                 __usage_known.extend(
-                    <#ty>::SETTINGS_PROPS
+                    #props
                         .iter()
                         .flat_map(|p| p.envs.iter().chain(p.deprecated_envs.iter()))
                         .copied(),
@@ -375,12 +382,25 @@ pub fn emit(cli: &Cli) -> TokenStream {
             }
         }
     });
+    // A root that resolves settings documents the joined registry, so a setting its flags declare
+    // is in the block beside the ones the `Config` type declares.
     let config_extra = match &cli.config {
-        Some(ty) => quote! {
-            __usage_kdl.push_str(&#config::spec_kdl_with(
-                <#ty>::SETTINGS_PROPS,
-                <#ty>::SETTINGS_SPEC,
-            ));
+        Some(ty) => {
+            let (props, spec) = if resolves {
+                (quote!(SETTINGS_PROPS), quote!(SETTINGS_SPEC))
+            } else {
+                (quote!(<#ty>::SETTINGS_PROPS), quote!(<#ty>::SETTINGS_SPEC))
+            };
+            quote! {
+                __usage_kdl.push_str(&#config::spec_kdl_with(#props, #spec));
+            }
+        }
+        // With no `config` type, the settings the flags declare are still settings, and the
+        // docs, schema and config-key completers only see what the spec says.
+        None if resolves => quote! {
+            if !SETTINGS_PROPS.is_empty() {
+                __usage_kdl.push_str(&#config::spec_kdl(SETTINGS_PROPS));
+            }
         },
         None => TokenStream::new(),
     };
@@ -463,10 +483,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // Only the layer calls it, so a root that has children and no settings of its own emits
     // neither: the guard below is what speaks for that case.
     let settings_given = parts.as_ref().filter(|_| resolves).map(|s| s.given.clone());
-    let settings_bindings = parts
-        .as_ref()
-        .filter(|_| resolves)
-        .map(|s| s.bindings.clone());
+    let settings_bindings = parts.as_ref().filter(|_| resolves).map(|s| {
+        let bindings = &s.bindings;
+        let decls = &s.decls;
+        let registry = settings_registry(cli, &config);
+        quote!(#bindings #decls #registry)
+    });
     let settings_layer = resolves.then(|| settings_layer(&config));
     let settings_guard = (!resolves).then(|| settings_guard(cli)).flatten();
     // The name an adopter uses, forwarding to the one inside the const block, which is where
@@ -480,6 +502,14 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// rather than a user.
             pub const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] =
                 SETTINGS_BINDINGS;
+
+            /// Every setting this CLI resolves: the ones its flags declare with `setting`, and
+            /// the ones the `config` type declares, which wins a key both declare.
+            pub const SETTINGS_PROPS: &'static [#config::PropMeta] = SETTINGS_PROPS;
+
+            /// The registry over [`Self::SETTINGS_PROPS`], for `resolve`, `drift`, and
+            /// `explain`.
+            pub const SETTINGS_REGISTRY: #config::Registry = SETTINGS_REGISTRY;
         }
     });
     // The second entry point, emitted only when something is bound: it returns what the parser saw
@@ -5060,6 +5090,74 @@ fn partial_struct(cli: &Cli) -> TokenStream {
 struct Settings {
     given: TokenStream,
     bindings: TokenStream,
+    /// `SETTING_DECLS`: what the bound flags say about their settings, for the root's registry.
+    decls: TokenStream,
+}
+
+/// What each bound field says about its setting, as `usage_argv::spec::SettingDecl`s.
+///
+/// Read from the attributes the field already has: the type from the field, the environment names
+/// from `env`, `env_fallback` and `deprecated_env`, list splitting from `delimiter`, and the help
+/// from the doc comment. The flags are not here — the root takes them from the binding table.
+fn own_decls(bound: &[&Field]) -> Vec<TokenStream> {
+    bound
+        .iter()
+        .map(|field| {
+            let key = field.setting.as_deref().unwrap_or_default();
+            let ty = match (&field.shape, &field.value_ty) {
+                (Shape::Bool, _) => quote!(usage_argv::spec::SettingTy::Bool),
+                (Shape::Count, _) => quote!(usage_argv::spec::SettingTy::Uint),
+                (_, Some(ty)) => crate::config::setting_ty(ty),
+                (_, None) => quote!(usage_argv::spec::SettingTy::String),
+            };
+            let list = matches!(field.shape, Shape::Many);
+            let envs: Vec<&String> = field.env.iter().chain(&field.env_fallback).collect();
+            let deprecated_envs = &field.deprecated_env;
+            let split = match field.delimiter {
+                Some(',') => quote!(::std::option::Option::Some(
+                    usage_argv::spec::SettingSplit::Comma
+                )),
+                Some(':') => quote!(::std::option::Option::Some(
+                    usage_argv::spec::SettingSplit::Colon
+                )),
+                Some(_) => quote!(::std::option::Option::Some(
+                    usage_argv::spec::SettingSplit::Other
+                )),
+                None => quote!(::std::option::Option::None),
+            };
+            let help = option_str(field.help.as_deref());
+            let long_help = option_str(field.long_help.as_deref());
+            quote! {
+                usage_argv::spec::SettingDecl {
+                    key: #key,
+                    ty: #ty,
+                    list: #list,
+                    envs: &[#(#envs),*],
+                    deprecated_envs: &[#(#deprecated_envs),*],
+                    split: #split,
+                    help: #help,
+                    long_help: #long_help,
+                }
+            }
+        })
+        .collect()
+}
+
+/// Several declaration tables as one, joined at compile time. See [`joined_bindings`].
+fn joined_decls(own: &[TokenStream], children: &[TokenStream]) -> TokenStream {
+    if children.is_empty() {
+        return quote!(&[#(#own),*]);
+    }
+    quote! {
+        {
+            const OWN: &[usage_argv::spec::SettingDecl] = &[#(#own),*];
+            const PARTS: &[&'static [usage_argv::spec::SettingDecl]] = &[OWN #(, #children)*];
+            const N: usize = OWN.len() #(+ #children.len())*;
+            const JOINED: [usage_argv::spec::SettingDecl; N] =
+                usage_argv::spec::concat_setting_decls(PARTS);
+            &JOINED
+        }
+    }
 }
 
 /// One field's value, in usage-argv's vocabulary.
@@ -5153,12 +5251,13 @@ fn own_bindings(bound: &[&Field]) -> Vec<TokenStream> {
         .collect()
 }
 
-/// The commands whose settings this one carries: each flattened group, and the subcommands.
+/// The commands whose settings this one carries: each flattened group, each clause, and the
+/// subcommands.
 ///
-/// As `(bindings, given)` pairs, because the two questions differ for a subcommand: its bindings
-/// are every variant's, since a table says what the CLI *can* do, and its values are the selected
-/// variant's, since those are about one invocation.
-fn children(cli: &Cli) -> Vec<(TokenStream, TokenStream)> {
+/// As `(bindings, given, decls)`, because the questions differ for a subcommand: its bindings and
+/// declarations are every variant's, since a table says what the CLI *can* do, and its values are
+/// the selected variant's, since those are about one invocation.
+fn children(cli: &Cli) -> Vec<(TokenStream, TokenStream, TokenStream)> {
     cli.fields
         .iter()
         .filter_map(|field| {
@@ -5171,6 +5270,7 @@ fn children(cli: &Cli) -> Vec<(TokenStream, TokenStream)> {
                             &partial.#ident,
                         )
                     },
+                    quote!(<#ty as usage_argv::spec::CommandArgs>::SETTING_DECLS),
                 )),
                 Kind::Subcommand { ty, .. } => Some((
                     quote!(<#ty as usage_argv::spec::Subcommands>::SETTINGS_BINDINGS),
@@ -5180,7 +5280,35 @@ fn children(cli: &Cli) -> Vec<(TokenStream, TokenStream)> {
                             partial.__usage_selected,
                         )
                     },
+                    quote!(<#ty as usage_argv::spec::Subcommands>::SETTING_DECLS),
                 )),
+                // Every item the parser saw, finished or not: the one still open is as much the
+                // user's as the ones before it, and one that was given nothing contributes nothing.
+                Kind::Clause { ty, .. } => {
+                    let current = format_ident!("__usage_current_{}", ident);
+                    Some((
+                        quote!(<#ty as usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS),
+                        quote! {
+                            {
+                                let mut __usage_items = ::std::vec::Vec::new();
+                                for __usage_item in partial
+                                    .#ident
+                                    .iter()
+                                    .chain(::std::iter::once(&partial.#current))
+                                {
+                                    usage_argv::spec::fold_settings_given(
+                                        &mut __usage_items,
+                                        <#ty as usage_argv::spec::CommandArgs>::settings_given(
+                                            __usage_item,
+                                        ),
+                                    );
+                                }
+                                __usage_items
+                            }
+                        },
+                        quote!(<#ty as usage_argv::spec::CommandArgs>::SETTING_DECLS),
+                    ))
+                }
                 _ => None,
             }
         })
@@ -5235,7 +5363,7 @@ fn settings(cli: &Cli) -> Option<Settings> {
     });
     let from_children = children
         .iter()
-        .map(|(_, given)| quote!(__usage_given.extend(#given);));
+        .map(|(_, given, _)| quote!(__usage_given.extend(#given);));
 
     let given = quote! {
         /// The settings this command line gave values for.
@@ -5249,9 +5377,11 @@ fn settings(cli: &Cli) -> Option<Settings> {
         }
     };
 
-    let child_bindings: Vec<TokenStream> = children.into_iter().map(|(b, _)| b).collect();
+    let (child_bindings, child_decls): (Vec<TokenStream>, Vec<TokenStream>) =
+        children.into_iter().map(|(b, _, d)| (b, d)).unzip();
     let pairs = own_bindings(&bound);
     let table = joined_bindings(&pairs, &child_bindings);
+    let decl_table = joined_decls(&own_decls(&bound), &child_decls);
     let bindings = quote! {
         /// Every flag this CLI reads into a setting, and the setting it sets.
         ///
@@ -5260,7 +5390,64 @@ fn settings(cli: &Cli) -> Option<Settings> {
         pub const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] = #table;
     };
 
-    Some(Settings { given, bindings })
+    let decls = quote! {
+        /// What every bound flag says about the setting it sets.
+        pub const SETTING_DECLS: &'static [usage_argv::spec::SettingDecl] = #decl_table;
+    };
+
+    Some(Settings {
+        given,
+        bindings,
+        decls,
+    })
+}
+
+/// The root's registry: what its flags declare, joined with what the `config` type declares.
+///
+/// Converted at compile time by the facade, which sees both `usage-argv`'s declarations and
+/// `usage-config`'s metadata. The flags each setting lists come from `SETTINGS_BINDINGS`, so the
+/// registry declares exactly the flags the CLI binds, and `drift` has nothing to find between them.
+fn settings_registry(cli: &Cli, config: &TokenStream) -> TokenStream {
+    let facade = facade();
+    let convert = quote!(#facade::__usage_settings);
+    let explicit = match &cli.config {
+        Some(ty) => quote!(<#ty>::SETTINGS_PROPS),
+        None => quote!(&[]),
+    };
+    // The `config` type's spec metadata, lined up with the joined props: its own entries first,
+    // as its props are, and nothing for the ones the flags declare.
+    let spec = cli.config.as_ref().map(|ty| {
+        quote! {
+            const SETTINGS_SPEC: #config::ConfigSpec = {
+                const EXPLICIT: #config::ConfigSpec = <#ty>::SETTINGS_SPEC;
+                const OWN: [#config::PropSpec; SETTINGS_PROPS.len() - <#ty>::SETTINGS_PROPS.len()] =
+                    [#config::PropSpec::EMPTY; SETTINGS_PROPS.len() - <#ty>::SETTINGS_PROPS.len()];
+                const PROPS: [#config::PropSpec; SETTINGS_PROPS.len()] =
+                    #config::concat_prop_specs(&[EXPLICIT.props, &OWN]);
+                #config::ConfigSpec::new(&PROPS, EXPLICIT.sources, EXPLICIT.files)
+            };
+        }
+    });
+    quote! {
+        /// Every setting this CLI resolves.
+        pub const SETTINGS_PROPS: &'static [#config::PropMeta] = {
+            const EXPLICIT: &[#config::PropMeta] = #explicit;
+            const P: usize = #convert::prop_count(SETTING_DECLS, EXPLICIT);
+            const F: usize = #convert::flag_count(SETTING_DECLS, SETTINGS_BINDINGS, EXPLICIT);
+            const FLAGS: [&'static str; F] =
+                #convert::flags(SETTING_DECLS, SETTINGS_BINDINGS, EXPLICIT);
+            const OWN: [#config::PropMeta; P] =
+                #convert::props(SETTING_DECLS, SETTINGS_BINDINGS, EXPLICIT, &FLAGS);
+            const N: usize = EXPLICIT.len() + P;
+            const JOINED: [#config::PropMeta; N] = #config::concat_props(&[EXPLICIT, &OWN]);
+            &JOINED
+        };
+
+        /// The registry over `SETTINGS_PROPS`.
+        pub const SETTINGS_REGISTRY: #config::Registry = #config::Registry::new(SETTINGS_PROPS);
+
+        #spec
+    }
 }
 
 /// The one place a `usage_config` type is named: the root's conversion.
@@ -5318,11 +5505,11 @@ fn settings_guard(cli: &Cli) -> Option<TokenStream> {
     if children.is_empty() {
         return None;
     }
-    let checks = children.into_iter().map(|(bindings, _)| {
+    let checks = children.into_iter().map(|(bindings, _, _)| {
         quote! {
             const _: () = assert!(
                 #bindings.len() == 0,
-                "this command flattens or nests a group that binds a setting, and does not \
+                "this command flattens, nests or repeats a group that binds a setting, and does not \
                  collect it: add `#[usage(settings)]` to the struct deriving `Cli`",
             );
         }
@@ -6576,12 +6763,15 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let settings_defs = parts.as_ref().map(|s| {
         let given = &s.given;
         let bindings = &s.bindings;
-        quote!(#given #bindings)
+        let decls = &s.decls;
+        quote!(#given #bindings #decls)
     });
     let settings_impl = parts.as_ref().map(|_| {
         quote! {
             const SETTINGS_BINDINGS: &'static [(&'static str, &'static str)] =
                 SETTINGS_BINDINGS;
+
+            const SETTING_DECLS: &'static [usage_argv::spec::SettingDecl] = SETTING_DECLS;
 
             fn settings_given(
                 partial: &Self::Partial,
@@ -8303,6 +8493,11 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
         quote!(<#ty as usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS)
     });
     let binding_lens = binding_parts.clone().map(|part| quote!(+ #part.len()));
+    let decl_parts = subs.variants.iter().filter(|v| !v.external).map(|v| {
+        let ty = &v.ty;
+        quote!(<#ty as usage_argv::spec::CommandArgs>::SETTING_DECLS)
+    });
+    let decl_lens = decl_parts.clone().map(|part| quote!(+ #part.len()));
     let givens = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
         if v.external {
@@ -8754,6 +8949,14 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     const N: usize = 0 #(#binding_lens)*;
                     const JOINED: [(&'static str, &'static str); N] =
                         usage_argv::spec::concat_bindings(PARTS);
+                    &JOINED
+                };
+
+                const SETTING_DECLS: &'static [usage_argv::spec::SettingDecl] = {
+                    const PARTS: &[&'static [usage_argv::spec::SettingDecl]] = &[#(#decl_parts),*];
+                    const N: usize = 0 #(#decl_lens)*;
+                    const JOINED: [usage_argv::spec::SettingDecl; N] =
+                        usage_argv::spec::concat_setting_decls(PARTS);
                     &JOINED
                 };
 

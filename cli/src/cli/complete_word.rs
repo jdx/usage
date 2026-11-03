@@ -197,6 +197,9 @@ impl CompleteWord {
         // Not `available_flags`: inside a mounted command, the mounting CLI's flags stay
         // recognized for parsing but are not accepted there, so they must not be offered.
         let mut flags = parsed.completion_flags();
+        // Before the default command's flags: the parser answers a supplied `--help` ahead of
+        // choosing the default command, so a hidden `--help` of its own does not take it.
+        Self::add_supplied_flags(spec, &parsed, &mut flags);
         if spec.default_subcommand_flags
             && parsed.cmds.len() == 1
             && let Some(default) = spec
@@ -449,6 +452,49 @@ impl CompleteWord {
             .filter(|(c, _)| c.starts_with(ctoken))
             .sorted()
             .collect()
+    }
+
+    /// The flags the parser answers to without a declaration: `--help`, and `--version` on
+    /// the root of a spec that has a version.
+    ///
+    /// Under the rules `parse` follows (`is_help_arg`, `is_version_arg`), and only for a
+    /// spelling no declared flag took — a spec that spends `-V` on something else keeps it,
+    /// and still offers `--version` beside it.
+    fn add_supplied_flags(
+        spec: &Spec,
+        parsed: &usage::parse::ParseOutput,
+        flags: &mut BTreeMap<String, Arc<SpecFlag>>,
+    ) {
+        let mut supply = |name: &str, help: &str, long: Option<&str>, short: Option<char>| {
+            let key = match (long, short) {
+                (Some(long), _) => format!("--{long}"),
+                (_, Some(short)) => format!("-{short}"),
+                _ => return,
+            };
+            // `available_flags` as well: a host global stays bound inside a mount even where it
+            // is not offered, and so keeps its spelling.
+            if flags.contains_key(&key) || parsed.available_flags.contains_key(&key) {
+                return;
+            }
+            let mut flag = SpecFlag::default();
+            flag.name = name.to_string();
+            flag.help = Some(help.to_string());
+            flag.long = long.map(str::to_string).into_iter().collect();
+            flag.short = short.into_iter().collect();
+            flag.usage = flag.usage();
+            flags.insert(key, Arc::new(flag));
+        };
+        if spec.disable_help != Some(true) && !parsed.cmd.disable_help_flag {
+            supply("help", "Print help", Some("help"), None);
+            supply("help", "Print help", None, Some('h'));
+        }
+        if (spec.version.is_some() || spec.long_version.is_some())
+            && parsed.cmds.len() == 1
+            && !spec.cmd.disable_version_flag
+        {
+            supply("version", "Print version", Some("version"), None);
+            supply("version", "Print version", None, Some('V'));
+        }
     }
 
     fn complete_long_flag_names(

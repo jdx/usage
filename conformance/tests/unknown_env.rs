@@ -64,7 +64,7 @@ enum Commands {
 )]
 struct Exu {
     /// Say more
-    #[usage(long, env = "EXU_VERBOSE")]
+    #[usage(long, env = "EXU_VERBOSE", setting = "verbose")]
     verbose: bool,
     #[usage(subcommand)]
     command: Commands,

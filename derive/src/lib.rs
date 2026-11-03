@@ -408,6 +408,14 @@
 //! naming the attribute, because the alternative is a documented flag that quietly sets
 //! nothing.
 //!
+//! The flag is also the setting's declaration. Each command describes its bound settings in
+//! `usage_argv::spec::SettingDecl` — the type from the field, the environment names from `env`,
+//! `env_fallback` and `deprecated_env`, list splitting from `delimiter`, the help from the doc
+//! comment — and the root joins them into `Cli::SETTINGS_PROPS` and `Cli::SETTINGS_REGISTRY`,
+//! listing each setting's flags from the binding table so `drift` has nothing to find. A root
+//! naming a `config = Type` adds that type's settings, and its declaration wins a key both make:
+//! that is where a default, a merge or a scope goes, and the settings no flag sets.
+//!
 //! A word is held as the bytes it arrived as and converted once, where the struct is built.
 //! So a value that is not valid UTF-8 is **reported** rather than quietly replaced with
 //! `U+FFFD` — which for a `PathBuf` meant a different file, silently. On Unix, `PathBuf` and

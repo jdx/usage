@@ -1149,6 +1149,23 @@ fn field_holds(ty: &syn::Type, value: &Const, position: Position) -> bool {
     }
 }
 
+/// What one value of a flag-declared setting holds, by the inference a `Config` field gets.
+///
+/// As a `usage_argv::spec::SettingTy`, since the field it reads may live in a group that never
+/// names the config crate. Anything that is not a scalar the registry knows is a string, which is
+/// what the flag hands the registry anyway.
+pub(crate) fn setting_ty(ty: &syn::Type) -> TokenStream {
+    let variant = match infer_ty(ty) {
+        Some(Ty::Bool) => quote!(Bool),
+        Some(Ty::Int) => quote!(Int),
+        Some(Ty::Uint) => quote!(Uint),
+        Some(Ty::Float) => quote!(Float),
+        Some(Ty::Path) => quote!(Path),
+        _ => quote!(String),
+    };
+    quote!(usage_argv::spec::SettingTy::#variant)
+}
+
 fn infer_ty(ty: &syn::Type) -> Option<Ty> {
     let syn::Type::Path(path) = ty else {
         return None;

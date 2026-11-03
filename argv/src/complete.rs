@@ -1581,7 +1581,7 @@ fn complete_inner<'a>(
         .and_then(|chain| sigil_arg_on_chain(chain, &position, split));
     // From the same walk: a second one would reach the same position, and in a binary this
     // function is inlined into, every walk is its own copy of the code around it.
-    let candidates = candidates_at(spec, split, &position, meta, sigil_cursor);
+    let candidates = candidates_at(spec, split, &position, meta, sigil_cursor, view.is_some());
 
     // Which argument the cursor is at — the same question `candidates` answers, asked once so
     // that the two halves cannot disagree. Past a restart token it is the first clause argument,
@@ -2078,7 +2078,7 @@ pub fn candidates<'a>(spec: &Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
     let sigil_arg = chain
         .as_deref()
         .and_then(|chain| sigil_arg_on_chain(chain, &position, split));
-    candidates_at(spec, split, &position, meta, sigil_arg)
+    candidates_at(spec, split, &position, meta, sigil_arg, false)
 }
 
 /// The candidates at a position already walked, with the command metadata it reached and the
@@ -2089,6 +2089,7 @@ fn candidates_at<'a>(
     position: &Position<'_>,
     meta: Option<&'a CommandMeta<'a>>,
     sigil_arg: Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>, &'a str, &str)>,
+    in_view: bool,
 ) -> Vec<Candidate<'a>> {
     let token = split.prefix.as_str();
 
@@ -2109,7 +2110,7 @@ fn candidates_at<'a>(
                     found
                 })
                 .unwrap_or_default(),
-            None => flag_forms(spec, position, token),
+            None => flag_forms(spec, position, token, in_view),
         }
     } else if restarted(meta, split) {
         // Past a restart token — mise's `:::`, which starts a fresh invocation of the same
@@ -2297,13 +2298,71 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
 /// candidate for a different position in the word. A lone `-` says nothing about which was
 /// meant, so it gets both. One loop for the two, since each form needs the same metadata; the
 /// order they are found in does not matter, because the caller sorts.
-fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
+fn flag_forms<'a>(
+    spec: &Spec<'a>,
+    position: &Position<'_>,
+    token: &str,
+    in_view: bool,
+) -> Vec<Candidate<'a>> {
     let longs = token == "-" || token.starts_with("--");
     let shorts = !token.starts_with("--");
     let wanted = token.as_bytes().get(1).copied();
     let mut out = Vec::new();
-    for flag in &position.flags {
-        let meta = flag_meta(spec.root, flag);
+    // The flags the parser answers to without a declaration — `--help`, and `--version` where
+    // a version is declared — are offered by the same rule that lists them on a help page, so
+    // what completes is what the page shows. Anything the tables declare takes its spelling
+    // first, hidden or not, exactly as the parser resolves it.
+    // Not the default command's flags: the parser answers a supplied flag before it chooses
+    // the default command, so a hidden `--help` there takes nothing.
+    let default_flags: &[&Flag<'_>] = match position.cmd.default_subcommand {
+        Some(default) if position.cmd.default_subcommand_flags => default.flags,
+        _ => &[],
+    };
+    let mut claimed = Vec::new();
+    // They are the tail of the list, appended after the parser's own, so a flag the root and
+    // the default command share still counts once, at its place among the parser's.
+    let parser_owned = position.flags.len().saturating_sub(default_flags.len());
+    for flag in &position.flags[..parser_owned] {
+        for long in flag.longs.iter().copied().chain(flag.negate) {
+            claimed.push(crate::help::Form::Long(long));
+        }
+        for short in flag.shorts {
+            claimed.push(crate::help::Form::Short(*short));
+        }
+    }
+    let mut flags: Vec<(&Flag<'_>, Option<&'a FlagMeta<'a>>)> = position
+        .flags
+        .iter()
+        .map(|flag| (*flag, flag_meta(spec.root, flag)))
+        .collect();
+    flags.extend(
+        crate::help::supplied_entries(position.cmd, &claimed)
+            .into_iter()
+            // In a view the parser reads `--version` off the root alone, wherever the words
+            // have got to, so the command in scope has no say in it.
+            .filter(|meta| {
+                !in_view
+                    || !matches!(
+                        meta.flag.key,
+                        crate::VERSION_LONG_KEY | crate::VERSION_SHORT_KEY
+                    )
+            })
+            .map(|meta| (meta.flag, Some(meta))),
+    );
+    if in_view {
+        flags.extend(
+            crate::help::supplied_entries(spec.root.cmd, &claimed)
+                .into_iter()
+                .filter(|meta| {
+                    matches!(
+                        meta.flag.key,
+                        crate::VERSION_LONG_KEY | crate::VERSION_SHORT_KEY
+                    )
+                })
+                .map(|meta| (meta.flag, Some(meta))),
+        );
+    }
+    for (flag, meta) in flags {
         if meta.is_some_and(|m| m.hide) {
             continue;
         }
@@ -2361,6 +2420,10 @@ fn flag_forms<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<
             }
         }
     }
+    // A visible `--help` on the default command would be offered twice, declared and supplied.
+    // Sorted by value first so the declared one, which comes earlier, is the one kept.
+    out.sort_by(|a, b| a.value.cmp(&b.value));
+    out.dedup_by(|a, b| a.value == b.value);
     out
 }
 
@@ -4064,14 +4127,19 @@ mod tests {
     #[test]
     fn a_dash_offers_the_flags_that_would_be_accepted_there() {
         // Both forms for a lone dash, since it says nothing about which was meant.
-        assert_eq!(offered("mise -"), ["--quiet", "--verbose", "-v"]);
-        assert_eq!(offered("mise --"), ["--quiet", "--verbose"]);
+        // `--help` is the parser's own rather than a declared flag, and is offered all the same.
+        assert_eq!(
+            offered("mise -"),
+            ["--help", "--quiet", "--verbose", "-h", "-v"]
+        );
+        assert_eq!(offered("mise --"), ["--help", "--quiet", "--verbose"]);
+        assert_eq!(offered("mise -h"), ["-h"]);
 
         // Inside a subcommand: its own flags and the globals it inherits, which is exactly
         // what the parser would accept there.
         assert_eq!(
             offered("mise use --"),
-            ["--jobs", "--quiet", "--tools", "--verbose"]
+            ["--help", "--jobs", "--quiet", "--tools", "--verbose"]
         );
         // A short token asks about one letter, because bundling means any other letter would
         // be a candidate for a different position in the token.

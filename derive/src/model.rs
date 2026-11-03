@@ -1573,22 +1573,25 @@ impl Cli {
         }
 
         // `settings` says "this CLI resolves settings whose flags are declared elsewhere", so
-        // there has to be an elsewhere: a field that binds one, a flattened group, or a
-        // subcommand. With none of the three the attribute describes nothing, and the generated
+        // there has to be an elsewhere: a field that binds one, a flattened group, a clause,
+        // or a subcommand. With none of them the attribute describes nothing, and the generated
         // layer called a `settings_given` that was never emitted — so an adopter's build failed
         // with `cannot find function settings_given` pointing at `#[derive(Cli)]`, which names
         // neither the attribute nor the mistake.
         if self.settings
             && !self.fields.iter().any(|f| {
                 f.setting.is_some()
-                    || matches!(f.kind, Kind::Flatten { .. } | Kind::Subcommand { .. })
+                    || matches!(
+                        f.kind,
+                        Kind::Flatten { .. } | Kind::Clause { .. } | Kind::Subcommand { .. }
+                    )
             })
         {
             return Err(self.misplaced(
                 ident,
                 "`settings` says this CLI resolves settings whose flags are declared \
                  elsewhere, and there is no elsewhere: nothing here binds a setting, and \
-                 there is no flattened group or subcommand that could. Add `setting = \"…\"` \
+                 there is no flattened group, clause or subcommand that could. Add `setting = \"…\"` \
                  to the flag that sets one, or drop the attribute",
             ));
         }
@@ -9173,11 +9176,12 @@ mod tests {
             .to_string();
         assert!(err.contains("no elsewhere"), "unhelpful message: {err}");
 
-        // Any of the three is enough, and each is a different way for a flag to be somewhere
+        // Any of the four is enough, and each is a different way for a flag to be somewhere
         // this struct does not declare it.
         for body in [
             r#"struct Ex { #[usage(long, setting = "jobs")] jobs: Option<String> }"#,
             r#"struct Ex { #[usage(flatten)] group: Group }"#,
+            r#"struct Ex { #[usage(clause)] tools: Vec<Tool> }"#,
             r#"struct Ex { #[usage(subcommand)] command: Option<Commands> }"#,
         ] {
             let body = format!("#[usage(settings)]\n{body}");
