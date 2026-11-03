@@ -20,11 +20,17 @@ import (
 // names is passed in rather than read from the process for the reason [Fill]
 // takes its lookup: a test of a parse should not be a test of the machine it runs
 // on. [EnvNames] reads the process. On Windows, where variable names are
-// case-insensitive, so is the comparison.
+// case-insensitive, so is the comparison, and a variable set in two cases is
+// reported once.
 func UnknownEnv(prefix string, known, names []string) []string {
+	// An empty prefix owns nothing: the spec refuses one, and a hand-built call
+	// that passes one must not make PATH an error.
+	if prefix == "" {
+		return nil
+	}
 	var unknown []string
 	for _, name := range names {
-		if len(name) < len(prefix) || !sameEnv(name[:len(prefix)], prefix) {
+		if !hasEnvPrefix(name, prefix) {
 			continue
 		}
 		if slices.ContainsFunc(known, func(k string) bool { return sameEnv(k, name) }) {
@@ -32,8 +38,14 @@ func UnknownEnv(prefix string, known, names []string) []string {
 		}
 		unknown = append(unknown, name)
 	}
-	slices.Sort(unknown)
-	return slices.Compact(unknown)
+	// On Windows EX_TYPO and ex_typo are one variable, and listing it twice would
+	// read as two mistakes.
+	if runtime.GOOS == "windows" {
+		slices.SortStableFunc(unknown, func(a, b string) int { return strings.Compare(strings.ToUpper(a), strings.ToUpper(b)) })
+	} else {
+		slices.Sort(unknown)
+	}
+	return slices.CompactFunc(unknown, sameEnv)
 }
 
 // RefuseUnknownEnv is [UnknownEnv] as the error a parse returns, with every
@@ -62,32 +74,20 @@ func EnvNames() []string {
 	return names
 }
 
+// sameEnv folds case on Windows with Unicode rules, as usage-lib does, because
+// Windows folds ä and Ä together too.
 func sameEnv(a, b string) bool {
 	if runtime.GOOS == "windows" {
-		return asciiEqualFold(a, b)
+		return strings.EqualFold(a, b)
 	}
 	return a == b
 }
 
-// asciiEqualFold folds ASCII only, as Windows and usage-lib do: strings.EqualFold
-// would also match the Kelvin sign to K.
-func asciiEqualFold(a, b string) bool {
-	if len(a) != len(b) {
-		return false
+func hasEnvPrefix(name, prefix string) bool {
+	if runtime.GOOS == "windows" {
+		return strings.HasPrefix(strings.ToUpper(name), strings.ToUpper(prefix))
 	}
-	for i := range len(a) {
-		x, y := a[i], b[i]
-		if 'A' <= x && x <= 'Z' {
-			x += 'a' - 'A'
-		}
-		if 'A' <= y && y <= 'Z' {
-			y += 'a' - 'A'
-		}
-		if x != y {
-			return false
-		}
-	}
-	return true
+	return strings.HasPrefix(name, prefix)
 }
 
 // pluralWord is the noun alone, without [plural]'s count.

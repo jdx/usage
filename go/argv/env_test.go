@@ -25,6 +25,9 @@ func TestUnknownEnv(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("case: got %q, want %q", got, want)
 	}
+	if got := UnknownEnv("", known, []string{"PATH"}); got != nil {
+		t.Fatalf("an empty prefix owns nothing, got %q", got)
+	}
 }
 
 func TestUnknownEnvRendering(t *testing.T) {
