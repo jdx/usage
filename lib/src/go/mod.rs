@@ -72,6 +72,10 @@ pub fn generate_with_types(
     opts: &GoOptions,
     field_types: &BTreeMap<String, ValueType>,
 ) -> Result<String, String> {
+    // A generated parser that ignored the policy would accept the very typos it names.
+    if spec.unknown_env.is_some() {
+        return Err("unknown_env is not supported by the Go generator yet".to_string());
+    }
     if field_types.is_empty() {
         return Ok(generate(spec, opts));
     }
@@ -2927,5 +2931,12 @@ flag "--into <where>" {
         assert_eq!(go_string("tab\there"), r#""tab\there""#);
         // Rust would spell this `\u{7f}`, which Go rejects.
         assert_eq!(go_string("\u{7f}"), r#""\x7f""#);
+    }
+
+    #[test]
+    fn unknown_env_is_refused_until_the_go_parser_enforces_it() {
+        let spec: Spec = "name \"ex\"\nunknown_env prefix=\"EX_\"\n".parse().unwrap();
+        let err = generate_with_types(&spec, &GoOptions::default(), &BTreeMap::new()).unwrap_err();
+        assert!(err.contains("unknown_env"), "{err}");
     }
 }

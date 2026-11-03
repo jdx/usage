@@ -93,7 +93,7 @@ pub fn unknown<'n>(
         .filter(|name| {
             // A name that is not UTF-8 is never a declared one, even when its lossy spelling
             // happens to equal a declaration that contains U+FFFD.
-            starts_with_env(&name.to_string_lossy(), prefix)
+            starts_with_env(valid_head(name), prefix)
                 && name
                     .to_str()
                     .is_none_or(|name| !declared.iter().chain(known).any(|k| same_env(k, name)))
@@ -162,4 +162,16 @@ fn same_env(a: &str, b: &str) -> bool {
 /// exactly when the original is.
 fn starts_with_env(name: &str, prefix: &str) -> bool {
     fold_env(name).starts_with(&*fold_env(prefix))
+}
+
+/// The part of `name` before its first byte that is not UTF-8.
+///
+/// The prefix is UTF-8, so a name can only start with it there. Matching the lossy spelling
+/// instead would let a prefix containing U+FFFD claim a name whose bytes are something else.
+fn valid_head(name: &OsStr) -> &str {
+    let bytes = name.as_encoded_bytes();
+    match std::str::from_utf8(bytes) {
+        Ok(name) => name,
+        Err(e) => std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap_or_default(),
+    }
 }

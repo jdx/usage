@@ -137,12 +137,11 @@ impl SpecUnknownEnv {
         let mut unknown: Vec<&OsStr> = names
             .into_iter()
             .filter(|name| {
-                let lossy = name.to_string_lossy();
                 // A name that is not UTF-8 is never a declared one, even when its lossy
                 // spelling happens to equal a declaration that contains U+FFFD.
                 // The prefix decides whose variable it is, which is the platform's question even
                 // for a map read by exact key: `ex_ready` is this CLI's on Windows, and unknown.
-                starts_with_env(&lossy, &self.prefix, cfg!(windows))
+                starts_with_env(valid_head(name), &self.prefix, cfg!(windows))
                     && name.to_str().is_none_or(|name| {
                         !known.iter().any(|k| same_env(k, name, fold))
                             && !self.allow.iter().any(|a| same_env(a, name, fold))
@@ -259,6 +258,18 @@ fn starts_with_env(name: &str, prefix: &str, fold: bool) -> bool {
     fold_env(name, fold).starts_with(&*fold_env(prefix, fold))
 }
 
+/// The part of `name` before its first byte that is not UTF-8.
+///
+/// The prefix is UTF-8, so a name can only start with it there. Matching the lossy spelling
+/// instead would let a prefix containing U+FFFD claim a name whose bytes are something else.
+fn valid_head(name: &OsStr) -> &str {
+    let bytes = name.as_encoded_bytes();
+    match std::str::from_utf8(bytes) {
+        Ok(name) => name,
+        Err(e) => std::str::from_utf8(&bytes[..e.valid_up_to()]).unwrap_or_default(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -359,6 +370,11 @@ mod tests {
             decl.unknown(&spec, [name, other, name]),
             ["EX_\u{fffd}", "EX_\u{fffd}"]
         );
+        // A prefix ending in U+FFFD owns a name whose bytes spell it, not one whose invalid
+        // byte merely reads as it.
+        let decl = SpecUnknownEnv::new("EX_\u{fffd}");
+        let spelled = OsStr::new("EX_\u{fffd}X");
+        assert_eq!(decl.unknown(&spec, [name, spelled]), ["EX_\u{fffd}X"]);
     }
 
     #[test]

@@ -116,6 +116,10 @@ fn argv_unknown(names: &[&str]) -> Vec<String> {
 fn both_implementations_know_the_same_names() {
     let mut env = KNOWN.to_vec();
     env.extend(["PATH", "EXUBERANT", "EX_PORT"]);
+    if cfg!(windows) {
+        // Windows variable names are case-insensitive, so this is `EXU_PORT`.
+        env.push("EXU_Port");
+    }
     assert_eq!(argv_unknown(&env), Vec::<String>::new());
     assert_eq!(lib_unknown(&env), Vec::<String>::new());
 
@@ -185,7 +189,15 @@ fn a_parse_refuses_every_unknown_variable_at_once() {
 
     // usage-lib says the same about the same environment.
     let spec: usage::Spec = Exu::to_kdl().parse().unwrap();
-    let env: HashMap<String, String> = std::env::vars().collect();
+    // `vars` would panic on a variable the test process inherited that is not UTF-8.
+    let env: HashMap<String, String> = std::env::vars_os()
+        .map(|(k, v)| {
+            (
+                k.to_string_lossy().into_owned(),
+                v.to_string_lossy().into_owned(),
+            )
+        })
+        .collect();
     let err = usage::Parser::new(&spec)
         .with_env(env)
         .parse(&["exu".to_string(), "publish".to_string()])
