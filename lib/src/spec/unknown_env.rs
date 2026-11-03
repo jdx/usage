@@ -68,6 +68,14 @@ impl SpecUnknownEnv {
         for child in node.children() {
             match child.name() {
                 "allow" => {
+                    // Names only. Anything else here was meant as a name and would otherwise be
+                    // dropped, leaving a variable the author meant to allow refused at run time.
+                    if let Some((key, value)) = child.props().into_iter().next() {
+                        bail_parse!(ctx, value.entry.span(), "unsupported allow key {key}");
+                    }
+                    if !child.children().is_empty() {
+                        bail_parse!(ctx, child.span(), "allow takes names, not child nodes");
+                    }
                     for name in child.args() {
                         decl.allow.push(name.ensure_string()?);
                     }
@@ -114,22 +122,30 @@ impl SpecUnknownEnv {
         resolved: &[SpecCommand],
         names: impl IntoIterator<Item = &'n OsStr>,
     ) -> Vec<String> {
+        // An empty prefix owns nothing. The KDL reader refuses one; a policy built in code that
+        // has one must not make `PATH` an error.
+        if self.prefix.is_empty() {
+            return Vec::new();
+        }
         let mut known = declared_env_names(spec);
         for cmd in resolved {
             collect_cmd(cmd, &mut known);
         }
         let mut unknown: Vec<String> = names
             .into_iter()
-            .map(|name| name.to_string_lossy())
-            .filter(|name| starts_with_env(name, &self.prefix))
             .filter(|name| {
-                !known.iter().any(|k| same_env(k, name))
-                    && !self.allow.iter().any(|a| same_env(a, name))
+                let lossy = name.to_string_lossy();
+                // A name that is not UTF-8 is never a declared one, even when its lossy
+                // spelling happens to equal a declaration that contains U+FFFD.
+                starts_with_env(&lossy, &self.prefix)
+                    && name.to_str().is_none_or(|name| {
+                        !known.iter().any(|k| same_env(k, name))
+                            && !self.allow.iter().any(|a| same_env(a, name))
+                    })
             })
-            .map(|name| name.into_owned())
+            .map(|name| name.to_string_lossy().into_owned())
             .collect();
-        unknown.sort();
-        unknown.dedup();
+        sort_env(&mut unknown);
         unknown
     }
 }
@@ -195,6 +211,17 @@ fn same_env(a: &str, b: &str) -> bool {
     } else {
         a == b
     }
+}
+
+/// Sorted, each variable once, by the same comparison as [`same_env`]: on Windows `EX_TYPO` and
+/// `ex_typo` are one variable, and listing it twice would read as two mistakes.
+fn sort_env(names: &mut Vec<String>) {
+    if cfg!(windows) {
+        names.sort_by_cached_key(|name| name.to_uppercase());
+    } else {
+        names.sort();
+    }
+    names.dedup_by(|a, b| same_env(a, b));
 }
 
 fn starts_with_env(name: &str, prefix: &str) -> bool {
@@ -273,5 +300,31 @@ mod tests {
             .parse::<Spec>()
             .unwrap_err();
         assert!(format!("{err:?}").contains("bogus"), "{err:?}");
+        let err = "name \"ex\"\nunknown_env prefix=\"EX_\" {\n    allow name=\"EX_A\"\n}\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("allow key name"), "{err:?}");
+    }
+
+    #[test]
+    fn an_empty_prefix_built_in_code_owns_nothing() {
+        let spec: Spec = "name \"ex\"\n".parse().unwrap();
+        let decl = SpecUnknownEnv::default();
+        assert!(decl.unknown(&spec, [OsStr::new("PATH")]).is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_name_that_is_not_utf8_is_reported_not_matched() {
+        use std::os::unix::ffi::OsStrExt;
+        // A declaration containing U+FFFD, which is what the lossy spelling of the
+        // invalid byte becomes.
+        let spec: Spec =
+            "name \"ex\"\nunknown_env prefix=\"EX_\"\nflag \"--x <x>\" env=\"EX_\u{fffd}\"\n"
+                .parse()
+                .unwrap();
+        let decl = spec.unknown_env.clone().unwrap();
+        let name = OsStr::from_bytes(b"EX_\xff");
+        assert_eq!(decl.unknown(&spec, [name]), ["EX_\u{fffd}"]);
     }
 }

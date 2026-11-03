@@ -153,6 +153,17 @@ fn a_parse_refuses_every_unknown_variable_at_once() {
     }
     Exu::parse_from(&argv).expect("every variable is declared");
 
+    // The deprecated name still warns as one, on the command that reads it.
+    let serve = [OsStr::new("serve")];
+    let mut warnings = Vec::new();
+    Exu::parse_from_with_warnings(&serve, &mut warnings).expect("every variable is declared");
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.kind == usage_argv::warn::WarningKind::DeprecatedEnv && w.name == "EXU_SSL"),
+        "{warnings:?}"
+    );
+
     unsafe {
         std::env::set_var("EXU_PROT", "8080");
         std::env::set_var("EXU_TSL", "1");

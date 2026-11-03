@@ -8129,6 +8129,7 @@ cmd "publish"
             .unwrap_err()
             .to_string();
         assert!(!err.contains("EX_PROT"), "{err}");
+        assert!(err.contains("Usage:"), "{err}");
     }
 
     #[test]

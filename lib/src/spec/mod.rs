@@ -960,6 +960,13 @@ impl Spec {
                             incoming.declared_in.display()
                         );
                     }
+                    // One prefix and one allow list for the program, as in a single file. The
+                    // same declaration arriving by two routes is still one declaration.
+                    if let (Some(own), Some(incoming)) = (&schema.unknown_env, &other.unknown_env)
+                        && own != incoming
+                    {
+                        bail_parse!(ctx, node.span(), "unknown_env may be declared only once");
+                    }
                     schema.merge(other);
                 }
                 k => bail_parse!(ctx, node.node.name().span(), "unsupported spec key {k}"),

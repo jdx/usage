@@ -4972,6 +4972,9 @@ fn unknown_env_decl(meta: &Meta) -> syn::Result<UnknownEnvDecl> {
     };
     list.parse_nested_meta(|nested| {
         if nested.path.is_ident("prefix") {
+            if !decl.prefix.is_empty() {
+                return Err(nested.error("`prefix` is already declared"));
+            }
             decl.prefix = nested.value()?.parse::<syn::LitStr>()?.value();
         } else if nested.path.is_ident("allow") {
             let content;

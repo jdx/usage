@@ -82,21 +82,32 @@ pub fn unknown<'n>(
     known: &[&str],
     names: impl IntoIterator<Item = &'n OsStr>,
 ) -> Vec<String> {
+    // An empty prefix owns nothing: the derive refuses one, and a caller passing one must not
+    // make `PATH` an error.
+    if prefix.is_empty() {
+        return Vec::new();
+    }
     let declared = declared_names(root);
     let mut unknown: Vec<String> = names
         .into_iter()
-        .map(OsStr::to_string_lossy)
-        .filter(|name| starts_with_env(name, prefix))
         .filter(|name| {
-            !declared
-                .iter()
-                .chain(known)
-                .any(|k| same_env(k, name.as_ref()))
+            // A name that is not UTF-8 is never a declared one, even when its lossy spelling
+            // happens to equal a declaration that contains U+FFFD.
+            starts_with_env(&name.to_string_lossy(), prefix)
+                && name
+                    .to_str()
+                    .is_none_or(|name| !declared.iter().chain(known).any(|k| same_env(k, name)))
         })
-        .map(|name| name.into_owned())
+        .map(|name| name.to_string_lossy().into_owned())
         .collect();
-    unknown.sort_unstable();
-    unknown.dedup();
+    // On Windows `EX_TYPO` and `ex_typo` are one variable, and listing it twice would read as two
+    // mistakes.
+    if cfg!(windows) {
+        unknown.sort_by_cached_key(|name| name.to_uppercase());
+    } else {
+        unknown.sort_unstable();
+    }
+    unknown.dedup_by(|a, b| same_env(a, b));
     unknown
 }
 
