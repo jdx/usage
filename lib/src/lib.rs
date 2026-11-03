@@ -21,6 +21,7 @@ pub use crate::spec::output::{
     Framing, Selector, SpecOutput, effective_outputs, effective_outputs_ref, effective_select,
     effective_select_ref,
 };
+pub use crate::spec::unknown_env::SpecUnknownEnv;
 pub use crate::spec::unknown_flags::UnknownFlags;
 pub use crate::spec::view::SpecView;
 pub use crate::warn::{Warning, WarningKind};

@@ -1201,6 +1201,23 @@ impl<'a> Parser<'a> {
                 );
             }
         }
+        // Against the environment this parse read from, so a caller that supplies its own map
+        // is judged on that map and not on the process it happens to run in.
+        if let Some(unknown_env) = &self.spec.unknown_env {
+            let names = match custom_env {
+                Some(env) => unknown_env.unknown(self.spec, env.keys().map(std::ffi::OsStr::new)),
+                None => {
+                    let process: Vec<_> = std::env::vars_os().map(|(name, _)| name).collect();
+                    unknown_env.unknown(self.spec, process.iter().map(|n| n.as_os_str()))
+                }
+            };
+            if !names.is_empty() {
+                out.errors.push(UsageErr::UnknownEnv {
+                    prefix: unknown_env.prefix.clone(),
+                    names,
+                });
+            }
+        }
         // Applied once, here, because this is where the CLI's own version is known: a
         // `deprecated_warn_at` the spec has not reached yet is an author saying *not yet*.
         crate::warn::retain_reached(&mut out.warnings, self.spec.version.as_deref());
@@ -8024,6 +8041,53 @@ arg "<required>"
         let required = out.args.keys().find(|arg| arg.name == "required").unwrap();
         assert_eq!(out.args[tool].to_string(), "node");
         assert_eq!(out.args[required].to_string(), "value");
+    }
+
+    #[test]
+    fn unknown_env_refuses_every_undeclared_variable_under_the_prefix() {
+        let spec: Spec = r#"name "ex"
+bin "ex"
+unknown_env prefix="EX_" {
+    allow "EX_LIBRARY"
+}
+flag "--port <port>" env="EX_PORT"
+cmd "serve" {
+    flag "--tls" deprecated_env="EX_SSL"
+}
+cmd "publish"
+"#
+        .parse()
+        .unwrap();
+        let env = |names: &[&str]| -> HashMap<String, String> {
+            names.iter().map(|n| (n.to_string(), "1".into())).collect()
+        };
+        let argv = input(&["ex", "publish"]);
+
+        // A variable for `serve` is known while running `publish`, and a deprecated name
+        // keeps its deprecation warning instead of becoming an error.
+        let out = Parser::new(&spec)
+            .with_env(env(&["EX_PORT", "EX_SSL", "EX_LIBRARY", "OTHER"]))
+            .parse(&argv)
+            .unwrap();
+        assert!(out.errors.is_empty());
+
+        let err = Parser::new(&spec)
+            .with_env(env(&["EX_PROT", "EX_PORT", "EX_TSL"]))
+            .parse(&argv)
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            err,
+            "Unknown environment variables under EX_: EX_PROT, EX_TSL"
+        );
+
+        // Help is still help: the user asking how to fix the typo should get the answer.
+        let err = Parser::new(&spec)
+            .with_env(env(&["EX_PROT"]))
+            .parse(&input(&["ex", "--help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(!err.contains("EX_PROT"), "{err}");
     }
 
     #[test]

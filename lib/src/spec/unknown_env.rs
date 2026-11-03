@@ -1,0 +1,257 @@
+use std::collections::BTreeSet;
+use std::ffi::OsStr;
+
+use serde::Serialize;
+
+use crate::Spec;
+use crate::error::Result;
+use crate::kdl::{self, KdlNode};
+use crate::spec::cmd::SpecCommand;
+use crate::spec::context::ParsingContext;
+use crate::spec::helpers::{NodeHelper, string_entry};
+
+/// Refuse environment variables under the application's prefix that nothing declares.
+///
+/// `unknown_flags "error"` turns a misspelled flag into an error. A misspelled or stale
+/// environment variable gets no such check by default — `MYAPP_LISTEN_TLS_CRET` is read by
+/// nobody, and the program runs on its defaults. That failure is worst where nobody watches a
+/// command line: systemd units, container manifests, Helm values.
+///
+/// ```kdl
+/// unknown_env prefix="MOQ_" {
+///     allow "MOQ_VAAPI_DEVICE" "MOQ_V4L2_ENCODER"
+/// }
+/// ```
+///
+/// The prefix only scopes the check. It never builds a name: every variable is still spelled
+/// out in full where it is declared, so a name seen in an environment can be found by searching
+/// for it.
+///
+/// A variable is known when any flag or argument anywhere in the command tree names it — as
+/// `env`, an `env_fallback` or a `deprecated_env` — or when a `config` property reads it, or
+/// when it is listed in `allow`. The whole tree counts, not only the command that ran: a
+/// variable meant for `serve` is not a typo when the user runs `publish`. `allow` is for
+/// variables read outside the spec, such as by a library.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
+#[non_exhaustive]
+pub struct SpecUnknownEnv {
+    /// Only variables whose names start with this are checked.
+    pub prefix: String,
+    /// Variables under the prefix that the spec does not declare but something still reads.
+    pub allow: Vec<String>,
+}
+
+impl SpecUnknownEnv {
+    pub fn new(prefix: impl Into<String>) -> Self {
+        Self {
+            prefix: prefix.into(),
+            allow: Vec::new(),
+        }
+    }
+
+    /// A variable read outside the spec, which is therefore not a mistake.
+    pub fn allow(mut self, name: impl Into<String>) -> Self {
+        self.allow.push(name.into());
+        self
+    }
+
+    pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper<'_>) -> Result<Self> {
+        node.ensure_arg_len(0..=0)?;
+        node.ensure_props_unrepeated(&["prefix"])?;
+        let mut decl = Self::default();
+        for (key, value) in node.props() {
+            match key {
+                "prefix" => decl.prefix = value.ensure_string()?,
+                key => bail_parse!(ctx, value.entry.span(), "unsupported unknown_env key {key}"),
+            }
+        }
+        for child in node.children() {
+            match child.name() {
+                "allow" => {
+                    for name in child.args() {
+                        decl.allow.push(name.ensure_string()?);
+                    }
+                }
+                key => bail_parse!(
+                    ctx,
+                    child.node.name().span(),
+                    "unsupported unknown_env value {key}"
+                ),
+            }
+        }
+        // An empty prefix would make every variable in the environment this CLI's business,
+        // `PATH` and `HOME` included.
+        if decl.prefix.is_empty() {
+            bail_parse!(
+                ctx,
+                node.span(),
+                "unknown_env needs a non-empty prefix, as in unknown_env prefix=\"MYAPP_\""
+            );
+        }
+        Ok(decl)
+    }
+
+    /// The variables under the prefix that `spec` neither declares nor allows, sorted.
+    ///
+    /// `names` is the environment's variable names. A name that is not valid UTF-8 cannot be
+    /// one the spec declares, so one under the prefix is reported in its lossy spelling rather
+    /// than skipped.
+    pub fn unknown<'n>(
+        &self,
+        spec: &Spec,
+        names: impl IntoIterator<Item = &'n OsStr>,
+    ) -> Vec<String> {
+        let known = declared_env_names(spec);
+        let mut unknown: Vec<String> = names
+            .into_iter()
+            .map(|name| name.to_string_lossy())
+            .filter(|name| starts_with_env(name, &self.prefix))
+            .filter(|name| {
+                !known.iter().any(|k| same_env(k, name))
+                    && !self.allow.iter().any(|a| same_env(a, name))
+            })
+            .map(|name| name.into_owned())
+            .collect();
+        unknown.sort();
+        unknown.dedup();
+        unknown
+    }
+}
+
+impl From<&SpecUnknownEnv> for KdlNode {
+    fn from(decl: &SpecUnknownEnv) -> Self {
+        let mut node = KdlNode::new("unknown_env");
+        node.push(string_entry(Some("prefix"), &decl.prefix));
+        if !decl.allow.is_empty() {
+            let mut children = kdl::KdlDocument::new();
+            let mut allow = KdlNode::new("allow");
+            for name in &decl.allow {
+                allow.push(string_entry(None, name));
+            }
+            children.nodes_mut().push(allow);
+            node.set_children(children);
+        }
+        node
+    }
+}
+
+/// Every environment variable `spec` reads: each flag's and argument's `env`, `env_fallback`
+/// and `deprecated_env` across the whole command tree, clauses included, and every `config`
+/// property's.
+pub fn declared_env_names(spec: &Spec) -> BTreeSet<&str> {
+    let mut names = BTreeSet::new();
+    collect_cmd(&spec.cmd, &mut names);
+    for prop in spec.config.props.values() {
+        names.extend(prop.env.iter().map(String::as_str));
+        names.extend(prop.envs.iter().map(String::as_str));
+        names.extend(prop.deprecated_envs.iter().map(String::as_str));
+    }
+    names
+}
+
+fn collect_cmd<'a>(cmd: &'a SpecCommand, names: &mut BTreeSet<&'a str>) {
+    for flag in &cmd.flags {
+        names.extend(flag.env_names());
+    }
+    for arg in &cmd.args {
+        names.extend(arg.env_names());
+    }
+    if let Some(clause) = &cmd.clause {
+        for flag in &clause.flags {
+            names.extend(flag.env_names());
+        }
+        for arg in &clause.args {
+            names.extend(arg.env_names());
+        }
+    }
+    for sub in cmd.subcommands.values() {
+        collect_cmd(sub, names);
+    }
+}
+
+/// Windows variable names are case-insensitive — `std::env::var("PATH")` finds `Path` — so a
+/// variable set as `Moq_Port` is the one a spec declares as `MOQ_PORT`, and not unknown.
+fn same_env(a: &str, b: &str) -> bool {
+    if cfg!(windows) {
+        a.eq_ignore_ascii_case(b)
+    } else {
+        a == b
+    }
+}
+
+fn starts_with_env(name: &str, prefix: &str) -> bool {
+    name.len() >= prefix.len()
+        && name.is_char_boundary(prefix.len())
+        && same_env(&name[..prefix.len()], prefix)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unknown(spec: &str, env: &[&str]) -> Vec<String> {
+        let spec: Spec = spec.parse().unwrap();
+        spec.unknown_env
+            .as_ref()
+            .expect("the spec declares unknown_env")
+            .unknown(&spec, env.iter().map(OsStr::new))
+    }
+
+    #[test]
+    fn the_whole_tree_and_every_kind_of_name_is_known() {
+        let spec = r#"
+            name "ex"
+            bin "ex"
+            unknown_env prefix="EX_" {
+                allow "EX_LIBRARY"
+            }
+            flag "--port <port>" env="EX_PORT" env_fallback="EX_OLD_PORT"
+            cmd "serve" {
+                flag "--tls" env="EX_TLS" deprecated_env="EX_SSL"
+                arg "[dir]" env="EX_DIR"
+            }
+            config {
+                prop "jobs" env="EX_JOBS"
+            }
+        "#;
+        let env = [
+            "EX_PORT",
+            "EX_OLD_PORT",
+            "EX_TLS",
+            "EX_SSL",
+            "EX_DIR",
+            "EX_JOBS",
+            "EX_LIBRARY",
+            "HOME",
+            "EXTRA",
+        ];
+        assert_eq!(unknown(spec, &env), Vec::<String>::new());
+        let env = ["EX_PROT", "EX_TSL", "EX_PORT", "EX_TSL"];
+        assert_eq!(unknown(spec, &env), ["EX_PROT", "EX_TSL"]);
+    }
+
+    #[test]
+    fn round_trips_through_kdl() {
+        let spec: Spec =
+            "name \"ex\"\nunknown_env prefix=\"EX_\" {\n    allow \"EX_A\" \"EX_B\"\n}\n"
+                .parse()
+                .unwrap();
+        let decl = spec.unknown_env.clone().unwrap();
+        assert_eq!(decl.prefix, "EX_");
+        assert_eq!(decl.allow, ["EX_A", "EX_B"]);
+        let kdl = spec.to_string();
+        assert!(kdl.contains("unknown_env prefix=EX_"), "{kdl}");
+        let reparsed: Spec = kdl.parse().unwrap();
+        assert_eq!(reparsed.unknown_env, Some(decl));
+    }
+
+    #[test]
+    fn a_prefix_is_required() {
+        let err = "name \"ex\"\nunknown_env\n".parse::<Spec>().unwrap_err();
+        assert!(format!("{err:?}").contains("prefix"), "{err:?}");
+        let err = "name \"ex\"\nunknown_env prefix=\"EX_\" bogus=\"x\"\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("bogus"), "{err:?}");
+    }
+}

@@ -159,6 +159,11 @@ pub struct Cli {
     /// Whether a flag-like token that names no flag is a value or an error. Unset
     /// means the spec's default, which is `value`.
     pub unknown_flags: Option<String>,
+    /// Refuse environment variables under a prefix that nothing in the tree declares.
+    ///
+    /// Root only: the whole tree's names are what make a variable known, and only the root
+    /// can see them.
+    pub unknown_env: Option<UnknownEnvDecl>,
     /// The command a bare invocation means: `mise build` is `mise run build`.
     ///
     /// Only the root has one, and it is what mise sets by hand on the emitted spec today.
@@ -258,6 +263,12 @@ pub struct GroupDecl {
     pub required: bool,
     pub multiple: bool,
     pub span: Span,
+}
+
+/// `unknown_env(prefix = "MOQ_", allow("MOQ_VAAPI_DEVICE"))`
+pub struct UnknownEnvDecl {
+    pub prefix: String,
+    pub allow: Vec<String>,
 }
 
 pub struct ViewDecl {
@@ -841,6 +852,7 @@ impl Cli {
             repository: None,
             source_code_link_template: None,
             unknown_flags: None,
+            unknown_env: None,
             default_subcommand: None,
             default_subcommand_flags: false,
             default_subcommand_on_empty: false,
@@ -1106,6 +1118,15 @@ impl Cli {
                         }
                         cli.unknown_flags = Some(mode);
                     }
+                    "unknown_env" => {
+                        if cli.unknown_env.is_some() {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                "`unknown_env` is already declared",
+                            ));
+                        }
+                        cli.unknown_env = Some(unknown_env_decl(&meta)?);
+                    }
                     "default_subcommand" => {
                         cli.default_subcommand = Some(strip_dashes(&string_value(&meta)?))
                     }
@@ -1223,7 +1244,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `surface`, `available_if`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `surface`, `available_if`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, `unknown_env`, \
                                  `default_subcommand`, `default_subcommand_flags`, `default_subcommand_on_empty`, `default_subcommand_help`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `logo`, `logo_style`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount`, `example`, `heading`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
@@ -1489,6 +1510,9 @@ impl Cli {
                 // A logo is the program's, and it is printed on the program's page only.
                 ("logo", self.logo.is_some()),
                 ("logo_style", self.logo_style.is_some()),
+                // Every command's names are what make a variable known, and only the root
+                // sees every command.
+                ("unknown_env", self.unknown_env.is_some()),
             ]
             .into_iter()
             .find_map(|(name, present)| present.then_some(name))
@@ -4933,6 +4957,39 @@ fn example_decl(meta: &Meta) -> syn::Result<ExampleDecl> {
              `example(\"mycli deploy\", header = \"…\", help = \"…\")` when it needs more",
         )),
     }
+}
+
+/// `unknown_env(prefix = "MOQ_", allow("MOQ_VAAPI_DEVICE", "MOQ_V4L2_ENCODER"))`
+fn unknown_env_decl(meta: &Meta) -> syn::Result<UnknownEnvDecl> {
+    const SHAPE: &str = "write `unknown_env(prefix = \"MYAPP_\")`, with `allow(\"MYAPP_X\")` for \
+                         variables read outside the spec";
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(meta, SHAPE));
+    };
+    let mut decl = UnknownEnvDecl {
+        prefix: String::new(),
+        allow: Vec::new(),
+    };
+    list.parse_nested_meta(|nested| {
+        if nested.path.is_ident("prefix") {
+            decl.prefix = nested.value()?.parse::<syn::LitStr>()?.value();
+        } else if nested.path.is_ident("allow") {
+            let content;
+            syn::parenthesized!(content in nested.input);
+            let names = content
+                .parse_terminated(<syn::LitStr as syn::parse::Parse>::parse, syn::Token![,])?;
+            decl.allow.extend(names.iter().map(syn::LitStr::value));
+        } else {
+            return Err(nested.error(format!("unknown `unknown_env` property; {SHAPE}")));
+        }
+        Ok(())
+    })?;
+    // An empty prefix would make every variable in the environment this CLI's business,
+    // `PATH` and `HOME` included.
+    if decl.prefix.is_empty() {
+        return Err(syn::Error::new_spanned(meta, SHAPE));
+    }
+    Ok(decl)
 }
 
 fn view_decl(meta: &Meta) -> syn::Result<ViewDecl> {

@@ -338,6 +338,43 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // after the command tree: KDL nodes are read by name, so position is presentation. Written
     // as an append rather than as the whole body so that it composes with `spec_extra`, which
     // appends to the same string — a root can have both.
+    // The `unknown_env` node, which the tables have no field for. Before `config` so that the
+    // root-level nodes stay together ahead of the block.
+    let unknown_env_extra = cli.unknown_env.as_ref().map(|decl| {
+        let prefix = &decl.prefix;
+        let allow = &decl.allow;
+        quote! {
+            __usage_kdl.push_str(&usage_argv::spec::__usage_unknown_env_kdl(
+                #prefix,
+                &[#(#allow),*],
+            ));
+        }
+    });
+    // Refused in `check`, which every entry point reaches after a help or version request has
+    // already been answered: a user asking `--help` how to fix the typo gets the page. Against
+    // the root's metadata whatever command ran, because the whole tree's names are known.
+    let unknown_env_check = cli.unknown_env.as_ref().map(|decl| {
+        let prefix = &decl.prefix;
+        let allow = &decl.allow;
+        let settings = cli.config.as_ref().map(|ty| {
+            quote! {
+                __usage_known.extend(
+                    <#ty>::SETTINGS_PROPS
+                        .iter()
+                        .flat_map(|p| p.envs.iter().chain(p.deprecated_envs.iter()))
+                        .copied(),
+                );
+            }
+        });
+        quote! {
+            {
+                #[allow(unused_mut)]
+                let mut __usage_known: ::std::vec::Vec<&'static str> = ::std::vec![#(#allow),*];
+                #settings
+                usage_argv::env::refuse_unknown(&ROOT_META, #prefix, &__usage_known)?;
+            }
+        }
+    });
     let config_extra = match &cli.config {
         Some(ty) => quote! {
             __usage_kdl.push_str(&#config::spec_kdl_with(
@@ -1136,6 +1173,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 // otherwise leave the parameter unused in the user's crate, where
                 // nobody can silence it.
                 let _ = (&partial, __usage_standing.is_some());
+                #unknown_env_check
                 let args_override_self = #args_override_self;
                 #post
                 ::std::result::Result::Ok(())
@@ -1397,6 +1435,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 pub fn to_kdl() -> ::std::string::String {
                     #[allow(unused_mut)]
                     let mut __usage_kdl = SPEC.to_kdl();
+                    #unknown_env_extra
                     #config_extra
                     #spec_extra
                     __usage_kdl

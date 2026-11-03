@@ -297,6 +297,47 @@ space-separated command path. `globals=#true` carries every root global; `global
 only the named root globals. Generators accept a view explicitly (`usage g markdown --view aubr`)
 or, for completions, select it when the requested binary matches the view's `bin`.
 
+## Unknown environment variables
+
+`unknown_flags "error"` turns a misspelled flag into an error. A misspelled or stale environment
+variable gets no such check by default: `MOQ_LISTEN_TLS_CRET=…`, or a variable whose flag was
+renamed two releases ago, is read by nobody, and the program runs on its defaults. That is the
+worst place to fail quietly, because deployments configure a program through its environment
+(systemd units, container manifests, Helm values) and nobody watches the command line.
+
+`unknown_env` names the prefix a CLI owns. A parse then refuses every variable in the
+environment that starts with it and that the spec does not declare, naming all of them at once:
+
+```kdl
+name "moq"
+bin "moq"
+unknown_env prefix="MOQ_" {
+  allow "MOQ_VAAPI_DEVICE" "MOQ_V4L2_ENCODER"
+}
+flag "--port <port>" env="MOQ_PORT"
+cmd "serve" {
+  flag "--tls-cert <path>" env="MOQ_TLS_CERT" deprecated_env="MOQ_CERT"
+}
+cmd "publish"
+```
+
+```text
+Unknown environment variables under MOQ_: MOQ_PROT, MOQ_TLS_CRET
+```
+
+A variable is known when any flag or argument in the command tree declares it, as `env`, an
+`env_fallback`, or a `deprecated_env`, or when a [`config`](./config.md) property reads it. The
+whole tree counts, not just the command that ran: `MOQ_TLS_CERT` is not a typo when the user runs
+`moq publish`. A deprecated name still produces its deprecation warning, not an error. `allow`
+lists variables under the prefix that something outside the spec reads, such as a library crate.
+
+The prefix only scopes the check. It never builds a name, so every variable is still spelled out
+in full where it is declared and can be found by searching for it. The check runs after a help
+or version request is answered, so `--help` still works when the environment is wrong. On
+Windows, where variable names are case-insensitive, the comparison is too.
+
+Rust derives use `#[usage(unknown_env(prefix = "MOQ_", allow("MOQ_VAAPI_DEVICE")))]` on the root.
+
 ## Repository
 
 The URL of the CLI's source repository:
