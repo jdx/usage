@@ -109,6 +109,13 @@ pub use usage_test as test;
 pub use usage_validation as validation;
 #[cfg(feature = "response-files")]
 pub mod response;
+#[cfg(feature = "config")]
+#[doc(hidden)]
+pub mod __usage_settings {
+    pub use crate::settings::*;
+}
+#[cfg(feature = "config")]
+mod settings;
 
 #[cfg(all(test, feature = "spec"))]
 mod tests {
