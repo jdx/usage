@@ -102,11 +102,7 @@ pub fn unknown<'n>(
         .collect();
     // On Windows `EX_TYPO` and `ex_typo` are one variable, and listing it twice would read as two
     // mistakes.
-    if cfg!(windows) {
-        unknown.sort_by_cached_key(|name| name.to_uppercase());
-    } else {
-        unknown.sort_unstable();
-    }
+    unknown.sort_by_cached_key(|name| fold_env(name).into_owned());
     unknown.dedup_by(|a, b| same_env(a, b));
     unknown
 }
@@ -130,22 +126,34 @@ pub fn refuse_unknown<'t, 'v>(
     )))
 }
 
+/// A name as the platform compares it.
+///
 /// Windows variable names are case-insensitive — `std::env::var("PATH")` finds `Path` — so a
-/// variable set as `Ex_Port` is the one a CLI declares as `EX_PORT`. Folded with Unicode case
-/// rules rather than ASCII ones, as `usage_config::EnvLayer` does, because Windows folds `ä` and
-/// `Ä` together too.
-fn same_env(a: &str, b: &str) -> bool {
-    if cfg!(windows) {
-        a.to_uppercase() == b.to_uppercase()
-    } else {
-        a == b
+/// variable set as `Ex_Port` is the one a CLI declares as `EX_PORT`. Windows folds one character
+/// at a time, `ä` with `Ä` but `ß` never with `SS`, so a character whose uppercase is longer than
+/// itself is kept as it is rather than expanded.
+fn fold_env(name: &str) -> std::borrow::Cow<'_, str> {
+    if !cfg!(windows) {
+        return name.into();
     }
+    name.chars()
+        .map(|c| {
+            let mut upper = c.to_uppercase();
+            match (upper.next(), upper.next()) {
+                (Some(u), None) => u,
+                _ => c,
+            }
+        })
+        .collect::<String>()
+        .into()
 }
 
+fn same_env(a: &str, b: &str) -> bool {
+    fold_env(a) == fold_env(b)
+}
+
+/// Folding keeps one character for one, so a folded prefix is a prefix of the folded name
+/// exactly when the original is.
 fn starts_with_env(name: &str, prefix: &str) -> bool {
-    if cfg!(windows) {
-        name.to_uppercase().starts_with(&prefix.to_uppercase())
-    } else {
-        name.starts_with(prefix)
-    }
+    fold_env(name).starts_with(&*fold_env(prefix))
 }

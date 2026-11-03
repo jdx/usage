@@ -4970,11 +4970,15 @@ fn unknown_env_decl(meta: &Meta) -> syn::Result<UnknownEnvDecl> {
         prefix: String::new(),
         allow: Vec::new(),
     };
+    // Whether `prefix` was written, not whether it was empty: `prefix = "", prefix = "EX_"`
+    // is two declarations, and the second must not quietly win.
+    let mut prefix_given = false;
     list.parse_nested_meta(|nested| {
         if nested.path.is_ident("prefix") {
-            if !decl.prefix.is_empty() {
+            if prefix_given {
                 return Err(nested.error("`prefix` is already declared"));
             }
+            prefix_given = true;
             decl.prefix = nested.value()?.parse::<syn::LitStr>()?.value();
         } else if nested.path.is_ident("allow") {
             let content;

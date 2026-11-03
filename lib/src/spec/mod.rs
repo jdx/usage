@@ -772,11 +772,14 @@ impl Spec {
                     }
                 }
                 "unknown_env" => {
-                    if schema.unknown_env.is_some() {
+                    // The same rule as the `include` arm, so the order of an include and a
+                    // declaration cannot decide whether a spec loads: one policy, which may
+                    // arrive more than once but never differently.
+                    let decl = crate::spec::unknown_env::SpecUnknownEnv::parse(ctx, &node)?;
+                    if schema.unknown_env.as_ref().is_some_and(|own| *own != decl) {
                         bail_parse!(ctx, node.span(), "unknown_env may be declared only once");
                     }
-                    schema.unknown_env =
-                        Some(crate::spec::unknown_env::SpecUnknownEnv::parse(ctx, &node)?);
+                    schema.unknown_env = Some(decl);
                 }
                 "default_subcommand" => {
                     schema.default_subcommand = Some(node.arg(0)?.ensure_string()?)

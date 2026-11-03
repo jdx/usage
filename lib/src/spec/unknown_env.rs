@@ -109,19 +109,22 @@ impl SpecUnknownEnv {
         spec: &Spec,
         names: impl IntoIterator<Item = &'n OsStr>,
     ) -> Vec<String> {
-        self.unknown_with(spec, &[], names)
+        self.unknown_with(spec, &[], names, false)
     }
 
     /// [`Self::unknown`], also counting what `resolved` declares.
     ///
     /// A mount brings commands in at parse time, so the spec alone does not hold them. The
-    /// parser passes the commands it walked, each with everything under it.
+    /// parser passes the commands it walked, each with everything under it. `exact` compares
+    /// names exactly on every platform, for a map that is read by exact key.
     pub(crate) fn unknown_with<'n>(
         &self,
         spec: &Spec,
         resolved: &[SpecCommand],
         names: impl IntoIterator<Item = &'n OsStr>,
+        exact: bool,
     ) -> Vec<String> {
+        let fold = cfg!(windows) && !exact;
         // An empty prefix owns nothing. The KDL reader refuses one; a policy built in code that
         // has one must not make `PATH` an error.
         if self.prefix.is_empty() {
@@ -137,15 +140,18 @@ impl SpecUnknownEnv {
                 let lossy = name.to_string_lossy();
                 // A name that is not UTF-8 is never a declared one, even when its lossy
                 // spelling happens to equal a declaration that contains U+FFFD.
-                starts_with_env(&lossy, &self.prefix)
+                starts_with_env(&lossy, &self.prefix, fold)
                     && name.to_str().is_none_or(|name| {
-                        !known.iter().any(|k| same_env(k, name))
-                            && !self.allow.iter().any(|a| same_env(a, name))
+                        !known.iter().any(|k| same_env(k, name, fold))
+                            && !self.allow.iter().any(|a| same_env(a, name, fold))
                     })
             })
             .map(|name| name.to_string_lossy().into_owned())
             .collect();
-        sort_env(&mut unknown);
+        // Each variable once, by the comparison that matched it: under folding `EX_TYPO` and
+        // `ex_typo` are one variable, and listing it twice would read as two mistakes.
+        unknown.sort_by_cached_key(|name| fold_env(name, fold).into_owned());
+        unknown.dedup_by(|a, b| same_env(a, b, fold));
         unknown
     }
 }
@@ -201,35 +207,36 @@ fn collect_cmd<'a>(cmd: &'a SpecCommand, names: &mut BTreeSet<&'a str>) {
     }
 }
 
+/// A name as Windows compares it, when `fold` says to.
+///
 /// Windows variable names are case-insensitive — `std::env::var("PATH")` finds `Path` — so a
-/// variable set as `Moq_Port` is the one a spec declares as `MOQ_PORT`, and not unknown. Folded
-/// with Unicode case rules rather than ASCII ones, as `usage_config::EnvLayer` does, because
-/// Windows folds `ä` and `Ä` together too.
-fn same_env(a: &str, b: &str) -> bool {
-    if cfg!(windows) {
-        a.to_uppercase() == b.to_uppercase()
-    } else {
-        a == b
+/// variable set as `Moq_Port` is the one a spec declares as `MOQ_PORT`. Windows folds one
+/// character at a time, `ä` with `Ä` but `ß` never with `SS`, so a character whose uppercase is
+/// longer than itself is kept as it is rather than expanded.
+fn fold_env(name: &str, fold: bool) -> std::borrow::Cow<'_, str> {
+    if !fold {
+        return name.into();
     }
+    name.chars()
+        .map(|c| {
+            let mut upper = c.to_uppercase();
+            match (upper.next(), upper.next()) {
+                (Some(u), None) => u,
+                _ => c,
+            }
+        })
+        .collect::<String>()
+        .into()
 }
 
-/// Sorted, each variable once, by the same comparison as [`same_env`]: on Windows `EX_TYPO` and
-/// `ex_typo` are one variable, and listing it twice would read as two mistakes.
-fn sort_env(names: &mut Vec<String>) {
-    if cfg!(windows) {
-        names.sort_by_cached_key(|name| name.to_uppercase());
-    } else {
-        names.sort();
-    }
-    names.dedup_by(|a, b| same_env(a, b));
+fn same_env(a: &str, b: &str, fold: bool) -> bool {
+    fold_env(a, fold) == fold_env(b, fold)
 }
 
-fn starts_with_env(name: &str, prefix: &str) -> bool {
-    if cfg!(windows) {
-        name.to_uppercase().starts_with(&prefix.to_uppercase())
-    } else {
-        name.starts_with(prefix)
-    }
+/// Folding keeps one character for one, so a folded prefix is a prefix of the folded name
+/// exactly when the original is.
+fn starts_with_env(name: &str, prefix: &str, fold: bool) -> bool {
+    fold_env(name, fold).starts_with(&*fold_env(prefix, fold))
 }
 
 #[cfg(test)]
