@@ -134,7 +134,7 @@ impl SpecUnknownEnv {
         for cmd in resolved {
             collect_cmd(cmd, &mut known);
         }
-        let mut unknown: Vec<String> = names
+        let mut unknown: Vec<&OsStr> = names
             .into_iter()
             .filter(|name| {
                 let lossy = name.to_string_lossy();
@@ -148,13 +148,31 @@ impl SpecUnknownEnv {
                             && !self.allow.iter().any(|a| same_env(a, name, fold))
                     })
             })
-            .map(|name| name.to_string_lossy().into_owned())
             .collect();
         // Each variable once, by the comparison that matched it: under folding `EX_TYPO` and
-        // `ex_typo` are one variable, and listing it twice would read as two mistakes.
-        unknown.sort_by_cached_key(|name| fold_env(name, fold).into_owned());
-        unknown.dedup_by(|a, b| same_env(a, b, fold));
+        // `ex_typo` are one variable, and listing it twice would read as two mistakes. Two names
+        // that are not UTF-8 can share a lossy spelling and still be two variables, so those are
+        // kept apart by their bytes.
+        unknown.sort_by_cached_key(|name| {
+            (fold_env(&name.to_string_lossy(), fold).into_owned(), *name)
+        });
+        unknown.dedup_by(|a, b| match (a.to_str(), b.to_str()) {
+            (Some(a), Some(b)) => same_env(a, b, fold),
+            _ => a == b,
+        });
         unknown
+            .into_iter()
+            .map(|name| name.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    /// Whether `other` is the same policy: one prefix and the same set of allowed names, in
+    /// whatever order or repetition they were written.
+    pub(crate) fn same_policy(&self, other: &Self) -> bool {
+        use std::collections::BTreeSet;
+        self.prefix == other.prefix
+            && self.allow.iter().collect::<BTreeSet<_>>()
+                == other.allow.iter().collect::<BTreeSet<_>>()
     }
 }
 
@@ -335,5 +353,27 @@ mod tests {
         let decl = spec.unknown_env.clone().unwrap();
         let name = OsStr::from_bytes(b"EX_\xff");
         assert_eq!(decl.unknown(&spec, [name]), ["EX_\u{fffd}"]);
+        // Two variables with one lossy spelling are still two.
+        let other = OsStr::from_bytes(b"EX_\xfe");
+        assert_eq!(
+            decl.unknown(&spec, [name, other, name]),
+            ["EX_\u{fffd}", "EX_\u{fffd}"]
+        );
+    }
+
+    #[test]
+    fn the_same_policy_may_arrive_twice_in_any_order() {
+        let spec: Spec = "name \"ex\"\n\
+            unknown_env prefix=\"EX_\" {\n    allow \"EX_A\" \"EX_B\"\n}\n\
+            unknown_env prefix=\"EX_\" {\n    allow \"EX_B\" \"EX_A\" \"EX_B\"\n}\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.unknown_env.unwrap().allow, ["EX_B", "EX_A", "EX_B"]);
+        let err = "name \"ex\"\n\
+            unknown_env prefix=\"EX_\" {\n    allow \"EX_A\"\n}\n\
+            unknown_env prefix=\"EX_\" {\n    allow \"EX_B\"\n}\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(format!("{err:?}").contains("only once"), "{err:?}");
     }
 }

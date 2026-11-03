@@ -88,7 +88,7 @@ pub fn unknown<'n>(
         return Vec::new();
     }
     let declared = declared_names(root);
-    let mut unknown: Vec<String> = names
+    let mut unknown: Vec<&OsStr> = names
         .into_iter()
         .filter(|name| {
             // A name that is not UTF-8 is never a declared one, even when its lossy spelling
@@ -98,13 +98,19 @@ pub fn unknown<'n>(
                     .to_str()
                     .is_none_or(|name| !declared.iter().chain(known).any(|k| same_env(k, name)))
         })
-        .map(|name| name.to_string_lossy().into_owned())
         .collect();
     // On Windows `EX_TYPO` and `ex_typo` are one variable, and listing it twice would read as two
-    // mistakes.
-    unknown.sort_by_cached_key(|name| fold_env(name).into_owned());
-    unknown.dedup_by(|a, b| same_env(a, b));
+    // mistakes. Two names that are not UTF-8 can share a lossy spelling and still be two
+    // variables, so those are kept apart by their bytes.
+    unknown.sort_by_cached_key(|name| (fold_env(&name.to_string_lossy()).into_owned(), *name));
+    unknown.dedup_by(|a, b| match (a.to_str(), b.to_str()) {
+        (Some(a), Some(b)) => same_env(a, b),
+        _ => a == b,
+    });
     unknown
+        .into_iter()
+        .map(|name| name.to_string_lossy().into_owned())
+        .collect()
 }
 
 /// [`unknown`] against the process environment, as the error a parse returns.

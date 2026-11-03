@@ -776,7 +776,11 @@ impl Spec {
                     // declaration cannot decide whether a spec loads: one policy, which may
                     // arrive more than once but never differently.
                     let decl = crate::spec::unknown_env::SpecUnknownEnv::parse(ctx, &node)?;
-                    if schema.unknown_env.as_ref().is_some_and(|own| *own != decl) {
+                    if schema
+                        .unknown_env
+                        .as_ref()
+                        .is_some_and(|own| !own.same_policy(&decl))
+                    {
                         bail_parse!(ctx, node.span(), "unknown_env may be declared only once");
                     }
                     schema.unknown_env = Some(decl);
@@ -966,7 +970,7 @@ impl Spec {
                     // One prefix and one allow list for the program, as in a single file. The
                     // same declaration arriving by two routes is still one declaration.
                     if let (Some(own), Some(incoming)) = (&schema.unknown_env, &other.unknown_env)
-                        && own != incoming
+                        && !own.same_policy(incoming)
                     {
                         bail_parse!(ctx, node.span(), "unknown_env may be declared only once");
                     }
