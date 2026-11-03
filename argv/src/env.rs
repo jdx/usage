@@ -120,16 +120,21 @@ pub fn refuse_unknown<'t, 'v>(
 }
 
 /// Windows variable names are case-insensitive — `std::env::var("PATH")` finds `Path` — so a
-/// variable set as `Ex_Port` is the one a CLI declares as `EX_PORT`.
+/// variable set as `Ex_Port` is the one a CLI declares as `EX_PORT`. Folded with Unicode case
+/// rules rather than ASCII ones, as `usage_config::EnvLayer` does, because Windows folds `ä` and
+/// `Ä` together too.
 fn same_env(a: &str, b: &str) -> bool {
     if cfg!(windows) {
-        a.eq_ignore_ascii_case(b)
+        a.to_uppercase() == b.to_uppercase()
     } else {
         a == b
     }
 }
 
 fn starts_with_env(name: &str, prefix: &str) -> bool {
-    name.get(..prefix.len())
-        .is_some_and(|head| same_env(head, prefix))
+    if cfg!(windows) {
+        name.to_uppercase().starts_with(&prefix.to_uppercase())
+    } else {
+        name.starts_with(prefix)
+    }
 }

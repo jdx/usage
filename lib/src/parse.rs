@@ -1202,13 +1202,22 @@ impl<'a> Parser<'a> {
             }
         }
         // Against the environment this parse read from, so a caller that supplies its own map
-        // is judged on that map and not on the process it happens to run in.
+        // is judged on that map and not on the process it happens to run in. The commands it
+        // walked count as well as the spec's: a mount brings its commands in only now.
         if let Some(unknown_env) = &self.spec.unknown_env {
             let names = match custom_env {
-                Some(env) => unknown_env.unknown(self.spec, env.keys().map(std::ffi::OsStr::new)),
+                Some(env) => unknown_env.unknown_with(
+                    self.spec,
+                    &out.cmds,
+                    env.keys().map(std::ffi::OsStr::new),
+                ),
                 None => {
                     let process: Vec<_> = std::env::vars_os().map(|(name, _)| name).collect();
-                    unknown_env.unknown(self.spec, process.iter().map(|n| n.as_os_str()))
+                    unknown_env.unknown_with(
+                        self.spec,
+                        &out.cmds,
+                        process.iter().map(|n| n.as_os_str()),
+                    )
                 }
             };
             if !names.is_empty() {
@@ -6029,6 +6038,38 @@ mount run="echo 'cmd \"discovered\"'"
 
         let out = parse(&spec, &["ex".to_string(), "discovered".to_string()]).unwrap();
         assert_eq!(out.cmd.name, "discovered");
+    }
+
+    #[test]
+    fn unknown_env_knows_the_variables_a_mounted_command_declares() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+unknown_env prefix="EX_"
+mount run="discover"
+"#
+        .parse()
+        .unwrap();
+        let mounts: HashMap<String, String> = [(
+            "discover".to_string(),
+            "cmd \"serve\" {\n  flag \"--port <port>\" env=\"EX_PORT\"\n}\n".to_string(),
+        )]
+        .into();
+        let env = |name: &str| -> HashMap<String, String> { [(name.into(), "1".into())].into() };
+
+        let out = Parser::new(&spec)
+            .with_mount_outputs(mounts.clone())
+            .with_env(env("EX_PORT"))
+            .parse(&input(&["ex", "serve"]))
+            .expect("the mounted command declares EX_PORT");
+        assert_eq!(out.cmd.name, "serve");
+
+        let err = Parser::new(&spec)
+            .with_mount_outputs(mounts)
+            .with_env(env("EX_PROT"))
+            .parse(&input(&["ex", "serve"]))
+            .unwrap_err();
+        assert!(err.to_string().contains("EX_PROT"), "{err}");
     }
 
     #[test]

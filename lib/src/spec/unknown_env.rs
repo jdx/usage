@@ -101,7 +101,23 @@ impl SpecUnknownEnv {
         spec: &Spec,
         names: impl IntoIterator<Item = &'n OsStr>,
     ) -> Vec<String> {
-        let known = declared_env_names(spec);
+        self.unknown_with(spec, &[], names)
+    }
+
+    /// [`Self::unknown`], also counting what `resolved` declares.
+    ///
+    /// A mount brings commands in at parse time, so the spec alone does not hold them. The
+    /// parser passes the commands it walked, each with everything under it.
+    pub(crate) fn unknown_with<'n>(
+        &self,
+        spec: &Spec,
+        resolved: &[SpecCommand],
+        names: impl IntoIterator<Item = &'n OsStr>,
+    ) -> Vec<String> {
+        let mut known = declared_env_names(spec);
+        for cmd in resolved {
+            collect_cmd(cmd, &mut known);
+        }
         let mut unknown: Vec<String> = names
             .into_iter()
             .map(|name| name.to_string_lossy())
@@ -170,19 +186,23 @@ fn collect_cmd<'a>(cmd: &'a SpecCommand, names: &mut BTreeSet<&'a str>) {
 }
 
 /// Windows variable names are case-insensitive — `std::env::var("PATH")` finds `Path` — so a
-/// variable set as `Moq_Port` is the one a spec declares as `MOQ_PORT`, and not unknown.
+/// variable set as `Moq_Port` is the one a spec declares as `MOQ_PORT`, and not unknown. Folded
+/// with Unicode case rules rather than ASCII ones, as `usage_config::EnvLayer` does, because
+/// Windows folds `ä` and `Ä` together too.
 fn same_env(a: &str, b: &str) -> bool {
     if cfg!(windows) {
-        a.eq_ignore_ascii_case(b)
+        a.to_uppercase() == b.to_uppercase()
     } else {
         a == b
     }
 }
 
 fn starts_with_env(name: &str, prefix: &str) -> bool {
-    name.len() >= prefix.len()
-        && name.is_char_boundary(prefix.len())
-        && same_env(&name[..prefix.len()], prefix)
+    if cfg!(windows) {
+        name.to_uppercase().starts_with(&prefix.to_uppercase())
+    } else {
+        name.starts_with(prefix)
+    }
 }
 
 #[cfg(test)]
