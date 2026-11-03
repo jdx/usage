@@ -221,6 +221,8 @@ pub mod complete;
 pub mod diagnostic;
 #[cfg(feature = "spec")]
 pub mod embedded;
+#[cfg(feature = "spec")]
+pub mod env;
 #[cfg(feature = "complete")]
 pub mod install;
 #[cfg(feature = "complete")]
@@ -871,6 +873,20 @@ pub enum Error<'t, 'v> {
     /// The version string lives in the spec rather than the parse tables. `long` lets the
     /// caller choose `long_version` for `--version` while `-V` retains the concise value.
     Version { long: bool },
+    /// Variables under the CLI's `unknown_env` prefix that nothing in it declares.
+    ///
+    /// Boxed like [`Error::InvalidValue`], and for the same reason: it owns the names, and
+    /// the box keeps `Error` the size it was. See [`env`](crate::env).
+    UnknownEnv(::std::boxed::Box<UnknownEnv<'t>>),
+}
+
+/// Why [`Error::UnknownEnv`] refused a parse.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnknownEnv<'t> {
+    /// The prefix the CLI declared as its own.
+    pub prefix: &'t str,
+    /// Every variable under it that nothing declares, sorted.
+    pub names: ::std::vec::Vec<::std::string::String>,
 }
 
 /// The high half of every key one declaration's items get.

@@ -17,6 +17,7 @@ pub mod group;
 pub mod helpers;
 pub mod mount;
 pub mod output;
+pub mod unknown_env;
 pub mod unknown_flags;
 pub mod view;
 
@@ -186,6 +187,10 @@ pub struct Spec {
     /// What to do with a flag-like token that names no declared flag, for the whole
     /// CLI. A command may override it; see [`SpecCommand::unknown_flags`].
     pub unknown_flags: Option<crate::spec::unknown_flags::UnknownFlags>,
+    /// Refuse environment variables under a prefix that nothing in the spec declares. See
+    /// [`SpecUnknownEnv`](crate::spec::unknown_env::SpecUnknownEnv).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unknown_env: Option<crate::spec::unknown_env::SpecUnknownEnv>,
 }
 
 impl Spec {
@@ -547,6 +552,15 @@ impl Spec {
         promoted.usage = promoted.usage();
 
         let mut spec = self.clone();
+        // The view is one executable of a package whose other commands still read their own
+        // variables, so the names they declare are not typos here either. Folded into `allow`
+        // because the promoted tree no longer holds them.
+        if let Some(unknown_env) = &mut spec.unknown_env {
+            let declared = crate::spec::unknown_env::declared_env_names(self);
+            unknown_env
+                .allow
+                .extend(declared.into_iter().map(str::to_string));
+        }
         spec.name.clone_from(&view.name);
         spec.bin.clone_from(&view.bin);
         spec.about = promoted.help.clone();
@@ -757,6 +771,20 @@ impl Spec {
                         ),
                     }
                 }
+                "unknown_env" => {
+                    // The same rule as the `include` arm, so the order of an include and a
+                    // declaration cannot decide whether a spec loads: one policy, which may
+                    // arrive more than once but never differently.
+                    let decl = crate::spec::unknown_env::SpecUnknownEnv::parse(ctx, &node)?;
+                    if schema
+                        .unknown_env
+                        .as_ref()
+                        .is_some_and(|own| !own.same_policy(&decl))
+                    {
+                        bail_parse!(ctx, node.span(), "unknown_env may be declared only once");
+                    }
+                    schema.unknown_env = Some(decl);
+                }
                 "default_subcommand" => {
                     schema.default_subcommand = Some(node.arg(0)?.ensure_string()?)
                 }
@@ -939,6 +967,13 @@ impl Spec {
                             incoming.declared_in.display()
                         );
                     }
+                    // One prefix and one allow list for the program, as in a single file. The
+                    // same declaration arriving by two routes is still one declaration.
+                    if let (Some(own), Some(incoming)) = (&schema.unknown_env, &other.unknown_env)
+                        && !own.same_policy(incoming)
+                    {
+                        bail_parse!(ctx, node.span(), "unknown_env may be declared only once");
+                    }
                     schema.merge(other);
                 }
                 k => bail_parse!(ctx, node.node.name().span(), "unsupported spec key {k}"),
@@ -1060,6 +1095,7 @@ impl Spec {
             self.multicall_set = true;
         }
         merge_opt!(unknown_flags);
+        merge_opt!(unknown_env);
         merge_extend!(complete);
         merge_extend!(views);
         // An included file's sets are visible to the file that includes it, which is how a
@@ -1348,6 +1384,9 @@ impl Display for Spec {
             let mut node = KdlNode::new("unknown_flags");
             node.push(string_entry(None, unknown_flags.as_str()));
             nodes.push(node);
+        }
+        if let Some(unknown_env) = &self.unknown_env {
+            nodes.push(unknown_env.into());
         }
         if let Some(default_subcommand) = &self.default_subcommand {
             let mut node = KdlNode::new("default_subcommand");

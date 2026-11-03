@@ -4525,6 +4525,27 @@ fn escaped(value: &str) -> String {
     out
 }
 
+/// The `unknown_env` node a derive appends to its emitted spec.
+///
+/// Appended rather than written from the tables, because the tables have no field for it: it is
+/// a check on the environment, which no parse table, help page or completion reads.
+#[doc(hidden)]
+pub fn __usage_unknown_env_kdl(prefix: &str, allow: &[&str]) -> String {
+    let mut out = String::from("unknown_env prefix=");
+    out.push_str(&escaped(prefix));
+    if allow.is_empty() {
+        out.push('\n');
+        return out;
+    }
+    out.push_str(" {\n    allow");
+    for name in allow {
+        out.push(' ');
+        out.push_str(&escaped(name));
+    }
+    out.push_str("\n}\n");
+    out
+}
+
 /// Render a string in *node argument* position, where a leading dash has to be quoted.
 ///
 /// KDL reads `select "--format"` but not `select --format`, and usage-lib quotes a dashed

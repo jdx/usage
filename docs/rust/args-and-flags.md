@@ -313,6 +313,28 @@ Then validation runs: required-ness (skipped for anything a default or env var f
 `choices`, and `var_min`/`var_max`. Only the command that actually ran is judged — a required
 flag on a sibling subcommand you didn't invoke costs nothing.
 
+### Unknown environment variables
+
+A misspelled variable is read by nobody, so `EX_JBOS=8` quietly runs on the default. Declare
+the prefix the CLI owns, and a parse refuses every variable under it that nothing declares:
+
+```rust
+#[derive(usage_rs::Cli)]
+#[usage(bin = "ex", unknown_env(prefix = "EX_", allow("EX_CODEC")))]
+struct Cli {
+    /// How many jobs to run at once
+    #[usage(long, env = "EX_JOBS", deprecated_env = "EX_JOB_COUNT")]
+    jobs: Option<u32>,
+}
+```
+
+Every `env`, `env_fallback`, and `deprecated_env` in the command tree counts as known, in every
+subcommand and flattened group, along with the variables of a `config = Settings` type. `allow`
+admits names something outside the spec reads, such as a library. The parse returns
+`Error::UnknownEnv` with every offending name, and `parse()` prints them and exits 2. `--help`
+and `--version` are answered first. See the
+[spec reference](/spec/reference/#unknown-environment-variables) for the KDL form.
+
 ## Global flags
 
 A `global` flag declared on a parent is accepted anywhere below it:
@@ -332,24 +354,25 @@ occurrences. See [repeated scalar flags](/spec/reference/cmd#repeated-scalar-fla
 
 On the root `#[derive(Cli)]` struct:
 
-| Attribute                           | Effect                                                                                                                        |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `bin = "…"`                         | The binary name (used in help and the spec)                                                                                   |
-| `name = "…"`                        | A friendly display name                                                                                                       |
-| `version` / `version = "…"`         | Enable `--version`/`-V`; bare form uses `CARGO_PKG_VERSION`                                                                   |
-| `long_version = "…"`                | Extended `--version` text while `-V` stays concise                                                                            |
-| `about` / `long_about`              | Description (doc comments work too)                                                                                           |
-| `usage = "…"`                       | Verbatim synopsis line(s), replacing the generated one                                                                        |
-| `before_help` / `after_help`        | Extra text around the help page (`*_long_help` variants too)                                                                  |
-| `unknown_flags = "value"\|"error"`  | Treat unknown flags as values instead of errors                                                                               |
-| `default_subcommand = "run"`        | Command to assume when argv names none                                                                                        |
-| `multicall`                         | Treat argv[0]'s basename as a subcommand (busybox-style)                                                                      |
-| `view("bin", root = "command")`     | Promote a command as another executable surface                                                                               |
-| `completion`                        | Generate completion support ([Completions](/rust/completions))                                                                |
-| `settings`                          | Root resolves settings even when every `setting =` binding lives on flattened children ([Configuration](/rust/configuration)) |
-| `config = Settings`                 | Emit the named type's `config` block ([Configuration](/rust/configuration))                                                   |
-| `min_usage_version = "…"`           | Declare the minimum usage version the spec needs                                                                              |
-| `group("name", required, multiple)` | Declare a flag group ([Validation](/rust/validation#groups))                                                                  |
+| Attribute                           | Effect                                                                                                                             |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `bin = "…"`                         | The binary name (used in help and the spec)                                                                                        |
+| `name = "…"`                        | A friendly display name                                                                                                            |
+| `version` / `version = "…"`         | Enable `--version`/`-V`; bare form uses `CARGO_PKG_VERSION`                                                                        |
+| `long_version = "…"`                | Extended `--version` text while `-V` stays concise                                                                                 |
+| `about` / `long_about`              | Description (doc comments work too)                                                                                                |
+| `usage = "…"`                       | Verbatim synopsis line(s), replacing the generated one                                                                             |
+| `before_help` / `after_help`        | Extra text around the help page (`*_long_help` variants too)                                                                       |
+| `unknown_flags = "value"\|"error"`  | Treat unknown flags as values instead of errors                                                                                    |
+| `unknown_env(prefix = "EX_")`       | Refuse undeclared variables under the prefix; `allow("EX_X")` admits ones read elsewhere ([below](#unknown-environment-variables)) |
+| `default_subcommand = "run"`        | Command to assume when argv names none                                                                                             |
+| `multicall`                         | Treat argv[0]'s basename as a subcommand (busybox-style)                                                                           |
+| `view("bin", root = "command")`     | Promote a command as another executable surface                                                                                    |
+| `completion`                        | Generate completion support ([Completions](/rust/completions))                                                                     |
+| `settings`                          | Root resolves settings even when every `setting =` binding lives on flattened children ([Configuration](/rust/configuration))      |
+| `config = Settings`                 | Emit the named type's `config` block ([Configuration](/rust/configuration))                                                        |
+| `min_usage_version = "…"`           | Declare the minimum usage version the spec needs                                                                                   |
+| `group("name", required, multiple)` | Declare a flag group ([Validation](/rust/validation#groups))                                                                       |
 
 On a `#[derive(Args)]` struct (refused on the root):
 

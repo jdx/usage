@@ -254,6 +254,8 @@
 //! `Args` struct and are inherited by every subcommand variant that mounts it —
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
 //! `default_subcommand`, `default_subcommand_flags`, `default_subcommand_on_empty`, `default_subcommand_help`, `multicall` — argv[0]'s basename selects a subcommand —
+//! `unknown_env(prefix = "EX_", allow("EX_X"))` — on the root, refuse variables under the
+//! prefix that no `env`, `env_fallback` or `deprecated_env` in the tree declares —
 //! `arg_required_else_help` — a selected command with no argv of its own shows short help —
 //! `disable_help_flag`, `disable_help_subcommand`, and `disable_version_flag` — remove the
 //! corresponding synthesized entry point so a field with `action = usage_rs::ArgAction::Help`,

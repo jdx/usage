@@ -1201,6 +1201,40 @@ impl<'a> Parser<'a> {
                 );
             }
         }
+        // Against the environment this parse read from, so a caller that supplies its own map
+        // is judged on that map and not on the process it happens to run in. The commands it
+        // walked count as well as the spec's: a mount brings its commands in only now. A mount
+        // this command line never needed is not run for the check — its own flags and timing
+        // belong to the parse, not here — so what only it declares goes in `allow`.
+        //
+        // Not at all for a help or version request: the user asking how to fix the variable
+        // should get the answer, and nothing should run on the way to it.
+        let answering = out
+            .errors
+            .iter()
+            .any(|e| matches!(e, UsageErr::Help(_) | UsageErr::Version(_)));
+        if let Some(unknown_env) = self.spec.unknown_env.as_ref().filter(|_| !answering) {
+            let process: Vec<std::ffi::OsString>;
+            // A supplied map is read by exact key, so it is checked by exact key: on Windows a
+            // map holding `ex_port` does not fill `EX_PORT`, and saying nothing about it would
+            // hide the very mistake this check exists for. The process environment folds case
+            // there, and so does its check.
+            let (names, exact): (Vec<&std::ffi::OsStr>, bool) = match custom_env {
+                Some(env) => (env.keys().map(std::ffi::OsStr::new).collect(), true),
+                None => {
+                    process = std::env::vars_os().map(|(name, _)| name).collect();
+                    (process.iter().map(|n| n.as_os_str()).collect(), false)
+                }
+            };
+            let unknown =
+                unknown_env.unknown_with(self.spec, &out.cmds, names.iter().copied(), exact);
+            if !unknown.is_empty() {
+                out.errors.push(UsageErr::UnknownEnv {
+                    prefix: unknown_env.prefix.clone(),
+                    names: unknown,
+                });
+            }
+        }
         // Applied once, here, because this is where the CLI's own version is known: a
         // `deprecated_warn_at` the spec has not reached yet is an author saying *not yet*.
         crate::warn::retain_reached(&mut out.warnings, self.spec.version.as_deref());
@@ -6015,6 +6049,48 @@ mount run="echo 'cmd \"discovered\"'"
     }
 
     #[test]
+    fn unknown_env_knows_the_variables_a_mounted_command_declares() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+unknown_env prefix="EX_"
+mount run="discover"
+cmd "publish"
+"#
+        .parse()
+        .unwrap();
+        let mounts: HashMap<String, String> = [(
+            "discover".to_string(),
+            "cmd \"serve\" {\n  flag \"--port <port>\" env=\"EX_PORT\"\n}\n".to_string(),
+        )]
+        .into();
+        let env = |name: &str| -> HashMap<String, String> { [(name.into(), "1".into())].into() };
+
+        let out = Parser::new(&spec)
+            .with_mount_outputs(mounts.clone())
+            .with_env(env("EX_PORT"))
+            .parse(&input(&["ex", "serve"]))
+            .expect("the mounted command declares EX_PORT");
+        assert_eq!(out.cmd.name, "serve");
+
+        // `publish` is declared, so the parse never runs the mount, and the check does not run
+        // it either: what only a mount declares is for `allow`.
+        let err = Parser::new(&spec)
+            .with_mount_outputs(mounts.clone())
+            .with_env(env("EX_PORT"))
+            .parse(&input(&["ex", "publish"]))
+            .unwrap_err();
+        assert!(err.to_string().contains("EX_PORT"), "{err}");
+
+        let err = Parser::new(&spec)
+            .with_mount_outputs(mounts)
+            .with_env(env("EX_PROT"))
+            .parse(&input(&["ex", "serve"]))
+            .unwrap_err();
+        assert!(err.to_string().contains("EX_PROT"), "{err}");
+    }
+
+    #[test]
     fn injected_mount_outputs_are_complete_and_never_fall_back_to_processes() {
         let spec: Spec = r#"
 name "ex"
@@ -8024,6 +8100,54 @@ arg "<required>"
         let required = out.args.keys().find(|arg| arg.name == "required").unwrap();
         assert_eq!(out.args[tool].to_string(), "node");
         assert_eq!(out.args[required].to_string(), "value");
+    }
+
+    #[test]
+    fn unknown_env_refuses_every_undeclared_variable_under_the_prefix() {
+        let spec: Spec = r#"name "ex"
+bin "ex"
+unknown_env prefix="EX_" {
+    allow "EX_LIBRARY"
+}
+flag "--port <port>" env="EX_PORT"
+cmd "serve" {
+    flag "--tls" deprecated_env="EX_SSL"
+}
+cmd "publish"
+"#
+        .parse()
+        .unwrap();
+        let env = |names: &[&str]| -> HashMap<String, String> {
+            names.iter().map(|n| (n.to_string(), "1".into())).collect()
+        };
+        let argv = input(&["ex", "publish"]);
+
+        // A variable for `serve` is known while running `publish`, and a deprecated name
+        // keeps its deprecation warning instead of becoming an error.
+        let out = Parser::new(&spec)
+            .with_env(env(&["EX_PORT", "EX_SSL", "EX_LIBRARY", "OTHER"]))
+            .parse(&argv)
+            .unwrap();
+        assert!(out.errors.is_empty());
+
+        let err = Parser::new(&spec)
+            .with_env(env(&["EX_PROT", "EX_PORT", "EX_TSL"]))
+            .parse(&argv)
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            err,
+            "Unknown environment variables under EX_: EX_PROT, EX_TSL"
+        );
+
+        // Help is still help: the user asking how to fix the typo should get the answer.
+        let err = Parser::new(&spec)
+            .with_env(env(&["EX_PROT"]))
+            .parse(&input(&["ex", "--help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(!err.contains("EX_PROT"), "{err}");
+        assert!(err.contains("Usage:"), "{err}");
     }
 
     #[test]

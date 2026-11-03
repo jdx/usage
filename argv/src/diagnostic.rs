@@ -48,6 +48,7 @@ pub enum Code {
     MissingArgsHelp,
     HelpAll,
     Version,
+    UnknownEnv,
 }
 
 impl Code {
@@ -73,6 +74,7 @@ impl Code {
             Self::MissingArgsHelp => "missing_args_help",
             Self::HelpAll => "help_all",
             Self::Version => "version",
+            Self::UnknownEnv => "unknown_env",
         }
     }
 }
@@ -790,6 +792,7 @@ fn code(error: &Error<'_, '_>) -> Code {
         Error::MissingArgsHelp { .. } => Code::MissingArgsHelp,
         Error::HelpAll { .. } => Code::HelpAll,
         Error::Version { .. } => Code::Version,
+        Error::UnknownEnv(_) => Code::UnknownEnv,
     }
 }
 
@@ -809,6 +812,7 @@ fn subject(error: &Error<'_, '_>) -> Option<String> {
         | Error::ConflictingFlags { name, .. } => Some((*name).to_string()),
         Error::InvalidValue(invalid) => Some(invalid.name.to_string()),
         Error::MissingGroup { group, .. } => Some((*group).to_string()),
+        Error::UnknownEnv(unknown) => Some(unknown.names.join(", ")),
         Error::TooDeep
         | Error::MissingSubcommand
         | Error::Help { .. }
@@ -1346,6 +1350,21 @@ fn describe(
                 "this command line nests deeper than the parser goes",
                 &[],
             );
+        }
+        // Nothing on the command line is wrong, so there is no usage block to show: the
+        // mistake is in the environment, and the list is what someone fixing a deployment
+        // needs to see.
+        Error::UnknownEnv(unknown) => {
+            with_usage = false;
+            let template = if unknown.names.len() == 1 {
+                "unknown environment variable under '\u{1}':"
+            } else {
+                "unknown environment variables under '\u{1}':"
+            };
+            error_with(&mut out, style, template, &[(Literal, unknown.prefix)]);
+            for name in &unknown.names {
+                listed_line(&mut out, style, name);
+            }
         }
         // Neither is a failure, and a caller that has not handled them before reaching here
         // has a bug this cannot paper over.

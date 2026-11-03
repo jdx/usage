@@ -157,6 +157,15 @@ pub enum UsageErr {
 
     #[error("No injected output was provided for mount command: {0}")]
     MissingMountOutput(String),
+
+    /// Variables under the spec's `unknown_env` prefix that nothing declares, all of them at
+    /// once: a deployment with two typos should not need two restarts to find them.
+    #[error(
+        "Unknown environment variable{} under {prefix}: {}",
+        if names.len() == 1 { "" } else { "s" },
+        names.join(", ")
+    )]
+    UnknownEnv { prefix: String, names: Vec<String> },
 }
 pub type Result<T> = std::result::Result<T, UsageErr>;
 
