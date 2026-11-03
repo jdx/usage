@@ -5074,7 +5074,10 @@ fn own_decls(bound: &[&Field]) -> Vec<TokenStream> {
                 Some(':') => quote!(::std::option::Option::Some(
                     usage_argv::spec::SettingSplit::Colon
                 )),
-                _ => quote!(::std::option::Option::None),
+                Some(_) => quote!(::std::option::Option::Some(
+                    usage_argv::spec::SettingSplit::Other
+                )),
+                None => quote!(::std::option::Option::None),
             };
             let help = option_str(field.help.as_deref());
             let long_help = option_str(field.long_help.as_deref());

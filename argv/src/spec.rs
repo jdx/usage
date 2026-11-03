@@ -4961,6 +4961,10 @@ pub enum SettingSplit {
     Comma,
     /// `delimiter = ':'`.
     Colon,
+    /// Any other delimiter, which no registry parser splits on. The root refuses it unless a
+    /// `usage::Config` field declares the setting, so the environment never splits differently
+    /// from the flag.
+    Other,
 }
 
 /// The setting declarations of several commands, joined into one array.

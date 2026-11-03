@@ -66,7 +66,10 @@ pub const fn flags<const F: usize>(
         if owns(decls, i, explicit) {
             let mut b = 0;
             while b < bindings.len() {
-                if first_binding(bindings, b) && str_eq(bindings[b].1, decls[i].key) {
+                // The key first: `first_binding` rescans what came before, and doing that for
+                // every binding of every setting is quadratic in a CLI's whole binding table —
+                // enough, in a mise-sized one, to hit rustc's limit on const evaluation.
+                if str_eq(bindings[b].1, decls[i].key) && first_binding(bindings, b) {
                     out[at] = bindings[b].0;
                     at += 1;
                 }
@@ -96,7 +99,7 @@ pub const fn props<const P: usize>(
             let mut flag_len = 0;
             let mut b = 0;
             while b < bindings.len() {
-                if first_binding(bindings, b) && str_eq(bindings[b].1, decl.key) {
+                if str_eq(bindings[b].1, decl.key) && first_binding(bindings, b) {
                     flag_len += 1;
                 }
                 b += 1;
@@ -123,6 +126,11 @@ const fn prop(decl: &SettingDecl, cli: &'static [&'static str]) -> PropMeta {
     let parse = match (decl.list, decl.split) {
         (true, Some(SettingSplit::Comma)) => Some(Parser::ListByComma),
         (true, Some(SettingSplit::Colon)) => Some(Parser::ListByColon),
+        (true, Some(SettingSplit::Other)) => panic!(
+            "a flag-declared list setting splits on `,` or `:`, which is what a registry can \
+             split the environment on: use one of those as the `delimiter`, or declare the \
+             setting on a `usage::Config` field"
+        ),
         _ => None,
     };
     PropMeta {
@@ -183,6 +191,15 @@ const fn merged(decls: &[SettingDecl], i: usize) -> SettingDecl {
                 "two flags set the same setting and name different deprecated environment \
                  variables: give them the same `deprecated_env`, or declare the setting on a \
                  `usage::Config` field"
+            );
+            // One registry parser splits every source's text, so two flags that split
+            // differently would have one of them read wrongly from the environment.
+            assert!(
+                decl.split.is_none()
+                    || other.split.is_none()
+                    || same_split(decl.split, other.split),
+                "two flags set the same setting and split it differently: give them the same \
+                 `delimiter`, or declare the setting on a `usage::Config` field"
             );
             if decl.envs.is_empty() {
                 decl.envs = other.envs;
@@ -269,6 +286,13 @@ const fn strs_eq(a: &[&str], b: &[&str]) -> bool {
     true
 }
 
+const fn same_split(a: Option<SettingSplit>, b: Option<SettingSplit>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => a as u8 == b as u8,
+        _ => false,
+    }
+}
+
 const fn same_ty(a: SettingTy, b: SettingTy) -> bool {
     a as u8 == b as u8
 }
@@ -315,6 +339,32 @@ mod tests {
         let decl = merged(&[JOBS, other], 0);
         assert_eq!(decl.envs, ["EX_JOBS"]);
         assert_eq!(decl.help, Some("jobs"));
+    }
+
+    #[test]
+    #[should_panic(expected = "split it differently")]
+    fn different_delimiters_for_one_setting_are_refused() {
+        let comma = SettingDecl {
+            list: true,
+            split: Some(SettingSplit::Comma),
+            ..JOBS
+        };
+        let colon = SettingDecl {
+            split: Some(SettingSplit::Colon),
+            ..comma
+        };
+        merged(&[comma, colon], 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "splits on `,` or `:`")]
+    fn a_delimiter_no_registry_parser_splits_on_is_refused() {
+        let semicolon = SettingDecl {
+            list: true,
+            split: Some(SettingSplit::Other),
+            ..JOBS
+        };
+        props::<1>(&[semicolon], &[("--jobs", "jobs")], &[], &["--jobs"]);
     }
 
     #[test]
