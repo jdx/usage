@@ -59,8 +59,17 @@ pub struct GoOptions {
 }
 
 /// Turn a spec into a Go source file declaring its parse tables.
+///
+/// This does not check the spec: it cannot fail, so a spec with both `unknown_env` and a
+/// `mount` is emitted with a parser that refuses the mounted commands' variables.
+/// [`generate_with_types`] refuses that combination and is what `usage generate go` calls.
+/// Returning a `Result` here waits for v8; see `V8.md`.
 pub fn generate(spec: &Spec, opts: &GoOptions) -> String {
     Emitter::new(spec, opts).run()
+}
+
+fn has_mount(cmd: &SpecCommand) -> bool {
+    !cmd.mounts.is_empty() || cmd.subcommands.values().any(has_mount)
 }
 
 /// Generate explicitly typed fields, keyed by the generated flag/argument constants.
@@ -72,9 +81,15 @@ pub fn generate_with_types(
     opts: &GoOptions,
     field_types: &BTreeMap<String, ValueType>,
 ) -> Result<String, String> {
-    // A generated parser that ignored the policy would accept the very typos it names.
-    if spec.unknown_env.is_some() {
-        return Err("unknown_env is not supported by the Go generator yet".to_string());
+    // A mount's commands arrive at run time and this generator does not emit them, so
+    // `UnknownEnvKnown` could not hold their variables and the generated parser would
+    // refuse what usage-lib, which resolves mounts, accepts.
+    if spec.unknown_env.is_some() && has_mount(&spec.cmd) {
+        return Err(
+            "unknown_env cannot be combined with mount in the Go generator: the variables a \
+             mounted command declares are not known at generation time"
+                .to_string(),
+        );
     }
     if field_types.is_empty() {
         return Ok(generate(spec, opts));
@@ -187,7 +202,13 @@ impl<'a> Emitter<'a> {
         self.tables(&commands);
         self.metadata(&commands);
         self.help_table(&commands);
-        structs::emit(&mut self.out, &commands, &self.field_types);
+        self.unknown_env();
+        structs::emit(
+            &mut self.out,
+            &commands,
+            &self.field_types,
+            self.spec.unknown_env.is_some(),
+        );
 
         // Each command is followed by a blank line, which leaves one at the end of
         // the file. gofmt strips it, and a generated file that is not gofmt-clean
@@ -196,6 +217,35 @@ impl<'a> Emitter<'a> {
         self.out.truncate(trimmed);
         self.out.push('\n');
         self.out
+    }
+
+    /// The spec's `unknown_env`, as the two values `Parse` hands `argv.RefuseUnknownEnv`.
+    ///
+    /// The known names are worked out here rather than at run time because a generated
+    /// package carries tables, not a spec: the `config` properties that also read
+    /// variables are not in them.
+    fn unknown_env(&mut self) {
+        let Some(decl) = &self.spec.unknown_env else {
+            return;
+        };
+        let mut known: Vec<String> = crate::spec::unknown_env::declared_env_names(self.spec)
+            .into_iter()
+            .map(str::to_string)
+            .chain(decl.allow.iter().cloned())
+            .collect();
+        known.sort();
+        known.dedup();
+        let _ = writeln!(
+            self.out,
+            "// UnknownEnvPrefix scopes the spec's unknown_env check: a variable under it that\n\
+             // nothing declares fails the parse.\n\
+             const UnknownEnvPrefix = {}\n\n\
+             // UnknownEnvKnown is every variable the spec declares, anywhere in the command\n\
+             // tree or its config, and every one it allows.\n\
+             var UnknownEnvKnown = {}\n",
+            go_string(&decl.prefix),
+            string_slice(&known)
+        );
     }
 
     /// Walk the tree, naming everything, so that emission is a second pass with no
@@ -1927,6 +1977,66 @@ cmd "exec" unknown_flags="value" {
         insta::assert_snapshot!(out);
     }
 
+    /// The known names cover every way a spec reads a variable, from every command and
+    /// clause and the config, because generated Go has only the tables to go on.
+    #[test]
+    fn unknown_env_reaches_generated_go_with_every_declared_name() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+unknown_env prefix="EX_" {
+    allow "EX_LIBRARY"
+}
+flag "--port <port>" env="EX_PORT" env_fallback="EX_OLD_PORT"
+cmd "serve" {
+    flag "--tls" deprecated_env="EX_SSL"
+    clause "route" {
+        flag "--path <path>" env="EX_ROUTE_PATH"
+        arg "<route>"
+    }
+}
+cmd "publish" {
+    arg "[dir]" env="EX_DIR"
+}
+config {
+    prop "jobs" env="EX_JOBS"
+}
+"#);
+        assert!(out.contains("const UnknownEnvPrefix = \"EX_\""), "{out}");
+        assert!(
+            out.contains(
+                "var UnknownEnvKnown = []string{\"EX_DIR\", \"EX_JOBS\", \"EX_LIBRARY\", \"EX_OLD_PORT\", \"EX_PORT\", \"EX_ROUTE_PATH\", \"EX_SSL\"}"
+            ),
+            "{out}"
+        );
+        assert!(
+            out.contains(
+                "argv.RefuseUnknownEnv(UnknownEnvPrefix, UnknownEnvKnown, argv.EnvNames())"
+            ),
+            "{out}"
+        );
+
+        let without = go("name \"ex\"\nbin \"ex\"\nflag \"--port <port>\" env=\"EX_PORT\"\n");
+        assert!(!without.contains("UnknownEnv"), "{without}");
+    }
+
+    /// A mounted command's variables are not known when the tables are generated, so
+    /// the combination is refused rather than emitted as a parser that rejects them.
+    #[test]
+    fn unknown_env_with_a_mount_is_refused() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nunknown_env prefix=\"EX_\"\ncmd \"plugin\" {\n    mount run=\"ex-plugin --usage\"\n}\n"
+            .parse()
+            .unwrap();
+        let err = generate_with_types(&spec, &GoOptions::default(), &BTreeMap::new()).unwrap_err();
+        assert!(err.contains("mount"), "{err}");
+
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\ncmd \"plugin\" {\n    mount run=\"ex-plugin --usage\"\n}\n"
+                .parse()
+                .unwrap();
+        assert!(generate_with_types(&spec, &GoOptions::default(), &BTreeMap::new()).is_ok());
+    }
+
     /// mise declares both a `macos-defaults` command and a `macos defaults` path,
     /// and both want the same Go identifier.
     #[test]
@@ -2931,12 +3041,5 @@ flag "--into <where>" {
         assert_eq!(go_string("tab\there"), r#""tab\there""#);
         // Rust would spell this `\u{7f}`, which Go rejects.
         assert_eq!(go_string("\u{7f}"), r#""\x7f""#);
-    }
-
-    #[test]
-    fn unknown_env_is_refused_until_the_go_parser_enforces_it() {
-        let spec: Spec = "name \"ex\"\nunknown_env prefix=\"EX_\"\n".parse().unwrap();
-        let err = generate_with_types(&spec, &GoOptions::default(), &BTreeMap::new()).unwrap_err();
-        assert!(err.contains("unknown_env"), "{err}");
     }
 }

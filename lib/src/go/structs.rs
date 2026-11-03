@@ -30,7 +30,12 @@ struct ClauseFields {
 type Clauses = HashMap<String, ClauseFields>;
 
 /// Write every command's struct, then `Parse`.
-pub(super) fn emit(out: &mut String, commands: &[Emitted], types: &BTreeMap<String, ValueType>) {
+pub(super) fn emit(
+    out: &mut String,
+    commands: &[Emitted],
+    types: &BTreeMap<String, ValueType>,
+    unknown_env: bool,
+) {
     let mut assigned: Fields = HashMap::new();
     let mut clauses: Clauses = HashMap::new();
     for e in commands {
@@ -177,7 +182,7 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted], types: &BTreeMap<Stri
         let _ = writeln!(out, "}}\n");
     }
 
-    parse_fn(out, commands, &assigned, &clauses, types);
+    parse_fn(out, commands, &assigned, &clauses, types, unknown_env);
 }
 
 /// Emit the typed parser, including help/version requests and post-binding rules.
@@ -187,6 +192,7 @@ fn parse_fn(
     assigned: &Fields,
     clauses: &Clauses,
     types: &BTreeMap<String, ValueType>,
+    unknown_env: bool,
 ) {
     let root = &commands[0];
     let mut strict_keys = commands
@@ -536,6 +542,15 @@ fn parse_fn(
     }
 
     let negated_arg = if needs_negated { "negated" } else { "nil" };
+    // After help and version, so the user asking how to fix the typo gets the answer,
+    // and before the requirements, since a misspelled variable is the likelier story
+    // behind a required flag that turns up missing.
+    let unknown_env = if unknown_env {
+        "\tif err := argv.RefuseUnknownEnv(UnknownEnvPrefix, UnknownEnvKnown, argv.EnvNames()); err != nil {\n\
+         \t\treturn nil, err\n\t}\n"
+    } else {
+        ""
+    };
     let _ = writeln!(
         out,
         "\t\t\t}}\n{clause_separator_event}\t\t}}\n\t}}\n\
@@ -543,6 +558,7 @@ fn parse_fn(
          \tif err := p.Err(); err != nil {{\n\t\treturn nil, err\n\t}}\n\
          \tif p.Command().ArgRequiredElseHelp && p.CommandStart() == len(args) {{\n\
          \t\treturn nil, &argv.Error{{Code: argv.CodeHelp, Cmd: p.Command()}}\n\t}}\n\
+         {unknown_env}\
          \n\t// Only the commands the words actually selected are judged: a required\n\
          \t// flag on a command nobody ran is not missing.\n\
          \tvar scope []uint64\n\

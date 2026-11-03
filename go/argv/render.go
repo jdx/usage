@@ -123,6 +123,13 @@ func explain(err *Error, help HelpTable) string {
 			typedAs(err.OtherSpelling, other) + "` cannot be given together"
 	case CodeDuplicateFlag:
 		return "`" + typedAs(err.Spelling, err.Name) + "` cannot be used multiple times"
+	case CodeUnknownEnv:
+		names := make([]string, len(err.Names))
+		for i, name := range err.Names {
+			names[i] = "`" + safe(name) + "`"
+		}
+		return "unknown environment " + pluralWord(len(names), "variable") + " under `" + err.Name + "`: " +
+			strings.Join(names, ", ")
 	}
 	return "the command line could not be parsed"
 }

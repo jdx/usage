@@ -27,6 +27,8 @@
 // [conformance corpus]: https://github.com/jdx/usage/tree/main/corpus
 package argv
 
+import "strings"
+
 // MaxDepth is how deep a command tree the parser will descend.
 //
 // The ancestor chain lives in a fixed-size array so that a parse allocates
@@ -422,6 +424,10 @@ const (
 	// CodeDuplicateFlag means a strict command received a single-valued flag
 	// more than once.
 	CodeDuplicateFlag
+	// CodeUnknownEnv means the environment holds variables under the spec's
+	// `unknown_env` prefix that nothing declares. Name is the prefix, Names the
+	// variables. Raised by [RefuseUnknownEnv], after help and version.
+	CodeUnknownEnv
 )
 
 var codeNames = [...]string{
@@ -441,6 +447,7 @@ var codeNames = [...]string{
 	CodeConflictingFlags:      "conflicting_flags",
 	CodeInvalidValue:          "invalid_value",
 	CodeDuplicateFlag:         "duplicate_flag",
+	CodeUnknownEnv:            "unknown_env",
 }
 
 // String gives the code the corpus spells it with.
@@ -509,6 +516,8 @@ type Error struct {
 	// Both are carried because either alone reads as a puzzle: which flag is
 	// unwelcome depends on what else was given.
 	Other string
+	// Names is every offending variable for CodeUnknownEnv, sorted.
+	Names []string
 }
 
 // Error is the message Go's own error interface asks for.
@@ -556,6 +565,17 @@ func (e *Error) Error() string {
 			message += ": " + e.Reason
 		}
 		return message
+	case CodeUnknownEnv:
+		// Through `safe` because the environment is as much outside input as argv.
+		var message strings.Builder
+		message.WriteString("unknown environment " + pluralWord(len(e.Names), "variable") + " under " + e.Name + ": ")
+		for i, name := range e.Names {
+			if i > 0 {
+				message.WriteString(", ")
+			}
+			message.WriteString(safe(name))
+		}
+		return message.String()
 	}
 	return "parse error"
 }
