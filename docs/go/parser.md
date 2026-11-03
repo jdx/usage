@@ -69,6 +69,29 @@ parse with `CodeHelp` and `Error.Cmd` set to the command asked about. `Error.Lon
 Counting flags need nothing from the parser — each occurrence is its own event, and the caller
 tallies (generated code does `field++`).
 
+## Unknown environment variables
+
+A spec with a root-level `unknown_env` makes generated `Parse` refuse environment variables
+under that prefix that nothing reads:
+
+```kdl
+unknown_env prefix="MOQ_" {
+  allow "MOQ_VAAPI_DEVICE"
+}
+```
+
+A variable is known when any flag or argument anywhere in the command tree, clauses included,
+names it as `env`, `env_fallback` or `deprecated_env`, when a `config` property reads it, or
+when `allow` lists it. The generator works that list out once and emits it as
+`UnknownEnvKnown`, beside `UnknownEnvPrefix`. After help and version have been answered, and
+before any requirement is checked, `Parse` fails with `CodeUnknownEnv`: `Error.Name` is the
+prefix and `Error.Names` every offending variable, sorted. On Windows the comparison is
+case-insensitive.
+
+The check is `argv.RefuseUnknownEnv(prefix, known, argv.EnvNames())`, and `argv.UnknownEnv`
+answers the same question over any list of names, which is how to test it without touching the
+process environment.
+
 ## Limits
 
 - `argv.MaxDepth` is 16; deeper command trees fail with `CodeTooDeep`. (mise is 4 deep.)

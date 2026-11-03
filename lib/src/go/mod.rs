@@ -187,7 +187,13 @@ impl<'a> Emitter<'a> {
         self.tables(&commands);
         self.metadata(&commands);
         self.help_table(&commands);
-        structs::emit(&mut self.out, &commands, &self.field_types);
+        self.unknown_env();
+        structs::emit(
+            &mut self.out,
+            &commands,
+            &self.field_types,
+            self.spec.unknown_env.is_some(),
+        );
 
         // Each command is followed by a blank line, which leaves one at the end of
         // the file. gofmt strips it, and a generated file that is not gofmt-clean
@@ -196,6 +202,35 @@ impl<'a> Emitter<'a> {
         self.out.truncate(trimmed);
         self.out.push('\n');
         self.out
+    }
+
+    /// The spec's `unknown_env`, as the two values `Parse` hands `argv.RefuseUnknownEnv`.
+    ///
+    /// The known names are worked out here rather than at run time because a generated
+    /// package carries tables, not a spec: the `config` properties that also read
+    /// variables are not in them.
+    fn unknown_env(&mut self) {
+        let Some(decl) = &self.spec.unknown_env else {
+            return;
+        };
+        let mut known: Vec<String> = crate::spec::unknown_env::declared_env_names(self.spec)
+            .into_iter()
+            .map(str::to_string)
+            .chain(decl.allow.iter().cloned())
+            .collect();
+        known.sort();
+        known.dedup();
+        let _ = writeln!(
+            self.out,
+            "// UnknownEnvPrefix scopes the spec's unknown_env check: a variable under it that\n\
+             // nothing declares fails the parse.\n\
+             const UnknownEnvPrefix = {}\n\n\
+             // UnknownEnvKnown is every variable the spec declares, anywhere in the command\n\
+             // tree or its config, and every one it allows.\n\
+             var UnknownEnvKnown = {}\n",
+            go_string(&decl.prefix),
+            string_slice(&known)
+        );
     }
 
     /// Walk the tree, naming everything, so that emission is a second pass with no
@@ -1925,6 +1960,49 @@ cmd "exec" unknown_flags="value" {
 }
 "#);
         insta::assert_snapshot!(out);
+    }
+
+    /// The known names cover every way a spec reads a variable, from every command and
+    /// clause and the config, because generated Go has only the tables to go on.
+    #[test]
+    fn unknown_env_reaches_generated_go_with_every_declared_name() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+unknown_env prefix="EX_" {
+    allow "EX_LIBRARY"
+}
+flag "--port <port>" env="EX_PORT" env_fallback="EX_OLD_PORT"
+cmd "serve" {
+    flag "--tls" deprecated_env="EX_SSL"
+    clause "route" {
+        flag "--path <path>" env="EX_ROUTE_PATH"
+        arg "<route>"
+    }
+}
+cmd "publish" {
+    arg "[dir]" env="EX_DIR"
+}
+config {
+    prop "jobs" env="EX_JOBS"
+}
+"#);
+        assert!(out.contains("const UnknownEnvPrefix = \"EX_\""), "{out}");
+        assert!(
+            out.contains(
+                "var UnknownEnvKnown = []string{\"EX_DIR\", \"EX_JOBS\", \"EX_LIBRARY\", \"EX_OLD_PORT\", \"EX_PORT\", \"EX_ROUTE_PATH\", \"EX_SSL\"}"
+            ),
+            "{out}"
+        );
+        assert!(
+            out.contains(
+                "argv.RefuseUnknownEnv(UnknownEnvPrefix, UnknownEnvKnown, argv.EnvNames())"
+            ),
+            "{out}"
+        );
+
+        let without = go("name \"ex\"\nbin \"ex\"\nflag \"--port <port>\" env=\"EX_PORT\"\n");
+        assert!(!without.contains("UnknownEnv"), "{without}");
     }
 
     /// mise declares both a `macos-defaults` command and a `macos defaults` path,
