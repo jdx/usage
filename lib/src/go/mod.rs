@@ -63,6 +63,10 @@ pub fn generate(spec: &Spec, opts: &GoOptions) -> String {
     Emitter::new(spec, opts).run()
 }
 
+fn has_mount(cmd: &SpecCommand) -> bool {
+    !cmd.mounts.is_empty() || cmd.subcommands.values().any(has_mount)
+}
+
 /// Generate explicitly typed fields, keyed by the generated flag/argument constants.
 ///
 /// Unlike [`generate`], this rejects unknown keys and entries without text values.
@@ -72,6 +76,16 @@ pub fn generate_with_types(
     opts: &GoOptions,
     field_types: &BTreeMap<String, ValueType>,
 ) -> Result<String, String> {
+    // A mount's commands arrive at run time and this generator does not emit them, so
+    // `UnknownEnvKnown` could not hold their variables and the generated parser would
+    // refuse what usage-lib, which resolves mounts, accepts.
+    if spec.unknown_env.is_some() && has_mount(&spec.cmd) {
+        return Err(
+            "unknown_env cannot be combined with mount in the Go generator: the variables a \
+             mounted command declares are not known at generation time"
+                .to_string(),
+        );
+    }
     if field_types.is_empty() {
         return Ok(generate(spec, opts));
     }
@@ -1999,6 +2013,23 @@ config {
 
         let without = go("name \"ex\"\nbin \"ex\"\nflag \"--port <port>\" env=\"EX_PORT\"\n");
         assert!(!without.contains("UnknownEnv"), "{without}");
+    }
+
+    /// A mounted command's variables are not known when the tables are generated, so
+    /// the combination is refused rather than emitted as a parser that rejects them.
+    #[test]
+    fn unknown_env_with_a_mount_is_refused() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nunknown_env prefix=\"EX_\"\ncmd \"plugin\" {\n    mount run=\"ex-plugin --usage\"\n}\n"
+            .parse()
+            .unwrap();
+        let err = generate_with_types(&spec, &GoOptions::default(), &BTreeMap::new()).unwrap_err();
+        assert!(err.contains("mount"), "{err}");
+
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\ncmd \"plugin\" {\n    mount run=\"ex-plugin --usage\"\n}\n"
+                .parse()
+                .unwrap();
+        assert!(generate_with_types(&spec, &GoOptions::default(), &BTreeMap::new()).is_ok());
     }
 
     /// mise declares both a `macos-defaults` command and a `macos defaults` path,

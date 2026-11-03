@@ -92,6 +92,9 @@ The check is `argv.RefuseUnknownEnv(prefix, known, argv.EnvNames())`, and `argv.
 answers the same question over any list of names, which is how to test it without touching the
 process environment.
 
+A spec that has both `unknown_env` and a `mount` is refused: the generator does not emit mounted
+commands, so it cannot know the variables they declare.
+
 ## Limits
 
 - `argv.MaxDepth` is 16; deeper command trees fail with `CodeTooDeep`. (mise is 4 deep.)
