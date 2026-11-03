@@ -1203,8 +1203,17 @@ impl<'a> Parser<'a> {
         }
         // Against the environment this parse read from, so a caller that supplies its own map
         // is judged on that map and not on the process it happens to run in. The commands it
-        // walked count as well as the spec's: a mount brings its commands in only now.
-        if let Some(unknown_env) = &self.spec.unknown_env {
+        // walked count as well as the spec's: a mount brings its commands in only now. A mount
+        // this command line never needed is not run for the check — its own flags and timing
+        // belong to the parse, not here — so what only it declares goes in `allow`.
+        //
+        // Not at all for a help or version request: the user asking how to fix the variable
+        // should get the answer, and nothing should run on the way to it.
+        let answering = out
+            .errors
+            .iter()
+            .any(|e| matches!(e, UsageErr::Help(_) | UsageErr::Version(_)));
+        if let Some(unknown_env) = self.spec.unknown_env.as_ref().filter(|_| !answering) {
             let process: Vec<std::ffi::OsString>;
             // A supplied map is read by exact key, so it is checked by exact key: on Windows a
             // map holding `ex_port` does not fill `EX_PORT`, and saying nothing about it would
@@ -1217,21 +1226,8 @@ impl<'a> Parser<'a> {
                     (process.iter().map(|n| n.as_os_str()).collect(), false)
                 }
             };
-            let check = |resolved: &[SpecCommand]| {
-                unknown_env.unknown_with(self.spec, resolved, names.iter().copied(), exact)
-            };
-            let mut unknown = check(&out.cmds);
-            // A root mount this command line never needed was never run, and what it declares
-            // is part of the tree. Resolved only on the way to an error, so a parse that passes
-            // runs nothing more than it did; one whose mount will not run reports what it has.
-            if !unknown.is_empty() && !self.spec.cmd.mounts.is_empty() {
-                let mut root = self.spec.cmd.clone();
-                if root.mount(&[], self.mount_outputs.as_ref()).is_ok() {
-                    let mut resolved = out.cmds.clone();
-                    resolved.push(root);
-                    unknown = check(&resolved);
-                }
-            }
+            let unknown =
+                unknown_env.unknown_with(self.spec, &out.cmds, names.iter().copied(), exact);
             if !unknown.is_empty() {
                 out.errors.push(UsageErr::UnknownEnv {
                     prefix: unknown_env.prefix.clone(),
@@ -6077,13 +6073,14 @@ cmd "publish"
             .expect("the mounted command declares EX_PORT");
         assert_eq!(out.cmd.name, "serve");
 
-        // `publish` is declared, so the parse never needed the mount; its variables are still
-        // part of the tree.
-        Parser::new(&spec)
+        // `publish` is declared, so the parse never runs the mount, and the check does not run
+        // it either: what only a mount declares is for `allow`.
+        let err = Parser::new(&spec)
             .with_mount_outputs(mounts.clone())
             .with_env(env("EX_PORT"))
             .parse(&input(&["ex", "publish"]))
-            .expect("a variable for the mounted serve is known while running publish");
+            .unwrap_err();
+        assert!(err.to_string().contains("EX_PORT"), "{err}");
 
         let err = Parser::new(&spec)
             .with_mount_outputs(mounts)

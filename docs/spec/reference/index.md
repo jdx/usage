@@ -330,6 +330,9 @@ A variable is known when any flag or argument in the command tree declares it, a
 whole tree counts, not just the command that ran: `MOQ_TLS_CERT` is not a typo when the user runs
 `moq publish`. A deprecated name still produces its deprecation warning, not an error. `allow`
 lists variables under the prefix that something outside the spec reads, such as a library crate.
+A command brought in by a `mount` counts once the parse has resolved it. A mount the command
+line never needed is not run just for the check, so list a variable that only a mount declares
+in `allow`.
 
 The prefix only scopes the check. It never builds a name, so every variable is still spelled out
 in full where it is declared and can be found by searching for it. The check runs after a help

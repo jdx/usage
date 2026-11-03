@@ -140,7 +140,9 @@ impl SpecUnknownEnv {
                 let lossy = name.to_string_lossy();
                 // A name that is not UTF-8 is never a declared one, even when its lossy
                 // spelling happens to equal a declaration that contains U+FFFD.
-                starts_with_env(&lossy, &self.prefix, fold)
+                // The prefix decides whose variable it is, which is the platform's question even
+                // for a map read by exact key: `ex_ready` is this CLI's on Windows, and unknown.
+                starts_with_env(&lossy, &self.prefix, cfg!(windows))
                     && name.to_str().is_none_or(|name| {
                         !known.iter().any(|k| same_env(k, name, fold))
                             && !self.allow.iter().any(|a| same_env(a, name, fold))
