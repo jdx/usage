@@ -23,6 +23,18 @@ import (
 // case-insensitive, so is the comparison, and a variable set in two cases is
 // reported once.
 func UnknownEnv(prefix string, known, names []string) []string {
+	return unknownEnv(prefix, known, names, runtime.GOOS == "windows")
+}
+
+// unknownEnv is [UnknownEnv] with the platform as a parameter, so the Windows
+// rules can be tested anywhere.
+func unknownEnv(prefix string, known, names []string, fold bool) []string {
+	key := func(name string) string {
+		if fold {
+			return envKey(name)
+		}
+		return name
+	}
 	// An empty prefix owns nothing: the spec refuses one, and a hand-built call
 	// that passes one must not make PATH an error.
 	if prefix == "" {
@@ -30,22 +42,19 @@ func UnknownEnv(prefix string, known, names []string) []string {
 	}
 	var unknown []string
 	for _, name := range names {
-		if !hasEnvPrefix(name, prefix) {
+		if !strings.HasPrefix(key(name), key(prefix)) {
 			continue
 		}
-		if slices.ContainsFunc(known, func(k string) bool { return sameEnv(k, name) }) {
+		if slices.ContainsFunc(known, func(k string) bool { return key(k) == key(name) }) {
 			continue
 		}
 		unknown = append(unknown, name)
 	}
 	// On Windows EX_TYPO and ex_typo are one variable, and listing it twice would
-	// read as two mistakes.
-	if runtime.GOOS == "windows" {
-		slices.SortStableFunc(unknown, func(a, b string) int { return strings.Compare(strings.ToUpper(a), strings.ToUpper(b)) })
-	} else {
-		slices.Sort(unknown)
-	}
-	return slices.CompactFunc(unknown, sameEnv)
+	// read as two mistakes. Sorted and compacted by the same key, so the names it
+	// calls equal are always adjacent.
+	slices.SortStableFunc(unknown, func(a, b string) int { return strings.Compare(key(a), key(b)) })
+	return slices.CompactFunc(unknown, func(a, b string) bool { return key(a) == key(b) })
 }
 
 // RefuseUnknownEnv is [UnknownEnv] as the error a parse returns, with every
@@ -74,21 +83,11 @@ func EnvNames() []string {
 	return names
 }
 
-// sameEnv folds case on Windows with Unicode rules, as usage-lib does, because
-// Windows folds ä and Ä together too.
-func sameEnv(a, b string) bool {
-	if runtime.GOOS == "windows" {
-		return strings.EqualFold(a, b)
-	}
-	return a == b
-}
-
-func hasEnvPrefix(name, prefix string) bool {
-	if runtime.GOOS == "windows" {
-		return strings.HasPrefix(strings.ToUpper(name), strings.ToUpper(prefix))
-	}
-	return strings.HasPrefix(name, prefix)
-}
+// envKey is a Windows variable name as compared: uppercased with Unicode rules,
+// as usage-lib does, because Windows folds ä and Ä together too. Not
+// strings.EqualFold, which also folds the Kelvin sign to K where usage-lib and
+// this key do not, and which no sort order can agree with.
+func envKey(name string) string { return strings.ToUpper(name) }
 
 // pluralWord is the noun alone, without [plural]'s count.
 func pluralWord(n int, noun string) string {

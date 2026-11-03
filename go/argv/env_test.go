@@ -25,6 +25,13 @@ func TestUnknownEnv(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("case: got %q, want %q", got, want)
 	}
+	// The Windows rules, wherever this runs: one variable set in two cases is
+	// reported once, and the Kelvin sign is not K, so EX_K is its own name
+	// and stays apart from EX_K even with EX_Z sorted between them.
+	got = unknownEnv("EX_", nil, []string{"EX_K", "EX_Z", "EX_K", "ex_k", "EX_ä", "EX_Ä"}, true)
+	if want := []string{"EX_K", "EX_Z", "EX_ä", "EX_K"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("windows: got %q, want %q", got, want)
+	}
 	if got := UnknownEnv("", known, []string{"PATH"}); got != nil {
 		t.Fatalf("an empty prefix owns nothing, got %q", got)
 	}
