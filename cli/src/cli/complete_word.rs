@@ -949,6 +949,10 @@ impl CompleteWord {
         let Ok(mut words) = usage::shell_words::split(delegate) else {
             return vec![];
         };
+        // The command is the first word typed, so there is no fixed prefix to put in front.
+        if delegate == usage::SpecComplete::DELEGATE_FIRST_WORD {
+            words.clear();
+        }
         words.extend(delegated_words(cx.parsed, arg));
         words.push(ctoken.to_string());
         trace!("delegate: {}", words.iter().join(" "));

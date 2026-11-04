@@ -2960,6 +2960,16 @@ complete "command" delegate="fakecmd"
 "#,
         )
         .unwrap();
+        // A wrapper whose argument is a whole command line, like `mise x -- <command>`: the
+        // command is the first word typed, so no fixed one is named.
+        fs::write(
+            dir.join("wrap_first.usage.kdl"),
+            r#"bin "wrap"
+arg "<command>" var=#true double_dash="required"
+complete "command" delegate="$1"
+"#,
+        )
+        .unwrap();
         // The same wrapper with the completer written inside the argument it completes.
         fs::write(
             dir.join("wrap_inline.usage.kdl"),
@@ -3225,6 +3235,50 @@ fn test_zsh_delegates_to_wrapped_command_completion() {
         ["a__USAGE_DELEGATE_DONE", "b", "c"],
         "{out}"
     );
+}
+
+/// `delegate="$1"` hands the typed words to whatever command the argument starts with.
+fn assert_delegated_to_first_word(fixture: &DelegateFixture, shell: &str) {
+    let spec = fixture.dir.join("wrap_first.usage.kdl");
+    let subcommands = fixture.complete_with(&spec, shell, &["wrap", "--", "fakecmd", ""]);
+    assert_eq!(
+        delegated_values(&subcommands),
+        ["apply", "plan"],
+        "{shell}: {subcommands}"
+    );
+    let flags = fixture.complete_with(&spec, shell, &["wrap", "--", "fakecmd", "plan", "-o"]);
+    assert_eq!(
+        delegated_values(&flags),
+        ["-other", "-out"],
+        "{shell}: {flags}"
+    );
+}
+
+#[test]
+fn test_fish_delegates_to_the_first_word() {
+    if skip_if_shell_missing("fish") {
+        return;
+    }
+    assert_delegated_to_first_word(&DelegateFixture::new("fish_first"), "fish");
+}
+
+#[test]
+fn test_bash_delegates_to_the_first_word() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+    if bash_completion_or_skip().is_none() {
+        return;
+    }
+    assert_delegated_to_first_word(&DelegateFixture::new("bash_first"), "bash");
+}
+
+#[test]
+fn test_zsh_delegates_to_the_first_word() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+    assert_delegated_to_first_word(&DelegateFixture::new("zsh_first"), "zsh");
 }
 
 /// A completion that hangs with a child holding complete-word's pipe: complete-word gives up

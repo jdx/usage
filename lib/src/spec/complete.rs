@@ -22,11 +22,17 @@ pub struct SpecComplete {
     /// word of the argument asks the user's shell what it would offer after that command
     /// line followed by the words the argument already holds, so a wrapper passes the
     /// wrapped tool's completion through unchanged.
+    ///
+    /// `"$1"` ([`SpecComplete::DELEGATE_FIRST_WORD`]) names no fixed command: the first word
+    /// the argument holds is the command, so `mise x -- ls <Tab>` completes as `ls <Tab>`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delegate: Option<String>,
 }
 
 impl SpecComplete {
+    /// The `delegate` that delegates to whatever command the argument's first word names.
+    pub const DELEGATE_FIRST_WORD: &'static str = "$1";
+
     /// A completer for the arg or flag named `name`.
     pub fn new(name: impl Into<String>) -> Self {
         Self {

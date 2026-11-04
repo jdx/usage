@@ -146,6 +146,21 @@ own flags stay on offer beside the wrapped command's, since the parser still giv
 this CLI. To pass every word after the first straight through, both when parsing and when
 completing, add `double_dash="automatic"` to the argument.
 
+### Delegating to the command that was typed
+
+A wrapper that runs whatever program the user names, like `mise exec -- <command>…`, has no
+fixed command to delegate to. `delegate="$1"` takes the first word of the argument as the
+command, so `wrapper -- ls --col<Tab>` offers what `ls --col<Tab>` would:
+
+```kdl
+cmd "exec" {
+    arg "<command>" var=#true double_dash="required"
+    complete "command" delegate="$1"
+}
+```
+
+While that first word is still being typed, the shell completes it as a command name.
+
 Which shells can be asked, and where the wrapped command's completion has to be registered
 for them to find it:
 
