@@ -1,5 +1,27 @@
 # Changelog
 
+## [7.3.0](https://github.com/jdx/usage/compare/v7.2.0..v7.3.0) - 2026-11-06
+
+### 🚀 Features
+
+- **(lib)** add a shared completion subcommand to usage-rs by [@jdx](https://github.com/jdx) in [#1624](https://github.com/jdx/usage/pull/1624)
+
+### 🛡️ Security
+
+- **(deps)** update apple-actions/import-codesign-certs action to v7.2.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1625](https://github.com/jdx/usage/pull/1625)
+
+### 🔍 Other Changes
+
+- release weekly instead of daily by [@jdx](https://github.com/jdx) in [#1615](https://github.com/jdx/usage/pull/1615)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1622](https://github.com/jdx/usage/pull/1622)
+- update ubuntu:26.04 docker digest to 6a06111 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1618](https://github.com/jdx/usage/pull/1618)
+- update github actions by [@renovate[bot]](https://github.com/renovate[bot]) in [#1619](https://github.com/jdx/usage/pull/1619)
+- update npm packages by [@renovate[bot]](https://github.com/renovate[bot]) in [#1620](https://github.com/jdx/usage/pull/1620)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1626](https://github.com/jdx/usage/pull/1626)
+
 ## [7.2.0](https://github.com/jdx/usage/compare/v7.1.5..v7.2.0) - 2026-11-03
 
 ### 🚀 Features

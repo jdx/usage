@@ -28,6 +28,6 @@
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
-    "semver": "^7.8.5"
+    "semver": "^7.8.6"
   }
 }
