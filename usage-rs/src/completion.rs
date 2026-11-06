@@ -244,6 +244,33 @@ mod tests {
         assert!(crate::parse_args_from::<Completion>(&argv).is_err());
     }
 
+    #[derive(crate::Cli)]
+    #[usage(bin = "ex")]
+    struct Mounted {
+        #[usage(subcommand)]
+        #[allow(dead_code)]
+        command: Option<MountedCommands>,
+    }
+
+    #[derive(crate::Subcommands)]
+    enum MountedCommands {
+        /// Generate shell completions
+        Completion(Completion),
+    }
+
+    #[test]
+    fn install_and_force_are_exported_as_writes_and_nothing_else_is() {
+        let kdl = Mounted::to_kdl();
+        let flag = |name: &str| {
+            kdl.lines()
+                .find(|line| line.trim_start().starts_with("flag") && line.contains(name))
+                .unwrap_or_else(|| panic!("no {name} flag in:\n{kdl}"))
+        };
+        assert!(flag("--install").contains("effect=write"), "{kdl}");
+        assert!(flag("--force").contains("effect=write"), "{kdl}");
+        assert_eq!(kdl.matches("effect=").count(), 2, "{kdl}");
+    }
+
     #[test]
     fn shell_aliases_are_accepted() {
         assert_eq!(parse(&["nushell"]).shell(), Shell::Nu);
