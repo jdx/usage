@@ -188,6 +188,7 @@ mod tests {
         assert!(closed.is_ok());
     }
 
+    #[cfg(unix)]
     fn linux_env(home: &std::path::Path) -> Env {
         Env::new(
             install::Platform::Linux,
@@ -198,6 +199,7 @@ mod tests {
         )
     }
 
+    #[cfg(unix)]
     #[test]
     fn install_creates_refuses_a_foreign_file_and_force_replaces_it() {
         let home = tempfile::tempdir().unwrap();
