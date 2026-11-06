@@ -48,8 +48,10 @@ unless you pass `--force`.
 ::: info Runtime dependency
 The generated scripts need `usage` on `PATH`. If you distribute them, include it
 in your installation instructions. The [Rust framework's native
-completions](/rust/completions) run through your binary instead and also support
-Elvish.
+completions](/rust/completions) run through your binary instead, need no `usage`
+install, follow the installed version of your tool, and also support Elvish. A
+Rust CLI gets `mycli completion <shell> [--install]` by mounting the ready-made
+[`Completion` command](/rust/completions#how-it-works).
 :::
 
 ### Bash setup
