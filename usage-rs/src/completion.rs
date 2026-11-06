@@ -76,16 +76,55 @@ impl Completion {
     /// `bin` is the name of the executable the script should call back, normally the CLI's own
     /// `bin`. Nothing is written to a startup file; when a shell needs a line added once, it is
     /// printed on `out` after the path.
+    ///
+    /// The script and the install report share `out`. A command line tool should prefer
+    /// [`Completion::run_split`], which keeps stdout for the script alone.
     pub fn run(&self, bin: &str, out: &mut impl Write) -> Result<(), Error> {
         self.run_in(bin, &Env::from_process(), out)
+    }
+
+    /// Like [`Completion::run`], but the install report goes to `report` instead of `out`.
+    ///
+    /// Pass stdout as `out` and stderr as `report`: `ex completion fish` prints the script on
+    /// stdout so it can be piped or redirected, and `ex completion fish --install` leaves stdout
+    /// empty and says what it did on stderr, the same as `usage generate completion --install`.
+    pub fn run_split(
+        &self,
+        bin: &str,
+        out: &mut impl Write,
+        report: &mut impl Write,
+    ) -> Result<(), Error> {
+        self.run_split_in(bin, &Env::from_process(), out, report)
     }
 
     /// [`Completion::run`] against a described environment instead of the process's own, which
     /// is what lets a test say where an install lands without touching the real home directory.
     pub fn run_in(&self, bin: &str, env: &Env, out: &mut impl Write) -> Result<(), Error> {
+        let text = self.render(bin, env)?;
+        finish(out.write_all(text.text.as_bytes()))
+    }
+
+    /// [`Completion::run_split`] against a described environment.
+    pub fn run_split_in(
+        &self,
+        bin: &str,
+        env: &Env,
+        out: &mut impl Write,
+        report: &mut impl Write,
+    ) -> Result<(), Error> {
+        let text = self.render(bin, env)?;
+        let sink: &mut dyn Write = if text.is_report { report } else { out };
+        finish(sink.write_all(text.text.as_bytes()))
+    }
+
+    /// Do the work and return the text to print, saying whether it is the script or the report.
+    fn render(&self, bin: &str, env: &Env) -> Result<Rendered, Error> {
         let shell = self.shell();
         if !self.install {
-            return finish(out.write_all(self.script(bin).as_bytes()));
+            return Ok(Rendered {
+                text: self.script(bin),
+                is_report: false,
+            });
         }
         let on_foreign = if self.force {
             OnForeign::Overwrite
@@ -106,8 +145,16 @@ impl Completion {
         if let Some(note) = done.plan.note {
             report.push_str(&format!("{note}\n"));
         }
-        finish(out.write_all(report.as_bytes()))
+        Ok(Rendered {
+            text: report,
+            is_report: true,
+        })
     }
+}
+
+struct Rendered {
+    text: String,
+    is_report: bool,
 }
 
 /// Why [`Completion::run`] failed.
@@ -199,6 +246,34 @@ mod tests {
                 ("XDG_CONFIG_HOME".to_string(), home.join("config").into()),
             ],
         )
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_split_keeps_stdout_for_the_script() {
+        let home = tempfile::tempdir().unwrap();
+        let env = linux_env(home.path());
+
+        let (mut out, mut report) = (Vec::new(), Vec::new());
+        parse(&["fish"])
+            .run_split_in("ex", &env, &mut out, &mut report)
+            .unwrap();
+        assert_eq!(
+            String::from_utf8(out).unwrap(),
+            parse(&["fish"]).script("ex")
+        );
+        assert!(report.is_empty());
+
+        let (mut out, mut report) = (Vec::new(), Vec::new());
+        parse(&["fish", "--install"])
+            .run_split_in("ex", &env, &mut out, &mut report)
+            .unwrap();
+        assert!(out.is_empty());
+        assert!(String::from_utf8(report).unwrap().starts_with("installed "));
+        assert_eq!(
+            std::fs::read_to_string(home.path().join("config/fish/completions/ex.fish")).unwrap(),
+            parse(&["fish"]).script("ex")
+        );
     }
 
     #[cfg(unix)]
