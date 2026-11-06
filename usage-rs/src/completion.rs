@@ -74,12 +74,10 @@ impl Completion {
     /// `bin` is the name of the executable the script should call back, normally the CLI's own
     /// `bin`. Nothing is written to a startup file; when a shell needs a line added once, it is
     /// printed on `out` after the path.
-    pub fn run(&self, bin: &str, out: &mut impl Write) -> Result<(), install::Error> {
+    pub fn run(&self, bin: &str, out: &mut impl Write) -> Result<(), Error> {
         let shell = self.shell();
         if !self.install {
-            // A broken pipe on stdout is the reader's decision, not an install failure.
-            let _ = out.write_all(self.script(bin).as_bytes());
-            return Ok(());
+            return finish(out.write_all(self.script(bin).as_bytes()));
         }
         let on_foreign = if self.force {
             OnForeign::Overwrite
@@ -94,14 +92,57 @@ impl Completion {
             Wrote::Replaced => "replaced",
             _ => "already up to date:",
         };
-        let _ = writeln!(out, "{verb} {}", done.plan.path.display());
+        let mut report = format!("{verb} {}\n", done.plan.path.display());
         if let install::Loading::Manual { line, file, why } = &done.plan.loading {
-            let _ = writeln!(out, "{why}; add this to {file}, once:\n{line}");
+            report.push_str(&format!("{why}; add this to {file}, once:\n{line}\n"));
         }
         if let Some(note) = done.plan.note {
-            let _ = writeln!(out, "{note}");
+            report.push_str(&format!("{note}\n"));
         }
-        Ok(())
+        finish(out.write_all(report.as_bytes()))
+    }
+}
+
+/// Why [`Completion::run`] failed.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum Error {
+    /// The script could not be placed where the shell looks.
+    Install(install::Error),
+    /// Writing to the output failed, for example because the disk is full.
+    Output(std::io::Error),
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::Install(e) => e.fmt(f),
+            Error::Output(e) => write!(f, "could not write the completion output: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Install(e) => Some(e),
+            Error::Output(e) => Some(e),
+        }
+    }
+}
+
+impl From<install::Error> for Error {
+    fn from(e: install::Error) -> Self {
+        Error::Install(e)
+    }
+}
+
+/// A closed pipe is the reader's decision (`ex completion zsh | head`), so it is not a failure;
+/// every other write error is, and must not look like success.
+fn finish(result: std::io::Result<()>) -> Result<(), Error> {
+    match result {
+        Err(e) if e.kind() != std::io::ErrorKind::BrokenPipe => Err(Error::Output(e)),
+        _ => Ok(()),
     }
 }
 
@@ -120,6 +161,26 @@ mod tests {
         let mut out = Vec::new();
         c.run("ex", &mut out).unwrap();
         assert_eq!(String::from_utf8(out).unwrap(), c.script("ex"));
+    }
+
+    struct Failing(std::io::ErrorKind);
+
+    impl Write for Failing {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(self.0.into())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_failed_write_is_an_error_but_a_closed_pipe_is_not() {
+        let c = parse(&["fish"]);
+        let full = c.run("ex", &mut Failing(std::io::ErrorKind::StorageFull));
+        assert!(matches!(full, Err(Error::Output(_))));
+        let closed = c.run("ex", &mut Failing(std::io::ErrorKind::BrokenPipe));
+        assert!(closed.is_ok());
     }
 
     #[test]
