@@ -268,6 +268,10 @@ mod tests {
             .unwrap();
         assert!(out.is_empty());
         assert!(String::from_utf8(report).unwrap().starts_with("installed "));
+        assert_eq!(
+            std::fs::read_to_string(home.path().join("config/fish/completions/ex.fish")).unwrap(),
+            parse(&["fish"]).script("ex")
+        );
     }
 
     #[cfg(unix)]
