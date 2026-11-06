@@ -246,9 +246,9 @@ checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
 
 [[package]]
 name = "cc"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "375989decec1a0fa424442bed520fa12ede43a48475ce8c7417d2c69b32b5f6b"
+checksum = "4ff2a8126fff0f8c839080d619675a585e61720bb12d2baceae45769fd66f155"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -2174,11 +2174,11 @@ checksum = "ca718471876992059f251e33aafc334346ada08042b7661dd1fe313a9bced557"
 
 [[package]]
 name = "usage-argv"
-version = "7.3.0"
+version = "7.4.0"
 
 [[package]]
 name = "usage-cli"
-version = "7.3.0"
+version = "7.4.0"
 dependencies = [
  "assert_cmd",
  "ctor",
@@ -2206,7 +2206,7 @@ dependencies = [
 
 [[package]]
 name = "usage-config"
-version = "7.3.0"
+version = "7.4.0"
 dependencies = [
  "serde_json",
  "toml",
@@ -2233,7 +2233,7 @@ dependencies = [
 
 [[package]]
 name = "usage-derive"
-version = "7.3.0"
+version = "7.4.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2243,7 +2243,7 @@ dependencies = [
 
 [[package]]
 name = "usage-dynamic"
-version = "7.3.0"
+version = "7.4.0"
 dependencies = [
  "futures",
  "usage-argv",
@@ -2253,7 +2253,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "7.3.0"
+version = "7.4.0"
 dependencies = [
  "clap",
  "criterion",
@@ -2282,7 +2282,7 @@ dependencies = [
 
 [[package]]
 name = "usage-rs"
-version = "7.3.0"
+version = "7.4.0"
 dependencies = [
  "serde",
  "shell-words",
@@ -2306,14 +2306,14 @@ dependencies = [
 
 [[package]]
 name = "usage-test"
-version = "7.3.0"
+version = "7.4.0"
 dependencies = [
  "usage-argv",
 ]
 
 [[package]]
 name = "usage-validation"
-version = "7.3.0"
+version = "7.4.0"
 dependencies = [
  "expr-lang",
 ]

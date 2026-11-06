@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.4.0](https://github.com/jdx/usage/compare/v7.3.0..v7.4.0) - 2026-11-06
+
+### 🚀 Features
+
+- **(lib)** label the completion install flags with their effects by [@jdx](https://github.com/jdx) in [#1627](https://github.com/jdx/usage/pull/1627)
+- **(lib)** keep stdout for the script in the shared completion subcommand by [@jdx](https://github.com/jdx) in [#1629](https://github.com/jdx/usage/pull/1629)
+
 ## [7.3.0](https://github.com/jdx/usage/compare/v7.2.0..v7.3.0) - 2026-11-06
 
 ### 🚀 Features
