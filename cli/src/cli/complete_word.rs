@@ -153,7 +153,7 @@ impl CompleteWord {
             ctx.insert("PREV", &(cword - 1));
         }
 
-        let parsed = usage::parse::parse_partial(spec, &words)?;
+        let parsed = usage::parse::parse_partial_for_completion(spec, &words)?;
         debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));
 
         // Past an `external_subcommand` catch-all the cursor is inside another program's line.

@@ -429,7 +429,7 @@ fn complete_subtree(
     input: &[String],
     prefix: &str,
 ) -> Result<Completions<'static>, Error> {
-    let parsed = usage_parser::parse::parse_partial(spec, input)
+    let parsed = usage_parser::parse::parse_partial_for_completion(spec, input)
         .map_err(|error| Error::Parse(error.to_string()))?;
     // A plugin may itself forward to a program of its own. One level down, the same rule: these
     // words describe nothing this spec knows about.

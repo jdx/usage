@@ -1961,6 +1961,10 @@ pub struct Parser<'t, 'a, 'v> {
     /// Once, per parse: a default subcommand that itself declares one would otherwise
     /// descend on every word until the tree ran out.
     default_taken: bool,
+    /// Whether this parse reads the words before a cursor. The word under the cursor is still
+    /// to be typed, so the line is not an empty invocation and `default_subcommand_on_empty`
+    /// must not route away from the root's own subcommands and flags.
+    completing: bool,
     /// First default-only flag, when lookahead found no explicit sibling.
     default_flag_at: Option<usize>,
     /// Cursor just after the implicit boundary bundle, whose shorts keep parent ownership.
@@ -1995,7 +1999,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// Begin a non-executing parse for completion walking.
     #[cfg(feature = "complete")]
     pub(crate) fn for_completion(root: &'t Command<'t>, argv: &'a [&'v OsStr]) -> Self {
-        Self::with_action_errors(root, argv, false)
+        let mut parser = Self::with_action_errors(root, argv, false);
+        parser.completing = true;
+        parser
     }
 
     fn with_action_errors(
@@ -2034,6 +2040,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             separator_seen: false,
             clause_separator_seen: false,
             default_taken: false,
+            completing: false,
             default_flag_at: None,
             default_bundle_end: 0,
             done: false,
@@ -2310,6 +2317,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             && self.depth == 0
             && self.cmd.default_subcommand_on_empty
             && !self.default_taken
+            && !self.completing
             && !self.positional_arg_found
             && !self.separator_seen
             && !self.clause_separator_seen

@@ -1,0 +1,24 @@
+{
+  "section": "default-subcommand-on-empty",
+  "about": "An empty-invocation default does not hide the root's own candidates from completion: the word under the cursor is still to be typed.",
+  "vectors": [
+    {
+      "id": "empty-default-offers-root-subcommands",
+      "doc": "At the root, completion offers the subcommands, not only the default command's arguments.",
+      "spec": "name \"x\"\nbin \"x\"\nflag \"--rootf\"\ndefault_subcommand \"def\"\ndefault_subcommand_on_empty #true\ncmd \"def\" {\n flag \"--x <x>\"\n arg \"[a]\"\n}\ncmd \"other\"\n",
+      "line": "x o",
+      "expect": {
+        "candidates": ["other"]
+      }
+    },
+    {
+      "id": "empty-default-offers-root-flags",
+      "doc": "At the root, completion offers the root's flags rather than the default command's.",
+      "spec": "name \"x\"\nbin \"x\"\nflag \"--rootf\"\ndefault_subcommand \"def\"\ndefault_subcommand_on_empty #true\ncmd \"def\" {\n flag \"--x <x>\"\n arg \"[a]\"\n}\ncmd \"other\"\n",
+      "line": "x --ro",
+      "expect": {
+        "candidates": ["--rootf"]
+      }
+    }
+  ]
+}
