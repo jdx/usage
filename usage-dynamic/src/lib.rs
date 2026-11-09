@@ -497,6 +497,7 @@ fn complete_subtree(
         // out of `closed`: they belong to a different command and are only a guess.
         if spec.default_subcommand_on_empty
             && parsed.cmds.len() == 1
+            && !parsed.double_dash_seen
             && let Some(default) = spec
                 .default_subcommand
                 .as_deref()

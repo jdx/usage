@@ -892,3 +892,25 @@ cmd "def" {
     let offered = answer(&catalog, &["host", "plugins", "tool", "f"]);
     assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
 }
+
+#[test]
+fn an_empty_default_does_not_offer_choices_after_a_double_dash() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+cmd "def" {
+    arg "[speed]" {
+        choices "fast" "slow"
+    }
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "--", "f"]);
+    assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
+}
