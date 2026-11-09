@@ -492,6 +492,19 @@ fn complete_subtree(
                 }
             }
         }
+        // At the root with an empty-invocation default, the user may mean to elide the default
+        // command's name, so its first argument's choices are offered too. The choices stay
+        // out of `closed`: they belong to a different command and are only a guess.
+        if spec.default_subcommand_on_empty
+            && parsed.cmds.len() == 1
+            && let Some(default) = spec
+                .default_subcommand
+                .as_deref()
+                .and_then(|name| parsed.cmd.find_subcommand(name))
+            && let Some(arg) = default.args.iter().find(|arg| arg.sigil.is_none())
+        {
+            candidates.extend(choice_candidates(arg, prefix));
+        }
     }
     sort_and_dedup(&mut candidates);
 

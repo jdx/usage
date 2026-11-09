@@ -843,3 +843,30 @@ fn a_spec_built_in_rust_works_like_one_parsed_from_kdl() {
     let offered = answer(&catalog, &["host", "plugins", "deploy", ""]);
     assert!(offered.contains(&"status".to_string()), "{offered:?}");
 }
+
+#[test]
+fn an_empty_default_still_offers_its_argument_choices_at_a_plugins_root() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+cmd "def" {
+    arg "[speed]" {
+        choices "fast" "slow"
+    }
+}
+cmd "other"
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let choices = answer(&catalog, &["host", "plugins", "tool", "f"]);
+    assert_eq!(choices, ["fast"], "{choices:?}");
+    let all = answer(&catalog, &["host", "plugins", "tool", ""]);
+    for want in ["def", "other", "fast", "slow"] {
+        assert!(all.contains(&want.to_string()), "{all:?}");
+    }
+}
