@@ -489,6 +489,26 @@ parent_required_flag_shadowed_by_subcommand:
     args="sub",
     expected=r#"{"usage_cmd": "sub"}"#,
 
+parent_requires_target_default_counts_with_subcommand:
+    spec=r#"
+    flag "--a" requires="--b"
+    flag "--b <v>" default="fallback"
+    cmd "sub"
+    "#,
+    args="--a sub",
+    expected=r#"{"usage_a": "true", "usage_cmd": "sub"}"#,
+
+parent_clause_flag_not_required_by_subcommand:
+    spec=r#"
+    clause "item" {
+        arg "<item>"
+        flag "--mode <m>" required=#true
+    }
+    cmd "sub"
+    "#,
+    args="sub",
+    expected=r#"{"usage_cmd": "sub"}"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true

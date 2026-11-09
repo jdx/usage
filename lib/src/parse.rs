@@ -3040,29 +3040,7 @@ fn parse_partial_traced(
                 && !overridden_flags.contains(&flag.name)
                 && (flag_was_parsed(flag) || flag_has_env(flag, custom_env))
         });
-    // A descent drops every non-global flag of the commands it leaves from `available_flags`,
-    // but their `required`, `requires` and `conflicts` still bind the invocation. Rejoin the
-    // ancestors' own flags, unless a later command in the chain declares the same name (which
-    // shadows them) or the name is already available.
-    let ancestor_flags: Vec<Arc<SpecFlag>> = {
-        let available: HashSet<&str> = out
-            .available_flags
-            .values()
-            .map(|flag| flag.name.as_str())
-            .collect();
-        let mut flags = Vec::new();
-        for (index, cmd) in out.cmds[..out.cmds.len() - 1].iter().enumerate() {
-            for flag in gather_flags(cmd).into_values() {
-                let shadowed = out.cmds[index + 1..]
-                    .iter()
-                    .any(|later| later.flags.iter().any(|f| f.name == flag.name));
-                if !shadowed && !available.contains(flag.name.as_str()) {
-                    flags.push(flag);
-                }
-            }
-        }
-        flags
-    };
+    let ancestor_flags = ancestor_flags(&out);
     let requirements_apply = |command_index: usize| {
         command_index + 1 == out.cmds.len() || !out.cmds[command_index].subcommand_negates_reqs
     };
@@ -4390,10 +4368,12 @@ fn selector_is_explicit(
 ) -> bool {
     let scoped_flag_is_explicit =
         selected_clause_flag(out, selector).is_some_and(|flag| clause_flag_is_explicit(out, flag));
+    let ancestors = ancestor_flags(out);
     let flag_is_explicit = out
         .available_flags
         .values()
         .chain(out.flags.keys())
+        .chain(&ancestors)
         .filter(|flag| !is_clause_scoped_flag(out, flag))
         .any(|flag| {
             flag_matches_selector(flag, selector)
@@ -4414,21 +4394,14 @@ fn selector_flag_name(selector: &str, out: &ParseOutput) -> Option<String> {
     if let Some(flag) = selected_clause_flag(out, selector) {
         return Some(flag.name.clone());
     }
+    let ancestors = ancestor_flags(out);
     out.available_flags
         .values()
         .chain(out.flags.keys())
+        .chain(&ancestors)
         .filter(|flag| !is_clause_scoped_flag(out, flag))
         .find(|flag| flag_matches_selector(flag, selector))
         .map(|flag| flag.name.clone())
-        // A flag an ancestor declared is gone from `available_flags` once a subcommand is
-        // taken, yet a selector can still name it.
-        .or_else(|| {
-            out.cmds
-                .iter()
-                .flat_map(|cmd| &cmd.flags)
-                .find(|flag| flag_matches_selector(flag, selector))
-                .map(|flag| flag.name.clone())
-        })
         .or_else(|| selector_arg(selector, out).map(|arg| arg.name.clone()))
 }
 
@@ -4450,10 +4423,12 @@ fn selector_is_satisfied(
     if selector_is_explicit(selector, out, overridden_flags, custom_env) {
         return true;
     }
+    let ancestors = ancestor_flags(out);
     let flag_is_satisfied = out
         .available_flags
         .values()
         .chain(out.flags.keys())
+        .chain(&ancestors)
         .filter(|flag| !is_clause_scoped_flag(out, flag))
         .filter(|flag| flag_matches_selector(flag, selector))
         .any(|flag| {
@@ -4465,6 +4440,34 @@ fn selector_is_satisfied(
                     }))
         });
     flag_is_satisfied || selector_arg(selector, out).is_some_and(|arg| !arg.default.is_empty())
+}
+
+/// The flags of the commands a descent has left, as a subcommand's relationships still see them.
+///
+/// A descent keeps only globals in `available_flags`, yet a parent flag's `required`,
+/// `requires` and `conflicts`, and its default or environment value as another flag's
+/// relationship target, stay in force. Only ordinary flags: a clause flag belongs to one
+/// clause instance and binds nothing until that clause is entered. A name a later command in
+/// the chain declares again is shadowed by it, and a name already available is not repeated.
+fn ancestor_flags(out: &ParseOutput) -> Vec<Arc<SpecFlag>> {
+    let Some((_, ancestors)) = out.cmds.split_last() else {
+        return vec![];
+    };
+    let mut flags: Vec<Arc<SpecFlag>> = vec![];
+    for (index, cmd) in ancestors.iter().enumerate() {
+        for flag in &cmd.flags {
+            let shadowed = out.cmds[index + 1..]
+                .iter()
+                .any(|later| later.flags.iter().any(|f| f.name == flag.name));
+            if !shadowed
+                && !out.available_flags.values().any(|f| f.name == flag.name)
+                && !flags.iter().any(|f| f.name == flag.name)
+            {
+                flags.push(Arc::new(flag.clone()));
+            }
+        }
+    }
+    flags
 }
 
 fn selector_arg<'a>(selector: &str, out: &'a ParseOutput) -> Option<&'a SpecArg> {
