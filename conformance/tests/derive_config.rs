@@ -753,3 +753,33 @@ fn a_lossy_read_does_not_invent_a_default_that_was_never_declared() {
     assert_eq!(errors.0.len(), 1, "{errors}");
     assert_eq!(errors.0[0].key, "token");
 }
+
+/// Keys cased from the field names; everything written out stays as written.
+#[derive(Config, Debug, PartialEq)]
+#[usage(prefix = "ui", rename_all_keys = "kebab-case")]
+struct Cased {
+    dialog_theme: String,
+
+    #[usage(key = "tab_width")]
+    explicit_key: Option<u32>,
+
+    #[usage(alias("ui.old_name"))]
+    default_command: Option<String>,
+
+    r#type: Option<String>,
+}
+
+#[test]
+fn rename_all_keys_cases_field_names_and_leaves_written_keys_alone() {
+    let keys: Vec<&str> = Cased::SETTINGS_PROPS.iter().map(|p| p.key).collect();
+    assert_eq!(
+        keys,
+        [
+            "ui.dialog-theme",
+            "ui.tab_width",
+            "ui.default-command",
+            "ui.type"
+        ]
+    );
+    assert_eq!(Cased::SETTINGS_PROPS[2].aliases, ["ui.old_name"]);
+}

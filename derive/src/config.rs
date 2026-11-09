@@ -55,7 +55,7 @@ use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, UnOp};
 
 use crate::facade::facade;
-use crate::model::{attrs, doc_comment, flag_value, ident_of, nested, string_value};
+use crate::model::{CasingStyle, attrs, doc_comment, flag_value, ident_of, nested, string_value};
 
 /// The config crate, through the facade: `usage_rs::config`.
 pub(crate) fn config_path() -> TokenStream {
@@ -317,12 +317,14 @@ impl Config {
         }
 
         let mut prefix = None;
+        let mut rename_all_keys = None;
         let mut sources = Vec::new();
         let mut files = Vec::new();
         for attr in attrs(&input.attrs) {
             for meta in nested(attr)? {
                 match ident_of(meta.path()).as_str() {
                     "prefix" => prefix = Some(string_value(&meta)?),
+                    "rename_all_keys" => rename_all_keys = Some(CasingStyle::parse(&meta)?),
                     "source" => sources.push(source_decl(&meta)?),
                     "file" => files.push(file_decl(&meta)?),
                     other => {
@@ -350,7 +352,11 @@ impl Config {
 
         let mut fields = Vec::new();
         for field in &named.named {
-            fields.push(Field::from_field(field, prefix.as_deref())?);
+            fields.push(Field::from_field(
+                field,
+                prefix.as_deref(),
+                rename_all_keys,
+            )?);
         }
 
         // A duplicate within one struct is visible here, so it is refused here, with spans.
@@ -597,7 +603,11 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
 }
 
 impl Field {
-    fn from_field(field: &syn::Field, prefix: Option<&str>) -> syn::Result<Self> {
+    fn from_field(
+        field: &syn::Field,
+        prefix: Option<&str>,
+        rename_all_keys: Option<CasingStyle>,
+    ) -> syn::Result<Self> {
         let ident = field.ident.clone().expect("named fields only");
 
         let mut flatten = false;
@@ -784,7 +794,20 @@ impl Field {
         let unraw = unraw.strip_prefix("r#").unwrap_or(&unraw);
         prop.key = match key_attr {
             Some(key) => key,
-            None => unraw.to_string(),
+            // Only a key taken from the field name is cased; `key` is the author's spelling.
+            None => match rename_all_keys {
+                Some(style) => {
+                    let key = style.apply(unraw);
+                    if key.is_empty() {
+                        return Err(syn::Error::new(
+                            ident.span(),
+                            "casing produces an empty setting key; specify `key`",
+                        ));
+                    }
+                    key
+                }
+                None => unraw.to_string(),
+            },
         };
         if let Some(prefix) = prefix {
             prop.key = format!("{prefix}.{}", prop.key);
@@ -1813,6 +1836,47 @@ mod tests {
     fn accepted(body: &str) {
         Config::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
             .unwrap_or_else(|e| panic!("should have compiled: {e}"));
+    }
+
+    #[test]
+    fn rename_all_keys_refuses_a_name_that_cases_to_nothing() {
+        let err = rejection(
+            r#"
+            #[usage(rename_all_keys = "lower")]
+            struct Settings {
+                __: u64,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("casing produces an empty setting key"),
+            "unhelpful: {err}"
+        );
+
+        // The check runs before the prefix, so `ui.` is not mistaken for a key.
+        let err = rejection(
+            r#"
+            #[usage(prefix = "ui", rename_all_keys = "lower")]
+            struct Settings {
+                __: u64,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("casing produces an empty setting key"),
+            "unhelpful: {err}"
+        );
+
+        // An explicit `key` is the way out.
+        accepted(
+            r#"
+            #[usage(rename_all_keys = "lower")]
+            struct Settings {
+                #[usage(key = "jobs")]
+                __: u64,
+            }
+        "#,
+        );
     }
 
     #[test]
