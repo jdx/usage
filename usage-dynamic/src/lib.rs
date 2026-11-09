@@ -502,6 +502,7 @@ fn complete_subtree(
                 .as_deref()
                 .and_then(|name| parsed.cmd.find_subcommand(name))
             && let Some(arg) = default.args.iter().find(|arg| arg.sigil.is_none())
+            && arg.double_dash != usage_parser::SpecDoubleDashChoices::Required
         {
             candidates.extend(choice_candidates(arg, prefix));
         }

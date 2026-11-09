@@ -870,3 +870,25 @@ cmd "other"
         assert!(all.contains(&want.to_string()), "{all:?}");
     }
 }
+
+#[test]
+fn an_empty_default_does_not_offer_choices_that_need_a_separator() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+cmd "def" {
+    arg "[speed]" double_dash="required" {
+        choices "fast" "slow"
+    }
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "f"]);
+    assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
+}
