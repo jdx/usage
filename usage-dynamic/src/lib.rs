@@ -429,7 +429,7 @@ fn complete_subtree(
     input: &[String],
     prefix: &str,
 ) -> Result<Completions<'static>, Error> {
-    let parsed = usage_parser::parse::parse_partial(spec, input)
+    let parsed = usage_parser::parse::parse_partial_for_completion(spec, input)
         .map_err(|error| Error::Parse(error.to_string()))?;
     // A plugin may itself forward to a program of its own. One level down, the same rule: these
     // words describe nothing this spec knows about.
@@ -457,7 +457,33 @@ fn complete_subtree(
             files = completion_files(spec, &parsed.cmd, arg);
         }
     } else if flag_like {
-        for (form, flag) in parsed.completion_flags() {
+        let mut flags = parsed.completion_flags();
+        // The completion parse no longer routes an empty root into the default command, so the
+        // flags `default_subcommand_flags` lends from it are added here, as `complete-word` does.
+        if spec.default_subcommand_flags
+            && parsed.cmds.len() == 1
+            && !root_took_positional(&parsed)
+            && let Some(default) = spec
+                .default_subcommand
+                .as_deref()
+                .and_then(|name| parsed.cmd.find_subcommand(name))
+        {
+            for flag in &default.flags {
+                let flag = std::sync::Arc::new(flag.clone());
+                for key in flag
+                    .long
+                    .iter()
+                    .map(|name| format!("--{name}"))
+                    .chain(flag.short.iter().map(|name| format!("-{name}")))
+                    .chain(flag.negate.iter().cloned())
+                {
+                    flags
+                        .entry(key)
+                        .or_insert_with(|| std::sync::Arc::clone(&flag));
+                }
+            }
+        }
+        for (form, flag) in flags {
             if flag.hide || !form.starts_with(prefix) || hidden_flag_form(&form, &flag) {
                 continue;
             }
@@ -492,6 +518,22 @@ fn complete_subtree(
                 }
             }
         }
+        // At the root with an empty-invocation default, the user may mean to elide the default
+        // command's name, so its first argument's choices are offered too. The choices stay
+        // out of `closed`: they belong to a different command and are only a guess.
+        if spec.default_subcommand_on_empty
+            && parsed.cmds.len() == 1
+            && !parsed.double_dash_seen
+            && !root_took_positional(&parsed)
+            && let Some(default) = spec
+                .default_subcommand
+                .as_deref()
+                .and_then(|name| parsed.cmd.find_subcommand(name))
+            && let Some(arg) = default.args.iter().find(|arg| arg.sigil.is_none())
+            && arg.double_dash != usage_parser::SpecDoubleDashChoices::Required
+        {
+            candidates.extend(choice_candidates(arg, prefix));
+        }
     }
     sort_and_dedup(&mut candidates);
 
@@ -508,6 +550,24 @@ fn complete_subtree(
         files = Some(Files::Any);
     }
     Ok(Completions { candidates, files })
+}
+
+/// Whether the root already took a positional, so the default command can no longer be
+/// selected by the next word. An unknown flag a positional absorbed counts: it filled one.
+fn root_took_positional(parsed: &usage_parser::parse::ParseOutput) -> bool {
+    use usage_parser::parse::TokenRole;
+    !parsed.args.is_empty()
+        || parsed.tokens.iter().any(|token| {
+            token.roles.iter().any(|role| {
+                matches!(
+                    role,
+                    TokenRole::Arg { .. }
+                        | TokenRole::Sigil { .. }
+                        | TokenRole::ClauseSeparator { .. }
+                        | TokenRole::UnknownFlag { bound_as: Some(_) }
+                )
+            })
+        })
 }
 
 /// Whether this position states what it accepts, so an unmatched prefix means "no matches".

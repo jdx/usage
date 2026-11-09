@@ -1253,6 +1253,25 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
     Parser::new(spec).parse(input)
 }
 
+/// Parse the words before the cursor for completion.
+///
+/// Like [`parse_partial`], except that `default_subcommand_on_empty` is not applied. The word
+/// under the cursor is still to be typed, so the line is not an empty invocation: the root's
+/// subcommands and flags are all still valid next words, and routing into the default command
+/// would hide them.
+#[must_use = "parsing result should be used"]
+pub fn parse_partial_for_completion(
+    spec: &Spec,
+    input: &[String],
+) -> Result<ParseOutput, miette::Error> {
+    if spec.default_subcommand_on_empty {
+        let mut spec = spec.clone();
+        spec.default_subcommand_on_empty = false;
+        return parse_partial(&spec, input);
+    }
+    parse_partial(spec, input)
+}
+
 /// Parse command-line arguments without applying defaults.
 ///
 /// Use this for help text generation or when you need the raw parsed values.

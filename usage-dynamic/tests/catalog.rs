@@ -843,3 +843,224 @@ fn a_spec_built_in_rust_works_like_one_parsed_from_kdl() {
     let offered = answer(&catalog, &["host", "plugins", "deploy", ""]);
     assert!(offered.contains(&"status".to_string()), "{offered:?}");
 }
+
+#[test]
+fn an_empty_default_still_offers_its_argument_choices_at_a_plugins_root() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+cmd "def" {
+    arg "[speed]" {
+        choices "fast" "slow"
+    }
+}
+cmd "other"
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let choices = answer(&catalog, &["host", "plugins", "tool", "f"]);
+    assert_eq!(choices, ["fast"], "{choices:?}");
+    let all = answer(&catalog, &["host", "plugins", "tool", ""]);
+    for want in ["def", "other", "fast", "slow"] {
+        assert!(all.contains(&want.to_string()), "{all:?}");
+    }
+}
+
+#[test]
+fn an_empty_default_does_not_offer_choices_that_need_a_separator() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+cmd "def" {
+    arg "[speed]" double_dash="required" {
+        choices "fast" "slow"
+    }
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "f"]);
+    assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
+}
+
+#[test]
+fn an_empty_default_does_not_offer_choices_after_a_double_dash() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+cmd "def" {
+    arg "[speed]" {
+        choices "fast" "slow"
+    }
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "--", "f"]);
+    assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
+}
+
+#[test]
+fn an_empty_default_does_not_offer_choices_once_the_root_took_a_positional() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+arg "[first]" allow_negative_numbers=#true
+cmd "def" {
+    arg "[speed]" {
+        choices "fast" "slow"
+    }
+}
+cmd "other"
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "-7", ""]);
+    // Not an empty answer from a failed parse: the root's own candidates are still there.
+    assert!(offered.contains(&"other".to_string()), "{offered:?}");
+    assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
+}
+
+#[test]
+fn an_empty_default_does_not_offer_choices_after_a_root_clause_separator() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+clause "steps" separator=":::" {
+    arg "<step>" allow_negative_numbers=#true
+}
+cmd "def" {
+    arg "[speed]" {
+        choices "fast" "slow"
+    }
+}
+cmd "other"
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "-7", ":::", ""]);
+    assert!(offered.contains(&"other".to_string()), "{offered:?}");
+    assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
+}
+
+#[test]
+fn default_subcommand_flags_are_offered_at_a_plugins_root() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+default_subcommand_flags #true
+flag "--rootf"
+cmd "def" {
+    flag "--defonly"
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "--"]);
+    for want in ["--rootf", "--defonly"] {
+        assert!(offered.contains(&want.to_string()), "{offered:?}");
+    }
+}
+
+#[test]
+fn an_empty_default_is_not_guessed_after_an_unknown_flag_filled_the_root_argument() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+arg "[first]"
+cmd "def" {
+    arg "[speed]" {
+        choices "fast" "slow"
+    }
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "--unknown", "f"]);
+    assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
+}
+
+#[test]
+fn default_flags_are_not_offered_after_the_root_took_a_positional() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+default_subcommand_flags #true
+flag "--rootf"
+arg "[first]" allow_negative_numbers=#true
+cmd "def" {
+    flag "--defonly"
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "-7", "--"]);
+    assert!(offered.contains(&"--rootf".to_string()), "{offered:?}");
+    assert!(!offered.contains(&"--defonly".to_string()), "{offered:?}");
+}
+
+#[test]
+fn default_flags_are_not_offered_after_a_root_clause_separator() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+default_subcommand_flags #true
+flag "--rootf"
+clause "steps" separator=":::" {
+    arg "<step>" allow_negative_numbers=#true
+}
+cmd "def" {
+    flag "--defonly"
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "-7", ":::", "--"]);
+    assert!(offered.contains(&"--rootf".to_string()), "{offered:?}");
+    assert!(!offered.contains(&"--defonly".to_string()), "{offered:?}");
+}
