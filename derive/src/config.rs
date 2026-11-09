@@ -796,7 +796,16 @@ impl Field {
             Some(key) => key,
             // Only a key taken from the field name is cased; `key` is the author's spelling.
             None => match rename_all_keys {
-                Some(style) => style.apply(unraw),
+                Some(style) => {
+                    let key = style.apply(unraw);
+                    if key.is_empty() {
+                        return Err(syn::Error::new(
+                            ident.span(),
+                            "casing produces an empty setting key; specify `key`",
+                        ));
+                    }
+                    key
+                }
                 None => unraw.to_string(),
             },
         };
