@@ -4044,33 +4044,19 @@ fn validate_clause_relationships(
         return;
     };
     let command_flag_is_explicit = |selector: &str| {
-        out.available_flags
-            .values()
-            .chain(out.flags.keys())
-            .filter(|flag| !is_clause_scoped_flag(out, flag))
-            .any(|flag| {
-                flag_matches_selector(flag, selector)
-                    && !overridden_flags.contains(&flag.name)
-                    && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
-            })
+        selector_flags(out, selector).iter().any(|flag| {
+            !overridden_flags.contains(&flag.name)
+                && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
+        })
     };
     let command_flag_matches_value = |selector: &str, expected: &str| {
-        out.available_flags
-            .values()
-            .chain(out.flags.keys())
-            .filter(|flag| !is_clause_scoped_flag(out, flag))
-            .find(|flag| flag_matches_selector(flag, selector))
-            .is_some_and(|flag| {
-                !overridden_flags.contains(&flag.name)
-                    && explicit_flag_has_value(flag, expected, out, custom_env)
-            })
+        selector_flags(out, selector).first().is_some_and(|flag| {
+            !overridden_flags.contains(&flag.name)
+                && explicit_flag_has_value(flag, expected, out, custom_env)
+        })
     };
     let command_flag_is_satisfied = |selector: &str| {
-        out.available_flags
-            .values()
-            .chain(out.flags.keys())
-            .filter(|flag| !is_clause_scoped_flag(out, flag))
-            .any(|flag| flag_matches_selector(flag, selector))
+        !selector_flags(out, selector).is_empty()
             && selector_is_satisfied(selector, out, overridden_flags, custom_env)
     };
     let mut errors = Vec::new();
