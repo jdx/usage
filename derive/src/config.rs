@@ -1839,6 +1839,33 @@ mod tests {
     }
 
     #[test]
+    fn rename_all_keys_refuses_a_name_that_cases_to_nothing() {
+        let err = rejection(
+            r#"
+            #[usage(rename_all_keys = "lower")]
+            struct Settings {
+                __: u64,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("casing produces an empty setting key"),
+            "unhelpful: {err}"
+        );
+
+        // An explicit `key` is the way out.
+        accepted(
+            r#"
+            #[usage(rename_all_keys = "lower")]
+            struct Settings {
+                #[usage(key = "jobs")]
+                __: u64,
+            }
+        "#,
+        );
+    }
+
+    #[test]
     fn a_uint_refuses_a_negative_default_or_choice() {
         // The resolver seeds a declared default with no coercion, and `u64::from_value`
         // refuses a negative value — so this compiled and then failed every `read` with a type
