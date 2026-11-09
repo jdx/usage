@@ -961,3 +961,48 @@ cmd "def" {
         assert!(offered.contains(&want.to_string()), "{offered:?}");
     }
 }
+
+#[test]
+fn an_empty_default_is_not_guessed_after_an_unknown_flag_filled_the_root_argument() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+arg "[first]"
+cmd "def" {
+    arg "[speed]" {
+        choices "fast" "slow"
+    }
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "--unknown", "f"]);
+    assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
+}
+
+#[test]
+fn default_flags_are_not_offered_after_the_root_took_a_positional() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+default_subcommand_flags #true
+arg "[first]"
+cmd "def" {
+    flag "--defonly"
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "one", "--"]);
+    assert!(!offered.contains(&"--defonly".to_string()), "{offered:?}");
+}

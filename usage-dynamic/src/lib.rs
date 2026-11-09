@@ -462,6 +462,7 @@ fn complete_subtree(
         // flags `default_subcommand_flags` lends from it are added here, as `complete-word` does.
         if spec.default_subcommand_flags
             && parsed.cmds.len() == 1
+            && !root_took_positional(&parsed)
             && let Some(default) = spec
                 .default_subcommand
                 .as_deref()
@@ -523,12 +524,7 @@ fn complete_subtree(
         if spec.default_subcommand_on_empty
             && parsed.cmds.len() == 1
             && !parsed.double_dash_seen
-            && !parsed.tokens.iter().any(|token| {
-                token
-                    .roles
-                    .iter()
-                    .any(|role| matches!(role, usage_parser::parse::TokenRole::Arg { .. }))
-            })
+            && !root_took_positional(&parsed)
             && let Some(default) = spec
                 .default_subcommand
                 .as_deref()
@@ -554,6 +550,21 @@ fn complete_subtree(
         files = Some(Files::Any);
     }
     Ok(Completions { candidates, files })
+}
+
+/// Whether the root already took a positional, so the default command can no longer be
+/// selected by the next word. An unknown flag a positional absorbed counts: it filled one.
+fn root_took_positional(parsed: &usage_parser::parse::ParseOutput) -> bool {
+    use usage_parser::parse::TokenRole;
+    !parsed.args.is_empty()
+        || parsed.tokens.iter().any(|token| {
+            token.roles.iter().any(|role| {
+                matches!(
+                    role,
+                    TokenRole::Arg { .. } | TokenRole::UnknownFlag { bound_as: Some(_) }
+                )
+            })
+        })
 }
 
 /// Whether this position states what it accepts, so an unmatched prefix means "no matches".
