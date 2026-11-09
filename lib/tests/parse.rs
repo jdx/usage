@@ -520,6 +520,20 @@ parent_alias_default_does_not_satisfy_child_requires:
     args="sub --upload",
     expected=r#"Missing required flag: --file <file>"#,
 
+parent_default_satisfies_requires_despite_child_clause_alias:
+    spec=r#"
+    flag "-f --format <v>" default="json"
+    flag "--upload" requires="-f"
+    cmd "sub" {
+        clause "item" {
+            arg "<item>"
+            flag "-f --file <v>"
+        }
+    }
+    "#,
+    args="--upload sub",
+    expected=r#"{"usage_cmd": "sub", "usage_upload": "true"}"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true

@@ -4476,7 +4476,7 @@ fn selector_ancestors(out: &ParseOutput, selector: &str) -> Vec<Arc<SpecFlag>> {
     if out
         .available_flags
         .values()
-        .any(|flag| flag_matches_selector(flag, selector))
+        .any(|flag| !is_clause_scoped_flag(out, flag) && flag_matches_selector(flag, selector))
     {
         return vec![];
     }
