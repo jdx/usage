@@ -3059,6 +3059,7 @@ fn parse_partial_traced(
                 && !overridden_flags.contains(&flag.name)
                 && (flag_was_parsed(flag) || flag_has_env(flag, custom_env))
         });
+    let ancestor_flags = ancestor_flags(&out);
     let requirements_apply = |command_index: usize| {
         command_index + 1 == out.cmds.len() || !out.cmds[command_index].subcommand_negates_reqs
     };
@@ -3169,7 +3170,7 @@ fn parse_partial_traced(
     // has a value, not how it got one. That is what clap does, and an asymmetric rule
     // would make the same pair of flags a conflict or not depending on which one
     // happened to be typed.
-    for flag in unique_flags(out.available_flags.values())
+    for flag in unique_flags(out.available_flags.values().chain(&ancestor_flags))
         .filter(|flag| !clause_flag_names.contains(&flag.name))
     {
         let given = out.flags.contains_key(flag) || flag_has_env(flag, custom_env);
@@ -3388,7 +3389,7 @@ fn parse_partial_traced(
     out.errors.extend(group_errors);
 
     if !exclusive_present {
-        for flag in unique_flags(out.available_flags.values())
+        for flag in unique_flags(out.available_flags.values().chain(&ancestor_flags))
             .filter(|flag| !clause_flag_names.contains(&flag.name))
         {
             let owner = out
@@ -3956,18 +3957,13 @@ fn default_if_condition_matches(
     match &condition.when {
         None => selector_is_explicit(&condition.selector, out, overridden_flags, custom_env),
         Some(when) => {
-            let Some(flag) = out
-                .available_flags
-                .values()
-                .chain(out.flags.keys())
-                .find(|flag| flag_matches_selector(flag, &condition.selector))
-            else {
+            let Some(flag) = selector_flags(out, &condition.selector).into_iter().next() else {
                 return false;
             };
             if overridden_flags.contains(&flag.name) {
                 return false;
             }
-            explicit_flag_has_value(flag, when, out, custom_env)
+            explicit_flag_has_value(&flag, when, out, custom_env)
         }
     }
 }
@@ -4066,34 +4062,27 @@ fn validate_clause_relationships(
     let Some(instances) = out.clauses.get(&clause.name) else {
         return;
     };
+    // A selector the clause itself owns is answered per instance, never by a command-level
+    // flag that happens to share the alias (a parent `-f --format` against the clause's
+    // `-f --file`).
+    let clause_owns = |selector: &str| selected_clause_flag(out, selector).is_some();
     let command_flag_is_explicit = |selector: &str| {
-        out.available_flags
-            .values()
-            .chain(out.flags.keys())
-            .filter(|flag| !is_clause_scoped_flag(out, flag))
-            .any(|flag| {
-                flag_matches_selector(flag, selector)
-                    && !overridden_flags.contains(&flag.name)
+        !clause_owns(selector)
+            && selector_flags(out, selector).iter().any(|flag| {
+                !overridden_flags.contains(&flag.name)
                     && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
             })
     };
     let command_flag_matches_value = |selector: &str, expected: &str| {
-        out.available_flags
-            .values()
-            .chain(out.flags.keys())
-            .filter(|flag| !is_clause_scoped_flag(out, flag))
-            .find(|flag| flag_matches_selector(flag, selector))
-            .is_some_and(|flag| {
+        !clause_owns(selector)
+            && selector_flags(out, selector).first().is_some_and(|flag| {
                 !overridden_flags.contains(&flag.name)
                     && explicit_flag_has_value(flag, expected, out, custom_env)
             })
     };
     let command_flag_is_satisfied = |selector: &str| {
-        out.available_flags
-            .values()
-            .chain(out.flags.keys())
-            .filter(|flag| !is_clause_scoped_flag(out, flag))
-            .any(|flag| flag_matches_selector(flag, selector))
+        !clause_owns(selector)
+            && !selector_flags(out, selector).is_empty()
             && selector_is_satisfied(selector, out, overridden_flags, custom_env)
     };
     let mut errors = Vec::new();
@@ -4332,13 +4321,7 @@ fn selector_explicit_has_value(
     if let Some(flag) = selected_clause_flag(out, selector) {
         return clause_flag_has_value(out, flag, expected);
     }
-    if let Some(flag) = out
-        .available_flags
-        .values()
-        .chain(out.flags.keys())
-        .filter(|flag| !is_clause_scoped_flag(out, flag))
-        .find(|flag| flag_matches_selector(flag, selector))
-    {
+    if let Some(flag) = selector_flags(out, selector).first() {
         return !overridden_flags.contains(&flag.name)
             && explicit_flag_has_value(flag, expected, out, custom_env);
     }
@@ -4386,16 +4369,10 @@ fn selector_is_explicit(
 ) -> bool {
     let scoped_flag_is_explicit =
         selected_clause_flag(out, selector).is_some_and(|flag| clause_flag_is_explicit(out, flag));
-    let flag_is_explicit = out
-        .available_flags
-        .values()
-        .chain(out.flags.keys())
-        .filter(|flag| !is_clause_scoped_flag(out, flag))
-        .any(|flag| {
-            flag_matches_selector(flag, selector)
-                && !overridden_flags.contains(&flag.name)
-                && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
-        });
+    let flag_is_explicit = selector_flags(out, selector).iter().any(|flag| {
+        !overridden_flags.contains(&flag.name)
+            && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
+    });
     scoped_flag_is_explicit
         || flag_is_explicit
         || selector_arg(selector, out).is_some_and(|arg| arg_is_explicit(arg, out, custom_env))
@@ -4410,11 +4387,8 @@ fn selector_flag_name(selector: &str, out: &ParseOutput) -> Option<String> {
     if let Some(flag) = selected_clause_flag(out, selector) {
         return Some(flag.name.clone());
     }
-    out.available_flags
-        .values()
-        .chain(out.flags.keys())
-        .filter(|flag| !is_clause_scoped_flag(out, flag))
-        .find(|flag| flag_matches_selector(flag, selector))
+    selector_flags(out, selector)
+        .first()
         .map(|flag| flag.name.clone())
         .or_else(|| selector_arg(selector, out).map(|arg| arg.name.clone()))
 }
@@ -4437,21 +4411,97 @@ fn selector_is_satisfied(
     if selector_is_explicit(selector, out, overridden_flags, custom_env) {
         return true;
     }
-    let flag_is_satisfied = out
-        .available_flags
-        .values()
-        .chain(out.flags.keys())
-        .filter(|flag| !is_clause_scoped_flag(out, flag))
-        .filter(|flag| flag_matches_selector(flag, selector))
-        .any(|flag| {
-            !overridden_flags.contains(&flag.name)
-                && (!flag.default.is_empty()
-                    || flag.arg.iter().any(|a| !a.default.is_empty())
-                    || flag.default_if.iter().any(|condition| {
-                        default_if_condition_matches(condition, out, overridden_flags, custom_env)
-                    }))
-        });
+    let flag_is_satisfied = selector_flags(out, selector).iter().any(|flag| {
+        !overridden_flags.contains(&flag.name)
+            && (!flag.default.is_empty()
+                || flag.arg.iter().any(|a| !a.default.is_empty())
+                || flag.default_if.iter().any(|condition| {
+                    default_if_condition_matches(condition, out, overridden_flags, custom_env)
+                }))
+    });
     flag_is_satisfied || selector_arg(selector, out).is_some_and(|arg| !arg.default.is_empty())
+}
+
+/// The flags of the commands a descent has left, as a subcommand's relationships still see them.
+///
+/// A descent keeps only globals in `available_flags`, yet a parent flag's `required`,
+/// `requires` and `conflicts`, and its default or environment value as another flag's
+/// relationship target, stay in force. Only ordinary flags: a clause flag belongs to one
+/// clause instance and binds nothing until that clause is entered. A name a later command in
+/// the chain declares again is shadowed by it, and a name already available is not repeated.
+fn ancestor_flags(out: &ParseOutput) -> Vec<Arc<SpecFlag>> {
+    let Some((_, ancestors)) = out.cmds.split_last() else {
+        return vec![];
+    };
+    // A mounted program owns its relationships: nothing above the mount point speaks for it.
+    // Every command inside the program is marked mounted, so the boundary is where the
+    // trailing run of mounted commands starts, and the program's own parents stay in.
+    let first = if out.cmds.last().is_some_and(|cmd| cmd.mounted) {
+        out.cmds
+            .iter()
+            .rposition(|cmd| !cmd.mounted)
+            .map_or(0, |host| host + 1)
+    } else {
+        0
+    };
+    let mut flags: Vec<Arc<SpecFlag>> = vec![];
+    for (index, cmd) in ancestors.iter().enumerate().skip(first) {
+        for flag in &cmd.flags {
+            let shadowed = out.cmds[index + 1..]
+                .iter()
+                .any(|later| later.flags.iter().any(|f| f.name == flag.name));
+            if !shadowed
+                && !out.available_flags.values().any(|f| f.name == flag.name)
+                && !flags.iter().any(|f| f.name == flag.name)
+            {
+                flags.push(Arc::new(flag.clone()));
+            }
+        }
+    }
+    flags
+}
+
+/// The flags a selector names, nearest declaration first: a flag still available, else the
+/// nearest ancestor command that declares one, else whatever was parsed. A name or alias a
+/// closer command claims is not answered by a flag further up that merely shares it (a
+/// child `-f --file` hides a parent `-f --format`). Clause-scoped flags never answer.
+fn selector_flags(out: &ParseOutput, selector: &str) -> Vec<Arc<SpecFlag>> {
+    let matches = |flag: &Arc<SpecFlag>| {
+        !is_clause_scoped_flag(out, flag) && flag_matches_selector(flag, selector)
+    };
+    let available: Vec<_> = unique_flags(out.available_flags.values())
+        .filter(|flag| matches(flag))
+        .cloned()
+        .collect();
+    if !available.is_empty() {
+        return available;
+    }
+    if let Some((_, ancestors)) = out.cmds.split_last() {
+        let visible = ancestor_flags(out);
+        for cmd in ancestors.iter().rev() {
+            let found: Vec<_> = visible
+                .iter()
+                .filter(|flag| matches(flag) && cmd.flags.iter().any(|d| d.name == flag.name))
+                .cloned()
+                .collect();
+            if !found.is_empty() {
+                return found;
+            }
+        }
+    }
+    // A parsed flag that a later command declares again was shadowed by it.
+    let shadowed = |flag: &Arc<SpecFlag>| {
+        let declares = |cmd: &&SpecCommand| cmd.flags.iter().any(|f| f.name == flag.name);
+        out.cmds
+            .iter()
+            .skip_while(|cmd| !declares(cmd))
+            .skip(1)
+            .any(|cmd| declares(&cmd))
+    };
+    unique_flags(out.flags.keys())
+        .filter(|flag| matches(flag) && !shadowed(flag))
+        .cloned()
+        .collect()
 }
 
 fn selector_arg<'a>(selector: &str, out: &'a ParseOutput) -> Option<&'a SpecArg> {

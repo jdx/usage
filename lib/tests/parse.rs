@@ -435,6 +435,153 @@ double_dash_optional_with_separator:
     args="-- test.txt",
     expected=r#"{"usage_file": "test.txt"}"#,
 
+// A parent's own flag rules keep binding once a subcommand is taken.
+parent_required_flag_with_subcommand:
+    spec=r#"
+    flag "--req <r>" required=#true
+    cmd "sub"
+    "#,
+    args="sub",
+    expected=r#"Missing required flag: --req <req>"#,
+
+parent_required_flag_satisfied_with_subcommand:
+    spec=r#"
+    flag "--req <r>" required=#true
+    cmd "sub"
+    "#,
+    args="--req 1 sub",
+    expected=r#"{"usage_cmd": "sub", "usage_req": "1"}"#,
+
+parent_flag_requires_with_subcommand:
+    spec=r#"
+    flag "--a" requires="--b"
+    flag "--b"
+    cmd "sub"
+    "#,
+    args="--a sub",
+    expected=r#"Missing required flag: --b <b>"#,
+
+parent_flag_conflicts_with_subcommand:
+    spec=r#"
+    flag "--c" conflicts="--d"
+    flag "--d"
+    cmd "sub"
+    "#,
+    args="--c --d sub",
+    expected=r#"Invalid flag `--c`: conflicts with --d"#,
+
+parent_required_flag_negated_by_subcommand:
+    spec=r#"
+    subcommand_negates_reqs #true
+    flag "--req <r>" required=#true
+    cmd "sub"
+    "#,
+    args="sub",
+    expected=r#"{"usage_cmd": "sub"}"#,
+
+parent_required_flag_shadowed_by_subcommand:
+    spec=r#"
+    flag "--req <r>" required=#true
+    cmd "sub" {
+        flag "--req <r>"
+    }
+    "#,
+    args="sub",
+    expected=r#"{"usage_cmd": "sub"}"#,
+
+parent_requires_target_default_counts_with_subcommand:
+    spec=r#"
+    flag "--a" requires="--b"
+    flag "--b <v>" default="fallback"
+    cmd "sub"
+    "#,
+    args="--a sub",
+    expected=r#"{"usage_a": "true", "usage_cmd": "sub"}"#,
+
+parent_clause_flag_not_required_by_subcommand:
+    spec=r#"
+    clause "item" {
+        arg "<item>"
+        flag "--mode <m>" required=#true
+    }
+    cmd "sub"
+    "#,
+    args="sub",
+    expected=r#"{"usage_cmd": "sub"}"#,
+
+parent_alias_default_does_not_satisfy_child_requires:
+    spec=r#"
+    flag "-f --format <v>" default="json"
+    cmd "sub" {
+        flag "-f --file <v>"
+        flag "--upload" requires="-f"
+    }
+    "#,
+    args="sub --upload",
+    expected=r#"Missing required flag: --file <file>"#,
+
+parent_default_satisfies_requires_despite_child_clause_alias:
+    spec=r#"
+    flag "-f --format <v>" default="json"
+    flag "--upload" requires="-f"
+    cmd "sub" {
+        clause "item" {
+            arg "<item>"
+            flag "-f --file <v>"
+        }
+    }
+    "#,
+    args="--upload sub",
+    expected=r#"{"usage_cmd": "sub", "usage_upload": "true"}"#,
+
+parent_alias_does_not_satisfy_child_conflict_target:
+    spec=r#"
+    flag "--c" conflicts="-f"
+    flag "-f --format <v>"
+    cmd "sub" {
+        flag "-f --file <v>"
+    }
+    "#,
+    args="--c --format x sub",
+    expected=r#"{"usage_c": "true", "usage_cmd": "sub", "usage_format": "x"}"#,
+
+parent_nearest_ancestor_alias_wins_for_requires:
+    spec=r#"
+    flag "-f --format <v>" default="json"
+    cmd "mid" {
+        flag "-f --file <v>"
+        cmd "leaf" {
+            flag "--upload" requires="-f"
+        }
+    }
+    "#,
+    args="mid leaf --upload",
+    expected=r#"Missing required flag: --file <file>"#,
+
+parent_parsed_alias_shadowed_by_redeclaration:
+    spec=r#"
+    flag "-f --format <v>"
+    cmd "sub" {
+        flag "--format <v>"
+        flag "--upload" requires="-f"
+    }
+    "#,
+    args="-f x sub --upload",
+    expected=r#"Missing required flag: ---f <-f>"#,
+
+clause_requires_not_satisfied_by_parent_alias_default:
+    spec=r#"
+    flag "-f --format <v>" default="json"
+    cmd "sub" {
+        clause "item" {
+            arg "<item>" requires="-f"
+            flag "-f --file <v>"
+        }
+    }
+    "#,
+    args="sub x",
+    expected=r#"Missing required flag: --file <file>"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true
