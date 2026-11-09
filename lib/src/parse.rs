@@ -3938,18 +3938,13 @@ fn default_if_condition_matches(
     match &condition.when {
         None => selector_is_explicit(&condition.selector, out, overridden_flags, custom_env),
         Some(when) => {
-            let Some(flag) = out
-                .available_flags
-                .values()
-                .chain(out.flags.keys())
-                .find(|flag| flag_matches_selector(flag, &condition.selector))
-            else {
+            let Some(flag) = selector_flags(out, &condition.selector).into_iter().next() else {
                 return false;
             };
             if overridden_flags.contains(&flag.name) {
                 return false;
             }
-            explicit_flag_has_value(flag, when, out, custom_env)
+            explicit_flag_has_value(&flag, when, out, custom_env)
         }
     }
 }
@@ -4314,13 +4309,7 @@ fn selector_explicit_has_value(
     if let Some(flag) = selected_clause_flag(out, selector) {
         return clause_flag_has_value(out, flag, expected);
     }
-    if let Some(flag) = out
-        .available_flags
-        .values()
-        .chain(out.flags.keys())
-        .filter(|flag| !is_clause_scoped_flag(out, flag))
-        .find(|flag| flag_matches_selector(flag, selector))
-    {
+    if let Some(flag) = selector_flags(out, selector).first() {
         return !overridden_flags.contains(&flag.name)
             && explicit_flag_has_value(flag, expected, out, custom_env);
     }
@@ -4368,18 +4357,10 @@ fn selector_is_explicit(
 ) -> bool {
     let scoped_flag_is_explicit =
         selected_clause_flag(out, selector).is_some_and(|flag| clause_flag_is_explicit(out, flag));
-    let ancestors = selector_ancestors(out, selector);
-    let flag_is_explicit = out
-        .available_flags
-        .values()
-        .chain(out.flags.keys())
-        .chain(&ancestors)
-        .filter(|flag| !is_clause_scoped_flag(out, flag))
-        .any(|flag| {
-            flag_matches_selector(flag, selector)
-                && !overridden_flags.contains(&flag.name)
-                && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
-        });
+    let flag_is_explicit = selector_flags(out, selector).iter().any(|flag| {
+        !overridden_flags.contains(&flag.name)
+            && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
+    });
     scoped_flag_is_explicit
         || flag_is_explicit
         || selector_arg(selector, out).is_some_and(|arg| arg_is_explicit(arg, out, custom_env))
@@ -4394,13 +4375,8 @@ fn selector_flag_name(selector: &str, out: &ParseOutput) -> Option<String> {
     if let Some(flag) = selected_clause_flag(out, selector) {
         return Some(flag.name.clone());
     }
-    let ancestors = selector_ancestors(out, selector);
-    out.available_flags
-        .values()
-        .chain(out.flags.keys())
-        .chain(&ancestors)
-        .filter(|flag| !is_clause_scoped_flag(out, flag))
-        .find(|flag| flag_matches_selector(flag, selector))
+    selector_flags(out, selector)
+        .first()
         .map(|flag| flag.name.clone())
         .or_else(|| selector_arg(selector, out).map(|arg| arg.name.clone()))
 }
@@ -4423,22 +4399,14 @@ fn selector_is_satisfied(
     if selector_is_explicit(selector, out, overridden_flags, custom_env) {
         return true;
     }
-    let ancestors = selector_ancestors(out, selector);
-    let flag_is_satisfied = out
-        .available_flags
-        .values()
-        .chain(out.flags.keys())
-        .chain(&ancestors)
-        .filter(|flag| !is_clause_scoped_flag(out, flag))
-        .filter(|flag| flag_matches_selector(flag, selector))
-        .any(|flag| {
-            !overridden_flags.contains(&flag.name)
-                && (!flag.default.is_empty()
-                    || flag.arg.iter().any(|a| !a.default.is_empty())
-                    || flag.default_if.iter().any(|condition| {
-                        default_if_condition_matches(condition, out, overridden_flags, custom_env)
-                    }))
-        });
+    let flag_is_satisfied = selector_flags(out, selector).iter().any(|flag| {
+        !overridden_flags.contains(&flag.name)
+            && (!flag.default.is_empty()
+                || flag.arg.iter().any(|a| !a.default.is_empty())
+                || flag.default_if.iter().any(|condition| {
+                    default_if_condition_matches(condition, out, overridden_flags, custom_env)
+                }))
+    });
     flag_is_satisfied || selector_arg(selector, out).is_some_and(|arg| !arg.default.is_empty())
 }
 
@@ -4470,17 +4438,38 @@ fn ancestor_flags(out: &ParseOutput) -> Vec<Arc<SpecFlag>> {
     flags
 }
 
-/// The ancestor flags a selector may resolve to: none when a flag still available already
-/// answers to it, so a child's `-f` is not satisfied by a parent flag sharing that alias.
-fn selector_ancestors(out: &ParseOutput, selector: &str) -> Vec<Arc<SpecFlag>> {
-    if out
-        .available_flags
-        .values()
-        .any(|flag| !is_clause_scoped_flag(out, flag) && flag_matches_selector(flag, selector))
-    {
-        return vec![];
+/// The flags a selector names, nearest declaration first: a flag still available, else the
+/// nearest ancestor command that declares one, else whatever was parsed. A name or alias a
+/// closer command claims is not answered by a flag further up that merely shares it (a
+/// child `-f --file` hides a parent `-f --format`). Clause-scoped flags never answer.
+fn selector_flags(out: &ParseOutput, selector: &str) -> Vec<Arc<SpecFlag>> {
+    let matches = |flag: &Arc<SpecFlag>| {
+        !is_clause_scoped_flag(out, flag) && flag_matches_selector(flag, selector)
+    };
+    let available: Vec<_> = unique_flags(out.available_flags.values())
+        .filter(|flag| matches(flag))
+        .cloned()
+        .collect();
+    if !available.is_empty() {
+        return available;
     }
-    ancestor_flags(out)
+    if let Some((_, ancestors)) = out.cmds.split_last() {
+        let visible = ancestor_flags(out);
+        for cmd in ancestors.iter().rev() {
+            let found: Vec<_> = visible
+                .iter()
+                .filter(|flag| matches(flag) && cmd.flags.iter().any(|d| d.name == flag.name))
+                .cloned()
+                .collect();
+            if !found.is_empty() {
+                return found;
+            }
+        }
+    }
+    unique_flags(out.flags.keys())
+        .filter(|flag| matches(flag))
+        .cloned()
+        .collect()
 }
 
 fn selector_arg<'a>(selector: &str, out: &'a ParseOutput) -> Option<&'a SpecArg> {

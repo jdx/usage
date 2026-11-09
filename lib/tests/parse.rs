@@ -534,6 +534,30 @@ parent_default_satisfies_requires_despite_child_clause_alias:
     args="--upload sub",
     expected=r#"{"usage_cmd": "sub", "usage_upload": "true"}"#,
 
+parent_alias_does_not_satisfy_child_conflict_target:
+    spec=r#"
+    flag "--c" conflicts="-f"
+    flag "-f --format <v>"
+    cmd "sub" {
+        flag "-f --file <v>"
+    }
+    "#,
+    args="--c --format x sub",
+    expected=r#"{"usage_c": "true", "usage_cmd": "sub", "usage_format": "x"}"#,
+
+parent_nearest_ancestor_alias_wins_for_requires:
+    spec=r#"
+    flag "-f --format <v>" default="json"
+    cmd "mid" {
+        flag "-f --file <v>"
+        cmd "leaf" {
+            flag "--upload" requires="-f"
+        }
+    }
+    "#,
+    args="mid leaf --upload",
+    expected=r#"Missing required flag: --file <file>"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true
