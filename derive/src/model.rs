@@ -6451,7 +6451,7 @@ pub struct ValueAlias {
 }
 
 #[derive(Clone, Copy)]
-enum CasingStyle {
+pub(crate) enum CasingStyle {
     Camel,
     Kebab,
     Pascal,
@@ -6463,7 +6463,7 @@ enum CasingStyle {
 }
 
 impl CasingStyle {
-    fn parse(meta: &Meta) -> syn::Result<Self> {
+    pub(crate) fn parse(meta: &Meta) -> syn::Result<Self> {
         let raw = string_value(meta)?;
         let normalized = raw
             .chars()
@@ -6486,7 +6486,7 @@ impl CasingStyle {
         }
     }
 
-    fn apply(self, name: &str) -> String {
+    pub(crate) fn apply(self, name: &str) -> String {
         match self {
             Self::Camel => case::to_lower_camel_case(name),
             Self::Kebab => case::to_kebab_case(name),

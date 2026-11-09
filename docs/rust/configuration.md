@@ -68,12 +68,13 @@ exactly as they do for flags.
 Struct-level attributes declare the `config` block around those settings. They are
 documentation for resolvers the CLI already owns, not extra runtime layers:
 
-| Attribute                                                                   | Effect                                                                                                           |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `prefix = "task"`                                                           | Prefix every field's key in this struct                                                                          |
-| `source(kind = "git", name = "git config", doc_hint = "…", set_hint = "…")` | A custom source kind's display metadata. Repeatable; kinds are written in sorted order                           |
-| `file(path = "ex.toml", findup, scope = "project", format = "toml")`        | A config file in the documented precedence chain. Repeatable; **declaration order is precedence**, last wins     |
-| `file(path = "ex/config.toml", xdg = "config", format = "toml")`            | XDG config, data, state, cache, or runtime locations; expands into their standard precedence in the emitted spec |
+| Attribute                                                                   | Effect                                                                                                                                                                     |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prefix = "task"`                                                           | Prefix every field's key in this struct                                                                                                                                    |
+| `rename_all_keys = "kebab-case"`                                            | Case the keys taken from field names (same values as `rename_all`). `key`, `prefix`, `alias`, `env` and a flag's `setting` stay as written; a flattened group sets its own |
+| `source(kind = "git", name = "git config", doc_hint = "…", set_hint = "…")` | A custom source kind's display metadata. Repeatable; kinds are written in sorted order                                                                                     |
+| `file(path = "ex.toml", findup, scope = "project", format = "toml")`        | A config file in the documented precedence chain. Repeatable; **declaration order is precedence**, last wins                                                               |
+| `file(path = "ex/config.toml", xdg = "config", format = "toml")`            | XDG config, data, state, cache, or runtime locations; expands into their standard precedence in the emitted spec                                                           |
 
 `source` and `file` belong to the struct they are written on. Flattening another `Config`
 type splices its _settings_, not its source/file declarations — a nested group that also
