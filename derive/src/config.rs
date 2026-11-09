@@ -1853,6 +1853,20 @@ mod tests {
             "unhelpful: {err}"
         );
 
+        // The check runs before the prefix, so `ui.` is not mistaken for a key.
+        let err = rejection(
+            r#"
+            #[usage(prefix = "ui", rename_all_keys = "lower")]
+            struct Settings {
+                __: u64,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("casing produces an empty setting key"),
+            "unhelpful: {err}"
+        );
+
         // An explicit `key` is the way out.
         accepted(
             r#"
