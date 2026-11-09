@@ -4043,20 +4043,27 @@ fn validate_clause_relationships(
     let Some(instances) = out.clauses.get(&clause.name) else {
         return;
     };
+    // A selector the clause itself owns is answered per instance, never by a command-level
+    // flag that happens to share the alias (a parent `-f --format` against the clause's
+    // `-f --file`).
+    let clause_owns = |selector: &str| selected_clause_flag(out, selector).is_some();
     let command_flag_is_explicit = |selector: &str| {
-        selector_flags(out, selector).iter().any(|flag| {
-            !overridden_flags.contains(&flag.name)
-                && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
-        })
+        !clause_owns(selector)
+            && selector_flags(out, selector).iter().any(|flag| {
+                !overridden_flags.contains(&flag.name)
+                    && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
+            })
     };
     let command_flag_matches_value = |selector: &str, expected: &str| {
-        selector_flags(out, selector).first().is_some_and(|flag| {
-            !overridden_flags.contains(&flag.name)
-                && explicit_flag_has_value(flag, expected, out, custom_env)
-        })
+        !clause_owns(selector)
+            && selector_flags(out, selector).first().is_some_and(|flag| {
+                !overridden_flags.contains(&flag.name)
+                    && explicit_flag_has_value(flag, expected, out, custom_env)
+            })
     };
     let command_flag_is_satisfied = |selector: &str| {
-        !selector_flags(out, selector).is_empty()
+        !clause_owns(selector)
+            && !selector_flags(out, selector).is_empty()
             && selector_is_satisfied(selector, out, overridden_flags, custom_env)
     };
     let mut errors = Vec::new();

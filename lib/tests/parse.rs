@@ -569,6 +569,19 @@ parent_parsed_alias_shadowed_by_redeclaration:
     args="-f x sub --upload",
     expected=r#"Missing required flag: ---f <-f>"#,
 
+clause_requires_not_satisfied_by_parent_alias_default:
+    spec=r#"
+    flag "-f --format <v>" default="json"
+    cmd "sub" {
+        clause "item" {
+            arg "<item>" requires="-f"
+            flag "-f --file <v>"
+        }
+    }
+    "#,
+    args="sub x",
+    expected=r#"Missing required flag: --file <file>"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true
