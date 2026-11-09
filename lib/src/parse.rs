@@ -4408,7 +4408,16 @@ fn ancestor_flags(out: &ParseOutput) -> Vec<Arc<SpecFlag>> {
         return vec![];
     };
     // A mounted program owns its relationships: nothing above the mount point speaks for it.
-    let first = out.cmds.iter().rposition(|cmd| cmd.mounted).unwrap_or(0);
+    // Every command inside the program is marked mounted, so the boundary is where the
+    // trailing run of mounted commands starts, and the program's own parents stay in.
+    let first = if out.cmds.last().is_some_and(|cmd| cmd.mounted) {
+        out.cmds
+            .iter()
+            .rposition(|cmd| !cmd.mounted)
+            .map_or(0, |host| host + 1)
+    } else {
+        0
+    };
     let mut flags: Vec<Arc<SpecFlag>> = vec![];
     for (index, cmd) in ancestors.iter().enumerate().skip(first) {
         for flag in &cmd.flags {
