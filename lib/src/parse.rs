@@ -4407,8 +4407,10 @@ fn ancestor_flags(out: &ParseOutput) -> Vec<Arc<SpecFlag>> {
     let Some((_, ancestors)) = out.cmds.split_last() else {
         return vec![];
     };
+    // A mounted program owns its relationships: nothing above the mount point speaks for it.
+    let first = out.cmds.iter().rposition(|cmd| cmd.mounted).unwrap_or(0);
     let mut flags: Vec<Arc<SpecFlag>> = vec![];
-    for (index, cmd) in ancestors.iter().enumerate() {
+    for (index, cmd) in ancestors.iter().enumerate().skip(first) {
         for flag in &cmd.flags {
             let shadowed = out.cmds[index + 1..]
                 .iter()
@@ -4452,8 +4454,17 @@ fn selector_flags(out: &ParseOutput, selector: &str) -> Vec<Arc<SpecFlag>> {
             }
         }
     }
+    // A parsed flag that a later command declares again was shadowed by it.
+    let shadowed = |flag: &Arc<SpecFlag>| {
+        let declares = |cmd: &&SpecCommand| cmd.flags.iter().any(|f| f.name == flag.name);
+        out.cmds
+            .iter()
+            .skip_while(|cmd| !declares(cmd))
+            .skip(1)
+            .any(|cmd| declares(&cmd))
+    };
     unique_flags(out.flags.keys())
-        .filter(|flag| matches(flag))
+        .filter(|flag| matches(flag) && !shadowed(flag))
         .cloned()
         .collect()
 }

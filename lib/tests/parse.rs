@@ -558,6 +558,17 @@ parent_nearest_ancestor_alias_wins_for_requires:
     args="mid leaf --upload",
     expected=r#"Missing required flag: --file <file>"#,
 
+parent_parsed_alias_shadowed_by_redeclaration:
+    spec=r#"
+    flag "-f --format <v>"
+    cmd "sub" {
+        flag "--format <v>"
+        flag "--upload" requires="-f"
+    }
+    "#,
+    args="-f x sub --upload",
+    expected=r#"Missing required flag: ---f <-f>"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true
