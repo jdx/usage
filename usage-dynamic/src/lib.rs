@@ -498,6 +498,7 @@ fn complete_subtree(
         if spec.default_subcommand_on_empty
             && parsed.cmds.len() == 1
             && !parsed.double_dash_seen
+            && parsed.args.is_empty()
             && let Some(default) = spec
                 .default_subcommand
                 .as_deref()
