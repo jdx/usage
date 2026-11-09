@@ -509,6 +509,17 @@ parent_clause_flag_not_required_by_subcommand:
     args="sub",
     expected=r#"{"usage_cmd": "sub"}"#,
 
+parent_alias_default_does_not_satisfy_child_requires:
+    spec=r#"
+    flag "-f --format <v>" default="json"
+    cmd "sub" {
+        flag "-f --file <v>"
+        flag "--upload" requires="-f"
+    }
+    "#,
+    args="sub --upload",
+    expected=r#"Missing required flag: --file <file>"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true

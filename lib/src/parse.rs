@@ -4368,7 +4368,7 @@ fn selector_is_explicit(
 ) -> bool {
     let scoped_flag_is_explicit =
         selected_clause_flag(out, selector).is_some_and(|flag| clause_flag_is_explicit(out, flag));
-    let ancestors = ancestor_flags(out);
+    let ancestors = selector_ancestors(out, selector);
     let flag_is_explicit = out
         .available_flags
         .values()
@@ -4394,7 +4394,7 @@ fn selector_flag_name(selector: &str, out: &ParseOutput) -> Option<String> {
     if let Some(flag) = selected_clause_flag(out, selector) {
         return Some(flag.name.clone());
     }
-    let ancestors = ancestor_flags(out);
+    let ancestors = selector_ancestors(out, selector);
     out.available_flags
         .values()
         .chain(out.flags.keys())
@@ -4423,7 +4423,7 @@ fn selector_is_satisfied(
     if selector_is_explicit(selector, out, overridden_flags, custom_env) {
         return true;
     }
-    let ancestors = ancestor_flags(out);
+    let ancestors = selector_ancestors(out, selector);
     let flag_is_satisfied = out
         .available_flags
         .values()
@@ -4468,6 +4468,19 @@ fn ancestor_flags(out: &ParseOutput) -> Vec<Arc<SpecFlag>> {
         }
     }
     flags
+}
+
+/// The ancestor flags a selector may resolve to: none when a flag still available already
+/// answers to it, so a child's `-f` is not satisfied by a parent flag sharing that alias.
+fn selector_ancestors(out: &ParseOutput, selector: &str) -> Vec<Arc<SpecFlag>> {
+    if out
+        .available_flags
+        .values()
+        .any(|flag| flag_matches_selector(flag, selector))
+    {
+        return vec![];
+    }
+    ancestor_flags(out)
 }
 
 fn selector_arg<'a>(selector: &str, out: &'a ParseOutput) -> Option<&'a SpecArg> {
