@@ -3040,6 +3040,29 @@ fn parse_partial_traced(
                 && !overridden_flags.contains(&flag.name)
                 && (flag_was_parsed(flag) || flag_has_env(flag, custom_env))
         });
+    // A descent drops every non-global flag of the commands it leaves from `available_flags`,
+    // but their `required`, `requires` and `conflicts` still bind the invocation. Rejoin the
+    // ancestors' own flags, unless a later command in the chain declares the same name (which
+    // shadows them) or the name is already available.
+    let ancestor_flags: Vec<Arc<SpecFlag>> = {
+        let available: HashSet<&str> = out
+            .available_flags
+            .values()
+            .map(|flag| flag.name.as_str())
+            .collect();
+        let mut flags = Vec::new();
+        for (index, cmd) in out.cmds[..out.cmds.len() - 1].iter().enumerate() {
+            for flag in gather_flags(cmd).into_values() {
+                let shadowed = out.cmds[index + 1..]
+                    .iter()
+                    .any(|later| later.flags.iter().any(|f| f.name == flag.name));
+                if !shadowed && !available.contains(flag.name.as_str()) {
+                    flags.push(flag);
+                }
+            }
+        }
+        flags
+    };
     let requirements_apply = |command_index: usize| {
         command_index + 1 == out.cmds.len() || !out.cmds[command_index].subcommand_negates_reqs
     };
@@ -3150,7 +3173,7 @@ fn parse_partial_traced(
     // has a value, not how it got one. That is what clap does, and an asymmetric rule
     // would make the same pair of flags a conflict or not depending on which one
     // happened to be typed.
-    for flag in unique_flags(out.available_flags.values())
+    for flag in unique_flags(out.available_flags.values().chain(&ancestor_flags))
         .filter(|flag| !clause_flag_names.contains(&flag.name))
     {
         let given = out.flags.contains_key(flag) || flag_has_env(flag, custom_env);
@@ -3369,7 +3392,7 @@ fn parse_partial_traced(
     out.errors.extend(group_errors);
 
     if !exclusive_present {
-        for flag in unique_flags(out.available_flags.values())
+        for flag in unique_flags(out.available_flags.values().chain(&ancestor_flags))
             .filter(|flag| !clause_flag_names.contains(&flag.name))
         {
             let owner = out
@@ -4397,6 +4420,15 @@ fn selector_flag_name(selector: &str, out: &ParseOutput) -> Option<String> {
         .filter(|flag| !is_clause_scoped_flag(out, flag))
         .find(|flag| flag_matches_selector(flag, selector))
         .map(|flag| flag.name.clone())
+        // A flag an ancestor declared is gone from `available_flags` once a subcommand is
+        // taken, yet a selector can still name it.
+        .or_else(|| {
+            out.cmds
+                .iter()
+                .flat_map(|cmd| &cmd.flags)
+                .find(|flag| flag_matches_selector(flag, selector))
+                .map(|flag| flag.name.clone())
+        })
         .or_else(|| selector_arg(selector, out).map(|arg| arg.name.clone()))
 }
 

@@ -435,6 +435,60 @@ double_dash_optional_with_separator:
     args="-- test.txt",
     expected=r#"{"usage_file": "test.txt"}"#,
 
+// A parent's own flag rules keep binding once a subcommand is taken.
+parent_required_flag_with_subcommand:
+    spec=r#"
+    flag "--req <r>" required=#true
+    cmd "sub"
+    "#,
+    args="sub",
+    expected=r#"Missing required flag: --req <req>"#,
+
+parent_required_flag_satisfied_with_subcommand:
+    spec=r#"
+    flag "--req <r>" required=#true
+    cmd "sub"
+    "#,
+    args="--req 1 sub",
+    expected=r#"{"usage_cmd": "sub", "usage_req": "1"}"#,
+
+parent_flag_requires_with_subcommand:
+    spec=r#"
+    flag "--a" requires="--b"
+    flag "--b"
+    cmd "sub"
+    "#,
+    args="--a sub",
+    expected=r#"Missing required flag: --b <b>"#,
+
+parent_flag_conflicts_with_subcommand:
+    spec=r#"
+    flag "--c" conflicts="--d"
+    flag "--d"
+    cmd "sub"
+    "#,
+    args="--c --d sub",
+    expected=r#"Invalid flag `--c`: conflicts with --d"#,
+
+parent_required_flag_negated_by_subcommand:
+    spec=r#"
+    subcommand_negates_reqs #true
+    flag "--req <r>" required=#true
+    cmd "sub"
+    "#,
+    args="sub",
+    expected=r#"{"usage_cmd": "sub"}"#,
+
+parent_required_flag_shadowed_by_subcommand:
+    spec=r#"
+    flag "--req <r>" required=#true
+    cmd "sub" {
+        flag "--req <r>"
+    }
+    "#,
+    args="sub",
+    expected=r#"{"usage_cmd": "sub"}"#,
+
 //shell_escape_arg:
 //    spec=r#"
 //    arg "<vars>" shell_escape=#true
