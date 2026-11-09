@@ -922,19 +922,49 @@ fn an_empty_default_does_not_offer_choices_once_the_root_took_a_positional() {
         r#"
 default_subcommand "def"
 default_subcommand_on_empty #true
-arg "[first]"
+arg "[first]" allow_negative_numbers=#true
 cmd "def" {
     arg "[speed]" {
         choices "fast" "slow"
     }
 }
+cmd "other"
 "#,
     );
     let catalog = Catalog::builder(Host::app())
         .under("plugins", tool)
         .build()
         .unwrap();
-    let offered = answer(&catalog, &["host", "plugins", "tool", "one", "f"]);
+    let offered = answer(&catalog, &["host", "plugins", "tool", "-7", ""]);
+    // Not an empty answer from a failed parse: the root's own candidates are still there.
+    assert!(offered.contains(&"other".to_string()), "{offered:?}");
+    assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
+}
+
+#[test]
+fn an_empty_default_does_not_offer_choices_after_a_root_clause_separator() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+clause "steps" separator=":::" {
+    arg "<step>" allow_negative_numbers=#true
+}
+cmd "def" {
+    arg "[speed]" {
+        choices "fast" "slow"
+    }
+}
+cmd "other"
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "-7", ":::", ""]);
+    assert!(offered.contains(&"other".to_string()), "{offered:?}");
     assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
 }
 
@@ -993,7 +1023,8 @@ fn default_flags_are_not_offered_after_the_root_took_a_positional() {
 default_subcommand "def"
 default_subcommand_on_empty #true
 default_subcommand_flags #true
-arg "[first]"
+flag "--rootf"
+arg "[first]" allow_negative_numbers=#true
 cmd "def" {
     flag "--defonly"
 }
@@ -1003,6 +1034,7 @@ cmd "def" {
         .under("plugins", tool)
         .build()
         .unwrap();
-    let offered = answer(&catalog, &["host", "plugins", "tool", "one", "--"]);
+    let offered = answer(&catalog, &["host", "plugins", "tool", "-7", "--"]);
+    assert!(offered.contains(&"--rootf".to_string()), "{offered:?}");
     assert!(!offered.contains(&"--defonly".to_string()), "{offered:?}");
 }

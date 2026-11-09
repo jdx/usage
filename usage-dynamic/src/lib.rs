@@ -561,7 +561,9 @@ fn root_took_positional(parsed: &usage_parser::parse::ParseOutput) -> bool {
             token.roles.iter().any(|role| {
                 matches!(
                     role,
-                    TokenRole::Arg { .. } | TokenRole::UnknownFlag { bound_as: Some(_) }
+                    TokenRole::Arg { .. }
+                        | TokenRole::ClauseSeparator { .. }
+                        | TokenRole::UnknownFlag { bound_as: Some(_) }
                 )
             })
         })
