@@ -937,3 +937,27 @@ cmd "def" {
     let offered = answer(&catalog, &["host", "plugins", "tool", "one", "f"]);
     assert!(!offered.contains(&"fast".to_string()), "{offered:?}");
 }
+
+#[test]
+fn default_subcommand_flags_are_offered_at_a_plugins_root() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+default_subcommand_flags #true
+flag "--rootf"
+cmd "def" {
+    flag "--defonly"
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "--"]);
+    for want in ["--rootf", "--defonly"] {
+        assert!(offered.contains(&want.to_string()), "{offered:?}");
+    }
+}

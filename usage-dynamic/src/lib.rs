@@ -457,7 +457,32 @@ fn complete_subtree(
             files = completion_files(spec, &parsed.cmd, arg);
         }
     } else if flag_like {
-        for (form, flag) in parsed.completion_flags() {
+        let mut flags = parsed.completion_flags();
+        // The completion parse no longer routes an empty root into the default command, so the
+        // flags `default_subcommand_flags` lends from it are added here, as `complete-word` does.
+        if spec.default_subcommand_flags
+            && parsed.cmds.len() == 1
+            && let Some(default) = spec
+                .default_subcommand
+                .as_deref()
+                .and_then(|name| parsed.cmd.find_subcommand(name))
+        {
+            for flag in &default.flags {
+                let flag = std::sync::Arc::new(flag.clone());
+                for key in flag
+                    .long
+                    .iter()
+                    .map(|name| format!("--{name}"))
+                    .chain(flag.short.iter().map(|name| format!("-{name}")))
+                    .chain(flag.negate.iter().cloned())
+                {
+                    flags
+                        .entry(key)
+                        .or_insert_with(|| std::sync::Arc::clone(&flag));
+                }
+            }
+        }
+        for (form, flag) in flags {
             if flag.hide || !form.starts_with(prefix) || hidden_flag_form(&form, &flag) {
                 continue;
             }
@@ -498,7 +523,12 @@ fn complete_subtree(
         if spec.default_subcommand_on_empty
             && parsed.cmds.len() == 1
             && !parsed.double_dash_seen
-            && parsed.args.is_empty()
+            && !parsed.tokens.iter().any(|token| {
+                token
+                    .roles
+                    .iter()
+                    .any(|role| matches!(role, usage_parser::parse::TokenRole::Arg { .. }))
+            })
             && let Some(default) = spec
                 .default_subcommand
                 .as_deref()
