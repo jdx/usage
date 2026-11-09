@@ -1038,3 +1038,29 @@ cmd "def" {
     assert!(offered.contains(&"--rootf".to_string()), "{offered:?}");
     assert!(!offered.contains(&"--defonly".to_string()), "{offered:?}");
 }
+
+#[test]
+fn default_flags_are_not_offered_after_a_root_clause_separator() {
+    let tool = plugin(
+        "tool",
+        r#"
+default_subcommand "def"
+default_subcommand_on_empty #true
+default_subcommand_flags #true
+flag "--rootf"
+clause "steps" separator=":::" {
+    arg "<step>" allow_negative_numbers=#true
+}
+cmd "def" {
+    flag "--defonly"
+}
+"#,
+    );
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", tool)
+        .build()
+        .unwrap();
+    let offered = answer(&catalog, &["host", "plugins", "tool", "-7", ":::", "--"]);
+    assert!(offered.contains(&"--rootf".to_string()), "{offered:?}");
+    assert!(!offered.contains(&"--defonly".to_string()), "{offered:?}");
+}
