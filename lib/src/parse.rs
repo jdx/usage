@@ -1694,6 +1694,8 @@ fn parse_partial_traced(
     // is the case that needs this: a subcommand's mounts are run when the parser
     // descends into it, but nothing descends into the root.
     let mut mounts_resolved = false;
+    // The active variadic flag takes at most one value, which the flag scan has already read.
+    let mut variadic_flag_capped = false;
     // A `help` word found while selecting commands: the command it asked about, and the words
     // after it. The answer waits for Phase 2 to bind the flags typed before the word, so
     // `explain` still reports them.
@@ -1866,6 +1868,10 @@ fn parse_partial_traced(
             if let Some(f) = flags.get(flag_key).cloned().filter(|_| is_bundle) {
                 command_arg_found = true;
                 variadic_flag_active = f.arg.as_ref().is_some_and(|arg| arg.var);
+                variadic_flag_capped = f
+                    .arg
+                    .as_ref()
+                    .is_some_and(|arg| arg.var && arg.var_max == Some(1));
                 // Skip the flag and keep scanning. Both global and non-global flags may precede
                 // a subcommand (`mycli --verbose run task`, `mycli run --force task`), and
                 // stopping at one would hide the subcommand — and any mount on it — from the
@@ -1920,7 +1926,7 @@ fn parse_partial_traced(
             // after it name a command, resolved (mounts included) rather than descended into:
             // they are a question, not an invocation. The answer is the long form.
             if input[idx].word == "help"
-                && !variadic_flag_active
+                && !(variadic_flag_active && !variadic_flag_capped)
                 && spec.disable_help != Some(true)
                 && !out.cmd.disable_help_subcommand
                 && !out.cmd.subcommands.is_empty()
@@ -2933,12 +2939,8 @@ fn parse_partial_traced(
             continue;
         }
         if is_help_arg(spec, &out.cmd, &w) {
-            out.errors.push(render_help_err(
-                spec,
-                &out.cmd,
-                w.len() > 2 || w == "help",
-                custom_env,
-            ));
+            out.errors
+                .push(render_help_err(spec, &out.cmd, w.len() > 2, custom_env));
             trace.record(
                 argv,
                 TokenRole::Builtin {
@@ -5595,10 +5597,12 @@ fn is_version_arg(spec: &Spec, cmds: &[SpecCommand], w: &str) -> bool {
         && (w == "--version" || w == "-V")
 }
 
+/// The help flags. The `help` *word* is not here: it is answered while commands are being
+/// selected, the one place it is a command position, and is an ordinary word anywhere else.
 fn is_help_arg(spec: &Spec, cmd: &SpecCommand, w: &str) -> bool {
     spec.disable_help != Some(true)
-        && (((w == "--help" || w == "-h" || w == "-?") && !cmd.disable_help_flag)
-            || (w == "help" && !cmd.disable_help_subcommand && !cmd.subcommands.is_empty()))
+        && (w == "--help" || w == "-h" || w == "-?")
+        && !cmd.disable_help_flag
 }
 
 impl ParseOutput {
@@ -5837,6 +5841,23 @@ mod tests {
         assert!(err.contains("Usage:"), "{err}");
         let out = parse(&spec, &input(&["ex", "--values", "a", "help"])).unwrap();
         assert!(out.flags.values().any(|v| v.to_string().contains("help")));
+    }
+
+    #[test]
+    fn the_help_word_is_ordinary_outside_command_position() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\ncmd \"a\"\n".parse().unwrap();
+        let err = parse(&spec, &input(&["ex", "--", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert_eq!(err, "unexpected word: help");
+
+        let capped: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--include\" {\n  arg \"<pattern>...\" var_max=1\n}\narg \"[value]\"\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&capped, &input(&["ex", "--include", "a", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
     }
 
     #[test]
