@@ -26,7 +26,7 @@ fn render_completion_loop(usage_bin: &str, indent: &str, cw_extra_args: &str) ->
     // aligned to the longest value.
     //
     // `complete-word` fails when the words before the cursor don't parse
-    // (`mycli help <Tab>` → `unexpected word: help`). Letting its stderr reach
+    // (`mycli nope <Tab>` → `unexpected word: nope`). Letting its stderr reach
     // the terminal would print over the prompt mid-edit, so the process
     // substitution captures it and, only when `complete-word` failed, forwards
     // its first meaningful line — skipping `[TRACE …]`-style log lines, and

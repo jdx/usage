@@ -2887,8 +2887,24 @@ fn parse_partial_traced(
             continue;
         }
         if is_help_arg(spec, &out.cmd, &w) {
-            out.errors
-                .push(render_help_err(spec, &out.cmd, w.len() > 2, custom_env));
+            // `ex help config ls` answers with the long help of the command the words after
+            // `help` name, as usage-argv does; the other spellings answer for this command.
+            let mut target = &out.cmd;
+            if w == "help" {
+                while let Some(sub) = input
+                    .front()
+                    .and_then(|next| target.find_subcommand(&next.word))
+                {
+                    target = sub;
+                    input.pop_front();
+                }
+            }
+            out.errors.push(render_help_err(
+                spec,
+                target,
+                w.len() > 2 || w == "help",
+                custom_env,
+            ));
             trace.record(
                 argv,
                 TokenRole::Builtin {
@@ -5541,7 +5557,7 @@ fn is_version_arg(spec: &Spec, cmds: &[SpecCommand], w: &str) -> bool {
 fn is_help_arg(spec: &Spec, cmd: &SpecCommand, w: &str) -> bool {
     spec.disable_help != Some(true)
         && (((w == "--help" || w == "-h" || w == "-?") && !cmd.disable_help_flag)
-            || (w == "help" && !cmd.disable_help_subcommand && cmd.subcommands.is_empty()))
+            || (w == "help" && !cmd.disable_help_subcommand && !cmd.subcommands.is_empty()))
 }
 
 impl ParseOutput {
@@ -5724,6 +5740,29 @@ mod tests {
                 .expect_err("answering with a version ends the parse");
             assert_eq!(err.to_string(), "1.2.3", "{spelling}");
         }
+    }
+
+    #[test]
+    fn the_help_word_is_answered_where_the_page_lists_it() {
+        // The page prints `help  Print this message…` on a command with subcommands, so that
+        // is where the word asks for help; to a leaf it is an ordinary word.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\ncmd \"a\" {\n  cmd \"b\" help=\"the b\"\n}\n"
+            .parse()
+            .unwrap();
+
+        for argv in [&["ex", "help"][..], &["ex", "a", "help"]] {
+            let err = parse(&spec, &input(argv)).unwrap_err().to_string();
+            assert!(err.contains("Usage:"), "{argv:?}: {err}");
+        }
+        let err = parse(&spec, &input(&["ex", "help", "a"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage: ex a"), "{err}");
+
+        let err = parse(&spec, &input(&["ex", "a", "b", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert_eq!(err, "unexpected word: help");
     }
 
     #[test]
