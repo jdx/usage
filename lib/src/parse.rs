@@ -1938,26 +1938,14 @@ fn parse_partial_traced(
                         spelling: help.word,
                     },
                 );
-                let mut target = out.cmd.clone();
-                // Mounts see the global flags typed before the first command only, as a
-                // descent hands them over once and then clears them.
-                let mut prefix = mount_prefix_words(&prefix_flags);
-                while let Some(sub) = input
-                    .get(idx)
-                    .and_then(|next| target.find_subcommand(&next.word))
-                {
-                    let mut sub = sub.clone();
-                    sub.mount(&prefix, mount_outputs)?;
-                    prefix.clear();
-                    let named = input.remove(idx).unwrap();
-                    trace.record(
-                        named.argv,
-                        TokenRole::Command {
-                            name: sub.name.clone(),
-                        },
-                    );
-                    target = sub;
-                }
+                let target = resolve_help_target(
+                    &out.cmd,
+                    &mut input,
+                    idx,
+                    mount_prefix_words(&prefix_flags),
+                    mount_outputs,
+                    trace,
+                )?;
                 pending_help = Some((target, input.split_off(idx)));
                 break;
             }
@@ -2753,6 +2741,31 @@ fn parse_partial_traced(
             continue;
         }
 
+        // The `help` word where command selection stopped short of it: after a variadic flag's
+        // values, which that scan does not count. Still command position — nothing has been
+        // bound to a positional and no `--` has passed — so it outranks the positional that
+        // would otherwise take it, as it does in command selection.
+        if w == "help"
+            && !seen_double_dash
+            && out.args.is_empty()
+            && spec.disable_help != Some(true)
+            && !out.cmd.disable_help_subcommand
+            && !out.cmd.subcommands.is_empty()
+        {
+            trace.record(
+                argv,
+                TokenRole::Builtin {
+                    spelling: w.clone(),
+                },
+            );
+            let target =
+                resolve_help_target(&out.cmd, &mut input, 0, Vec::new(), mount_outputs, trace)?;
+            out.errors
+                .push(render_help_err(spec, &target, true, custom_env));
+            record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+            return Ok((out, overridden_flags));
+        }
+
         if out.cmd.allow_missing_positional {
             next_arg_idx = cursor_skip_sigils(&out.cmd, next_arg_idx);
             while let Some(current) = active_args(&out.cmd).get(next_arg_idx) {
@@ -2938,22 +2951,9 @@ fn parse_partial_traced(
             }
             continue;
         }
-        // The `help` word where command selection stopped short of it: after a variadic flag's
-        // values, which that scan does not count. Still command position — nothing has been
-        // bound to a positional and no `--` has passed — and the word is otherwise refused.
-        let help_word = w == "help"
-            && !seen_double_dash
-            && out.args.is_empty()
-            && spec.disable_help != Some(true)
-            && !out.cmd.disable_help_subcommand
-            && !out.cmd.subcommands.is_empty();
-        if help_word || is_help_arg(spec, &out.cmd, &w) {
-            out.errors.push(render_help_err(
-                spec,
-                &out.cmd,
-                w.len() > 2 || help_word,
-                custom_env,
-            ));
+        if is_help_arg(spec, &out.cmd, &w) {
+            out.errors
+                .push(render_help_err(spec, &out.cmd, w.len() > 2, custom_env));
             trace.record(
                 argv,
                 TokenRole::Builtin {
@@ -3685,6 +3685,39 @@ fn apply_prefix_flag_overrides(
 ) {
     prefix_flags
         .retain(|(other, _)| !(flags_override(&flag, other) || flags_override(other, &flag)));
+}
+
+/// The command `help <command...>` asks about: the words at `at` that name subcommands, walked
+/// from `from` and removed from `input`. Each step runs the mounts of the command it enters,
+/// as a descent does, handing them `prefix` (the global flags typed before the first command)
+/// once and then nothing. The words are a question rather than an invocation, so they are
+/// resolved here instead of descended into.
+fn resolve_help_target(
+    from: &SpecCommand,
+    input: &mut VecDeque<Token>,
+    at: usize,
+    mut prefix: Vec<String>,
+    mount_outputs: Option<&HashMap<String, String>>,
+    trace: &mut Trace,
+) -> miette::Result<SpecCommand> {
+    let mut target = from.clone();
+    while let Some(sub) = input
+        .get(at)
+        .and_then(|next| target.find_subcommand(&next.word))
+    {
+        let mut sub = sub.clone();
+        sub.mount(&prefix, mount_outputs)?;
+        prefix.clear();
+        let named = input.remove(at).unwrap();
+        trace.record(
+            named.argv,
+            TokenRole::Command {
+                name: sub.name.clone(),
+            },
+        );
+        target = sub;
+    }
+    Ok(target)
 }
 
 fn mount_prefix_words(prefix_flags: &[(Arc<SpecFlag>, Vec<String>)]) -> Vec<String> {
@@ -5899,6 +5932,14 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("Usage:"), "{err}");
+
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--values\" {\n  arg \"<value>...\" var_max=2\n}\narg \"[value]\"\ncmd \"run\" help=\"the run\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&spec, &input(&["ex", "--values", "a", "b", "help", "run"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage: ex run"), "{err}");
     }
 
     #[test]
