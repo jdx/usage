@@ -2744,9 +2744,12 @@ fn parse_partial_traced(
         // The `help` word where command selection stopped short of it: after a variadic flag's
         // values, which that scan does not count. Still command position — nothing has been
         // bound to a positional and no `--` has passed — so it outranks the positional that
-        // would otherwise take it, as it does in command selection.
+        // would otherwise take it, as it does in command selection. A restart or a clause
+        // boundary begins a later invocation, where command selection is long over.
         if w == "help"
             && !seen_double_dash
+            && !restart_seen
+            && out.clauses.is_empty()
             && out.args.is_empty()
             && spec.disable_help != Some(true)
             && !out.cmd.disable_help_subcommand
@@ -2758,8 +2761,14 @@ fn parse_partial_traced(
                     spelling: w.clone(),
                 },
             );
-            let target =
-                resolve_help_target(&out.cmd, &mut input, 0, Vec::new(), mount_outputs, trace)?;
+            let target = resolve_help_target(
+                &out.cmd,
+                &mut input,
+                0,
+                mount_prefix_words(&prefix_flags),
+                mount_outputs,
+                trace,
+            )?;
             out.errors
                 .push(render_help_err(spec, &target, true, custom_env));
             record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
@@ -5940,6 +5949,15 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("Usage: ex run"), "{err}");
+    }
+
+    #[test]
+    fn help_after_a_restart_is_a_value() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\ncmd \"run\" restart_token=\":::\" {\n  arg \"<task>\"\n  cmd \"x\"\n}\n"
+            .parse()
+            .unwrap();
+        let out = parse(&spec, &input(&["ex", "run", "build", ":::", "help"])).unwrap();
+        assert!(out.errors.is_empty(), "{:?}", out.errors);
     }
 
     #[test]
