@@ -2201,7 +2201,7 @@ fn test_fish_completion_discards_parse_error() {
             r#"set -gx PATH "{bin_dir}" "{usage_dir}" /usr/bin /bin
 set -gx XDG_CACHE_HOME "{tmp}"
 source "{source}"
-echo "[error]" (complete -C 'm help ')
+echo "[error]" (complete -C 'm nope ')
 echo "[ok]" (complete -C 'm ')
 "#,
             bin_dir = sh_path(&bin_dir),

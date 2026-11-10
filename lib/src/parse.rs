@@ -1909,6 +1909,45 @@ fn parse_partial_traced(
             // unrelated command acquires a default because a name matched one level down:
             // with `default_subcommand "ls"` at the top, `ex config zzz` descended into
             // `config ls`.
+            // `ex help config ls`: the word the page lists under Commands, answered here, among
+            // the command lookups, so that it outranks a default subcommand and a positional
+            // the way usage-argv ranks it — after a declared subcommand of that name, which keeps
+            // its meaning, and before anything that would take the word as a value. The words
+            // after it name a command, resolved (mounts included) rather than descended into:
+            // they are a question, not an invocation. The answer is the long form.
+            if input[idx].word == "help"
+                && spec.disable_help != Some(true)
+                && !out.cmd.disable_help_subcommand
+                && !out.cmd.subcommands.is_empty()
+            {
+                let help = input.remove(idx).unwrap();
+                trace.record(
+                    help.argv,
+                    TokenRole::Builtin {
+                        spelling: help.word,
+                    },
+                );
+                let mut target = out.cmd.clone();
+                while let Some(sub) = input
+                    .get(idx)
+                    .and_then(|next| target.find_subcommand(&next.word))
+                {
+                    let mut sub = sub.clone();
+                    sub.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
+                    let named = input.remove(idx).unwrap();
+                    trace.record(
+                        named.argv,
+                        TokenRole::Command {
+                            name: sub.name.clone(),
+                        },
+                    );
+                    target = sub;
+                }
+                out.errors
+                    .push(render_help_err(spec, &target, true, custom_env));
+                record_stop(&mut out, 0, false, trace, &input);
+                return Ok((out, overridden_flags));
+            }
             if !used_default_subcommand
                 && out.cmds.len() == 1
                 && let Some(default_name) = &spec.default_subcommand
@@ -2887,21 +2926,9 @@ fn parse_partial_traced(
             continue;
         }
         if is_help_arg(spec, &out.cmd, &w) {
-            // `ex help config ls` answers with the long help of the command the words after
-            // `help` name, as usage-argv does; the other spellings answer for this command.
-            let mut target = &out.cmd;
-            if w == "help" {
-                while let Some(sub) = input
-                    .front()
-                    .and_then(|next| target.find_subcommand(&next.word))
-                {
-                    target = sub;
-                    input.pop_front();
-                }
-            }
             out.errors.push(render_help_err(
                 spec,
-                target,
+                &out.cmd,
                 w.len() > 2 || w == "help",
                 custom_env,
             ));
@@ -5763,6 +5790,26 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert_eq!(err, "unexpected word: help");
+    }
+
+    #[test]
+    fn the_help_word_outranks_defaults_and_positionals_but_not_after_a_double_dash() {
+        let positional: Spec = "name \"ex\"\nbin \"ex\"\narg \"[value]\"\ncmd \"a\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&positional, &input(&["ex", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
+        assert!(parse(&positional, &input(&["ex", "--", "help"])).is_ok());
+
+        let default: Spec = "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"a\"\ncmd \"a\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&default, &input(&["ex", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
     }
 
     #[test]
