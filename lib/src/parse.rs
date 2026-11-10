@@ -2938,9 +2938,22 @@ fn parse_partial_traced(
             }
             continue;
         }
-        if is_help_arg(spec, &out.cmd, &w) {
-            out.errors
-                .push(render_help_err(spec, &out.cmd, w.len() > 2, custom_env));
+        // The `help` word where command selection stopped short of it: after a variadic flag's
+        // values, which that scan does not count. Still command position — nothing has been
+        // bound to a positional and no `--` has passed — and the word is otherwise refused.
+        let help_word = w == "help"
+            && !seen_double_dash
+            && out.args.is_empty()
+            && spec.disable_help != Some(true)
+            && !out.cmd.disable_help_subcommand
+            && !out.cmd.subcommands.is_empty();
+        if help_word || is_help_arg(spec, &out.cmd, &w) {
+            out.errors.push(render_help_err(
+                spec,
+                &out.cmd,
+                w.len() > 2 || help_word,
+                custom_env,
+            ));
             trace.record(
                 argv,
                 TokenRole::Builtin {
@@ -5875,6 +5888,17 @@ mod tests {
             .unwrap();
         let out = parse(&spec, &input(&["ex", "help"])).unwrap();
         assert_eq!(out.external, Some(vec!["help".to_string()]));
+    }
+
+    #[test]
+    fn help_follows_a_completed_variadic_value_run() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--values\" {\n  arg \"<value>...\" var_max=2\n}\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&spec, &input(&["ex", "--values", "a", "b", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
     }
 
     #[test]
