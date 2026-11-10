@@ -238,7 +238,7 @@ fn a_command_value_named_like_help_is_a_value_not_a_help_request() {
     let err = usage::parse(&other, &args(&["help"]))
         .unwrap_err()
         .to_string();
-    assert!(!err.contains("Usage: build <service>"), "{err}");
+    assert!(err.contains("Invalid choice"), "{err}");
 }
 
 #[cfg(unix)]

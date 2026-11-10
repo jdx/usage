@@ -5861,6 +5861,23 @@ mod tests {
     }
 
     #[test]
+    fn the_help_word_outranks_an_external_subcommand_unless_disabled() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nexternal_subcommand #true\ncmd \"a\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&spec, &input(&["ex", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
+
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nexternal_subcommand #true\ndisable_help_subcommand #true\ncmd \"a\"\n"
+            .parse()
+            .unwrap();
+        let out = parse(&spec, &input(&["ex", "help"])).unwrap();
+        assert_eq!(out.external, Some(vec!["help".to_string()]));
+    }
+
+    #[test]
     fn the_supplied_version_flag_is_the_roots_alone() {
         // `version` describes the program, and the page lists the entry on the program's
         // own page only. A subcommand answering with it would be a claim no spec made.
