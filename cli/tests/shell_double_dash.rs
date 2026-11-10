@@ -136,3 +136,19 @@ fn h_is_a_value_when_a_flag_takes_it() {
         .success()
         .stdout("pat=--help\n");
 }
+
+const ENV_CHOICES_SCRIPT: &str = r#"#!/usr/bin/env -S usage bash
+#USAGE flag "--mode <m>" env="X_MODE" {
+#USAGE   choices "a" "b"
+#USAGE }
+echo "mode=${usage_mode}"
+"#;
+
+#[test]
+fn a_bad_environment_value_does_not_hide_the_help_page() {
+    run_script(ENV_CHOICES_SCRIPT, &["--help"])
+        .env("X_MODE", "c")
+        .assert()
+        .success()
+        .stdout(predicates::str::starts_with("Usage:"));
+}

@@ -269,9 +269,18 @@ impl Shell {
         // words. Whether it asks for the help page is the spec's to say, so the parser is
         // asked rather than the words scanned: a spec that disables help, declares a flag of
         // its own named `-h`, or takes `-h` as a flag's value keeps it, and what follows a
-        // `--` is data. A parse that cannot finish here fails the same way below.
-        let asked = Parser::new(&spec).explain(&args).ok().and_then(|out| {
-            out.tokens
+        // `--` is data. Only the words are read: environment values and defaults are not checked and
+        // no `choices run=` command runs, so a bad value cannot hide the help page and a normal
+        // run does not repeat the commands the real parse below makes.
+        let asked = {
+            let tokens = match Parser::new(&spec)
+                .without_running_commands()
+                .explain_refused(&args)
+            {
+                Ok(out) => out.tokens,
+                Err(tokens) => tokens,
+            };
+            tokens
                 .iter()
                 .flat_map(|token| &token.roles)
                 .find_map(|role| match role {
@@ -282,7 +291,7 @@ impl Shell {
                     },
                     _ => None,
                 })
-        });
+        };
         if self.h || asked == Some(false) {
             return self.help(&spec, &args, false);
         }
