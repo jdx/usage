@@ -1665,6 +1665,17 @@
             "global": false
           },
           {
+            "name": "quiet",
+            "usage": "-q --quiet",
+            "help": "Print only the findings, not \"No issues found.\" or the summary line",
+            "help_long": "Print only the findings, not \"No issues found.\" or the summary line\n\nApplies to the text format. The exit code and `--format json` are unchanged, so a loop over many specs prints nothing for the clean ones.",
+            "help_first_line": "Print only the findings, not \"No issues found.\" or the summary line",
+            "short": ["q"],
+            "long": ["quiet"],
+            "hide": false,
+            "global": false
+          },
+          {
             "name": "help",
             "usage": "-h --help",
             "help": "Print help",

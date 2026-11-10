@@ -37,6 +37,13 @@ pub struct Lint {
     /// Pair it with --warnings-as-errors to hold the order in CI.
     #[usage(long)]
     sorted: bool,
+
+    /// Print only the findings, not "No issues found." or the summary line
+    ///
+    /// Applies to the text format. The exit code and `--format json` are unchanged, so a
+    /// loop over many specs prints nothing for the clean ones.
+    #[usage(long, short)]
+    quiet: bool,
 }
 
 /// The rules that only run when asked for.
@@ -89,11 +96,28 @@ impl std::fmt::Display for LintIssue {
 
 impl Lint {
     fn print_text(&self, issues: &[LintIssue]) {
-        if issues.is_empty() {
-            println!("No issues found.");
-            return;
-        }
+        print!("{}", render_text(issues, self.quiet));
+    }
 
+    fn print_json(&self, issues: &[LintIssue]) -> usage::miette::Result<()> {
+        let json = serde_json::to_string_pretty(issues)
+            .map_err(|e| usage::miette::miette!("Failed to serialize issues: {}", e))?;
+        println!("{}", json);
+        Ok(())
+    }
+}
+
+/// The text report; `quiet` leaves only the findings, with no status or summary line.
+fn render_text(issues: &[LintIssue], quiet: bool) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    if issues.is_empty() {
+        if !quiet {
+            out.push_str("No issues found.\n");
+        }
+        return out;
+    }
+    {
         let errors = issues
             .iter()
             .filter(|i| i.severity == Severity::Error)
@@ -108,22 +132,18 @@ impl Lint {
             .count();
 
         for issue in issues {
-            println!("{}", issue);
+            let _ = writeln!(out, "{}", issue);
         }
 
-        println!();
-        println!(
-            "Found {} error(s), {} warning(s), {} info(s)",
-            errors, warnings, infos
-        );
+        if !quiet {
+            let _ = write!(
+                out,
+                "\nFound {} error(s), {} warning(s), {} info(s)\n",
+                errors, warnings, infos
+            );
+        }
     }
-
-    fn print_json(&self, issues: &[LintIssue]) -> usage::miette::Result<()> {
-        let json = serde_json::to_string_pretty(issues)
-            .map_err(|e| usage::miette::miette!("Failed to serialize issues: {}", e))?;
-        println!("{}", json);
-        Ok(())
-    }
+    out
 }
 
 impl usage_rs::Run for Lint {
@@ -986,6 +1006,22 @@ arg "<port>" validate="int(value) >"
             panic!("expected a parse error naming the expression, got {err:?}");
         };
         assert!(reason.contains("invalid validation expression"), "{reason}");
+    }
+
+    #[test]
+    fn test_render_text_quiet() {
+        assert_eq!(render_text(&[], false), "No issues found.\n");
+        assert_eq!(render_text(&[], true), "");
+
+        let issues = vec![LintIssue {
+            severity: Severity::Error,
+            code: "duplicate-flag".into(),
+            message: "dup".into(),
+            location: None,
+        }];
+        let loud = render_text(&issues, false);
+        assert!(loud.contains("Found 1 error(s)"), "{loud}");
+        assert_eq!(render_text(&issues, true), "error [duplicate-flag]: dup\n");
     }
 
     fn example_issues(spec: &str) -> Vec<LintIssue> {
