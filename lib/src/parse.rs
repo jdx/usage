@@ -1694,6 +1694,10 @@ fn parse_partial_traced(
     // is the case that needs this: a subcommand's mounts are run when the parser
     // descends into it, but nothing descends into the root.
     let mut mounts_resolved = false;
+    // A `help` word found while selecting commands: the command it asked about, and the words
+    // after it. The answer waits for Phase 2 to bind the flags typed before the word, so
+    // `explain` still reports them.
+    let mut pending_help: Option<(SpecCommand, VecDeque<Token>)> = None;
     // A completion needs the whole command list before it can offer anything, and
     // `mycli <tab>` has no word to trigger discovery with — so waiting for one would
     // mean a root mount never contributed to the very thing it exists for.
@@ -1916,6 +1920,7 @@ fn parse_partial_traced(
             // after it name a command, resolved (mounts included) rather than descended into:
             // they are a question, not an invocation. The answer is the long form.
             if input[idx].word == "help"
+                && !variadic_flag_active
                 && spec.disable_help != Some(true)
                 && !out.cmd.disable_help_subcommand
                 && !out.cmd.subcommands.is_empty()
@@ -1928,12 +1933,16 @@ fn parse_partial_traced(
                     },
                 );
                 let mut target = out.cmd.clone();
+                // Mounts see the global flags typed before the first command only, as a
+                // descent hands them over once and then clears them.
+                let mut prefix = mount_prefix_words(&prefix_flags);
                 while let Some(sub) = input
                     .get(idx)
                     .and_then(|next| target.find_subcommand(&next.word))
                 {
                     let mut sub = sub.clone();
-                    sub.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
+                    sub.mount(&prefix, mount_outputs)?;
+                    prefix.clear();
                     let named = input.remove(idx).unwrap();
                     trace.record(
                         named.argv,
@@ -1943,10 +1952,8 @@ fn parse_partial_traced(
                     );
                     target = sub;
                 }
-                out.errors
-                    .push(render_help_err(spec, &target, true, custom_env));
-                record_stop(&mut out, 0, false, trace, &input);
-                return Ok((out, overridden_flags));
+                pending_help = Some((target, input.split_off(idx)));
+                break;
             }
             if !used_default_subcommand
                 && out.cmds.len() == 1
@@ -2960,6 +2967,13 @@ fn parse_partial_traced(
         );
         trace.close(&input);
         bail!("unexpected word: {w}");
+    }
+
+    if let Some((target, unread)) = pending_help {
+        out.errors
+            .push(render_help_err(spec, &target, true, custom_env));
+        record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &unread);
+        return Ok((out, overridden_flags));
     }
 
     // Resolve optional defaults before deciding whether argv is empty. This is deliberately
@@ -5810,6 +5824,19 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("Usage:"), "{err}");
+    }
+
+    #[test]
+    fn help_keeps_earlier_flags_and_yields_to_a_collecting_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--verbose\"\nflag \"--values <value>...\"\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&spec, &input(&["ex", "--verbose", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
+        let out = parse(&spec, &input(&["ex", "--values", "a", "help"])).unwrap();
+        assert!(out.flags.values().any(|v| v.to_string().contains("help")));
     }
 
     #[test]
