@@ -273,7 +273,11 @@ impl Shell {
         // no `choices run=` command runs, so a bad value cannot hide the help page and a normal
         // run does not repeat the commands the real parse below makes. Without a help word in the
         // arguments there is nothing to ask, so a mount is not run a second time either.
-        let mentions_help = args.iter().any(|word| word == "-h" || word == "--help");
+        // A short bundle such as `-vh` can carry the help letter too.
+        let mentions_help = args.iter().any(|word| {
+            word == "--help"
+                || (word.starts_with('-') && !word.starts_with("--") && word.contains('h'))
+        });
         let asked = mentions_help
             .then(|| {
                 let tokens = match Parser::new(&spec)

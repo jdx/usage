@@ -152,3 +152,16 @@ fn a_bad_environment_value_does_not_hide_the_help_page() {
         .success()
         .stdout(predicates::str::starts_with("Usage:"));
 }
+
+const BUNDLE_SCRIPT: &str = r#"#!/usr/bin/env -S usage bash
+#USAGE flag "-v --verbose"
+echo "verbose=${usage_verbose}"
+"#;
+
+#[test]
+fn h_in_a_short_bundle_prints_the_help_page() {
+    run_script(BUNDLE_SCRIPT, &["-vh"])
+        .assert()
+        .success()
+        .stdout(predicates::str::starts_with("Usage:"));
+}
