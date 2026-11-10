@@ -8,6 +8,7 @@ use usage::miette::IntoDiagnostic;
 use usage_rs::Args;
 
 use usage::Spec;
+use usage::parse::{Parser, TokenRole};
 
 use crate::env;
 
@@ -265,18 +266,23 @@ impl Shell {
         args.insert(0, spec.bin.clone());
 
         // Flag parsing ends at the script, so a `-h` after it arrives as one of the script's
-        // words. It still asks for the help page, but only before a `--`: what follows the
-        // separator is data, and `--help` there is a value for the script.
-        let asked = self
-            .args
-            .iter()
-            .filter(|_| !separator_before_script)
-            .take_while(|word| *word != "--")
-            .find_map(|word| match word.as_str() {
-                "-h" => Some(false),
-                "--help" => Some(true),
-                _ => None,
-            });
+        // words. Whether it asks for the help page is the spec's to say, so the parser is
+        // asked rather than the words scanned: a spec that disables help, declares a flag of
+        // its own named `-h`, or takes `-h` as a flag's value keeps it, and what follows a
+        // `--` is data. A parse that cannot finish here fails the same way below.
+        let asked = Parser::new(&spec).explain(&args).ok().and_then(|out| {
+            out.tokens
+                .iter()
+                .flat_map(|token| &token.roles)
+                .find_map(|role| match role {
+                    TokenRole::Builtin { spelling } => match spelling.as_str() {
+                        "-h" => Some(false),
+                        "--help" => Some(true),
+                        _ => None,
+                    },
+                    _ => None,
+                })
+        });
         if self.h || asked == Some(false) {
             return self.help(&spec, &args, false);
         }
