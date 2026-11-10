@@ -1926,7 +1926,7 @@ fn parse_partial_traced(
             // after it name a command, resolved (mounts included) rather than descended into:
             // they are a question, not an invocation. The answer is the long form.
             if input[idx].word == "help"
-                && !(variadic_flag_active && !variadic_flag_capped)
+                && (!variadic_flag_active || variadic_flag_capped)
                 && spec.disable_help != Some(true)
                 && !out.cmd.disable_help_subcommand
                 && !out.cmd.subcommands.is_empty()
