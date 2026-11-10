@@ -5952,6 +5952,26 @@ mod tests {
     }
 
     #[test]
+    fn help_after_a_variadic_run_resolves_aliases_and_nested_commands() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--values\" {\n  arg \"<value>...\" var_max=2\n}\ncmd \"run\" {\n  alias \"r\"\n  cmd \"sub\"\n}\n"
+            .parse()
+            .unwrap();
+        for words in [&["help", "r"][..], &["help", "run"]] {
+            let mut argv = vec!["ex", "--values", "a", "b"];
+            argv.extend(words);
+            let err = parse(&spec, &input(&argv)).unwrap_err().to_string();
+            assert!(err.contains("Usage: ex run"), "{words:?}: {err}");
+        }
+        let err = parse(
+            &spec,
+            &input(&["ex", "--values", "a", "b", "help", "run", "sub"]),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("Usage: ex run sub"), "{err}");
+    }
+
+    #[test]
     fn help_after_a_restart_is_a_value() {
         let spec: Spec = "name \"ex\"\nbin \"ex\"\ncmd \"run\" restart_token=\":::\" {\n  arg \"<task>\"\n  cmd \"x\"\n}\n"
             .parse()
