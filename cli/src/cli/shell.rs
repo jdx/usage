@@ -271,27 +271,31 @@ impl Shell {
         // its own named `-h`, or takes `-h` as a flag's value keeps it, and what follows a
         // `--` is data. Only the words are read: environment values and defaults are not checked and
         // no `choices run=` command runs, so a bad value cannot hide the help page and a normal
-        // run does not repeat the commands the real parse below makes.
-        let asked = {
-            let tokens = match Parser::new(&spec)
-                .without_running_commands()
-                .explain_refused(&args)
-            {
-                Ok(out) => out.tokens,
-                Err(tokens) => tokens,
-            };
-            tokens
-                .iter()
-                .flat_map(|token| &token.roles)
-                .find_map(|role| match role {
-                    TokenRole::Builtin { spelling } => match spelling.as_str() {
-                        "-h" => Some(false),
-                        "--help" => Some(true),
+        // run does not repeat the commands the real parse below makes. Without a help word in the
+        // arguments there is nothing to ask, so a mount is not run a second time either.
+        let mentions_help = args.iter().any(|word| word == "-h" || word == "--help");
+        let asked = mentions_help
+            .then(|| {
+                let tokens = match Parser::new(&spec)
+                    .without_running_commands()
+                    .explain_refused(&args)
+                {
+                    Ok(out) => out.tokens,
+                    Err(tokens) => tokens,
+                };
+                tokens
+                    .iter()
+                    .flat_map(|token| &token.roles)
+                    .find_map(|role| match role {
+                        TokenRole::Builtin { spelling } => match spelling.as_str() {
+                            "-h" => Some(false),
+                            "--help" => Some(true),
+                            _ => None,
+                        },
                         _ => None,
-                    },
-                    _ => None,
-                })
-        };
+                    })
+            })
+            .flatten();
         if self.h || asked == Some(false) {
             return self.help(&spec, &args, false);
         }
