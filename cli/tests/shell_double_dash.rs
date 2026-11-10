@@ -91,3 +91,77 @@ fn a_script_named_like_the_command_does_not_hide_the_separator() {
         .success()
         .stdout("argv=[--help]\n");
 }
+
+const OWN_H_SCRIPT: &str = r#"#!/usr/bin/env -S usage bash
+#USAGE disable_help #true
+#USAGE flag "-h --host <host>"
+echo "host=${usage_host}"
+"#;
+
+const HYPHEN_VALUE_SCRIPT: &str = r#"#!/usr/bin/env -S usage bash
+#USAGE flag "--pat <pat>" allow_hyphen_values=#true
+echo "pat=${usage_pat}"
+"#;
+
+fn run_script(script: &'static str, args: &[&str]) -> Command {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.env_remove("USAGECLI_SHELL_BASH")
+        .env_remove("USAGE_SHELL_BASH")
+        .args(["bash", "/dev/stdin"])
+        .args(args)
+        .write_stdin(script);
+    cmd
+}
+
+#[test]
+fn a_spec_that_disables_help_gives_h_to_its_own_flag() {
+    run_script(OWN_H_SCRIPT, &["-h", "x"])
+        .assert()
+        .success()
+        .stdout("host=x\n");
+    run_script(OWN_H_SCRIPT, &["--host", "x"])
+        .assert()
+        .success()
+        .stdout("host=x\n");
+}
+
+#[test]
+fn h_is_a_value_when_a_flag_takes_it() {
+    run_script(HYPHEN_VALUE_SCRIPT, &["--pat", "-h"])
+        .assert()
+        .success()
+        .stdout("pat=-h\n");
+    run_script(HYPHEN_VALUE_SCRIPT, &["--pat", "--help"])
+        .assert()
+        .success()
+        .stdout("pat=--help\n");
+}
+
+const ENV_CHOICES_SCRIPT: &str = r#"#!/usr/bin/env -S usage bash
+#USAGE flag "--mode <m>" env="X_MODE" {
+#USAGE   choices "a" "b"
+#USAGE }
+echo "mode=${usage_mode}"
+"#;
+
+#[test]
+fn a_bad_environment_value_does_not_hide_the_help_page() {
+    run_script(ENV_CHOICES_SCRIPT, &["--help"])
+        .env("X_MODE", "c")
+        .assert()
+        .success()
+        .stdout(predicates::str::starts_with("Usage:"));
+}
+
+const BUNDLE_SCRIPT: &str = r#"#!/usr/bin/env -S usage bash
+#USAGE flag "-v --verbose"
+echo "verbose=${usage_verbose}"
+"#;
+
+#[test]
+fn h_in_a_short_bundle_prints_the_help_page() {
+    run_script(BUNDLE_SCRIPT, &["-vh"])
+        .assert()
+        .success()
+        .stdout(predicates::str::starts_with("Usage:"));
+}
