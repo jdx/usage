@@ -232,12 +232,13 @@ fn a_command_value_named_like_help_is_a_value_not_a_help_request() {
     let parsed = usage::parse(&named_help, &args(&["help"])).unwrap();
     assert_eq!(parsed.as_env()["usage_service"], "help");
 
-    // Not one of the choices, so still a request for help.
+    // Not one of the choices, and `build` has no subcommands for `help` to be a request
+    // about, so it is a value like any other and is refused as one.
     let other = spec(r#"choices run="echo app""#);
     let err = usage::parse(&other, &args(&["help"]))
         .unwrap_err()
         .to_string();
-    assert!(err.contains("Usage: build <service>"), "{err}");
+    assert!(err.contains("Invalid choice"), "{err}");
 }
 
 #[cfg(unix)]

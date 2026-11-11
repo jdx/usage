@@ -1694,6 +1694,12 @@ fn parse_partial_traced(
     // is the case that needs this: a subcommand's mounts are run when the parser
     // descends into it, but nothing descends into the root.
     let mut mounts_resolved = false;
+    // The active variadic flag takes at most one value, which the flag scan has already read.
+    let mut variadic_flag_capped = false;
+    // A `help` word found while selecting commands: the command it asked about, and the words
+    // after it. The answer waits for Phase 2 to bind the flags typed before the word, so
+    // `explain` still reports them.
+    let mut pending_help: Option<(SpecCommand, VecDeque<Token>)> = None;
     // A completion needs the whole command list before it can offer anything, and
     // `mycli <tab>` has no word to trigger discovery with — so waiting for one would
     // mean a root mount never contributed to the very thing it exists for.
@@ -1862,6 +1868,10 @@ fn parse_partial_traced(
             if let Some(f) = flags.get(flag_key).cloned().filter(|_| is_bundle) {
                 command_arg_found = true;
                 variadic_flag_active = f.arg.as_ref().is_some_and(|arg| arg.var);
+                variadic_flag_capped = f
+                    .arg
+                    .as_ref()
+                    .is_some_and(|arg| arg.var && arg.var_max == Some(1));
                 // Skip the flag and keep scanning. Both global and non-global flags may precede
                 // a subcommand (`mycli --verbose run task`, `mycli run --force task`), and
                 // stopping at one would hide the subcommand — and any mount on it — from the
@@ -1909,6 +1919,36 @@ fn parse_partial_traced(
             // unrelated command acquires a default because a name matched one level down:
             // with `default_subcommand "ls"` at the top, `ex config zzz` descended into
             // `config ls`.
+            // `ex help config ls`: the word the page lists under Commands, answered here, among
+            // the command lookups, so that it outranks a default subcommand and a positional
+            // the way usage-argv ranks it — after a declared subcommand of that name, which keeps
+            // its meaning, and before anything that would take the word as a value. The words
+            // after it name a command, resolved (mounts included) rather than descended into:
+            // they are a question, not an invocation. The answer is the long form.
+            if input[idx].word == "help"
+                && (!variadic_flag_active || variadic_flag_capped)
+                && spec.disable_help != Some(true)
+                && !out.cmd.disable_help_subcommand
+                && !out.cmd.subcommands.is_empty()
+            {
+                let help = input.remove(idx).unwrap();
+                trace.record(
+                    help.argv,
+                    TokenRole::Builtin {
+                        spelling: help.word,
+                    },
+                );
+                let target = resolve_help_target(
+                    &out.cmd,
+                    &mut input,
+                    idx,
+                    mount_prefix_words(&prefix_flags),
+                    mount_outputs,
+                    trace,
+                )?;
+                pending_help = Some((target, input.split_off(idx)));
+                break;
+            }
             if !used_default_subcommand
                 && out.cmds.len() == 1
                 && let Some(default_name) = &spec.default_subcommand
@@ -2701,6 +2741,40 @@ fn parse_partial_traced(
             continue;
         }
 
+        // The `help` word where command selection stopped short of it: after a variadic flag's
+        // values, which that scan does not count. Still command position — nothing has been
+        // bound to a positional and no `--` has passed — so it outranks the positional that
+        // would otherwise take it, as it does in command selection. A restart or a clause
+        // boundary begins a later invocation, where command selection is long over.
+        if w == "help"
+            && !seen_double_dash
+            && !restart_seen
+            && out.clauses.is_empty()
+            && out.args.is_empty()
+            && spec.disable_help != Some(true)
+            && !out.cmd.disable_help_subcommand
+            && !out.cmd.subcommands.is_empty()
+        {
+            trace.record(
+                argv,
+                TokenRole::Builtin {
+                    spelling: w.clone(),
+                },
+            );
+            let target = resolve_help_target(
+                &out.cmd,
+                &mut input,
+                0,
+                mount_prefix_words(&prefix_flags),
+                mount_outputs,
+                trace,
+            )?;
+            out.errors
+                .push(render_help_err(spec, &target, true, custom_env));
+            record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+            return Ok((out, overridden_flags));
+        }
+
         if out.cmd.allow_missing_positional {
             next_arg_idx = cursor_skip_sigils(&out.cmd, next_arg_idx);
             while let Some(current) = active_args(&out.cmd).get(next_arg_idx) {
@@ -2917,6 +2991,13 @@ fn parse_partial_traced(
         );
         trace.close(&input);
         bail!("unexpected word: {w}");
+    }
+
+    if let Some((target, unread)) = pending_help {
+        out.errors
+            .push(render_help_err(spec, &target, true, custom_env));
+        record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &unread);
+        return Ok((out, overridden_flags));
     }
 
     // Resolve optional defaults before deciding whether argv is empty. This is deliberately
@@ -3613,6 +3694,39 @@ fn apply_prefix_flag_overrides(
 ) {
     prefix_flags
         .retain(|(other, _)| !(flags_override(&flag, other) || flags_override(other, &flag)));
+}
+
+/// The command `help <command...>` asks about: the words at `at` that name subcommands, walked
+/// from `from` and removed from `input`. Each step runs the mounts of the command it enters,
+/// as a descent does, handing them `prefix` (the global flags typed before the first command)
+/// once and then nothing. The words are a question rather than an invocation, so they are
+/// resolved here instead of descended into.
+fn resolve_help_target(
+    from: &SpecCommand,
+    input: &mut VecDeque<Token>,
+    at: usize,
+    mut prefix: Vec<String>,
+    mount_outputs: Option<&HashMap<String, String>>,
+    trace: &mut Trace,
+) -> miette::Result<SpecCommand> {
+    let mut target = from.clone();
+    while let Some(sub) = input
+        .get(at)
+        .and_then(|next| target.find_subcommand(&next.word))
+    {
+        let mut sub = sub.clone();
+        sub.mount(&prefix, mount_outputs)?;
+        prefix.clear();
+        let named = input.remove(at).unwrap();
+        trace.record(
+            named.argv,
+            TokenRole::Command {
+                name: sub.name.clone(),
+            },
+        );
+        target = sub;
+    }
+    Ok(target)
 }
 
 fn mount_prefix_words(prefix_flags: &[(Arc<SpecFlag>, Vec<String>)]) -> Vec<String> {
@@ -5538,10 +5652,12 @@ fn is_version_arg(spec: &Spec, cmds: &[SpecCommand], w: &str) -> bool {
         && (w == "--version" || w == "-V")
 }
 
+/// The help flags. The `help` *word* is not here: it is answered while commands are being
+/// selected, the one place it is a command position, and is an ordinary word anywhere else.
 fn is_help_arg(spec: &Spec, cmd: &SpecCommand, w: &str) -> bool {
     spec.disable_help != Some(true)
-        && (((w == "--help" || w == "-h" || w == "-?") && !cmd.disable_help_flag)
-            || (w == "help" && !cmd.disable_help_subcommand && cmd.subcommands.is_empty()))
+        && (w == "--help" || w == "-h" || w == "-?")
+        && !cmd.disable_help_flag
 }
 
 impl ParseOutput {
@@ -5724,6 +5840,144 @@ mod tests {
                 .expect_err("answering with a version ends the parse");
             assert_eq!(err.to_string(), "1.2.3", "{spelling}");
         }
+    }
+
+    #[test]
+    fn the_help_word_is_answered_where_the_page_lists_it() {
+        // The page prints `help  Print this message…` on a command with subcommands, so that
+        // is where the word asks for help; to a leaf it is an ordinary word.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\ncmd \"a\" {\n  cmd \"b\" help=\"the b\"\n}\n"
+            .parse()
+            .unwrap();
+
+        for argv in [&["ex", "help"][..], &["ex", "a", "help"]] {
+            let err = parse(&spec, &input(argv)).unwrap_err().to_string();
+            assert!(err.contains("Usage:"), "{argv:?}: {err}");
+        }
+        let err = parse(&spec, &input(&["ex", "help", "a"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage: ex a"), "{err}");
+
+        let err = parse(&spec, &input(&["ex", "a", "b", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert_eq!(err, "unexpected word: help");
+    }
+
+    #[test]
+    fn the_help_word_outranks_defaults_and_positionals_but_not_after_a_double_dash() {
+        let positional: Spec = "name \"ex\"\nbin \"ex\"\narg \"[value]\"\ncmd \"a\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&positional, &input(&["ex", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
+        assert!(parse(&positional, &input(&["ex", "--", "help"])).is_ok());
+
+        let default: Spec = "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"a\"\ncmd \"a\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&default, &input(&["ex", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
+    }
+
+    #[test]
+    fn help_keeps_earlier_flags_and_yields_to_a_collecting_flag() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--verbose\"\nflag \"--values <value>...\"\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&spec, &input(&["ex", "--verbose", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
+        let out = parse(&spec, &input(&["ex", "--values", "a", "help"])).unwrap();
+        assert!(out.flags.values().any(|v| v.to_string().contains("help")));
+    }
+
+    #[test]
+    fn the_help_word_is_ordinary_outside_command_position() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\ncmd \"a\"\n".parse().unwrap();
+        let err = parse(&spec, &input(&["ex", "--", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert_eq!(err, "unexpected word: help");
+
+        let capped: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--include\" {\n  arg \"<pattern>...\" var_max=1\n}\narg \"[value]\"\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&capped, &input(&["ex", "--include", "a", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
+    }
+
+    #[test]
+    fn the_help_word_outranks_an_external_subcommand_unless_disabled() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nexternal_subcommand #true\ncmd \"a\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&spec, &input(&["ex", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
+
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nexternal_subcommand #true\ndisable_help_subcommand #true\ncmd \"a\"\n"
+            .parse()
+            .unwrap();
+        let out = parse(&spec, &input(&["ex", "help"])).unwrap();
+        assert_eq!(out.external, Some(vec!["help".to_string()]));
+    }
+
+    #[test]
+    fn help_follows_a_completed_variadic_value_run() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--values\" {\n  arg \"<value>...\" var_max=2\n}\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&spec, &input(&["ex", "--values", "a", "b", "help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage:"), "{err}");
+
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--values\" {\n  arg \"<value>...\" var_max=2\n}\narg \"[value]\"\ncmd \"run\" help=\"the run\"\n"
+            .parse()
+            .unwrap();
+        let err = parse(&spec, &input(&["ex", "--values", "a", "b", "help", "run"]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Usage: ex run"), "{err}");
+    }
+
+    #[test]
+    fn help_after_a_variadic_run_resolves_aliases_and_nested_commands() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--values\" {\n  arg \"<value>...\" var_max=2\n}\ncmd \"run\" {\n  alias \"r\"\n  cmd \"sub\"\n}\n"
+            .parse()
+            .unwrap();
+        for words in [&["help", "r"][..], &["help", "run"]] {
+            let mut argv = vec!["ex", "--values", "a", "b"];
+            argv.extend(words);
+            let err = parse(&spec, &input(&argv)).unwrap_err().to_string();
+            assert!(err.contains("Usage: ex run"), "{words:?}: {err}");
+        }
+        let err = parse(
+            &spec,
+            &input(&["ex", "--values", "a", "b", "help", "run", "sub"]),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("Usage: ex run sub"), "{err}");
+    }
+
+    #[test]
+    fn help_after_a_restart_is_a_value() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\ncmd \"run\" restart_token=\":::\" {\n  arg \"<task>\"\n  cmd \"x\"\n}\n"
+            .parse()
+            .unwrap();
+        let out = parse(&spec, &input(&["ex", "run", "build", ":::", "help"])).unwrap();
+        assert!(out.errors.is_empty(), "{:?}", out.errors);
     }
 
     #[test]

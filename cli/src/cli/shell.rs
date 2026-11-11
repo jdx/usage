@@ -8,6 +8,7 @@ use usage::miette::IntoDiagnostic;
 use usage_rs::Args;
 
 use usage::Spec;
+use usage::parse::{Parser, TokenRole};
 
 use crate::env;
 
@@ -265,18 +266,40 @@ impl Shell {
         args.insert(0, spec.bin.clone());
 
         // Flag parsing ends at the script, so a `-h` after it arrives as one of the script's
-        // words. It still asks for the help page, but only before a `--`: what follows the
-        // separator is data, and `--help` there is a value for the script.
-        let asked = self
-            .args
-            .iter()
-            .filter(|_| !separator_before_script)
-            .take_while(|word| *word != "--")
-            .find_map(|word| match word.as_str() {
-                "-h" => Some(false),
-                "--help" => Some(true),
-                _ => None,
-            });
+        // words. Whether it asks for the help page is the spec's to say, so the parser is
+        // asked rather than the words scanned: a spec that disables help, declares a flag of
+        // its own named `-h`, or takes `-h` as a flag's value keeps it, and what follows a
+        // `--` is data. Only the words are read: environment values and defaults are not checked and
+        // no `choices run=` command runs, so a bad value cannot hide the help page and a normal
+        // run does not repeat the commands the real parse below makes. Without a help word in the
+        // arguments there is nothing to ask, so a mount is not run a second time either.
+        // A short bundle such as `-vh` can carry the help letter too.
+        let mentions_help = args.iter().any(|word| {
+            word == "--help"
+                || (word.starts_with('-') && !word.starts_with("--") && word.contains('h'))
+        });
+        let asked = mentions_help
+            .then(|| {
+                let tokens = match Parser::new(&spec)
+                    .without_running_commands()
+                    .explain_refused(&args)
+                {
+                    Ok(out) => out.tokens,
+                    Err(tokens) => tokens,
+                };
+                tokens
+                    .iter()
+                    .flat_map(|token| &token.roles)
+                    .find_map(|role| match role {
+                        TokenRole::Builtin { spelling } => match spelling.as_str() {
+                            "-h" => Some(false),
+                            "--help" => Some(true),
+                            _ => None,
+                        },
+                        _ => None,
+                    })
+            })
+            .flatten();
         if self.h || asked == Some(false) {
             return self.help(&spec, &args, false);
         }

@@ -2033,7 +2033,7 @@ source "{init}"
 compadd() {{ print -r -- "[compadd] ${{inserts[*]}}" }}
 _message() {{ print -r -- "[_message] $*" }}
 
-words=(m help "")
+words=(m nope "")
 CURRENT=3
 print -r -- "[per-bin]"
 _m
@@ -2052,7 +2052,7 @@ words=(m 'h%Bx' "")
 CURRENT=3
 USAGECLI_TRACE=true _m
 
-words=(m help "")
+words=(m nope "")
 CURRENT=3
 print -r -- "[init]"
 _usage_default_complete
@@ -2083,13 +2083,13 @@ _usage_default_complete
     // Once from the per-binary script, once from the init handler, each
     // followed by the working completion.
     let expected = "[per-bin]\n\
-                    [_message] -r usage: unexpected word: help\n\
+                    [_message] -r usage: unexpected word: nope\n\
                     [compadd] run\n\
                     [traced]\n\
                     [compadd] run\n\
                     [_message] -r usage: unexpected word: h%%Bx\n\
                     [init]\n\
-                    [_message] -r usage: unexpected word: help\n\
+                    [_message] -r usage: unexpected word: nope\n\
                     [compadd] run\n";
     assert_eq!(stdout, expected, "stderr:\n{stderr}");
     // Only complete-word's error is under test: on Windows the scripts' own
@@ -2145,9 +2145,9 @@ run_case() {{
     echo "[$label] ${{COMPREPLY[*]}}"
 }}
 
-run_case per-bin-error _m m help ""
+run_case per-bin-error _m m nope ""
 run_case per-bin-ok _m m ""
-run_case init-error _usage_default_complete m help ""
+run_case init-error _usage_default_complete m nope ""
 run_case init-ok _usage_default_complete m ""
 "#,
         bin_dir = path_var_entry("bash", &bin_dir),
@@ -2201,7 +2201,7 @@ fn test_fish_completion_discards_parse_error() {
             r#"set -gx PATH "{bin_dir}" "{usage_dir}" /usr/bin /bin
 set -gx XDG_CACHE_HOME "{tmp}"
 source "{source}"
-echo "[error]" (complete -C 'm help ')
+echo "[error]" (complete -C 'm nope ')
 echo "[ok]" (complete -C 'm ')
 "#,
             bin_dir = sh_path(&bin_dir),
@@ -2538,7 +2538,7 @@ printf '%s\n' "${{COMPREPLY[@]}}"
         "completion called the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        stdout.lines().any(|line| line == "generate"),
+        stdout.lines().any(|line| line == "generate "),
         "native completion should return the generate command.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 
