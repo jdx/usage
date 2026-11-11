@@ -1060,6 +1060,25 @@ fn open_quote(line: &str) -> Option<(usize, BashQuote)> {
 }
 
 const BASH_NONBREAKING_COLON: char = '\u{1}';
+const BASH_NONBREAKING_EQUALS: char = '\u{2}';
+const BASH_NONBREAKING_AT: char = '\u{3}';
+
+/// The marker for a `:` or `=` Readline keeps inside its word, or `None` for any other byte.
+fn bash_nonbreaking_marker(byte: u8) -> Option<u8> {
+    match byte {
+        b':' => Some(BASH_NONBREAKING_COLON as u8),
+        b'=' => Some(BASH_NONBREAKING_EQUALS as u8),
+        b'@' => Some(BASH_NONBREAKING_AT as u8),
+        _ => None,
+    }
+}
+
+/// Undo [`mark_bash_nonbreaking_colons`] on text cut from its output.
+fn unmark_bash_nonbreaking(text: &str) -> String {
+    let text = replace_char(text, BASH_NONBREAKING_COLON, ":");
+    let text = replace_char(&text, BASH_NONBREAKING_EQUALS, "=");
+    replace_char(&text, BASH_NONBREAKING_AT, "@")
+}
 
 /// Mark colons that Bash Readline keeps inside its current word.
 ///
@@ -1079,14 +1098,16 @@ fn mark_bash_nonbreaking_colons(line: &str) -> String {
         let c = *byte;
         if escaped {
             escaped = false;
-            if c == b':' {
-                *byte = BASH_NONBREAKING_COLON as u8;
+            if let Some(marker) = bash_nonbreaking_marker(c) {
+                *byte = marker;
             }
             continue;
         }
         match quote {
             Some(q) if c == q => quote = None,
-            Some(_) if c == b':' => *byte = BASH_NONBREAKING_COLON as u8,
+            Some(_) if bash_nonbreaking_marker(c).is_some() => {
+                *byte = bash_nonbreaking_marker(c).unwrap_or(c);
+            }
             Some(b'"') | None if c == b'\\' => escaped = true,
             None if c == b'\'' || c == b'"' => quote = Some(c),
             _ => {}
@@ -1123,41 +1144,36 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
         (insert, _) => insert,
     };
     let mut out = render_inserting(answer, request.shell, &insert);
+    // Readline closes an open quote after the candidate, so a space the wrapper added would land
+    // inside it. Say so and the wrapper leaves the suffix to Readline.
+    if matches!(insert, BashInsert::Quoted { .. }) {
+        out.push_str("\u{1}quoted\n");
+    }
     // Inside a quote, Readline's word starts after it, so no colon before it is a break.
     if request.shell == Shell::Bash
         && !matches!(insert, BashInsert::Quoted { .. })
-        && request
-            .bash_wordbreaks
-            .as_deref()
-            .is_some_and(|wordbreaks| wordbreaks.as_bytes().contains(&b':'))
+        && let Some(wordbreaks) = request.bash_wordbreaks.as_deref()
+        && wordbreaks.contains([':', '=', '@'])
         && let Some(word) = request.bash_word.as_deref()
     {
         // COMP_WORDS holds the entire Readline fragment even when the cursor is in its
-        // middle. Find the colon whose remaining fragment starts that word. This cannot
-        // simply take the last normalized colon: an escaped colon remains inside Bash's
+        // middle. Find the break whose remaining fragment starts that word. This cannot
+        // simply take the last normalized break: an escaped one remains inside Bash's
         // word but is indistinguishable in the unescaped Split::prefix.
         let marked_prefix = request
             .bash_marked_prefix
             .as_deref()
             .unwrap_or(&request.split.prefix);
+        let breaks = |c: char| matches!(c, ':' | '=' | '@') && wordbreaks.contains(c);
         let prefix = marked_prefix
-            .match_indices(':')
+            .match_indices(breaks)
             .rev()
-            .find_map(|(colon, _)| {
-                let fragment = replace_char(
-                    marked_prefix.get(colon + 1..).unwrap_or_default(),
-                    BASH_NONBREAKING_COLON,
-                    ":",
-                );
-                ((fragment.is_empty() && word == ":")
+            .find_map(|(at, found)| {
+                let fragment =
+                    unmark_bash_nonbreaking(marked_prefix.get(at + 1..).unwrap_or_default());
+                ((fragment.is_empty() && word == found)
                     || (!fragment.is_empty() && word.starts_with(&fragment)))
-                .then(|| {
-                    replace_char(
-                        marked_prefix.get(..=colon).unwrap_or_default(),
-                        BASH_NONBREAKING_COLON,
-                        ":",
-                    )
-                })
+                .then(|| unmark_bash_nonbreaking(marked_prefix.get(..=at).unwrap_or_default()))
             });
         if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
             // Written as the candidates are, so the wrapper finds it at the start of each.
@@ -5073,16 +5089,16 @@ mod tests {
         // Readline replaces what follows the quote and closes it after a lone match.
         assert_eq!(
             render_request(&answer, &request("ex 'tas")),
-            "tasks.\"hello.sh\".run\ntasks.it'\\''s $HOME\n"
+            "tasks.\"hello.sh\".run\ntasks.it'\\''s $HOME\n\u{1}quoted\n"
         );
         assert_eq!(
             render_request(&answer, &request("ex \"tas")),
-            "tasks.\\\"hello.sh\\\".run\ntasks.it's \\$HOME\n"
+            "tasks.\\\"hello.sh\\\".run\ntasks.it's \\$HOME\n\u{1}quoted\n"
         );
         // A quote opened inside the word: the part before it stays on the line.
         assert_eq!(
             render_request(&answer, &request("ex tasks.'")),
-            "\"hello.sh\".run\nit'\\''s $HOME\n"
+            "\"hello.sh\".run\nit'\\''s $HOME\n\u{1}quoted\n"
         );
         // A closed quote leaves the word unquoted again.
         assert_eq!(
@@ -5111,24 +5127,24 @@ mod tests {
         // Readline closes a quote only when the text does not already end in that character.
         assert_eq!(
             render_request(&answer("ends'"), &request("ex 'e")),
-            "ends'\\'''\n"
+            "ends'\\'''\n\u{1}quoted\n"
         );
         assert_eq!(
             render_request(&answer("quote\""), &request("ex \"q")),
-            "quote\\\"\"\n"
+            "quote\\\"\"\n\u{1}quoted\n"
         );
         // `!` expands history inside double quotes, so it is escaped outside them.
         assert_eq!(
             render_request(&answer("hi!there"), &request("ex \"h")),
-            "hi\"\\!\"there\n"
+            "hi\"\\!\"there\n\u{1}quoted\n"
         );
         assert_eq!(
             render_request(&answer("hi!"), &request("ex \"h")),
-            "hi\"\\!\"\"\n"
+            "hi\"\\!\"\"\n\u{1}quoted\n"
         );
         assert_eq!(
             render_request(&answer("hi!there"), &request("ex 'h")),
-            "hi!there\n"
+            "hi!there\n\u{1}quoted\n"
         );
         assert_eq!(
             render_request(&answer("hi!there"), &request("ex h")),
