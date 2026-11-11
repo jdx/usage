@@ -15,6 +15,7 @@ feature mapping and any loss report before relying on the generated interface.
 | ------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
 | [Cobra](https://github.com/spf13/cobra)                             | Go         | [`cobra_usage`](/spec/integrations/cobra)                                                               |
 | [Kong](https://github.com/alecthomas/kong)                          | Go         | [`kong-usage`](https://github.com/gaojunran/usage-integrations/tree/main/packages/kong-usage)           |
+| [Kong](https://github.com/alecthomas/kong)                          | Go         | [`kongusage`](https://github.com/powerman/kongusage)                                                    |
 | [urfave/cli](https://github.com/urfave/cli)                         | Go         | [`urfavecli-usage`](https://github.com/gaojunran/usage-integrations/tree/main/packages/urfavecli-usage) |
 | [Effect](https://effect.website)                                    | TypeScript | [`usage-spec-effect`](/spec/integrations/effect)                                                        |
 | [clap](https://crates.io/crates/clap)                               | Rust       | [`clap_usage`](/spec/integrations/clap)                                                                 |
