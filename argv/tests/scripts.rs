@@ -300,7 +300,7 @@ _usage_complete_ex
 printf '%s\n' "${COMPREPLY[@]}"
 "#,
     );
-    assert_eq!(out, "install\nuninstall\n");
+    assert_eq!(out, "install \nuninstall \n");
 }
 
 #[test]
@@ -327,7 +327,7 @@ _usage_complete_ex
 printf '%s\n' "${COMPREPLY[@]}"
 "#,
     );
-    assert_eq!(out, "no-cooldown\n");
+    assert_eq!(out, "no-cooldown \n");
 }
 
 #[test]
@@ -352,7 +352,7 @@ _usage_complete_ex
 printf '%s\n' "${COMPREPLY[@]}"
 "#,
     );
-    assert_eq!(out, "deps:no-cooldown\n");
+    assert_eq!(out, "deps:no-cooldown \n");
 }
 
 #[test]
@@ -378,7 +378,55 @@ _usage_complete_ex
 printf '%s\n' "${COMPREPLY[@]}"
 "#,
     );
-    assert_eq!(out, "no-cooldown\n");
+    assert_eq!(out, "no-cooldown \n");
+}
+
+#[test]
+fn bash_trims_an_equals_prefix_and_leaves_partial_candidates_open() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "bash-equals-prefix",
+        Shell::Bash,
+        "--shell=bash\n--shell=zsh\n\u{1}prefix\t--shell=\n",
+    );
+    // `=` is in the default COMP_WORDBREAKS, so Readline replaces only what follows it.
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex --shell=ba'
+COMP_POINT=13
+COMP_WORDS=(ex --shell = ba)
+COMP_CWORD=3
+COMP_WORDBREAKS=$' \t\n"\'@><=;|&(:'
+_usage_complete_ex
+printf '%s\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "bash \nzsh \n");
+}
+
+#[test]
+fn bash_adds_no_space_after_a_partial_candidate() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new("bash-partial", Shell::Bash, "node@\nsub/\nbuild:\nnode\n");
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex n'
+COMP_POINT=4
+COMP_WORDS=(ex n)
+COMP_CWORD=1
+_usage_complete_ex
+printf '[%s]\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "[node@]\n[sub/]\n[build:]\n[node ]\n");
 }
 
 #[test]
@@ -404,7 +452,7 @@ _usage_complete_ex
 printf '%s\n' "${COMPREPLY[@]}"
 "#,
     );
-    assert_eq!(out, ":no-cooldown\n");
+    assert_eq!(out, ":no-cooldown \n");
 }
 
 #[test]

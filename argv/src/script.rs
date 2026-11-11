@@ -258,6 +258,18 @@ _usage_complete_{name}() {{
                 COMPREPLY[__usage_i]="${{COMPREPLY[__usage_i]#"$__usage_prefix"}}"
         done
     fi
+
+    # A bare `complete -F` appends a space to every candidate, which is wrong for one meant to be
+    # continued (`node@`, `build:`, `sub/`, `--shell=`). So the space is ours: appended to the
+    # finished candidates only, with `nospace` on. Not when paths are offered, where `filenames`
+    # does its own suffixing and would escape a space added here.
+    if [[ -z $__usage_files ]]; then
+        compopt -o nospace 2>/dev/null
+        local __usage_j
+        for __usage_j in "${{!COMPREPLY[@]}}"; do
+            [[ ${{COMPREPLY[__usage_j]}} == *[@:/=] ]] || COMPREPLY[__usage_j]+=' '
+        done
+    fi
 }}
 complete -F _usage_complete_{name} '{name}'
 "#,
@@ -338,7 +350,7 @@ _{name}() {{
     local __usage_ret=1
     (( __usage_menu )) && compstate[insert]=menu
     if (( ${{#inserts[@]}} )); then
-        local -a display=()
+        local -a display=() display_done=() inserts_done=() display_open=() inserts_open=()
         local i max=0 value pad
         for value in "${{values[@]}}"; do
             (( ${{#value}} > max )) && max=${{#value}}
@@ -350,10 +362,22 @@ _{name}() {{
             else
                 display+=("${{values[i]}}")
             fi
+            # A candidate meant to be continued (`node@`, `build:`, `sub/`, `--shell=`) takes no
+            # space after it; a finished one does.
+            if [[ "${{values[i]}}" == *[@:/=] ]]; then
+                display_open+=("${{display[i]}}")
+                inserts_open+=("${{inserts[i]}}")
+            else
+                display_done+=("${{display[i]}}")
+                inserts_done+=("${{inserts[i]}}")
+            fi
         done
         # `-U` because the binary already filtered by the typed prefix, and `-Q` because the
         # inserts are quoted already.
-        compadd -l -d display -U -Q -S '' -a inserts && __usage_ret=0
+        (( ${{#inserts_done[@]}} )) &&
+            compadd -l -d display_done -U -Q -S ' ' -a inserts_done && __usage_ret=0
+        (( ${{#inserts_open[@]}} )) &&
+            compadd -l -d display_open -U -Q -S '' -a inserts_open && __usage_ret=0
     fi
 
     case "$__usage_files" in
