@@ -2538,7 +2538,7 @@ printf '%s\n' "${{COMPREPLY[@]}}"
         "completion called the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        stdout.lines().any(|line| line == "generate"),
+        stdout.lines().any(|line| line == "generate "),
         "native completion should return the generate command.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 

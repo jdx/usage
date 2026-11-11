@@ -184,7 +184,7 @@ fn bash(bin: &str, name: &str) -> String {
     format!(
         r#"{head}
 _usage_complete_{name}() {{
-    local __usage_out __usage_line __usage_files= __usage_extensions= __usage_prefix=
+    local __usage_out __usage_line __usage_files= __usage_extensions= __usage_prefix= __usage_quoted=
     # Truncated here rather than passed with an offset: every shell counts a cursor in its own
     # units — characters in a UTF-8 locale for bash and zsh, characters for fish and PowerShell —
     # and a number that means one thing here and another there is a bug waiting for a non-ASCII
@@ -207,6 +207,7 @@ _usage_complete_{name}() {{
                 __usage_extensions="${{__usage_line#*$'\t'}}"
                 ;;
             $'\001prefix\t'*) __usage_prefix="${{__usage_line#*$'\t'}}" ;;
+            $'\001quoted') __usage_quoted=1 ;;
             '') ;;
             *) COMPREPLY+=("$__usage_line") ;;
         esac
@@ -248,6 +249,20 @@ _usage_complete_{name}() {{
         (( ${{#__usage_paths[@]}} )) && COMPREPLY+=("${{__usage_paths[@]}}")
     fi
 
+    # Decided before the prefix is trimmed, so a candidate that is nothing but the prefix
+    # (`node@`) is still seen as one meant to be continued.
+    # A bare `complete -F` appends a space to every candidate, which is wrong for one meant to be
+    # continued (`node@`, `build:`, `sub/`, `--shell=`). So the space is ours: appended to the
+    # finished candidates only, with `nospace` on. Not when paths are offered, where `filenames`
+    # does its own suffixing and would escape a space added here.
+    if [[ -z $__usage_files && -z $__usage_quoted ]]; then
+        compopt -o nospace 2>/dev/null
+        local __usage_j
+        for __usage_j in "${{!COMPREPLY[@]}}"; do
+            [[ ${{COMPREPLY[__usage_j]}} == *[@:/=] ]] || COMPREPLY[__usage_j]+=' '
+        done
+    fi
+
     # Readline replaces only the text after a colon when `:` is in COMP_WORDBREAKS. The binary
     # split the original line without losing that prefix, so remove it from full candidates before
     # Readline inserts them. Candidates produced locally for paths do not carry it and stay intact.
@@ -256,18 +271,6 @@ _usage_complete_{name}() {{
         for __usage_i in "${{!COMPREPLY[@]}}"; do
             [[ ${{COMPREPLY[__usage_i]}} == "$__usage_prefix"* ]] &&
                 COMPREPLY[__usage_i]="${{COMPREPLY[__usage_i]#"$__usage_prefix"}}"
-        done
-    fi
-
-    # A bare `complete -F` appends a space to every candidate, which is wrong for one meant to be
-    # continued (`node@`, `build:`, `sub/`, `--shell=`). So the space is ours: appended to the
-    # finished candidates only, with `nospace` on. Not when paths are offered, where `filenames`
-    # does its own suffixing and would escape a space added here.
-    if [[ -z $__usage_files ]]; then
-        compopt -o nospace 2>/dev/null
-        local __usage_j
-        for __usage_j in "${{!COMPREPLY[@]}}"; do
-            [[ ${{COMPREPLY[__usage_j]}} == *[@:/=] ]] || COMPREPLY[__usage_j]+=' '
         done
     fi
 }}
@@ -364,7 +367,7 @@ _{name}() {{
             fi
             # A candidate meant to be continued (`node@`, `build:`, `sub/`, `--shell=`) takes no
             # space after it; a finished one does.
-            if [[ "${{values[i]}}" == *[@:/=] ]]; then
+            if [[ "${{(Q)inserts[i]}}" == *[@:/=] ]]; then
                 display_open+=("${{display[i]}}")
                 inserts_open+=("${{inserts[i]}}")
             else

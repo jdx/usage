@@ -409,6 +409,45 @@ printf '%s\n' "${COMPREPLY[@]}"
 }
 
 #[test]
+fn bash_trims_an_at_prefix_and_leaves_the_suffix_to_readline_in_a_quote() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "bash-at-prefix",
+        Shell::Bash,
+        "node@20\nnode@\n\u{1}prefix\tnode@\n",
+    );
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex node@2'
+COMP_POINT=9
+COMP_WORDS=(ex node @ 2)
+COMP_CWORD=3
+COMP_WORDBREAKS=$' \t\n"\'@><=;|&(:'
+_usage_complete_ex
+printf '[%s]\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "[20 ]\n[]\n");
+    let fixture = Fixture::new("bash-quoted-no-space", Shell::Bash, "foobar\n\u{1}quoted\n");
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE="ex 'foo"
+COMP_POINT=7
+COMP_WORDS=(ex "'foo")
+COMP_CWORD=1
+_usage_complete_ex
+printf '[%s]\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "[foobar]\n");
+}
+
+#[test]
 fn bash_adds_no_space_after_a_partial_candidate() {
     if !available("bash") {
         println!("bash is not installed; skipping");
