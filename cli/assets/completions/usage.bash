@@ -79,9 +79,12 @@ _usage_complete_usage() {
         done
         if [[ -z $__usage_quoted ]]; then
             compopt -o nospace 2>/dev/null
-            for __usage_j in "${!COMPREPLY[@]}"; do
-                [[ ${COMPREPLY[__usage_j]} == *[@:/=] ]] || COMPREPLY[__usage_j]+=' '
-            done
+            # Only at the end of the line, as Readline does: mid-word a space would split it.
+            if (( COMP_POINT == ${#COMP_LINE} )); then
+                for __usage_j in "${!COMPREPLY[@]}"; do
+                    [[ ${COMPREPLY[__usage_j]} == *[@:/=] ]] || COMPREPLY[__usage_j]+=' '
+                done
+            fi
         elif [[ -n $__usage_open ]] && (( ${#COMPREPLY[@]} )); then
             # Readline closes the quote and adds its own space after a finished value, which is
             # right. Only when every candidate is meant to be continued is the space unwanted.

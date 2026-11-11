@@ -448,6 +448,27 @@ printf '[%s]\n' "${COMPREPLY[@]}"
 }
 
 #[test]
+fn bash_adds_no_space_when_the_cursor_is_mid_line() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new("bash-mid-line", Shell::Bash, "generate\n");
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex gen --flag'
+COMP_POINT=6
+COMP_WORDS=(ex gen --flag)
+COMP_CWORD=1
+_usage_complete_ex
+printf '[%s]\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "[generate]\n");
+}
+
+#[test]
 fn bash_adds_no_space_after_a_partial_candidate() {
     if !available("bash") {
         println!("bash is not installed; skipping");
