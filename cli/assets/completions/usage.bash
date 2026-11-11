@@ -70,14 +70,23 @@ _usage_complete_usage() {
     # (`node@`) is still seen as one meant to be continued.
     # A bare `complete -F` appends a space to every candidate, which is wrong for one meant to be
     # continued (`node@`, `build:`, `sub/`, `--shell=`). So the space is ours: appended to the
-    # finished candidates only, with `nospace` on. Not when paths are offered, where `filenames`
+    # finished candidates only, with `nospace` on (inside an open quote, Readline keeps its own space unless every candidate is partial). Not when paths are offered, where `filenames`
     # does its own suffixing and would escape a space added here.
-    if [[ -z $__usage_files && -z $__usage_quoted ]]; then
-        compopt -o nospace 2>/dev/null
-        local __usage_j
+    if [[ -z $__usage_files ]]; then
+        local __usage_j __usage_open=1
         for __usage_j in "${!COMPREPLY[@]}"; do
-            [[ ${COMPREPLY[__usage_j]} == *[@:/=] ]] || COMPREPLY[__usage_j]+=' '
+            [[ ${COMPREPLY[__usage_j]} == *[@:/=] ]] || __usage_open=
         done
+        if [[ -z $__usage_quoted ]]; then
+            compopt -o nospace 2>/dev/null
+            for __usage_j in "${!COMPREPLY[@]}"; do
+                [[ ${COMPREPLY[__usage_j]} == *[@:/=] ]] || COMPREPLY[__usage_j]+=' '
+            done
+        elif [[ -n $__usage_open ]] && (( ${#COMPREPLY[@]} )); then
+            # Readline closes the quote and adds its own space after a finished value, which is
+            # right. Only when every candidate is meant to be continued is the space unwanted.
+            compopt -o nospace 2>/dev/null
+        fi
     fi
 
     # Readline replaces only the text after a colon when `:` is in COMP_WORDBREAKS. The binary
