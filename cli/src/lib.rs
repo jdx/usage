@@ -17,6 +17,7 @@ mod cli;
 mod command_effects;
 pub mod env;
 mod schema;
+mod spawn;
 mod usage_spec;
 
 #[cfg(test)]

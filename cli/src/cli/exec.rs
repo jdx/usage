@@ -194,7 +194,10 @@ impl usage_rs::Run for Exec {
 
         env::apply_parsed_env(&mut cmd, &parsed.as_env());
 
-        let result = cmd.spawn().into_diagnostic()?.wait().into_diagnostic()?;
+        let result = crate::spawn::spawn(&mut cmd)
+            .into_diagnostic()?
+            .wait()
+            .into_diagnostic()?;
 
         if !result.success() {
             std::process::exit(result.code().unwrap_or(1));
