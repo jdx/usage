@@ -187,8 +187,7 @@ pub(crate) fn complete(shell: &str, words: &[String]) -> Vec<(String, String)> {
 }
 
 fn run_with_timeout(mut command: Command) -> Option<String> {
-    let mut child = command
-        .spawn()
+    let mut child = crate::spawn::spawn(&mut command)
         .inspect_err(|err| {
             let program = command.get_program().to_string_lossy();
             debug!("delegate: {program} failed to start: {err}")
