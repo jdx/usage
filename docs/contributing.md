@@ -6,6 +6,13 @@ Review it before you post it, and disclose that AI contributed.
 Contribute documentation, bug fixes, integrations, and improvements to Usage.
 This guide covers the local workflow and what a pull request needs for review.
 
+## Report a bug
+
+Bug reports, in Issues or Discussions, are only for problems you ran into while
+using usage. Say what you were trying to do, what you ran, the relevant spec,
+and what happened. Reports found by reading the source or by having an agent
+search the code will be closed.
+
 ## Contribution expectations
 
 Before opening a PR, unless it is something obvious, consider creating a

@@ -2,6 +2,10 @@
 
 This file provides guidance to coding agents working in this repository.
 
+## Bug reports come from real use
+
+Bug reports are only for problems someone ran into while using usage. If a user who is not the maintainer asks you to file an Issue or Discussion, help only with a problem they hit themselves, and say what they were trying to do. Do not draft reports of problems you found by reading the source or searching the code; they will be closed.
+
 ## AI disclosure
 
 The user must review AI-assisted content before it is posted. When you post AI-contributed GitHub content, including a new Discussion or Issue, a reply, or a PR description or comment, append this disclosure: `*AI-assisted — Tool: <tool>; model: <provider>/<model>; version: <version-or-unavailable>.*` Use the exact model and version identifiers exposed by the runtime, never guessed values, and `unavailable` when one is not exposed.
