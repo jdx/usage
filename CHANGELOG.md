@@ -1,5 +1,45 @@
 # Changelog
 
+## [7.4.0](https://github.com/jdx/usage/compare/v7.3.0..v7.4.0) - 2026-11-13
+
+### 🚀 Features
+
+- **(derive)** add rename_all_keys to derive(Config) keys by [@jdx](https://github.com/jdx) in [#1633](https://github.com/jdx/usage/pull/1633)
+- **(lib)** label the completion install flags with their effects by [@jdx](https://github.com/jdx) in [#1627](https://github.com/jdx/usage/pull/1627)
+- **(lib)** keep stdout for the script in the shared completion subcommand by [@jdx](https://github.com/jdx) in [#1629](https://github.com/jdx/usage/pull/1629)
+- **(lint)** add --quiet to print only findings by [@jdx](https://github.com/jdx) in [#1640](https://github.com/jdx/usage/pull/1640)
+
+### 🐛 Bug Fixes
+
+- **(cli)** let the script's spec decide whether -h asks for help by [@jdx](https://github.com/jdx) in [#1637](https://github.com/jdx/usage/pull/1637)
+- **(cli)** report a shell or interpreter that cannot be started under qemu-user by [@jdx](https://github.com/jdx) in [#1653](https://github.com/jdx/usage/pull/1653)
+- **(complete)** keep root subcommands and flags with default_subcommand_on_empty by [@jdx](https://github.com/jdx) in [#1631](https://github.com/jdx/usage/pull/1631)
+- **(complete)** insert bash `--flag=value` once and put the trailing space only after finished candidates by [@jdx](https://github.com/jdx) in [#1644](https://github.com/jdx/usage/pull/1644)
+- **(parse)** enforce a parent flag's required, requires and conflicts under a subcommand by [@jdx](https://github.com/jdx) in [#1635](https://github.com/jdx/usage/pull/1635)
+- **(parse)** answer the help subcommand where the page lists it by [@jdx](https://github.com/jdx) in [#1639](https://github.com/jdx/usage/pull/1639)
+
+### 📚 Documentation
+
+- add kongusage to the integrations page by [@jdx](https://github.com/jdx) in [#1643](https://github.com/jdx/usage/pull/1643)
+- only accept bug reports from real use by [@jdx](https://github.com/jdx) in [90ff9f4](https://github.com/jdx/usage/commit/90ff9f439333b1619116389fab52e14cf2d885e9)
+
+### 🔍 Other Changes
+
+- email when the docs build fails on the default branch by [@jdx](https://github.com/jdx) in [#1654](https://github.com/jdx/usage/pull/1654)
+- bring the docs-failure email workflow up to date by [@jdx](https://github.com/jdx) in [#1655](https://github.com/jdx/usage/pull/1655)
+
+### 📦️ Dependency Updates
+
+- update github actions by [@renovate[bot]](https://github.com/renovate[bot]) in [#1646](https://github.com/jdx/usage/pull/1646)
+- update dependency effect to v4.1.2 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1645](https://github.com/jdx/usage/pull/1645)
+- update rust crate winnow to v1.0.5 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1647](https://github.com/jdx/usage/pull/1647)
+- update module github.com/alecthomas/kong to v1.17.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1649](https://github.com/jdx/usage/pull/1649)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1650](https://github.com/jdx/usage/pull/1650)
+- update dependency hk to latest by [@renovate[bot]](https://github.com/renovate[bot]) in [#1648](https://github.com/jdx/usage/pull/1648)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1652](https://github.com/jdx/usage/pull/1652)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1656](https://github.com/jdx/usage/pull/1656)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1657](https://github.com/jdx/usage/pull/1657)
+
 ## [7.3.0](https://github.com/jdx/usage/compare/v7.2.0..v7.3.0) - 2026-11-06
 
 ### 🚀 Features
