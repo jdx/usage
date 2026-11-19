@@ -30,7 +30,9 @@ end"#
     ];
 
     if let Some(spec) = &opts.spec {
-        let spec_escaped = spec.to_string().replace("'", r"\'");
+        // Fish single quotes treat `\\` as `\` and `\'` as `'`, so both must be
+        // escaped (backslash first) for the cached spec to match what was serialized.
+        let spec_escaped = spec.to_string().replace('\\', r"\\").replace('\'', r"\'");
         out.push(format!(
             r#"
 set {spec_variable} '{spec_escaped}'"#
@@ -199,5 +201,30 @@ mod tests {
             usage_cmd: None,
             source_file: None,
         }));
+    }
+
+    #[test]
+    fn test_complete_fish_spec_escapes_backslashes() {
+        let spec: crate::Spec = r##"bin "ubug"
+arg "<x>"
+complete "x" run=#"echo '{"name":"main"}' | jq -r '"br-\(.name)"'"#
+"##
+        .parse()
+        .unwrap();
+        let script = complete_fish(&CompleteOptions {
+            usage_bin: "usage".to_string(),
+            shell: "fish".to_string(),
+            bin: "ubug".to_string(),
+            cache_key: None,
+            spec: Some(spec.clone()),
+            usage_cmd: None,
+            source_file: None,
+        });
+        // Undo fish's single-quote unescaping and compare with the serialized spec.
+        let start = script.find("set _usage_spec_ubug '").unwrap() + "set _usage_spec_ubug '".len();
+        let body = &script[start..];
+        let end = body.find("'\n").unwrap_or(body.len());
+        let unescaped = body[..end].replace(r"\'", "'").replace(r"\\", r"\");
+        assert_eq!(unescaped, spec.to_string());
     }
 }
