@@ -12,14 +12,14 @@ communique = { version = "latest", minimum_release_age = "0s" }
 gh = "latest"
 hk = { version = "latest", minimum_release_age = "0s" }
 jactionlint = { version = "latest", minimum_release_age = "0s" }
-jouet = "0.0.3"
+jouet = "v0.0.4"
 cargo-insta = "latest"
 cargo-release = "latest"
 "github:obi1kenobi/cargo-semver-checks" = "latest"
 git-cliff = "latest"
 oxfmt = "latest"
 shellcheck = "latest"
-go = "1.27.3"
+go = "1.27.4"
 gofumpt = "0.12.0"
 golangci-lint = "2.15.0"
 node = "24"
