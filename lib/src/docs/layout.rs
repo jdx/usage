@@ -117,7 +117,7 @@ pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
             if current_width > 0 && current_width + 1 + word_width > body_width {
                 lines.push(format!("{line_prefix}{current_line}"));
                 line_prefix = " ".repeat(visible_width(prefix));
-                current_line = String::new();
+                current_line.clear();
                 current_width = 0;
             }
 

@@ -205,7 +205,7 @@ fn header(out: &mut String, spec_path: &Path, dialect: Dialect) {
          //!\n\
          //! Do not edit: regenerate it. It exists to be compiled and parsed against, so\n\
          //! that the parser can be measured at a real CLI's scale rather than a toy one.\n\
-         #![allow(dead_code, unused_imports)]\n\n\
+         #![allow(dead_code, unused_imports, clippy::duplicated_attributes)]\n\n\
          {imports}\n\n"
     ));
 }

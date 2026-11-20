@@ -44,6 +44,8 @@ interface Param {
   f?: (value: unknown) => unknown;
   min?: { _tag: string; value?: number };
   max?: { _tag: string; value?: number };
+  /** Newer Effect releases record `withDefault` here instead of in a Map. */
+  fallback?: { _tag: string; value?: unknown };
   [key: string]: unknown;
 }
 
@@ -278,24 +280,28 @@ function shapeOf(
       min = p.min?.value;
       max = p.max?.value;
     }
-    if (p._tag === "Map" && p.param?._tag === "Optional" && p.f) {
-      // withDefault wraps the optional in a map that supplies the value.
+    let supplied: { value: unknown } | undefined;
+    if (p._tag === "Transform" && p.fallback?._tag === "Default") {
+      // Effect 4.1+ records withDefault's value on the transform itself.
+      supplied = { value: p.fallback.value };
+    } else if (p._tag === "Map" && p.param?._tag === "Optional" && p.f) {
+      // Earlier releases wrap the optional in a map that supplies the value.
       try {
-        const v = p.f({ _tag: "None", _id: "Option" });
-        if (
-          typeof v === "string" ||
-          typeof v === "number" ||
-          typeof v === "boolean"
-        )
-          dflt = String(v);
-        else if (v !== undefined)
-          report.note(
-            where,
-            "default value is not a string, number or boolean"
-          );
+        supplied = { value: p.f({ _tag: "None", _id: "Option" }) };
       } catch {
         report.note(where, "default value could not be evaluated");
       }
+    }
+    if (supplied) {
+      const v = supplied.value;
+      if (
+        typeof v === "string" ||
+        typeof v === "number" ||
+        typeof v === "boolean"
+      )
+        dflt = String(v);
+      else if (v !== undefined)
+        report.note(where, "default value is not a string, number or boolean");
     }
   }
   const tag = first.primitiveType._tag;
