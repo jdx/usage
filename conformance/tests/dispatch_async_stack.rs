@@ -112,7 +112,7 @@ fn a_dispatch_future_is_small() {
 fn block_on<F: Future>(future: F) -> F::Output {
     use std::task::{Context, Poll, Waker};
 
-    let mut future = Box::pin(future);
+    let mut future = std::pin::pin!(future);
     let mut cx = Context::from_waker(Waker::noop());
     loop {
         if let Poll::Ready(value) = future.as_mut().poll(&mut cx) {
