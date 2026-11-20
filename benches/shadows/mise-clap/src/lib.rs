@@ -3,7 +3,7 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code, unused_imports)]
+#![allow(dead_code, unused_imports, clippy::duplicated_attributes)]
 
 use clap::{Args, Parser, Subcommand};
 

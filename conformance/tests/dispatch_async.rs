@@ -447,7 +447,7 @@ fn a_skipped_context_is_not_built_when_an_async_dispatch_loads_it_lazily() {
 fn block_on<F: Future>(future: F) -> F::Output {
     use std::task::{Context, Poll, Waker};
 
-    let mut future = Box::pin(future);
+    let mut future = std::pin::pin!(future);
     // Spinning rather than parking, which is the whole executor this needs: nothing here waits
     // on anything outside the test.
     let mut cx = Context::from_waker(Waker::noop());

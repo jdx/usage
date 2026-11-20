@@ -1830,7 +1830,7 @@ fn second_targets(
 #[cfg(feature = "completions")]
 fn run_ready<F: std::future::Future>(future: F) -> F::Output {
     let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-    let mut future = Box::pin(future);
+    let mut future = std::pin::pin!(future);
     match future.as_mut().poll(&mut cx) {
         std::task::Poll::Ready(output) => output,
         std::task::Poll::Pending => panic!("facade completion callback unexpectedly waited"),
