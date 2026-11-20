@@ -107,8 +107,9 @@ fn a_dispatch_future_is_small() {
     assert_eq!(block_on(future), HELD);
 }
 
-/// The executor from `dispatch_async.rs`: no runtime dependency, and the future is boxed so
-/// the test's own frame does not hold it.
+/// The executor from `dispatch_async.rs`: no runtime dependency. The future is pinned on the
+/// stack because the generated dispatch already boxes the large command futures, so only the
+/// small outer future (asserted above to stay under 1 KiB) lives in the test's frame.
 fn block_on<F: Future>(future: F) -> F::Output {
     use std::task::{Context, Poll, Waker};
 
