@@ -44,5 +44,5 @@ jobs:
       post_update_paths: |
         .
     secrets:
-      MISE_LOCK_APP_ID: ${{ secrets.MISE_LOCK_APP_ID }}
+      MISE_LOCK_APP_CLIENT_ID: ${{ secrets.MISE_LOCK_APP_CLIENT_ID }}
       MISE_LOCK_APP_PRIVATE_KEY: ${{ secrets.MISE_LOCK_APP_PRIVATE_KEY }}
