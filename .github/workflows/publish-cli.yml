@@ -29,7 +29,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
       - name: Create draft release
@@ -99,7 +99,7 @@ jobs:
       - name: Install Rust target
         if: ${{ matrix.target != 'universal-apple-darwin' }}
         run: rustup target add ${{ matrix.target }}
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           experimental: true
           cache: false
@@ -309,7 +309,7 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
       - run: gh release edit "${GITHUB_REF_NAME}" --draft=false
@@ -327,7 +327,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
       - run: communique generate "${GITHUB_REF_NAME}" --github-release
