@@ -966,3 +966,30 @@ fn the_zsh_script_works_however_it_was_installed() {
     assert!(script_text.contains("#compdef ex"), "{script_text}");
     assert!(script_text.contains("_ex() {"), "{script_text}");
 }
+
+/// A space typed before the cursor reaches the binary.
+///
+/// PowerShell's `$commandAst.Extent` ends at the last token, so `ex ` arrives as `ex` unless the
+/// script pads the text out to the cursor. The binary then completes the command name, and the shell
+/// falls back to files.
+///
+/// Unix only, like the other tests that use the bash stand-in: it cannot run as a native command
+/// on Windows.
+#[cfg(unix)]
+#[test]
+fn powershell_keeps_a_trailing_space_before_the_cursor() {
+    if !available("pwsh") {
+        println!("pwsh is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::echoing("pwsh-trailing-space", Shell::PowerShell);
+    // The stand-in answers with the line it was given, which comes back as the one candidate.
+    let out = fixture.run(
+        "pwsh",
+        "Invoke-Expression (Get-Content -Raw ./script); (TabExpansion2 -inputScript 'ex ' -cursorColumn 3).CompletionMatches.CompletionText",
+    );
+    assert!(
+        out.contains("line=[ex ]"),
+        "the trailing space was lost: {out:?}"
+    );
+}
