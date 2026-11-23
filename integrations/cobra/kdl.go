@@ -228,13 +228,7 @@ func renderFlag(flag *SpecFlag, depth int) string {
 		}
 		if flag.Arg.Choices != nil && len(flag.Arg.Choices.Values) > 0 {
 			b.WriteString(" {\n")
-			innerIndent := strings.Repeat("    ", depth+2)
-			fmt.Fprintf(&b, "%schoices {\n", innerIndent)
-			choiceIndent := strings.Repeat("    ", depth+3)
-			for _, c := range flag.Arg.Choices.Values {
-				fmt.Fprintf(&b, "%s%s\n", choiceIndent, kdlQuoteAlways(c))
-			}
-			fmt.Fprintf(&b, "%s}\n", innerIndent)
+			renderChoices(&b, flag.Arg.Choices.Values, depth+2)
 			fmt.Fprintf(&b, "%s}\n", childIndent)
 		} else {
 			b.WriteString("\n")
@@ -309,16 +303,20 @@ func renderArg(arg *SpecArg, depth int) string {
 	}
 
 	if arg.Choices != nil && len(arg.Choices.Values) > 0 {
-		fmt.Fprintf(&b, "%schoices {\n", childIndent)
-		innerIndent := strings.Repeat("    ", depth+2)
-		for _, c := range arg.Choices.Values {
-			fmt.Fprintf(&b, "%s%s\n", innerIndent, kdlQuoteAlways(c))
-		}
-		fmt.Fprintf(&b, "%s}\n", childIndent)
+		renderChoices(&b, arg.Choices.Values, depth+1)
 	}
 
 	fmt.Fprintf(&b, "%s}\n", indent)
 	return b.String()
+}
+
+func renderChoices(b *strings.Builder, values []string, depth int) {
+	indent := strings.Repeat("    ", depth)
+	fmt.Fprintf(b, "%schoices {\n", indent)
+	for _, value := range values {
+		fmt.Fprintf(b, "%s    choice %s\n", indent, kdlQuoteAlways(value))
+	}
+	fmt.Fprintf(b, "%s}\n", indent)
 }
 
 // kdlQuote returns a KDL-safe representation of a string.

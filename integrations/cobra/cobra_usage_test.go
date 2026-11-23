@@ -1,6 +1,8 @@
 package cobra_usage
 
 import (
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -132,21 +134,93 @@ func TestArgInference(t *testing.T) {
 	}
 }
 
-// TestValidArgsChoices checks that Cobra's ValidArgs become a choices block on the
-// first positional arg.
+// TestValidArgsChoices checks KDL for positional choices on root and subcommands.
 func TestValidArgsChoices(t *testing.T) {
 	cmd := &cobra.Command{
 		Use:       "deploy <env>",
 		ValidArgs: []string{"dev", "staging", "prod"},
 	}
+	cmd.AddCommand(&cobra.Command{
+		Use:       "rollback <target>",
+		ValidArgs: []string{"last release", `tag "stable"`},
+	})
 
 	got := Generate(cmd)
+	want := `name deploy
+bin deploy
+arg <env> {
+    choices {
+        choice "dev"
+        choice "staging"
+        choice "prod"
+    }
+}
+cmd rollback {
+    arg <target> {
+        choices {
+            choice "last release"
+            choice "tag \"stable\""
+        }
+    }
+}
+`
+	if got != want {
+		t.Fatalf("generated KDL:\n%s\nwant:\n%s", got, want)
+	}
+	lintKDL(t, got)
+}
 
-	assertContains(t, got, `arg <env>`)
-	assertContains(t, got, `choices {`)
-	assertContains(t, got, `"dev"`)
-	assertContains(t, got, `"staging"`)
-	assertContains(t, got, `"prod"`)
+// Cobra flags do not currently populate choices; exercise the KDL renderer
+// directly so it uses the same choice syntax if given a populated flag argument.
+func TestFlagArgChoices(t *testing.T) {
+	got := renderKDL(&Spec{
+		Name: "deploy",
+		Bin:  "deploy",
+		Flags: []SpecFlag{{
+			Long: "mode",
+			Arg: &SpecArg{
+				Name:    "mode",
+				Choices: &SpecChoices{Values: []string{"fast", "slow"}},
+			},
+		}},
+	})
+	want := `name deploy
+bin deploy
+flag --mode {
+    arg <mode> {
+        choices {
+            choice "fast"
+            choice "slow"
+        }
+    }
+}
+`
+	if got != want {
+		t.Fatalf("generated KDL:\n%s\nwant:\n%s", got, want)
+	}
+	lintKDL(t, got)
+}
+
+func lintKDL(t *testing.T, spec string) {
+	t.Helper()
+	t.Run("usage lint", func(t *testing.T) {
+		bin := os.Getenv("USAGE_BIN")
+		if bin == "" {
+			// The repository's test:go task builds the CLI before running this
+			// suite. Standalone Go tests still check the exact KDL above.
+			bin = "../../target/debug/usage"
+			if _, err := os.Stat(bin); os.IsNotExist(err) {
+				t.Skip("build the Usage CLI or set USAGE_BIN to run the lint check")
+			} else if err != nil {
+				t.Fatal(err)
+			}
+		}
+		cmd := exec.CommandContext(t.Context(), bin, "lint", "-")
+		cmd.Stdin = strings.NewReader(spec)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("usage lint failed: %v\n%s", err, output)
+		}
+	})
 }
 
 // TestCountFlag checks that a pflag count flag is marked var and count.
