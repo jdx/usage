@@ -1,5 +1,31 @@
 # Changelog
 
+## [7.4.1](https://github.com/jdx/usage/compare/v7.4.0..v7.4.1) - 2026-11-23
+
+### 🐛 Bug Fixes
+
+- **(fish)** keep backslashes in run= commands of embedded completion specs by [@jdx](https://github.com/jdx) in [#1659](https://github.com/jdx/usage/pull/1659)
+- **(powershell)** offer subcommands instead of files after a trailing space by [@jdx](https://github.com/jdx) in [#1672](https://github.com/jdx/usage/pull/1672)
+- **(spec)** emit valid kdl choices from cobra by [@jdx](https://github.com/jdx) in [#1670](https://github.com/jdx/usage/pull/1670)
+
+### 🛡️ Security
+
+- **(deps)** update mise tools by [@renovate[bot]](https://github.com/renovate[bot]) in [#1663](https://github.com/jdx/usage/pull/1663)
+
+### 🔍 Other Changes
+
+- **(entire)** remove trail runners by [@jdx](https://github.com/jdx) in [a5dc9df](https://github.com/jdx/usage/commit/a5dc9df6b77f01ab245a311a48c1b6c40cfc518d)
+- fix the clippy lints that fail lint on main by [@jdx](https://github.com/jdx) in [#1666](https://github.com/jdx/usage/pull/1666)
+
+### 📦️ Dependency Updates
+
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1665](https://github.com/jdx/usage/pull/1665)
+- update dependency effect to v4.1.4 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1661](https://github.com/jdx/usage/pull/1661)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1667](https://github.com/jdx/usage/pull/1667)
+- update module github.com/spf13/pflag to v1.1.0 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1664](https://github.com/jdx/usage/pull/1664)
+- update github actions by [@renovate[bot]](https://github.com/renovate[bot]) in [#1662](https://github.com/jdx/usage/pull/1662)
+- update jdx/mise-action action to v5.2.8 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1668](https://github.com/jdx/usage/pull/1668)
+
 ## [7.4.0](https://github.com/jdx/usage/compare/v7.3.0..v7.4.0) - 2026-11-13
 
 ### 🚀 Features
