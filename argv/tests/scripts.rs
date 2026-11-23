@@ -972,6 +972,10 @@ fn the_zsh_script_works_however_it_was_installed() {
 /// PowerShell's `$commandAst.Extent` ends at the last token, so `ex ` arrives as `ex` unless the
 /// script pads the text out to the cursor. The binary then completes the command name, and the shell
 /// falls back to files.
+///
+/// Unix only, like the other tests that use the bash stand-in: it cannot run as a native command
+/// on Windows.
+#[cfg(unix)]
 #[test]
 fn powershell_keeps_a_trailing_space_before_the_cursor() {
     if !available("pwsh") {
