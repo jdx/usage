@@ -12,7 +12,7 @@ communique = { version = "latest", minimum_release_age = "0s" }
 gh = "latest"
 hk = { version = "latest", minimum_release_age = "0s" }
 jactionlint = { version = "latest", minimum_release_age = "0s" }
-jouet = "v0.0.4"
+jouet = "v0.0.5"
 cargo-insta = "latest"
 cargo-release = "latest"
 "github:obi1kenobi/cargo-semver-checks" = "latest"
