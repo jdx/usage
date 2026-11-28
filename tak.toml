@@ -27,6 +27,25 @@ cmd = [
 ]
 runs = 10
 
+# One Tab press in a large CLI: what a zsh user's shell runs each time they complete
+# `mise <Tab>`. Nearly all of it is reading the spec, so this is the bench that moves
+# when spec loading does. The committed mise spec is used rather than a live one so
+# the fixture only changes when someone means it to; completing at the root offers
+# subcommands, which runs no `complete run=` command and opens nothing but the spec.
+[bench.complete_word]
+cmd = [
+  "./target/release/usage",
+  "complete-word",
+  "--shell",
+  "zsh",
+  "-f",
+  "benches/mise.usage.kdl",
+  "--",
+  "mise",
+  "",
+]
+runs = 10
+
 # The shadow benchmarks are deliberately *not* here. tak gates everything it finds in this
 # file, and the mise shadow is a fixture that grows on purpose: teaching the derive command
 # aliases added 91 names to it and 1.5% to the count, which the gate reported as a
