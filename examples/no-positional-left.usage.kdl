@@ -1,0 +1,11 @@
+bin mycli
+cmd setup {
+  flag "--brew" help="Install Homebrew"
+  flag "--bat" help="Rebuild bat's cache"
+}
+cmd pick {
+  flag "--brew" help="Install Homebrew"
+  arg "<x>" {
+    choices a b
+  }
+}
