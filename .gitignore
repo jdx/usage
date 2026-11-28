@@ -20,3 +20,4 @@ megalinter-reports/
 *.pending-snap
 *.snap.new
 /integrations/effect/node_modules/
+.claude/settings.local.json
