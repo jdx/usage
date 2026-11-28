@@ -1,5 +1,41 @@
 # Changelog
 
+## [7.4.2](https://github.com/jdx/usage/compare/v7.4.1..v7.4.2) - 2026-11-28
+
+### 🐛 Bug Fixes
+
+- **(complete)** offer flags instead of files when no positional is left by [@jdx](https://github.com/jdx) in [#1681](https://github.com/jdx/usage/pull/1681)
+
+### ⚡ Performance
+
+- **(spec)** load large specs faster by not copying global flags into every command by [@jdx](https://github.com/jdx) in [#1683](https://github.com/jdx/usage/pull/1683)
+- **(spec)** parse KDL specs about 3x faster by not allocating on backtracking by [@jdx](https://github.com/jdx) in [#1684](https://github.com/jdx/usage/pull/1684)
+
+### 🔍 Other Changes
+
+- **(release)** stop crediting @jdx in release notes and show commit coverage by [@jdx](https://github.com/jdx) in [#1685](https://github.com/jdx/usage/pull/1685)
+- **(release)** warn instead of failing when the coverage report cannot be added by [@jdx](https://github.com/jdx) in [#1686](https://github.com/jdx/usage/pull/1686)
+- use jdx/workflows link-discussions by [@claude](https://github.com/claude) in [ea87f3e](https://github.com/jdx/usage/commit/ea87f3eac2fe94c13c89efbec176384124f06382)
+- add caller concurrency to link-discussions by [@claude](https://github.com/claude) in [6ffc0e5](https://github.com/jdx/usage/commit/6ffc0e5f9ec8ca5a11a9d9d8ebd2b58c68732e7f)
+- add GitHub Actions workflow lockfile by [@claude](https://github.com/claude) in [9907696](https://github.com/jdx/usage/commit/9907696fcc1ec877ea75660d7f9defbd3cb3001a)
+- set up Entire graph, brain and search for agents by [@jdx](https://github.com/jdx) in [#1682](https://github.com/jdx/usage/pull/1682)
+- remove jouet by [@jdx](https://github.com/jdx) in [#1687](https://github.com/jdx/usage/pull/1687)
+
+### 📦️ Dependency Updates
+
+- update mise tools by [@renovate[bot]](https://github.com/renovate[bot]) in [#1675](https://github.com/jdx/usage/pull/1675)
+- update jdx/mise-action action to v5.2.10 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1674](https://github.com/jdx/usage/pull/1674)
+- update ubuntu:26.04 docker digest to d66b366 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1673](https://github.com/jdx/usage/pull/1673)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1676](https://github.com/jdx/usage/pull/1676)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1678](https://github.com/jdx/usage/pull/1678)
+- lock file maintenance by [@renovate[bot]](https://github.com/renovate[bot]) in [#1680](https://github.com/jdx/usage/pull/1680)
+- update jdx/renovate-config workflows to v1.2.1 by jdx in [419fb4b](https://github.com/jdx/usage/commit/419fb4bd11ffa9ac94c432b2ee00628922febe1e)
+
+### New Contributors
+
+- @claude made their first contribution
+- @ made their first contribution
+
 ## [7.4.1](https://github.com/jdx/usage/compare/v7.4.0..v7.4.1) - 2026-11-23
 
 ### 🐛 Bug Fixes
