@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     num::{ParseFloatError, ParseIntError},
     sync::Arc,
 };
@@ -16,7 +17,7 @@ use winnow::{
     },
     error::{AddContext, ErrMode, FromExternalError, FromRecoverableError, ParserError},
     prelude::*,
-    stream::{AsChar, Location, Recover, Recoverable, Stream},
+    stream::{AsChar, Location, Offset, Recover, Recoverable, Stream},
     token::{any, none_of, one_of, take_while},
 };
 
@@ -53,36 +54,40 @@ pub(crate) fn failure_from_errs(errs: Vec<ErrMode<KdlParseError>>, input: &str) 
                 span: e.span.unwrap_or_else(|| (0usize..0usize).into()),
                 message: e
                     .message
-                    .or_else(|| e.label.clone().map(|l| format!("Expected {l}"))),
+                    .map(Cow::into_owned)
+                    .or_else(|| e.label.map(|l| format!("Expected {l}"))),
                 label: e.label.map(|l| format!("not {l}")),
-                help: e.help,
+                help: e.help.map(String::from),
                 severity: Severity::Error,
             })
             .collect(),
     }
 }
 
-#[derive(Debug, Clone, Default, Eq, PartialEq)]
+// Context is attached to every failing branch, including the ones `alt` and
+// `opt` backtrack out of, so it holds borrowed text and copies without
+// allocating. Strings are only built when a diagnostic is reported.
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
 struct KdlParseContext {
-    message: Option<String>,
-    label: Option<String>,
-    help: Option<String>,
+    message: Option<&'static str>,
+    label: Option<&'static str>,
+    help: Option<&'static str>,
     severity: Option<Severity>,
 }
 
 impl KdlParseContext {
-    fn msg(mut self, txt: impl AsRef<str>) -> Self {
-        self.message = Some(txt.as_ref().to_string());
+    const fn msg(mut self, txt: &'static str) -> Self {
+        self.message = Some(txt);
         self
     }
 
-    fn lbl(mut self, txt: impl AsRef<str>) -> Self {
-        self.label = Some(txt.as_ref().to_string());
+    const fn lbl(mut self, txt: &'static str) -> Self {
+        self.label = Some(txt);
         self
     }
 
-    fn hlp(mut self, txt: impl AsRef<str>) -> Self {
-        self.help = Some(txt.as_ref().to_string());
+    const fn hlp(mut self, txt: &'static str) -> Self {
+        self.help = Some(txt);
         self
     }
 
@@ -92,16 +97,21 @@ impl KdlParseContext {
     // }
 }
 
-fn cx() -> KdlParseContext {
-    Default::default()
+const fn cx() -> KdlParseContext {
+    KdlParseContext {
+        message: None,
+        label: None,
+        help: None,
+        severity: None,
+    }
 }
 
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub(crate) struct KdlParseError {
-    pub(crate) message: Option<String>,
+    pub(crate) message: Option<Cow<'static, str>>,
     pub(crate) span: Option<SourceSpan>,
-    pub(crate) label: Option<String>,
-    pub(crate) help: Option<String>,
+    pub(crate) label: Option<&'static str>,
+    pub(crate) help: Option<&'static str>,
     pub(crate) severity: Option<Severity>,
 }
 
@@ -133,7 +143,9 @@ impl<I: Stream> AddContext<I, KdlParseContext> for KdlParseError {
         _token_start: &<I as Stream>::Checkpoint,
         ctx: KdlParseContext,
     ) -> Self {
-        self.message = ctx.message.or(self.message);
+        if let Some(message) = ctx.message {
+            self.message = Some(Cow::Borrowed(message));
+        }
         self.label = ctx.label.or(self.label);
         self.help = ctx.help.or(self.help);
         self.severity = ctx.severity.or(self.severity);
@@ -145,8 +157,8 @@ impl<'a> FromExternalError<Input<'a>, ParseIntError> for KdlParseError {
     fn from_external_error(_: &Input<'a>, e: ParseIntError) -> Self {
         Self {
             span: None,
-            message: Some(format!("{e}")),
-            label: Some("invalid integer".into()),
+            message: Some(Cow::Owned(e.to_string())),
+            label: Some("invalid integer"),
             help: None,
             severity: Some(Severity::Error),
         }
@@ -157,9 +169,9 @@ impl<'a> FromExternalError<Input<'a>, ParseFloatError> for KdlParseError {
     fn from_external_error(_input: &Input<'a>, e: ParseFloatError) -> Self {
         Self {
             span: None,
-            label: Some("invalid float".into()),
+            label: Some("invalid float"),
             help: None,
-            message: Some(format!("{e}")),
+            message: Some(Cow::Owned(e.to_string())),
             severity: Some(Severity::Error),
         }
     }
@@ -172,7 +184,7 @@ impl<'a> FromExternalError<Input<'a>, NegativeUnsignedError> for KdlParseError {
         Self {
             span: None,
             message: Some("Tried to parse a negative number as an unsigned integer".into()),
-            label: Some("negative unsigned int".into()),
+            label: Some("negative unsigned int"),
             help: None,
             severity: Some(Severity::Error),
         }
@@ -611,7 +623,7 @@ fn node_children(input: &mut Input<'_>) -> PResult<KdlDocument> {
                         ErrMode::Cut(KdlParseError {
                             message: Some("Closing '}' was not found after nodes".into()),
                             span: Some((_after_open_loc.._after_nodes_loc).into()),
-                            label: Some("closed".into()),
+                            label: Some("closed"),
                             help: None,
                             severity: Some(Severity::Error),
                         }),
@@ -715,8 +727,26 @@ fn line_space(input: &mut Input<'_>) -> PResult<()> {
 }
 
 /// `node-space := ws* escline ws* | ws+`
+///
+/// Equivalent to `alt(((wss, escline, wss), wsp))`, but scans the leading
+/// whitespace once: when there is no escline after it, `wsp` would consume
+/// exactly what `wss` already did, and fail with `ws`'s error if that was
+/// nothing.
 fn node_space(input: &mut Input<'_>) -> PResult<()> {
-    alt(((wss, escline, wss).void(), wsp)).parse_next(input)
+    let start = input.checkpoint();
+    wss.parse_next(input)?;
+    let after_ws = input.checkpoint();
+    if input.starts_with('\\') {
+        match escline.parse_next(input) {
+            Ok(()) => return wss.parse_next(input),
+            Err(ErrMode::Backtrack(_)) => input.reset(&after_ws),
+            Err(e) => return Err(e),
+        }
+    }
+    if input.offset_from(&start) == 0 {
+        return ws.parse_next(input);
+    }
+    Ok(())
 }
 
 fn node_space0(input: &mut Input<'_>) -> PResult<()> {
@@ -823,24 +853,17 @@ static DISALLOWED_IDENT_CHARS: [char; 11] =
 pub(crate) fn is_disallowed_ident_char(c: char) -> bool {
     DISALLOWED_IDENT_CHARS.contains(&c)
         || is_newline_char(c)
-        || UNICODE_SPACES.contains(&c)
+        || is_unicode_space(c)
         || is_disallowed_unicode(c)
         || c == '='
 }
 
 /// `identifier-char := unicode - unicode-space - newline - [\\/(){};\[\]"#] - disallowed-literal-code-points - equals-sign`
+///
+/// Every excluded class starts with a single excluded char, so this is the same
+/// as checking one char against [`is_disallowed_ident_char`].
 fn identifier_char(input: &mut Input<'_>) -> PResult<char> {
-    (
-        not(alt((
-            unicode_space,
-            newline,
-            disallowed_unicode,
-            equals_sign,
-        ))),
-        none_of(DISALLOWED_IDENT_CHARS),
-    )
-        .map(|(_, c)| c)
-        .parse_next(input)
+    one_of(|c: char| !is_disallowed_ident_char(c)).parse_next(input)
 }
 
 /// `equals-sign := See Table ([Equals Sign](#equals-sign))`
@@ -1191,8 +1214,10 @@ fn raw_string(input: &mut Input<'_>) -> PResult<KdlValue> {
         Err(ErrMode::Cut(KdlParseError {
             message: Some("Single-line raw strings cannot look like multi-line ones".into()),
             span: Some((_start_loc..input.previous_token_end()).into()),
-            label: Some("triple quotes".into()),
-            help: Some("Consider using a regular escaped string if all you want is a single quote: \"\\\"\"".into()),
+            label: Some("triple quotes"),
+            help: Some(
+                "Consider using a regular escaped string if all you want is a single quote: \"\\\"\"",
+            ),
             severity: Some(Severity::Error),
         }))
     } else {
@@ -1274,17 +1299,6 @@ fn escline(input: &mut Input<'_>) -> PResult<()> {
     alt((single_line_comment, newline, eof.void())).parse_next(input)?;
     wss.parse_next(input)
 }
-pub(crate) static NEWLINES: [&str; 8] = [
-    "\u{000D}\u{000A}",
-    "\u{000D}",
-    "\u{000A}",
-    "\u{0085}",
-    "\u{000B}",
-    "\u{000C}",
-    "\u{2028}",
-    "\u{2029}",
-];
-
 fn is_newline_char(c: char) -> bool {
     matches!(
         c,
@@ -1293,35 +1307,54 @@ fn is_newline_char(c: char) -> bool {
 }
 
 /// `newline := <See Table>`
+///
+/// Matches the same text as `alt(NEWLINES)` (CRLF preferred over a lone CR)
+/// without building and discarding an error for each table entry.
 fn newline(input: &mut Input<'_>) -> PResult<()> {
-    alt(NEWLINES)
-        .void()
-        .context(cx().lbl("newline"))
-        .parse_next(input)
+    let s: &str = input;
+    let len = match s.chars().next() {
+        Some('\r') if s.as_bytes().get(1) == Some(&b'\n') => 2,
+        Some(c) if is_newline_char(c) => c.len_utf8(),
+        _ => {
+            return Err(ErrMode::Backtrack(KdlParseError {
+                label: Some("newline"),
+                ..Default::default()
+            }));
+        }
+    };
+    input.next_slice(len);
+    Ok(())
 }
 
 fn wss(input: &mut Input<'_>) -> PResult<()> {
     repeat(0.., ws).parse_next(input)
 }
 
-fn wsp(input: &mut Input<'_>) -> PResult<()> {
-    repeat(1.., ws).parse_next(input)
-}
-
 /// `ws := unicode-space | multi-line-comment``
+///
+/// Dispatches on the next char instead of trying each branch; on no match it
+/// returns the same error `alt` would (the failed `/*` literal's).
 fn ws(input: &mut Input<'_>) -> PResult<()> {
-    alt((unicode_space, multi_line_comment)).parse_next(input)
+    match input.chars().next() {
+        Some(c) if is_unicode_space(c) => {
+            input.next_slice(c.len_utf8());
+            Ok(())
+        }
+        Some('/') if input.starts_with("/*") => multi_line_comment(input),
+        _ => Err(ErrMode::Backtrack(KdlParseError::default())),
+    }
 }
-
-static UNICODE_SPACES: [char; 18] = [
-    '\u{0009}', '\u{0020}', '\u{00A0}', '\u{1680}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}',
-    '\u{2004}', '\u{2005}', '\u{2006}', '\u{2007}', '\u{2008}', '\u{2009}', '\u{200A}', '\u{202F}',
-    '\u{205F}', '\u{3000}',
-];
 
 /// `unicode-space := <See Table>`
 fn unicode_space(input: &mut Input<'_>) -> PResult<()> {
-    one_of(UNICODE_SPACES).void().parse_next(input)
+    one_of(is_unicode_space).void().parse_next(input)
+}
+
+fn is_unicode_space(c: char) -> bool {
+    matches!(
+        c,
+        '\u{0009}' | '\u{0020}' | '\u{00A0}' | '\u{1680}' | '\u{202F}' | '\u{205F}' | '\u{3000}'
+    ) || ('\u{2000}'..='\u{200A}').contains(&c)
 }
 
 /// `single-line-comment := '//' ^newline* (newline | eof)`
