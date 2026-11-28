@@ -330,7 +330,16 @@ jobs:
       - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           cache: false
-      - run: communique generate "${GITHUB_REF_NAME}" --github-release
+      - run: |
+          # communique writes the review report before it updates the release,
+          # so add the report to the summary even when that update fails.
+          append_coverage() {
+            if [[ -f "$RUNNER_TEMP/communique-coverage.md" ]]; then
+              cat "$RUNNER_TEMP/communique-coverage.md" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+          trap append_coverage EXIT
+          communique generate "${GITHUB_REF_NAME}" --github-release --review-report "$RUNNER_TEMP/communique-coverage.md"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - name: Append jdx.dev sponsor blurb
