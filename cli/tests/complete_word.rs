@@ -207,7 +207,8 @@ fn complete_word_variadic_arg_respects_var_max() {
         "variadic-completion.usage.kdl",
         &["--", "bounded", "foo", "bar", ""],
     )
-    .stdout(contains("Cargo.toml"));
+    // `var_max` is reached, so a third value would be rejected: only a flag can follow.
+    .stdout("-h\tPrint help\n--help\tPrint help\n");
 }
 
 #[test]
@@ -1463,4 +1464,23 @@ fn generated_completion_embeds_script_sidecar_spec() {
         .success()
         .stdout(contains("tool").and(contains(".tool.usage.kdl").not()));
     fs::remove_dir_all(&dir).ok();
+}
+
+/// With no positional left to fill, only a flag is a valid next word, so an empty word gets
+/// the command's flags rather than the working directory.
+#[test]
+fn complete_word_offers_flags_when_no_positional_is_left() {
+    let flags = "-h\tPrint help\n--bat\tRebuild bat's cache\n--brew\tInstall Homebrew\n--help\tPrint help\n";
+    assert_cmd("no-positional-left.usage.kdl", &["--", "setup", ""]).stdout(flags);
+    assert_cmd("no-positional-left.usage.kdl", &["--", "pick", "a", ""])
+        .stdout("-h\tPrint help\n--brew\tInstall Homebrew\n--help\tPrint help\n");
+    // The positional is still offered while it is unfilled.
+    assert_cmd("no-positional-left.usage.kdl", &["--", "pick", ""]).stdout("a\nb\n");
+}
+
+/// A non-flag prefix, or any word past `--`, has nothing valid to complete to — not files.
+#[test]
+fn complete_word_offers_no_files_when_no_positional_is_left() {
+    assert_cmd("no-positional-left.usage.kdl", &["--", "setup", "C"]).stdout("");
+    assert_cmd("no-positional-left.usage.kdl", &["--", "setup", "--", ""]).stdout("");
 }

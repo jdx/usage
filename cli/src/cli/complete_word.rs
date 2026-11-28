@@ -400,6 +400,17 @@ impl CompleteWord {
                     choices.extend(found);
                 }
             }
+            // A command with no positional left to fill and no subcommands accepts nothing
+            // here but a flag (or, past `--`, nothing at all): the parser rejects any other
+            // word as unexpected. So a file name is never right, and for an empty word the
+            // command's flags are what the user is looking for.
+            if parsed.next_arg.is_none() && parsed.cmd.subcommands.is_empty() {
+                has_explicit_choices = true;
+                if flags_possible && ctoken.is_empty() {
+                    choices.extend(self.complete_short_flag_names(&flags, ""));
+                    choices.extend(self.complete_long_flag_names(&flags, ""));
+                }
+            }
             choices
         };
         if flags_possible
