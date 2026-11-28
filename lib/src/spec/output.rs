@@ -445,16 +445,20 @@ pub(crate) fn resolve_selectors(spec: &mut Spec) -> Result<()> {
     let root_select = spec.select.clone();
     resolve_cmd(
         &mut spec.cmd,
-        &[],
+        &mut Vec::new(),
         &root_outputs,
         root_select.as_deref(),
         true,
     )
 }
 
+/// `inherited_flags` is one stack shared by the whole walk: a command pushes its own
+/// globals before visiting its children and pops them afterwards. Copying the ancestors'
+/// globals into each command instead cloned every global flag once per command, which on a
+/// spec of mise's size was a tenth of the instructions in each Tab completion.
 fn resolve_cmd(
     cmd: &mut SpecCommand,
-    inherited_flags: &[SpecFlag],
+    inherited_flags: &mut Vec<SpecFlag>,
     inherited_outputs: &[SpecOutput],
     inherited_select: Option<&str>,
     is_root: bool,
@@ -475,8 +479,7 @@ fn resolve_cmd(
     // that, a root that declares outputs of its own hands every subcommand a `--format`
     // whose choices are the root's, and the subcommand's own outputs read as a
     // disagreement with a hand-written list.
-    let mut available: Vec<SpecFlag> = inherited_flags.to_vec();
-    available.extend(cmd.flags.iter().filter(|f| f.global).cloned());
+    let own_globals: Vec<SpecFlag> = cmd.flags.iter().filter(|f| f.global).cloned().collect();
 
     // A `select` inherits only as far as the flag it names does. A non-global `--format`
     // on `install` says nothing about `install from`, and the author wrote the `select` on
@@ -502,9 +505,12 @@ fn resolve_cmd(
     };
     check_boolean_selectors(cmd, inherited_flags, &outputs, local_outputs)?;
 
+    let depth = inherited_flags.len();
+    inherited_flags.extend(own_globals);
     for sub in cmd.subcommands.values_mut() {
-        resolve_cmd(sub, &available, &outputs, select.as_deref(), false)?;
+        resolve_cmd(sub, inherited_flags, &outputs, select.as_deref(), false)?;
     }
+    inherited_flags.truncate(depth);
     Ok(())
 }
 
